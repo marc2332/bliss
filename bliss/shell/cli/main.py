@@ -322,7 +322,9 @@ def main():
                     ["tmux", "-S", tsock, "new-window", "-d", "-n", win2]
                 )
 
-                sub_cmd = f"{sys.executable} -m bliss.data.start_listener {session}"
+                sub_cmd = (
+                    f"{sys.executable} -m bliss.shell.data.start_listener {session}"
+                )
                 ans = subprocess.run(
                     ["tmux", "-S", tsock, "send-keys", "-t", win2, sub_cmd, "Enter"]
                 )
@@ -360,7 +362,7 @@ def main():
                         win2,
                         sys.executable,
                         "-m",
-                        "bliss.data.start_listener",
+                        "bliss.shell.data.start_listener",
                         session,
                     ]
                 )

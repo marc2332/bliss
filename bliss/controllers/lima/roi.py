@@ -14,7 +14,7 @@ from bliss.common.counter import IntegratingCounter
 from bliss.controllers.counter import IntegratingCounterController
 from bliss.controllers.counter import counter_namespace
 from bliss.scanning.acquisition.lima import RoiProfileAcquisitionSlave
-from bliss.data.display import FormatedTab
+from bliss.shell.formatters.table import IncrementalTable
 
 
 # ----------------- helpers for ROI transformation (flip, rotation, binning) --------------
@@ -685,7 +685,7 @@ class RoiCounters(IntegratingCounterController):
         rois = self.get_rois()
         if rois:
             labels = ["Name", "ROI coordinates"]
-            tab = FormatedTab([labels])
+            tab = IncrementalTable([labels])
             [tab.add_line([roi.name, str(roi)]) for roi in rois if roi.__class__ == Roi]
             [
                 tab.add_line([roi.name, str(roi)])
@@ -963,7 +963,7 @@ class RoiProfileController(IntegratingCounterController):
         rois = self.get_rois()
         if rois:
             labels = ["Name", "<x, y> <w, h> <mode>"]
-            tab = FormatedTab([labels])
+            tab = IncrementalTable([labels])
             [tab.add_line([roi.name, str(roi)]) for roi in rois]
             tab.resize(minwidth=10, maxwidth=100)
             tab.add_separator(sep="-", line_index=1)

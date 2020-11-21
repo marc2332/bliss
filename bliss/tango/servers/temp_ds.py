@@ -717,7 +717,6 @@ def recreate_bliss(server_name, manager_dev_name, temp_names, dev_map, db=None):
 
 # callback from the Bliss server
 def initialize_bliss(info, db=None):
-    shell_info = info["shell_info"]
     object_names = info["object_names"]
     server_type = info["server_type"]
     server_instance = info["server_instance"]

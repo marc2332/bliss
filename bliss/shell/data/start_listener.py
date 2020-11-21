@@ -10,7 +10,7 @@ import sys
 import traceback
 import time
 import gevent
-from bliss.data.display import ScanDataListener
+from bliss.shell.data.display import ScanDataListener
 
 
 def main(session_name):
@@ -20,10 +20,9 @@ def main(session_name):
             start_time = time.time()
             sdl = ScanDataListener(session_name)
             sdl.start()
-        except Exception as e:
+        except Exception:
             exc_type, exc_value, tb = sys.exc_info()
             traceback.print_exception(exc_type, exc_value, tb)
-            # print(e)
             if (time.time() - start_time) < 5.0:
                 gevent.sleep(5)
 

@@ -11,7 +11,7 @@ from bliss.controllers.lima.limatools import (
 )
 
 from bliss.data.lima_image import image_from_server
-from bliss.data.display import FormatedTab
+from bliss.shell.formatters.table import IncrementalTable
 
 
 # --- Notes about rect vs roi ------------
@@ -501,7 +501,7 @@ def test_lima_image_1(beacon, default_session, lima_simulator, images_directory)
             # "       bliss roi       ",
             # "       proxy roi       ",
         ]
-        tab = FormatedTab([labels], col_sep="|")
+        tab = IncrementalTable([labels], col_sep="|")
         tab.resize(minwidth=10, maxwidth=30)
         tab.add_separator(sep="-", line_index=1)
         tab.set_column_params(0, {"push_mode": "", "dtype": "d"})
@@ -751,7 +751,7 @@ def test_lima_proxy_1(beacon, default_session, lima_simulator, images_directory)
             "push_mode",
             "result",
         ]
-        tab = FormatedTab([labels], col_sep="|")
+        tab = IncrementalTable([labels], col_sep="|")
         tab.resize(minwidth=10, maxwidth=30)
         tab.add_separator(sep="-", line_index=1)
         tab.set_column_params(0, {"push_mode": "", "dtype": "d"})

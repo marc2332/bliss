@@ -40,7 +40,7 @@ import gevent.event
 from tango import DevState, Util, Database, DbDevInfo
 from tango.server import Device, attribute, command, device_property
 
-from bliss import shell
+from bliss.shell.cli import repl
 from bliss.common import event
 from bliss.common.utils import grouped
 from bliss.config import settings
@@ -80,9 +80,9 @@ def excepthook(etype, value, tb, show_tb=False):
 excepthook_tb = functools.partial(excepthook, show_tb=True)
 
 
-def sanatize_command(cmd):
+def sanitize_command(cmd):
     """
-    sanatize command line (adds parenthesis if missing)
+    sanitize command line (adds parenthesis if missing)
     (not very robust!!!)
     """
     if "(" in cmd or "=" in cmd:  # good python format
@@ -136,14 +136,14 @@ class InputChannel(object):
         return False
 
 
-_SHELL_INFO = None
+_SHELL_SESSION = None
 
 
 def load_shell(session_name):
-    result = shell.initialize(session_name)
-    global _SHELL_INFO
-    _SHELL_INFO = result
-    return result
+    session = repl.initialize(session_name)
+    global _SHELL_SESSION
+    _SHELL_SESSION = session
+    return session
 
 
 class Bliss(Device):
@@ -159,7 +159,7 @@ class Bliss(Device):
     #: Sanitize is not perfect! You simply cannot transform one language into
     #: another. Avoid the temptation of using it just to try to please the user
     #: with a 'spec' like syntax as much as possible
-    sanatize_command = device_property(dtype=bool, default_value=False)
+    sanitize_command = device_property(dtype=bool, default_value=False)
 
     def __init__(self, *args, **kwargs):
         self._log = logging.getLogger("bliss.tango.Bliss")
@@ -179,10 +179,11 @@ class Bliss(Device):
             self.session_name = util.get_ds_inst_name()
 
         if self.__startup:
-            shell_info = _SHELL_INFO
+            session = _SHELL_SESSION
         else:
-            shell_info = shell.initialize(self.session_name)
-        self.__user_ns, self.__session = shell_info
+            session = repl.initialize(self.session_name)
+
+        self.__user_ns = session.env_dict
         self.__startup = False
 
         # redirect output
@@ -298,8 +299,8 @@ class Bliss(Device):
             return self.__user_ns.get("_")
 
     def __execute(self, cmd):
-        if self.sanatize_command:
-            cmd = sanatize_command(cmd)
+        if self.sanitize_command:
+            cmd = sanitize_command(cmd)
         try:
             exec(cmd, self.__user_ns)
         except gevent.GreenletExit:
@@ -590,9 +591,8 @@ def __initialize(args, db=None):
 
     this_dir = os.path.dirname(os.path.abspath(__file__))
     suffix = "_ds.py"
-    inits = []
 
-    shell_info = ns, session = load_shell(session_name)
+    session = load_shell(session_name)
 
     object_names = session.object_names or []
 
@@ -603,7 +603,6 @@ def __initialize(args, db=None):
         device_map=device_map,
         manager_device_name=bliss_dev_name,
         object_names=object_names,
-        shell_info=shell_info,
     )
 
     for name in os.listdir(this_dir):

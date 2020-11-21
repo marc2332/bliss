@@ -1,4 +1,4 @@
-import bliss.shell
+from bliss.shell.cli import repl
 
-s = bliss.shell.initialize("test_session")
-s[1].close()
+s = repl.initialize("test_session")
+s.close()

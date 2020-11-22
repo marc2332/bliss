@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import enum
+import itertools
 import functools
 import numpy
 
@@ -425,27 +426,31 @@ class SingleRoiCounters:
 
     def __init__(self, name, **keys):
         self.name = name
-        self.factory = functools.partial(RoiStatCounter, name, **keys)
+        self._sum = RoiStatCounter(name, RoiStat.Sum, **keys)
+        self._avg = RoiStatCounter(name, RoiStat.Avg, **keys)
+        self._std = RoiStatCounter(name, RoiStat.Std, **keys)
+        self._min = RoiStatCounter(name, RoiStat.Min, **keys)
+        self._max = RoiStatCounter(name, RoiStat.Max, **keys)
 
     @property
     def sum(self):
-        return self.factory(RoiStat.Sum)
+        return self._sum
 
     @property
     def avg(self):
-        return self.factory(RoiStat.Avg)
+        return self._avg
 
     @property
     def std(self):
-        return self.factory(RoiStat.Std)
+        return self._std
 
     @property
     def min(self):
-        return self.factory(RoiStat.Min)
+        return self._min
 
     @property
     def max(self):
-        return self.factory(RoiStat.Max)
+        return self._max
 
     def __iter__(self):
         yield self.sum
@@ -579,6 +584,7 @@ class RoiCounters(IntegratingCounterController):
         on_proxy = []
         for name in names:
             del self._save_rois[name]
+            self.__cached_counters.pop(name, None)
             if name in self._roi_ids:
                 on_proxy.append(name)
                 del self._roi_ids[name]
@@ -708,13 +714,7 @@ class RoiCounters(IntegratingCounterController):
 
     @property
     def counters(self):
-        return counter_namespace(
-            [
-                counter
-                for counters in self.iter_single_roi_counters()
-                for counter in counters
-            ]
-        )
+        return counter_namespace(itertools.chain(*self.iter_single_roi_counters()))
 
     # Representation
 
@@ -842,6 +842,7 @@ class RoiProfileController(IntegratingCounterController):
         on_proxy = []
         for name in names:
             del self._save_rois[name]
+            self.__cached_counters.pop(name, None)
             if name in self._roi_ids:
                 on_proxy.append(name)
                 del self._roi_ids[name]
@@ -992,7 +993,7 @@ class RoiProfileController(IntegratingCounterController):
 
     @property
     def counters(self):
-        return counter_namespace([counter for counter in self.iter_roi_counters()])
+        return counter_namespace(self.iter_roi_counters())
 
     # Representation
 

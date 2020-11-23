@@ -39,15 +39,13 @@ class CountNodesSubscriber(BaseSubscriber):
 
 
 def wait_finished(subscriber, successfull=True):
-    with gevent.Timeout(3):
-        while subscriber.active:
-            gevent.sleep(0.1)
+    subscriber.wait_stopped(timeout=3)
     if successfull:
         assert subscriber.state == subscriber.STATES.OFF
     else:
         assert subscriber.state == subscriber.STATES.FAULT
-    subscriber.join(timeout=3)
     assert not subscriber.active
+    subscriber.join(timeout=3)
     assert not subscriber.alive
 
 

@@ -1,4 +1,4 @@
-BLISS offers the possibility to have a separate process (on the system level) for retrieving the acquired data in order to save or process.
+wopen BLISS offers the possibility to have a separate process (on the system level) for retrieving the acquired data in order to save or process.
 
 
 ## Example 1: Save data in HDF5
@@ -28,7 +28,7 @@ Connect to the node 'test_session' in redis:
 session_node = get_session_node(session)
 ```
 
-Using  the `walk_on_new_events()` function with `filter="scan"`(limit walk to nodes of type `node.type == "scan"` ) in order to handle new events on scan nodes: 
+Using  the `walk_on_new_events()` function with `include_filter="scan"`(limit walk to nodes of type `node.type == "scan"` ) in order to handle new events on scan nodes: 
 
 - `NEW_NODE` when a new scan is launched 
 - `END_SCAN` when a scan terminates.
@@ -36,7 +36,7 @@ Using  the `walk_on_new_events()` function with `filter="scan"`(limit walk to no
 ```python
     # wait for new events on scan
     for event_type, node, event_data in session_node.walk_on_new_events(
-        filter="scan", from_next=True):
+        include_filter="scan", from_next=True):
 ```
 
 ### Receiving events from a scan

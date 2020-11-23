@@ -14,8 +14,8 @@ This object cannot have children nodes.
 
 ### Methods
 
-* `walk(self, filter=None, wait=True, ready_event=None)`
-* `walk_events( filter=None, ready_event=None)`
+* `walk(self, include_filter=None, wait=True, ready_event=None)`
+* `walk_events( include_filter=None, ready_event=None)`
 
 
 

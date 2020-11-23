@@ -177,27 +177,27 @@ cdn_roby = get_node("test_session:mnt:c:tmp:sample1:1_ascan:axis:roby")
 The classes inheriting from the `DataNode` class provide the best ways to
 monitor the events happening during the experiment and follow the data production.
 
-The method `walk(filter=None, wait=True)` iterates over existing child nodes
-that match the `filter` argument. If `wait` is True (default), the function
+The method `walk(include_filter=None, wait=True)` iterates over existing child nodes
+that match the `include_filter` argument. If `wait` is True (default), the function
 blocks until a new node appears. It returns the new node when it appears and
 then waits again for a new node.
 
-The method `walk_events(filter=None)` walks through child nodes, just like
+The method `walk_events(include_filter=None)` walks through child nodes, just like
 `walk` function but waits for node events. It returns an `Event` object
 which contains event type, node object and data (if any).
 
 ```python
 session = get_node("test_session")
-def f(filter=None):
+def f(include_filter=None):
     """wait for any new node in the session"""
-    for node in session.walk(filter=filter):
+    for node in session.walk(include_filter=include_filter):
         print(node.name,node.type)
 
-def g(filter='channel'):
+def g(include_filter='channel'):
     """wait for a new event happening in any node of the
     type 'channel' (ChannelDataNode)
     """
-    for event_type, node, event_data in session.walk_events(filter=filter):
+    for event_type, node, event_data in session.walk_events(include_filter=include_filter):
         print(event_type, node.name, node.get(-1))
 
 # spawn greenlets to avoid blocking
@@ -278,7 +278,7 @@ SCANS[-1].node
 <bliss.data.scan.Scan object at 0x7efda1dd0898>
 
 # there is only one Lima node for this 'ct'
-lima_node = next(SCANS[-1].node.walk(filter="lima", wait=False))
+lima_node = next(SCANS[-1].node.walk(include_filter="lima", wait=False))
 
 lima_data_view = lima_node.get(-1)
 

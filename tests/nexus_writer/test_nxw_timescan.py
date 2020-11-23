@@ -66,7 +66,9 @@ def _test_nxw_timescan(session=None, tmpdir=None, writer=None, **kwargs):
         sessionnode = get_session_node(session.name)
         listeners = []
         try:
-            for event_type, node, event_data in sessionnode.walk_events(filter="scan"):
+            for event_type, node, event_data in sessionnode.walk_events(
+                include_filter="scan"
+            ):
                 if event_type == event_type.NEW_NODE:
                     listeners.append(gevent.spawn(listenscan, node))
         finally:

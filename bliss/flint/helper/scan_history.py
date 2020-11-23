@@ -50,7 +50,7 @@ def get_all_scans(session_name: str) -> typing.List[ScanDesc]:
             return default
 
     session_node = get_session_node(session_name)
-    for scan in session_node.walk(wait=False, filter="scan"):
+    for scan in session_node.walk(wait=False, include_filter="scan"):
         try:
             info = scan.info
             node_name = info["node_name"]

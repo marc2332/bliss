@@ -379,7 +379,7 @@ def listen_scans_of_session(session, scan_stack=dict()):
         # wait for new events on scan
         print(f"Listening to {session}")
         for event_type, node, event_data in session_node.walk_on_new_events(
-            filter=["scan", "scan_group"]
+            include_filter=["scan", "scan_group"]
         ):
             if event_type == event_type.NEW_NODE:
                 scan_stack[node.db_name] = HDF5_Writer(node)

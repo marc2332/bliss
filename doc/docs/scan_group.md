@@ -77,7 +77,7 @@ The following example is listening to groups and sequences in redis:
 	TEST_SESSION [7]: from bliss import current_session
 	TEST_SESSION [8]: from bliss.data.node import get_session_node
 
-	TEST_SESSION [9]: for node in get_session_node(current_session.name).walk(filter='scan_group',wait=False):
+	TEST_SESSION [9]: for node in get_session_node(current_session.name).walk(include_filter='scan_group',wait=False):
 		     ...:     print(node.db_name,node.info["scan_nb"])
 	test_session:tmp:scans:55_sequence_of_scans 55
     ```
@@ -86,7 +86,7 @@ If one wants to listen to scans and groups of scans at the same time this is pos
 
 !!! example
     ```python
-	TEST_SESSION [10]: for node in get_session_node(current_session.name).walk(filter=['scan_group','scan'],wait=False):
+	TEST_SESSION [10]: for node in get_session_node(current_session.name).walk(include_filter=['scan_group','scan'],wait=False):
 		      ...:     print(node.db_name,node.info["scan_nb"])
 	test_session:tmp:scans:53_loopscan 53
 	test_session:tmp:scans:54_loopscan 54
@@ -99,7 +99,7 @@ For online data analysis it is possible to be notified when a new scan is added 
 
 !!! example
     ```python
-	TEST_SESSION [28]: for (event,node,data) in seq.node.walk_events(filter='node_ref_channel'):
+	TEST_SESSION [28]: for (event,node,data) in seq.node.walk_events(include_filter='node_ref_channel'):
 		      ...:     print(event, node.db_name)
 		      ...:     if event.name == "NEW_DATA":
 		      ...:         print("\t" , node.get(0,-1))

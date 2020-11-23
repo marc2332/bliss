@@ -64,7 +64,7 @@ def listensession(session_name, finishevent):
         with fd_leak_ctx("\nsession walk_events: "):
             try:
                 fds = None
-                it = sessionnode.walk_on_new_events(filter="scan")
+                it = sessionnode.walk_on_new_events(include_filter="scan")
                 for event_type, scannode, event_data in it:
                     if fds is None:
                         fds = file_descriptors()

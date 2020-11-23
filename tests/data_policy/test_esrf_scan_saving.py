@@ -473,14 +473,14 @@ def test_dataset_object(session, icat_subscriber, esrf_data_policy):
 
     # Third dataset not in Redis yet
     n = get_node(session.name)
-    walk_res = [d for d in n.walk(wait=False, filter="dataset")]
+    walk_res = [d for d in n.walk(wait=False, include_filter="dataset")]
     assert len(walk_res) == 2
 
     s = loopscan(3, 0.01, diode, save=False)
 
     # Third dataset in Redis
     n = get_node(session.name)
-    walk_res = [d for d in n.walk(wait=False, filter="dataset")]
+    walk_res = [d for d in n.walk(wait=False, include_filter="dataset")]
     assert len(walk_res) == 3
 
     # Third dataset object does not exist yet
@@ -505,7 +505,7 @@ def test_dataset_object(session, icat_subscriber, esrf_data_policy):
 
     # Test walk on datasets
     n = get_node(session.name)
-    walk_res = [d for d in n.walk(wait=False, filter="dataset")]
+    walk_res = [d for d in n.walk(wait=False, include_filter="dataset")]
     assert len(walk_res) == 3
 
 
@@ -566,7 +566,7 @@ def test_icat_metadata(session, icat_subscriber, esrf_data_policy):
 
     # test walk on datasets
     n = get_node(session.name)
-    walk_res = [d.name for d in n.walk(wait=False, filter="dataset")]
+    walk_res = [d.name for d in n.walk(wait=False, include_filter="dataset")]
     assert len(walk_res) == 2, walk_res
 
 
@@ -609,7 +609,7 @@ def test_icat_metadata_custom(session, icat_subscriber, esrf_data_policy):
 
     # see if things in redis are correct
     n = get_node(session.name)
-    datasets = {Dataset(d) for d in n.walk(wait=False, filter="dataset")}
+    datasets = {Dataset(d) for d in n.walk(wait=False, include_filter="dataset")}
     assert all(d.is_closed for d in datasets)
     datasets = {d.name: d for d in datasets}
     assert datasets.keys() == {"0001", "0001_b"}

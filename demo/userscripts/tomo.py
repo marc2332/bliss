@@ -21,12 +21,12 @@ from bliss.scanning.scan_info import ScanInfo
 
 
 class ScanReEmitter(gevent.Greenlet):
-    def __init__(self, db_name, sequence, channelinfo, filter=None):
+    def __init__(self, db_name, sequence, channelinfo, include_filter=None):
         self.db_name = db_name
         self.sequence = sequence
         self.channelinfo = channelinfo
         self.stop_handler = None
-        self.filter = filter
+        self.include_filter = include_filter
         super().__init__()
 
     @property
@@ -45,7 +45,7 @@ class ScanReEmitter(gevent.Greenlet):
         try:
             it = get_node(self.db_name).iterator
             for event in it.walk_events(
-                filter=self.filter, stop_handler=self.stop_handler
+                include_filter=self.include_filter, stop_handler=self.stop_handler
             ):
                 if event.type == event.type.END_SCAN:
                     break

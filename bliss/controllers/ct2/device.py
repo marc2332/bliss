@@ -209,6 +209,19 @@ class CT2(object):
         send_buffer_event = gevent.event.Event()
         stop_buffer_loop = False
 
+        last_point_event = gevent.event.Event()
+
+        def last_point_send_func():
+            last_point_nb = -1
+            while not stop_buffer_loop:
+                last_point_event.wait()
+                last_point_event.clear()
+                last_point_nb = self.__last_point_nb
+                self._send_point_nb(last_point_nb)
+
+            if self.__last_point_nb != last_point_nb:
+                self._send_point_nb(self.__last_point_nb)
+
         def get_fifo_status():
             fifo_status = self.get_FIFO_status()
             for k in "overrun_error", "write_error", "read_error", "full":
@@ -231,6 +244,7 @@ class CT2(object):
                 dispatcher.send(DataSignal, self, data)
 
         send_buffer_task = gevent.spawn(send_buffer_func)
+        last_point_task = gevent.spawn(last_point_send_func)
 
         nb_counters = None
 
@@ -341,8 +355,9 @@ class CT2(object):
                 if got_data:
                     send_buffer_list.append(data)
                     send_buffer_event.set()
+
                     self.__last_point_nb = point_nb
-                    self._send_point_nb(point_nb)
+                    last_point_event.set()
 
                 if acq_end:
                     self._send_status(self.__acq_status)
@@ -362,10 +377,12 @@ class CT2(object):
                 break
             ack_irq = card_o.acknowledge_interrupt()
         card_o.set_interrupts()
-        # Wait send task
+        # Wait tasks
         stop_buffer_loop = True
         send_buffer_event.set()
+        last_point_event.set()
         send_buffer_task.get()
+        last_point_task.get()
 
     @property
     def event_loop(self):

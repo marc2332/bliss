@@ -715,6 +715,7 @@ class ScanDataListener(_ScanPrinterBase):
             self.on_scan_new_child,
             self.on_scan_data,
             self.on_scan_end,
+            exclude_existing_scans=False,
         )
 
 

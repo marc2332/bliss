@@ -78,6 +78,13 @@ the reader:
         subscribe to existing "data" streams of children when yielding events
         subscribe/create to the "data" stream
 
+The walk methods have the following filtering arguments:
+
+    include_filter: only yield nodes/events for these nodes
+    exclude_children: no events from the children of these nodes (recursive)
+    exclude_existing_children: no events from existing children of these
+                               nodes (recursive). Defaults to `exclude_children`.
+
 Use the following utility functions to instantiate a DataNode:
 
     Absolute Redis key name:
@@ -237,6 +244,172 @@ def get_nodes(*db_names, connection=None, state=None, **kwargs):
     return nodes
 
 
+def get_filtered_nodes(
+    *db_names,
+    include_filter=None,
+    recursive_exclude=None,
+    strict_recursive_exclude=True,
+    **kw,
+):
+    """Get nodes filtered on node properties. String filtering applies to the type property.
+    The default required node state is "exists".
+
+    :param `*db_names`: Redis keys (str)
+    :param tuple(str) or callable include_filter:
+    :param tuple(str) or callable recursive_exclude: exclude children as well
+    :param bool strict_recursive_exclude: exclude only the children when False
+    :param **kw: see `get_nodes`
+    :yields DataNode:
+    """
+    kw.setdefault("state", "exists")
+    if not include_filter and not recursive_exclude:
+        for node in get_nodes(*db_names, **kw):
+            if node is not None:
+                yield node
+    elif callable(include_filter) or callable(recursive_exclude):
+        yield from _filtered_nodes(
+            *db_names,
+            include_filter=include_filter,
+            recursive_exclude=recursive_exclude,
+            strict_recursive_exclude=strict_recursive_exclude,
+            **kw,
+        )
+    else:
+        if kw.get("connection") is None:
+            kw["connection"] = client.get_redis_connection(db=1)
+        db_names = filter_node_names(
+            *db_names,
+            include_types=include_filter,
+            recursive_exclude_types=recursive_exclude,
+            strict_recursive_exclude=strict_recursive_exclude,
+            connection=kw["connection"],
+        )
+        for node in get_nodes(*db_names, **kw):
+            if node is not None:
+                yield node
+
+
+def _filtered_nodes(
+    *db_names,
+    include_filter=None,
+    recursive_exclude=None,
+    strict_recursive_exclude=True,
+    **kw,
+):
+    """Get nodes filtered on node properties. String filtering applies to the type property.
+
+    :param `*db_names`: Redis keys (str)
+    :param tuple(str) or callable include_filter:
+    :param tuple(str) or callable recursive_exclude: exclude children as well
+    :param bool strict_recursive_exclude: exclude only the children when False
+    :param **kw: see `get_nodes`
+    :yields DataNode:
+    """
+    nodes = get_nodes(*db_names, **kw)
+
+    if not include_filter and not recursive_exclude:
+        for node in nodes:
+            if node is not None:
+                yield node
+        return
+
+    if recursive_exclude:
+        exclude_prefixes = [
+            node.db_name
+            for node in nodes
+            if node is not None and node._excluded(recursive_exclude)
+        ]
+    else:
+        exclude_prefixes = []
+
+    def include(node):
+        if node is None:
+            return False
+        if not node._included(include_filter):
+            return False
+        db_name = node.db_name
+        for exclude_prefix in exclude_prefixes:
+            if db_name.startswith(exclude_prefix):
+                if strict_recursive_exclude:
+                    return False
+                else:
+                    # Exclude only the children
+                    return ":" not in db_name[len(exclude_prefix) :]
+        return True
+
+    # Subscribe to the streams associated to the nodes
+    for node in nodes:
+        if include(node):
+            yield node
+
+
+def filter_node_names(
+    *db_names,
+    include_types=None,
+    recursive_exclude_types=None,
+    strict_recursive_exclude=True,
+    connection=None,
+):
+    """Filter node names based on node type.
+
+    :param `*db_names`: Redis keys (str)
+    :param tuple(str) include_types:
+    :param tuple(str) recursive_exclude_types: exclude children as well
+    :param bool strict_recursive_exclude: exclude only the children when False
+    :param Connection connection:
+    :return list(str):
+    """
+    if not include_types and not recursive_exclude_types:
+        return db_names
+
+    if not include_types:
+        include_types = tuple()
+    elif isinstance(include_types, str):
+        include_types = (include_types,)
+    if not recursive_exclude_types:
+        recursive_exclude_types = tuple()
+    elif isinstance(recursive_exclude_types, str):
+        recursive_exclude_types = (recursive_exclude_types,)
+
+    if connection is None:
+        connection = client.get_redis_connection(db=1)
+
+    # Get attributes from the principal representations in 1 call (pipeline)
+    pipeline = connection.pipeline()
+    for db_name in db_names:
+        struct = DataNode._get_struct(db_name, connection=pipeline)
+        struct.node_type
+    iter_result = grouped(pipeline.execute(), 1)
+    it = zip(db_names, iter_result)
+
+    # Filter names based on type
+    exclude_prefixes = []
+    ret_names = []
+    for db_name, (node_type,) in it:
+        if node_type:
+            node_type = node_type.decode()
+        if recursive_exclude_types and node_type in recursive_exclude_types:
+            exclude_prefixes.append(db_name)
+        if include_types and node_type not in include_types:
+            continue
+        ret_names.append(db_name)
+
+    if not exclude_prefixes:
+        return ret_names
+
+    def include(db_name):
+        for exclude_prefix in exclude_prefixes:
+            if db_name.startswith(exclude_prefix):
+                if strict_recursive_exclude:
+                    return False
+                else:
+                    # Exclude only the children
+                    return ":" not in db_name[len(exclude_prefix) :]
+        return True
+
+    return [db_name for db_name in ret_names if include(db_name)]
+
+
 def datanode_factory(
     name,
     node_type=None,
@@ -299,10 +472,12 @@ def get_last_saved_scan(parent):
     :returns ScanNode or None:
     """
 
-    def scan_filter(node):
+    def include_filter(node):
         return node.type == "scan" and node.info.get("save")
 
-    return parent.get_last_child_container(filter=scan_filter)
+    return parent.get_last_child_container(
+        include_filter=include_filter, exclude_children=("scan", "scan_group")
+    )
 
 
 def get_last_scan_filename(parent):
@@ -448,6 +623,15 @@ class DataNode(metaclass=DataNodeMetaClass):
         """
         kw.setdefault("connection", self.db_connection)
         return get_nodes(*db_names, **kw)
+
+    def get_filtered_nodes(self, *db_names, **kw):
+        """
+        :param `*db_names`: str
+        :param `**kw`: see `get_nodes`
+        :yields DataNode:
+        """
+        kw.setdefault("connection", self.db_connection)
+        yield from get_filtered_nodes(*db_names, **kw)
 
     def get_node(self, db_name, **kw):
         """
@@ -662,6 +846,8 @@ class DataNode(metaclass=DataNodeMetaClass):
             p.execute()
 
     def get_db_names(self):
+        """All associated Redis keys, including the associated keys of the parents.
+        """
         db_name = self.db_name
         db_names = [db_name, "%s_info" % db_name]
         parent = self.parent
@@ -673,46 +859,83 @@ class DataNode(metaclass=DataNodeMetaClass):
     def walk(
         self,
         filter=None,
+        include_filter=None,
+        exclude_children=None,
+        exclude_existing_children=None,
         wait=True,
         stop_handler=None,
         active_streams=None,
+        excluded_stream_names=None,
         first_index=0,
+        started_event=None,
     ):
-        """Iterate over child nodes that match the `filter` argument.
+        """Iterate over child nodes that match the `include_filter` argument.
 
-        :param None, str, iterable or callable filter: only these DataNode types are allowed (all by default)
+        :param filter: deprecated in favor of include_filter
+        :param include_filter: only these nodes are included (all by default)
+        :param exclude_children: ignore children of these nodes recursively
+        :param exclude_existing_children: defaults to `exclude_children`.
         :param bool wait:
         :param DataStreamReaderStopHandler stop_handler:
         :param dict active_streams: stream name (str) -> stream info (dict)
-        :param str or int first_index: Redis stream ID
+        :param set excluded_stream_names:
+        :param str or int first_index: Redis stream index (None is now)
+        :param Event started_event: set when subscribed to initial streams
         :yields DataNode:
         """
         with streaming.DataStreamReader(
-            wait=wait, stop_handler=stop_handler, active_streams=active_streams
+            wait=wait,
+            stop_handler=stop_handler,
+            active_streams=active_streams,
+            excluded_stream_names=excluded_stream_names,
         ) as reader:
             yield from self._iter_reader(
-                reader, filter=filter, first_index=first_index, yield_events=False
+                reader,
+                filter=filter,
+                include_filter=include_filter,
+                exclude_children=exclude_children,
+                exclude_existing_children=exclude_existing_children,
+                first_index=first_index,
+                yield_events=False,
+                started_event=started_event,
             )
 
     @protect_from_kill
     def walk_from_last(
-        self, filter=None, wait=True, include_last=True, stop_handler=None
+        self,
+        filter=None,
+        include_filter=None,
+        exclude_children=None,
+        exclude_existing_children=None,
+        wait=True,
+        include_last=True,
+        stop_handler=None,
+        started_event=None,
     ):
         """Like `walk` but start from the last node.
 
-        :param None, str, iterable or callable filter: only these DataNode types are allowed (all by default)
+        :param filter: deprecated in favor of include_filter
+        :param include_filter: only these nodes are included (all by default)
+        :param exclude_children: ignore children of these nodes recursively
+        :param exclude_existing_children: defaults to `exclude_children`.
         :param bool wait: if wait is True (default), the function blocks
                           until a new node appears
         :param bool include_last:
         :param DataStreamReaderStopHandler stop_handler:
+        :param Event started_event: set when subscribed to initial streams
         :yields DataNode:
         """
-        active_streams = dict()
         # Start walking from "now":
         first_index = streaming.DataStream.now_index()
         if include_last:
-            last_node, active_streams = self._get_last_child(filter=filter)
+            last_node, active_streams, excluded_stream_names = self._get_last_child(
+                filter=filter,
+                include_filter=include_filter,
+                exclude_children=exclude_children,
+                exclude_existing_children=exclude_existing_children,
+            )
             if last_node is not None:
+                exclude_existing_children = None
                 yield last_node
                 # Start walking from this node's index:
                 first_index = last_node.get_children_stream_index()
@@ -720,67 +943,128 @@ class DataNode(metaclass=DataNodeMetaClass):
                     raise RuntimeError(
                         f"{last_node.db_name} was not added to the children stream of its parent"
                     )
+        else:
+            started_event = None
+            active_streams = dict()
+            excluded_stream_names = set()
+
         yield from self.walk(
-            filter,
+            filter=filter,
+            include_filter=include_filter,
+            exclude_children=exclude_children,
+            exclude_existing_children=exclude_existing_children,
             wait=wait,
             active_streams=active_streams,
+            excluded_stream_names=excluded_stream_names,
             first_index=first_index,
             stop_handler=stop_handler,
+            started_event=started_event,
         )
 
     @protect_from_kill
     def walk_events(
         self,
         filter=None,
+        include_filter=None,
+        exclude_children=None,
+        exclude_existing_children=None,
         wait=True,
         first_index=0,
         active_streams=None,
+        excluded_stream_names=None,
         stop_handler=None,
+        started_event=None,
     ):
         """Iterate over node and children node events.
 
-        :param None, str, iterable or callable filter: only these DataNode types are allowed (all by default)
+        :param filter: deprecated in favor of include_filter
+        :param include_filter: only these nodes are included (all by default)
+        :param exclude_children: ignore children of these nodes recursively
+        :param exclude_existing_children: defaults to `exclude_children`.
         :param bool wait:
-        :param str or int first_index: Redis stream ID
+        :param str or int first_index: Redis stream index (None is now)
         :param dict active_streams: stream name (str) -> stream info (dict)
+        :param set excluded_stream_names:
         :param DataStreamReaderStopHandler stop_handler:
+        :param Event started_event: set when subscribed to initial streams
         :yields Event:
         """
         with streaming.DataStreamReader(
-            wait=wait, active_streams=active_streams, stop_handler=stop_handler
+            wait=wait,
+            stop_handler=stop_handler,
+            active_streams=active_streams,
+            excluded_stream_names=excluded_stream_names,
         ) as reader:
             yield from self._iter_reader(
-                reader, filter=filter, first_index=first_index, yield_events=True
+                reader,
+                filter=filter,
+                include_filter=include_filter,
+                exclude_children=exclude_children,
+                exclude_existing_children=exclude_existing_children,
+                first_index=first_index,
+                yield_events=True,
+                started_event=started_event,
             )
 
     def walk_on_new_events(self, **kw):
-        """Like `walk` but yield only new event.
+        """Like `walk_en_events` but yield only new event.
 
         :param `**kw`: see `walk_events`
         :yields Event:
         """
         yield from self.walk_events(first_index=streaming.DataStream.now_index(), **kw)
 
-    def _iter_reader(self, reader, filter=None, first_index=0, yield_events=False):
+    def _iter_reader(
+        self,
+        reader,
+        filter=None,
+        include_filter=None,
+        exclude_children=None,
+        exclude_existing_children=None,
+        first_index=0,
+        yield_events=False,
+        started_event=None,
+    ):
         """Iterate over the DataStreamReader
 
         :param DataStreamReader reader:
-        :param None, str, iterable or callable filter: only these DataNode types are allowed (all by default)
-        :param str or int first_index: Redis stream ID
+        :param filter: deprecated in favor of include_filter
+        :param include_filter: only these nodes are included (all by default)
+        :param exclude_children: ignore children of these nodes recursively
+        :param exclude_existing_children: defaults to `exclude_children`.
+        :param str or int first_index: Redis stream index (None is now)
         :param bool yield_events: yield Event or DataNode
+        :param Event started_event: set when subscribed to initial streams
         :yields Event or DataNode:
         """
-        filter = self._init_node_filter(filter)
+        if filter:
+            if include_filter:
+                raise ValueError("Only use include_filter")
+            else:
+                warnings.warn(
+                    "'filter' is deprecated. Use 'include_filter' instead.",
+                    FutureWarning,
+                )
+                include_filter = filter
+        if exclude_existing_children is None:
+            exclude_existing_children = exclude_children
         self._subscribe_all_streams(
-            reader, filter=filter, first_index=first_index, yield_events=yield_events
+            reader,
+            include_filter=include_filter,
+            exclude_children=exclude_existing_children,
+            first_index=first_index,
+            yield_events=yield_events,
         )
+        if started_event is not None:
+            started_event.set()
         for stream, events in reader:
             node = reader.get_stream_info(stream, "node")
             handler = node.get_stream_event_handler(stream)
             yield from handler(
                 reader,
                 events,
-                filter=filter,
+                include_filter=include_filter,
+                exclude_children=exclude_children,
                 first_index=first_index,
                 yield_events=yield_events,
             )
@@ -795,42 +1079,56 @@ class DataNode(metaclass=DataNodeMetaClass):
         else:
             raise RuntimeError(f"Unknown stream {stream.name}")
 
-    @staticmethod
-    def _init_node_filter(filter):
-        """
-        :param None, str, iterable or callable filter:
-        :returns tuple or callable:
-        """
-        if isinstance(filter, str):
-            return (filter,)
-        elif callable(filter):
-            return filter
-        elif filter:
-            return tuple(filter)
-        else:
-            return tuple()
+    def _filter(self, fltr, default=True):
+        """When the filter is a string or sequence, the node type is filtered.
 
-    def _filtered_out(self, filter):
-        """
-        :param None, tuple or callable filter:
+        :param None, callable, str or sequence fltr:
+        :param bool default: returned when filter is `None`
         :returns bool:
         """
-        if callable(filter):
-            return not filter(self)
+        if callable(fltr):
+            return fltr(self)
+        elif isinstance(fltr, str):
+            return self.type == fltr
+        elif fltr:
+            return self.type in fltr
         else:
-            return filter and self.type not in filter
+            return default
 
-    def _yield_on_new_node(self, reader, filter, first_index, yield_events):
+    def _included(self, include_filter):
+        """When the filter is a string or sequence, the node type is filtered.
+
+        :param None, callable, str or sequence include_filter:
+        :returns bool: True by default
+        """
+        return self._filter(include_filter, default=True)
+
+    def _excluded(self, exclude_filter):
+        """When the filter is a string or sequence, the node type is filtered.
+
+        :param None, callable, str or sequence exclude_filter:
+        :returns bool: False by default
+        """
+        return self._filter(exclude_filter, default=False)
+
+    def _yield_on_new_node(
+        self, reader, include_filter, exclude_children, first_index, yield_events
+    ):
         """
         :param DataStreamReader reader:
-        :param None, tuple or callable filter: only these DataNode types are allowed (all by default)
-        :param str or int first_index: Redis stream ID
+        :param include_filter: only these nodes are included (all by default)
+        :param exclude_children: ignore children of these nodes recursively
+        :param str or int first_index: Redis stream index (None is now)
         :param bool yield_events: yield Event or DataNode
         """
         self._subscribe_all_streams(
-            reader, filter=filter, first_index=first_index, yield_events=yield_events
+            reader,
+            include_filter=include_filter,
+            exclude_children=exclude_children,
+            first_index=first_index,
+            yield_events=yield_events,
         )
-        if not self._filtered_out(filter):
+        if self._included(include_filter):
             with AllowKill():
                 if yield_events:
                     yield Event(type=EventType.NEW_NODE, node=self)
@@ -838,36 +1136,54 @@ class DataNode(metaclass=DataNodeMetaClass):
                     yield self
 
     def _iter_data_stream_events(
-        self, reader, events, filter=None, first_index=None, yield_events=False
+        self,
+        reader,
+        events,
+        include_filter=None,
+        exclude_children=None,
+        first_index=None,
+        yield_events=False,
     ):
         """
         :param DataStreamReader reader:
         :param list(2-tuple) events:
-        :param None, tuple or callable filter: only these DataNode types are allowed (all by default)
-        :param str or int first_index: Redis stream ID
+        :param include_filter: only these nodes are included (all by default)
+        :param exclude_children: ignore children of these nodes recursively
+        :param str or int first_index: Redis stream index (None is now)
         :param bool yield_events: yield Event or DataNode
         :yields Event:
         """
-        if yield_events and not self._filtered_out(filter):
+        if yield_events and self._included(include_filter):
             with AllowKill():
                 data = self.decode_raw_events(events)
                 yield Event(type=EventType.NEW_DATA, node=self, data=data)
 
-    def _get_last_child(self, filter=None):
+    def _get_last_child(
+        self,
+        filter=None,
+        include_filter=None,
+        exclude_children=None,
+        exclude_existing_children=None,
+    ):
         """Get the last child added to the _children_list stream of this node or its children.
 
-        :param None, tuple or callable filter: only these DataNode types are allowed (all by default)
+        :param filter: deprecated in favor of include_filter
+        :param include_filter: only these nodes are included (all by default)
+        :param exclude_children: ignore children of these nodes recursively
+        :param exclude_existing_children: defaults to `exclude_children`.
         :returns 2-tuple: DataNode, active streams
         """
         return None, None
 
-    def _subscribe_stream(self, stream_suffix, reader, create=False, **kw):
-        """Subscribe to a stream with a particular name,
-        associated with this node.
+    def _subscribe_stream(
+        self, stream_suffix, reader, create=False, first_index=None, **kw
+    ):
+        """Subscribe to a particular stream associated with this node.
 
         :param str stream_suffix: stream to add is "{db_name}_{stream_suffix}"
         :param DataStreamReader reader:
         :param bool create: create when missing
+        :param str or int first_index: Redis stream index (None is now)
         :param `**kw`: see `DataStreamReader.add_streams`
         """
         stream_name = f"{self.db_name}_{stream_suffix}"
@@ -875,31 +1191,34 @@ class DataNode(metaclass=DataNodeMetaClass):
             if not self.db_connection.exists(stream_name):
                 return
         stream = self._create_nonassociated_stream(stream_name)
-        reader.add_streams(stream, node=self, **kw)
+        reader.add_streams(stream, node=self, first_index=first_index, **kw)
 
     def _subscribe_all_streams(
-        self, reader, filter=None, first_index=None, yield_events=False
+        self,
+        reader,
+        include_filter=None,
+        exclude_children=None,
+        first_index=None,
+        yield_events=False,
     ):
-        """Subscribe to new streams before yielding the NEW_NODE event.
+        """Subscribe to all associated streams of this node.
 
         :param DataStreamReader reader:
-        :param None, tuple or callable filter: only these DataNode types are allowed (all by default)
-        :param str or int first_index: Redis stream ID
+        :param include_filter: only these nodes are included (all by default)
+        :param exclude_children: ignore children of these nodes recursively
+        :param str or int first_index: Redis stream index (None is now)
         :param bool yield_events: yield Event or DataNode
         """
-        if yield_events:
-            # Always subscribe to the *_data stream
-            # from the start (index 0)
-            self._subscribe_stream("data", reader, first_index=0, create=True)
+        pass
 
     def _subscribe_on_new_node_after_yield(
-        self, reader, filter=None, first_index=None, yield_events=False
+        self, reader, include_filter=None, first_index=None, yield_events=False
     ):
         """Subscribe to new streams after yielding the NEW_NODE event.
 
         :param DataStreamReader reader:
-        :param None, tuple or callable filter: only these DataNode types are allowed (all by default)
-        :param str or int first_index: Redis stream ID
+        :param include_filter: only these nodes are included (all by default)
+        :param str or int first_index: Redis stream index (None is now)
         :param bool yield_events: yield Event or DataNode
         """
         pass
@@ -993,124 +1312,139 @@ class DataNodeContainer(DataNode):
             return super().get_stream_event_handler(stream)
 
     def _iter_children_stream_events(
-        self, reader, events, filter=None, first_index=None, yield_events=False
+        self,
+        reader,
+        events,
+        include_filter=None,
+        exclude_children=None,
+        first_index=None,
+        yield_events=False,
     ):
         """
         :param DataStreamReader reader:
         :param list(2-tuple) events:
-        :param None, tuple or callable filter: only these DataNode types are allowed (all by default)
-        :param str or int first_index: Redis stream ID
+        :param include_filter: only these nodes are included (all by default)
+        :param str or int first_index: Redis stream index (None is now)
         :param bool yield_events: yield Event or DataNode
         :yields Event or DataNode:
         """
         for node in self.get_children(events):
             yield from node._yield_on_new_node(
-                reader, filter, first_index, yield_events
+                reader, include_filter, exclude_children, first_index, yield_events
             )
 
     def _subscribe_all_streams(
-        self, reader, filter=None, first_index=None, yield_events=False
+        self,
+        reader,
+        include_filter=None,
+        exclude_children=None,
+        first_index=None,
+        yield_events=False,
     ):
-        """Subscribe to new streams before yielding the NEW_NODE event.
+        """Subscribe to all associated streams of this node.
 
         :param DataStreamReader reader:
-        :param None, tuple or callable filter: only these DataNode types are allowed (all by default)
-        :param str or int first_index: Redis stream ID
+        :param include_filter: only these nodes are included (all by default)
+        :param exclude_children: ignore children of these nodes recursively
+        :param str or int first_index: Redis stream index (None is now)
         :param bool yield_events: yield Event or DataNode
         """
-        # Do not use the filter for *_children_list. Maybe we don't want the node's
+        # TODO: this assumes that all streams to subscribe too are called
+        #       "*_children_list" and "*_data". Can be solved with DataNode
+        #       derived class self-registration and each class adding
+        #       stream suffixes and orders.
+
+        # Do not use the include_filter for *_children_list. Maybe we don't want the node's
         # events but we may want the events from its children
-        self._subscribe_stream(
-            "children_list", reader, create=True, first_index=first_index
-        )
+        self_exclude_children = self._excluded(exclude_children)
+        if not self_exclude_children:
+            self._subscribe_stream(
+                "children_list", reader, create=True, first_index=first_index
+            )
+
+        # Subscribe to streams found by a recursive search
+        nodes_with_data = list()
+        nodes_with_children = list()
+        excluded_stream_names = set(reader.excluded_stream_names)
         if yield_events:
-            # Make sure the NEW_NODE always arrives before NEW_DATA event:
+            # Make sure the NEW_NODE event always arrives before the NEW_DATA event:
             # - assume "...:parent_children_list" is created BEFORE "...parent:child_data"
             # - search for *_children_list AFTER searching for *_data
             # - subscribe to *_children_list BEFORE subscribing to *_data
-            nodes_with_data = list(
-                self._nodes_with_streams("data", include_parent=False, filter=filter)
+            node_names = self._search_nodes_with_streams(
+                "data", excluded_stream_names, include_parent=False
             )
-            nodes_with_children = list(
-                self._nodes_with_streams(
-                    "children_list", include_parent=False, filter=None
+            nodes_with_data = list(
+                self.get_filtered_nodes(
+                    *node_names,
+                    include_filter=include_filter,
+                    recursive_exclude=exclude_children,
+                    strict_recursive_exclude=False,
                 )
             )
-            for node in nodes_with_children:
-                node._subscribe_stream("children_list", reader, first_index=first_index)
-            for node in nodes_with_data:
-                node._subscribe_stream("data", reader, first_index=0)
-        else:
-            for node in self._nodes_with_streams(
-                "children_list", include_parent=False, filter=None
-            ):
-                node._subscribe_stream("children_list", reader, first_index=first_index)
+        if not self_exclude_children:
+            node_names = self._search_nodes_with_streams(
+                "children_list", excluded_stream_names, include_parent=False
+            )
+            nodes_with_children = self.get_filtered_nodes(
+                *node_names,
+                include_filter=None,
+                recursive_exclude=exclude_children,
+                strict_recursive_exclude=True,
+            )
+
+        # Subscribe to the streams that were searched
+        for node in nodes_with_children:
+            node._subscribe_stream("children_list", reader, first_index=first_index)
+        for node in nodes_with_data:
+            node._subscribe_stream("data", reader, first_index=first_index)
+
+        # Exclude searched Redis keys from further subscription attempts
+        reader.excluded_stream_names |= excluded_stream_names
 
     def _subscribe_on_new_node_after_yield(
-        self, reader, filter=None, first_index=None, yield_events=False
+        self, reader, include_filter=None, first_index=None, yield_events=False
     ):
         """Subscribe to new streams after yielding the NEW_NODE event.
 
         :param DataStreamReader reader:
-        :param tuple filter: only these DataNode types are allowed (all by default)
-        :param str or int first_index: Redis stream ID
+        :param tuple include_filter: only these nodes are included (all by default)
+        :param str or int first_index: Redis stream index (None is now)
         :param bool yield_events: yield Event or DataNode
         """
         pass
 
-    def _nodes_with_streams(
-        self, stream_suffix, include_parent=False, forbidden_types=None, filter=None
+    def _search_nodes_with_streams(
+        self, stream_suffix, excluded_stream_names=None, include_parent=False
     ):
-        """Find all children nodes recursively (including self or not)
+        """Find all children nodes recursively (optionally including self)
         which have associated streams with a particular suffix.
 
         :param str stream_suffix: streams to add have the name
                                   "{db_name}_{stream_suffix}"
-        :param bool include_parent: consider self as a child
-        :param tuple forbidden_types: exclude these node types and their children
-        :param None, tuple or callable filter: only these DataNode types are allowed (all by default)
-        :yields DataNode:
+        :param set excluded_stream_names: will be updated with the found redis keys
+        :param bool include_parent: include self
+        :returns list(str):
         """
         # Get existing stream names
         if include_parent:
             pattern = f"{self.db_name}*_{stream_suffix}"
         else:
             pattern = f"{self.db_name}:*_{stream_suffix}"
-        stream_names = self.search_redis(pattern)
-        stream_names = sorted(stream_names, key=self._node_sort_key)
-
-        # Get associated DataNode's
-        nsuffix = len(stream_suffix) + 1  # +1 for the underscore
-        node_names = (db_name[:-nsuffix] for db_name in stream_names)
-        nodes = self.get_nodes(*node_names)
-        # Some nodes may be None because a Redis key could end with
-        # the suffix and not be a stream associated to a node.
-
-        # Function to check whether a node's stream
-        # should be added (applies to its children as well).
-        if forbidden_types:
-            forbidden_prefixes = [
-                node.db_name
-                for node in nodes
-                if node is not None and node.type in forbidden_types
-            ]
+        found_names = set(self.search_redis(pattern))
+        if excluded_stream_names is None:
+            stream_names = sorted(found_names, key=self._node_sort_key)
         else:
-            forbidden_prefixes = []
+            stream_names = sorted(
+                found_names - excluded_stream_names, key=self._node_sort_key
+            )
+            excluded_stream_names |= found_names
 
-        def addstream(db_name):
-            for forbidden_prefix in forbidden_prefixes:
-                if db_name.startswith(forbidden_prefix):
-                    return False
-            return True
-
-        # Subscribe to the streams associated to the nodes
-        for node in nodes:
-            if node is None:
-                continue
-            if node._filtered_out(filter):
-                continue
-            if addstream(node.db_name):
-                yield node
+        # Get associated DataNode key names
+        nsuffix = len(stream_suffix) + 1  # +1 for the underscore
+        # Warning: some nodes may be None because a Redis key could end with
+        # the suffix and not be a stream associated to a node.
+        return [db_name[:-nsuffix] for db_name in stream_names]
 
     @staticmethod
     def _node_sort_key(db_name):
@@ -1118,51 +1452,72 @@ class DataNodeContainer(DataNode):
         """
         return db_name.count(":")
 
-    def _get_last_child(self, filter=None):
+    def _get_last_child(
+        self,
+        filter=None,
+        include_filter=None,
+        exclude_children=None,
+        exclude_existing_children=None,
+    ):
         """Get the last child added to the _children_list stream of this node or its children.
 
-        :param None, tuple or callable filter: only these DataNode types are allowed (all by default)
-        :returns 2-tuple: DataNode, active streams
+        :param filter: deprecated in favor of include_filter
+        :param include_filter: only these nodes are included (all by default)
+        :param exclude_children: ignore children of these nodes recursively
+        :param exclude_existing_children: defaults to `exclude_children`
+        :returns 3-tuple: DataNode, active streams, excluded stream names
         """
+        last_node = None
         active_streams = dict()
+        excluded_stream_names = set()
         children_stream = self._create_stream("children_list")
         first_index = children_stream.before_last_index()
         if first_index is None:
-            return None, active_streams
-        last_node = None
+            return last_node, active_streams, excluded_stream_names
         for last_node in self.walk(
             filter=filter,
+            include_filter=include_filter,
+            exclude_children=exclude_children,
+            exclude_existing_children=exclude_existing_children,
             wait=False,
             active_streams=active_streams,
+            excluded_stream_names=excluded_stream_names,
             first_index=first_index,
         ):
             pass
-        return last_node, active_streams
+        return last_node, active_streams, excluded_stream_names
 
-    def get_child_containers(self, filter=None):
+    def get_child_containers(self, include_filter=None, exclude_children=None):
         """Get the child `DataNodeContainer` of this node and its children.
 
-        :param None, str, iterable or callable filter: only these `DataNodeContainer` types are allowed (all by default)
+        :param include_filter: only these nodes are included (all by default)
+        :param exclude_children: ignore children of these nodes recursively
         :yields DataNodeContainer:
         """
-        filter = self._init_node_filter(filter)
-        node_names = self.search_redis("*_children_list")
-        it_node_names = (db_name[:-14] for db_name in node_names)
-        for node in get_nodes(*it_node_names):
-            if node._filtered_out(filter):
-                continue
-            yield node
+        node_names = self._search_nodes_with_streams(
+            "children_list", include_parent=True
+        )
+        yield from self.get_filtered_nodes(
+            *node_names,
+            include_filter=include_filter,
+            recursive_exclude=exclude_children,
+            strict_recursive_exclude=False,
+        )
 
-    def get_last_child_container(self, filter=None):
+    def get_last_child_container(self, include_filter=None, exclude_children=None):
         """Get the last child `DataNodeContainer` of this node or its children.
         The order is based on the Redis streamid in the `*_children_list` streams.
 
-        :param None, str, iterable or callable filter: only these `DataNodeContainer` types are allowed (all by default)
+        :param include_filter: only these nodes are included (all by default)
+        :param exclude_children: ignore children of these nodes recursively
         :returns DataNodeContainer:
         """
         last_node = None
         last_id = 0, 0
-        for node in self.get_child_containers(filter=filter):
+        containers = self.get_child_containers(
+            include_filter=include_filter, exclude_children=exclude_children
+        )
+        for node in containers:
             streamid = node.get_children_stream_index()
             if streamid is None:
                 continue

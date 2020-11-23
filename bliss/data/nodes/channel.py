@@ -67,6 +67,32 @@ class _ChannelDataNodeBase(DataNode):
                 name = f"axis:{name}"
         return super()._create_struct(db_name, name, node_type)
 
+    def _subscribe_stream(self, stream_suffix, reader, first_index=None, **kw):
+        """Subscribe to a particular stream associated with this node.
+
+        :param str stream_suffix: stream to add is "{db_name}_{stream_suffix}"
+        :param DataStreamReader reader:
+        :param str or int first_index: Redis stream index (None is now)
+        """
+        if stream_suffix == "data":
+            # This stream has position indexing, not time indexing.
+            # No limit on the start index, so start from 0.
+            first_index = 0
+        super()._subscribe_stream(stream_suffix, reader, first_index=first_index, **kw)
+
+    def _subscribe_all_streams(self, reader, yield_events=False, **kw):
+        """Subscribe to all associated streams of this node.
+
+        :param DataStreamReader reader:
+        :param bool yield_events: yield Event or DataNode
+        :param **kw: see DataNode
+        """
+        super()._subscribe_all_streams(reader, yield_events=yield_events, **kw)
+        if yield_events:
+            self._subscribe_stream(
+                "data", reader, first_index=0, create=True, ignore_excluded=True
+            )
+
     def __getitem__(self, idx):
         """
         :param int or slice idx: supports only slices with stride +1

@@ -15,7 +15,7 @@ class ScanNode(DataNodeContainer):
     _NODE_TYPE = "scan"
 
     def __init__(self, name, **kwargs):
-        DataNodeContainer.__init__(self, self._NODE_TYPE, name, **kwargs)
+        super().__init__(self._NODE_TYPE, name, **kwargs)
         self._sync_stream = self._create_stream("data")
 
     @property
@@ -58,48 +58,51 @@ class ScanNode(DataNodeContainer):
         db_names.append(self.db_name + "_data")
         return db_names
 
-    def _subscribe_stream(self, stream_suffix, reader, **kw):
-        """Subscribe to a stream with a particular name,
-        associated with this node.
+    def _subscribe_stream(self, stream_suffix, reader, first_index=None, **kw):
+        """Subscribe to a particular stream associated with this node.
 
         :param str stream_suffix: stream to add is "{db_name}_{stream_suffix}"
         :param DataStreamReader reader:
+        :param str or int first_index: Redis stream index (None is now)
         """
         if stream_suffix == "data":
             # Lower priority than all other streams
             kw["priority"] = 1
-        super()._subscribe_stream(stream_suffix, reader, **kw)
+        super()._subscribe_stream(stream_suffix, reader, first_index=first_index, **kw)
 
-    def _subscribe_all_streams(
-        self, reader, filter=None, first_index=None, yield_events=False
-    ):
-        """Subscribe to new streams before yielding the NEW_NODE event.
+    def _subscribe_all_streams(self, reader, first_index=None, **kw):
+        """Subscribe to all associated streams of this node.
 
         :param DataStreamReader reader:
-        :param tuple or callable filter: only these DataNode types are allowed (all by default)
-        :param str or int first_index: Redis stream ID
-        :param bool yield_events: yield Event or DataNode
+        :param **kw: see DataNodeContainer
         """
-        super()._subscribe_all_streams(
-            reader, filter=filter, first_index=first_index, yield_events=yield_events
+        super()._subscribe_all_streams(reader, first_index=first_index, **kw)
+        self._subscribe_stream(
+            "data", reader, first_index=0, create=True, ignore_excluded=True
         )
-        self._subscribe_stream("data", reader, first_index=0, create=True)
 
     def _iter_data_stream_events(
-        self, reader, events, filter=None, first_index=None, yield_events=False
+        self,
+        reader,
+        events,
+        include_filter=None,
+        exclude_children=None,
+        first_index=None,
+        yield_events=False,
     ):
         """
         :param DataStreamReader reader:
         :param list(2-tuple) events:
-        :param tuple or callable filter: only these DataNode types are allowed (all by default)
-        :param str or int first_index: Redis stream ID
+        :param include_filter: only these nodes are included (all by default)
+        :param exclude_children: ignore children of these nodes recursively
+        :param str or int first_index: Redis stream index (None is now)
         :param bool yield_events: yield Event or DataNode
         :yields Event:
         """
         data = self.decode_raw_events(events)
         if data is None:
             return
-        if yield_events and not self._filtered_out(filter):
+        if yield_events and self._included(include_filter):
             with AllowKill():
                 yield Event(type=EventType.END_SCAN, node=self, data=data)
         # Stop reading events from this node's streams

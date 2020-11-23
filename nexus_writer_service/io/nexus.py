@@ -132,25 +132,17 @@ def createNxValidate(createkws):
             createkws.pop("fillvalue")
 
 
-class LocalTZinfo(datetime.tzinfo):
+def ensure_timezone(tm):
+    """Make sure the datetime has a timezone.
+    Take the current system timezone when missing.
 
-    _offset = datetime.timedelta(seconds=-time.altzone)
-    _dst = datetime.timedelta(0)
-    _name = time.tzname[time.daylight]
-
-    def utcoffset(self, dt):
-        return self.__class__._offset
-
-    def dst(self, dt):
-        return self.__class__._dst
-
-    def tzname(self, dt):
-        return self.__class__._name
-
-    def localize(self, dt):
-        if dt.tzinfo is not None:
-            raise ValueError("Not naive datetime (tzinfo is already set)")
-        return dt.replace(tzinfo=self)
+    :param datetime tm:
+    :returns datetime:
+    """
+    if tm.tzinfo is None:
+        return tm.astimezone()
+    else:
+        return tm
 
 
 def datetime_to_nexus(tm):
@@ -160,9 +152,7 @@ def datetime_to_nexus(tm):
     :param datetime.datetime tm:
     :returns np.ndarray: variable length string
     """
-    if tm.tzinfo is None:
-        tm = LocalTZinfo().localize(tm)
-    return asNxType(tm.isoformat())
+    return asNxType(ensure_timezone(tm).isoformat())
 
 
 def timestamp():
@@ -171,7 +161,7 @@ def timestamp():
 
     :returns np.ndarray: variable length string
     """
-    return datetime_to_nexus(datetime.datetime.now(tz=LocalTZinfo()))
+    return datetime_to_nexus(datetime.datetime.now())
 
 
 def hdf5_sep(func):

@@ -76,7 +76,7 @@ To define a new controller class based on the regulation framework for a new har
   timeout: 3
   tcp:
      url: lakeshore336se2:7777
-     eol: "\r\n"
+     eol: "\r\n"  # the usual EOL but could have been modified through the hardware interface
   inputs:   # the section to declare Inputs
     - name: ls336_A     # one input
       channel: A

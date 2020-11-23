@@ -26,7 +26,7 @@ Lakeshore 336, acessible via GPIB, USB or Ethernet
   gpib:
      url: enet://gpibid10f.esrf.fr
      pad: 9
-     eol: '\r\n' 
+     eol: "\r\n"  # the usual EOL but could have been modified through the hardware interface
   usb:
      url: ser2net://lid102:28000/dev/ttyUSB0
      baudrate: 57600    # = the only possible value
@@ -81,3 +81,9 @@ Lakeshore 336, acessible via GPIB, USB or Ethernet
     # can add also output channels 3 and 4
 
 ```
+
+!!! Note
+
+    The standard EOL used by the Lakeshore controllers is `\r\n`. However this could have been modified throught the controller's hardware interface.
+
+    ![Screenshot](img/LakeshoreEOLconfig.png)

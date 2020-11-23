@@ -17,6 +17,7 @@ yml configuration example:
   gpib:
      url: enet://gpibid10f.esrf.fr
      pad: 9 
+     eol: "\r\n"  # the usual EOL but could have been modified through the hardware interface
   serial:
      url: ser2net://lid102:28000/dev/ttyR1
      baudrate: 19200    # max (other possible values: 300, 1200,

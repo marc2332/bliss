@@ -17,6 +17,7 @@ yml configuration example:
   gpib:
      url: enet://gpibid10f.esrf.fr
      pad: 9 
+     eol: "\r\n"   # the usual EOL but could have been modified through the hardware interface
   usb:
      url: ser2net://lid102:28000/dev/ttyUSB0
      # when not in model 331 or model 332 emulation mode,

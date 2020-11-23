@@ -8,6 +8,7 @@
 """Controller classes for XIA multichannel analyzer"""
 
 # Imports
+import enum
 from bliss import is_bliss_shell
 from bliss.common.logtools import log_debug, user_print
 from bliss.common import event
@@ -39,6 +40,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+GatePolarity = enum.Enum("GatePolarity", "NORMAL INVERTED")
 
 # MCABeaconObject
 class XIABeaconObject(MCABeaconObject):
@@ -111,6 +113,7 @@ class BaseXIA(BaseMCA):
         self._proxy = None
         self._gate_master = self.config.get("gate_master", None)
         self._trigger_mode = TriggerMode.SOFTWARE
+        self.gate_polarity = self.config.get("gate_polarity", GatePolarity.NORMAL)
 
     def initialize_hardware(self):
         """ Called at session startup
@@ -124,9 +127,11 @@ class BaseXIA(BaseMCA):
             # Getting the current configuration will
             # Call load_configuration on the first peers.
             self.beacon_obj.current_configuration
+            logger.debug(
+                "current_configuration=%s", self.beacon_obj.current_configuration
+            )
         except Exception:
             print("Loading config failed !!")
-        logger.debug("current_configuration=%s", self.beacon_obj.current_configuration)
 
     def _event(self, value, signal):
         return event.send(self, signal, value)
@@ -522,7 +527,7 @@ class BaseXIA(BaseMCA):
         if mode != TriggerMode.SOFTWARE:
             gate = 1
             self._proxy.set_acquisition_value("pixel_advance_mode", gate)
-            self._proxy.set_acquisition_value("input_logic_polarity", 0)
+            self._set_gate_polarity()
         self._proxy.apply_acquisition_values()
 
         self._trigger_mode = mode
@@ -547,6 +552,33 @@ class BaseXIA(BaseMCA):
             log_debug(self, "set xmap gate_master to %s", channel)
             self._proxy.set_acquisition_value("gate_master", True, channel)
             self._gate_master = channel
+
+    @property
+    def gate_polarity(self):
+        return self._gate_polarity
+
+    @gate_polarity.setter
+    def gate_polarity(self, value):
+        if type(value) == int:
+            for polarity in GatePolarity:
+                if value == polarity.value:
+                    setvalue = polarity
+                    break
+        elif type(value) == str:
+            for polarity in GatePolarity:
+                if value.upper() == polarity.name:
+                    setvalue = polarity
+                    break
+        elif value not in GatePolarity:
+            raise ValueError("Invalid GatePolarity")
+        else:
+            setvalue = value
+        self._gate_polarity = setvalue
+
+    def _set_gate_polarity(self):
+        pvalue = {GatePolarity.NORMAL: 0, GatePolarity.INVERTED: 1}[self._gate_polarity]
+        # Configure
+        self._proxy.set_acquisition_value("input_logic_polarity", pvalue)
 
     # Modes
     def set_hardware_scas(self, scas):

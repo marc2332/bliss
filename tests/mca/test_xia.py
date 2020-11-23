@@ -122,6 +122,7 @@ def test_xia_trigger_mode(xia):
         (("gate_ignore", 0),),
         (("mapping_mode", 1),),
         (("pixel_advance_mode", 1),),
+        (("input_logic_polarity", 0),),
     ]
     client.apply_acquisition_values.assert_called_once_with()
 
@@ -134,6 +135,7 @@ def test_xia_trigger_mode(xia):
         (("gate_ignore", 1),),
         (("mapping_mode", 1),),
         (("pixel_advance_mode", 1),),
+        (("input_logic_polarity", 0),),
     ]
     client.apply_acquisition_values.assert_called_once_with()
 

@@ -747,3 +747,12 @@ class FalconX(BaseXIA):
         log_debug(self, "set refresh rate (mca_refresh to %g", rate)
         self._proxy.set_acquisition_value("mca_refresh", rate)
         self._proxy.apply_acquisition_values()
+
+    def estimate_block_size(self, acq_time, block_size=None):
+        if block_size is None:
+            min_block_size = 1
+        else:
+            min_block_size = block_size
+        estime = max(int(1.0 / acq_time), 1)
+        estime = max(estime, min_block_size)
+        return estime

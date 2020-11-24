@@ -989,10 +989,10 @@ def test_user_msg(roby):
     assert str(user_msg.value) == "Moving roby from 0 to lim-"
     with pytest.raises(CancelMove) as user_msg:
         roby.home(1)
-    assert str(user_msg.value) == "Moving roby from 0 to home switch: 1"
+    assert str(user_msg.value) == "Moving roby from 0 to home"
     with pytest.raises(CancelMove) as user_msg:
         roby.home(-1)
-    assert str(user_msg.value) == "Moving roby from 0 to home switch: -1"
+    assert str(user_msg.value) == "Moving roby from 0 to home"
     with pytest.raises(CancelMove) as user_msg:
         roby.jog(10)
     assert (

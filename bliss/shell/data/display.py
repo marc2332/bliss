@@ -430,9 +430,12 @@ class _ScanPrinterBase:
                 nv = f"{nv:#g}"
                 g = len(v.split(".")[0])
                 ng = len(nv.split(".")[0])
-
+                if "e+" in nv or "e-" in nv or nv[0] == "-":
+                    s = 0
+                else:
+                    s = 1
                 lines.append(
-                    f"  {dname:>{width}}  = {e:{7-g}}{v:{8+g}} ({e:{7-ng}}{nv:^{8}}{e:{ng}}/s)  {ctrl}"
+                    f"  {dname:>{width}}  = {e:{7-g}}{v:{10+g}} ({e:{7-ng}}{nv:{8+ng}}{e:{ng+s}}/s)  {ctrl}"
                 )
 
             # separate data blocks per controller

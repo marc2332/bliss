@@ -19,6 +19,8 @@
     - calc_mot2
     - custom_axis
     - diode
+    - diode0
+    - diode1
     - diode2
     - diode3
     - diode4

@@ -363,8 +363,8 @@ def test_scan_display_ct(session, scan_data_listener_process):
     # diode5  =  5.00000      (  50.0000   /s)    simulation_diode_sampling_controller
 
     with grab_lines(scan_data_listener_process) as lines:
-        line_diode4 = "diode4  =      4.00000    (   40.0000  /s)  simulation_diode_sampling_controller"
-        line_diode5 = "diode5  =      5.00000    (   50.0000  /s)  simulation_diode_sampling_controller"
+        line_diode4 = "diode4  =       4.00000   (     40.0000   /s)  simulation_diode_sampling_controller"
+        line_diode5 = "diode5  =       5.00000   (     50.0000   /s)  simulation_diode_sampling_controller"
         assert lines[10].strip() == line_diode4
         assert lines[11].strip() == line_diode5
 

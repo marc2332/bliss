@@ -323,9 +323,10 @@ def get_channel_info(module_name, module_channel=0, extended_mode=False):
         else:
             raise NotImplementedError
     elif reading_type.startswith("fs"):
+        # fs -> analog input / output
         info["reading_type"] = "fs"
         info["bits"] = 16
-        info["type"] = "ANA_IN"
+        info["type"] = "ANA_OUT" if module_info.ana_out > 0 else "ANA_IN"
         try:
             fs_low, fs_high = map(int, reading_type[2:].split("-"))
         except ValueError:

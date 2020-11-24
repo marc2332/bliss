@@ -1958,9 +1958,7 @@ class Axis:
                 raise RuntimeError("axis %s state is %r" % (self.name, "MOVING"))
 
             # create motion object for hooks
-            motion = Motion(
-                self, switch, None, "homing", user_target_pos=f"home switch: {switch}"
-            )
+            motion = Motion(self, switch, None, "homing", user_target_pos=f"home")
             motion.polling_time = (
                 self._polling_time if polling_time is None else polling_time
             )
@@ -2124,7 +2122,7 @@ class Axis:
         return dial_positions / self.steps_per_unit
 
 
-class AxisState(object):
+class AxisState:
     """
     Standard states:
       MOVING  : 'Axis is moving'

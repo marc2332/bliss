@@ -2124,7 +2124,7 @@ class Axis:
         return dial_positions / self.steps_per_unit
 
 
-class AxisState(object):
+class AxisState:
     """
     Standard states:
       MOVING  : 'Axis is moving'

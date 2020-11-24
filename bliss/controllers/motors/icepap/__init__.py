@@ -451,6 +451,13 @@ class Icepap(Controller):
         home_state = _command(self._cnx, "%s:?HOMESTAT" % axis.address)
         if not home_state.startswith("FOUND"):
             raise RuntimeError("Home switch not found.")
+        hs = self.home_source(axis)
+        if hs == "Lim+" and home_state == "FOUND +1":
+            state.unset("FAULT")
+            state.unset("LIMPOS")
+        elif hs == "Lim-" and home_state == "FOUND -1":
+            state.unset("FAULT")
+            state.unset("LIMNEG")
         return state
 
     @object_method(types_info=("None", "float"), filter=_object_method_filter)

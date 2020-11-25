@@ -46,7 +46,7 @@ class LimaImageStatusEvent(streaming_events.StreamEvent):
 
     DEFAULT_INFO = {
         "acq_trigger_mode": None,
-        "saving_mode": "MANUAL",  # files are not saved
+        "saving_mode": "NOSAVING",  # files are not saved
         "saving_overwrite": "ABORT",  # TODO: still exists ????
         "acq_nb_frames": None,  # TODO: still exists ????
         "saving_frame_per_file": None,
@@ -217,7 +217,7 @@ class LimaImageStatusEvent(streaming_events.StreamEvent):
         :raises ImageNotSaved: In case the detector was not setup to save images
         """
         info = self.info
-        if info["saving_mode"] == "MANUAL":
+        if info["saving_mode"] == "NOSAVING":
             raise ImageNotSaved("Detector was not setup to save the images")
 
         max_image_nb = self.get_last_index(saved=saved)

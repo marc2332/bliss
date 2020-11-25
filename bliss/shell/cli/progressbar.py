@@ -165,14 +165,17 @@ class ProgressBar(base.ProgressBar):
             self.app.renderer.cpr_support = self._repl.app.renderer.cpr_support
 
         # Run application in different thread.
+        event = gevent.event.Event()
+
         def run():
             with _auto_refresh_context(self.app, .3):
                 try:
+                    event.set()
                     self.app.run()
                 except BaseException as e:
                     traceback.print_exc()
                     print(e)
 
         self._thread = gevent.spawn(run)
-
+        event.wait()
         return self

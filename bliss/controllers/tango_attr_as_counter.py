@@ -94,11 +94,18 @@ writable_attr_name = 'None']
 
 
 class TangoCounterController(SamplingCounterController):
-    def __init__(self, name, tango_uri, global_map_register=True):
+    def __init__(self, name, tango_uri_or_proxy, global_map_register=True):
+        # tango_uri_or_proxy accepts either a Tango URL as a string,
+        # or a device proxy ; this can be useful
+        # in some situations, where no new proxy should be created
+        # in this constructor
         super().__init__(name=name)
 
-        self._tango_uri = tango_uri
-        self._proxy = tango.DeviceProxy(tango_uri)
+        if isinstance(tango_uri_or_proxy, str):
+            self._proxy = tango.DeviceProxy(tango_uri_or_proxy)
+        else:
+            self._proxy = tango_uri_or_proxy
+
         self._attributes_config = None
         if global_map_register:
             global_map.register(self, tag=self.name, children_list=[self._proxy])
@@ -113,10 +120,6 @@ class TangoCounterController(SamplingCounterController):
         for cnt in counters:
             if cnt.attribute not in attributes_to_read:
                 attributes_to_read.append(cnt.attribute)
-
-        log_debug(
-            self, "TAAC--%s--attributes_to_read=%s", self._tango_uri, attributes_to_read
-        )
 
         dev_attrs = self._proxy.read_attributes(attributes_to_read)
 
@@ -139,7 +142,6 @@ class TangoCounterController(SamplingCounterController):
             else:
                 counters_values.append(attributes_values[cnt.attribute][cnt.index])
 
-        log_debug(self, "TAAC--%s--values: %s", self._tango_uri, counters_values)
         return counters_values
 
 

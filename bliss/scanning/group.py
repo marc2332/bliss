@@ -229,12 +229,12 @@ class Group(Sequence):
             for s in scans:
                 if isinstance(s, ScanNode):
                     if s.node_type not in ["scan", "scan_group"]:
-                        raise RuntimeError(f"Only scans can be added to group!")
+                        raise RuntimeError("Only scans can be added to group!")
                     scan = s
                 elif isinstance(s, Scan):
                     if s.state < ScanState.STARTING:
                         raise RuntimeError(
-                            f"Only scans that have been run before can be added to group!"
+                            "Only scans that have been run before can be added to group!"
                         )
                     scan = s.node
                 elif type(s) == int:
@@ -271,12 +271,12 @@ class GroupingMaster(AcquisitionMaster):
         self.queue = Queue()
 
         self._node_channel = AcquisitionChannel(
-            f"scans", numpy.str, (), reference=True, data_node_type="node_ref_channel"
+            "scans", numpy.str, (), reference=True, data_node_type="node_ref_channel"
         )
 
         self.channels.append(self._node_channel)
 
-        self._number_channel = AcquisitionChannel(f"scan_numbers", numpy.int, ())
+        self._number_channel = AcquisitionChannel("scan_numbers", numpy.int, ())
         self.channels.append(self._number_channel)
 
         self.publish_event = gevent.event.Event()

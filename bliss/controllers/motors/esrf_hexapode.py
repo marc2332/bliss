@@ -451,12 +451,12 @@ class esrf_hexapode(Controller):
 
         curr_leg_length = self.device.read_attribute("LegLength").value
 
-        dlg_curr_l1 = UserMsg(label=f"Leg 1 (mm) : %8.4f" % (curr_leg_length[0]))
-        dlg_curr_l2 = UserMsg(label=f"Leg 2 (mm) : %8.4f" % (curr_leg_length[1]))
-        dlg_curr_l3 = UserMsg(label=f"Leg 3 (mm) : %8.4f" % (curr_leg_length[2]))
-        dlg_curr_l4 = UserMsg(label=f"Leg 4 (mm) : %8.4f" % (curr_leg_length[3]))
-        dlg_curr_l5 = UserMsg(label=f"Leg 5 (mm) : %8.4f" % (curr_leg_length[4]))
-        dlg_curr_l6 = UserMsg(label=f"Leg 6 (mm) : %8.4f" % (curr_leg_length[5]))
+        dlg_curr_l1 = UserMsg(label="Leg 1 (mm) : %8.4f" % (curr_leg_length[0]))
+        dlg_curr_l2 = UserMsg(label="Leg 2 (mm) : %8.4f" % (curr_leg_length[1]))
+        dlg_curr_l3 = UserMsg(label="Leg 3 (mm) : %8.4f" % (curr_leg_length[2]))
+        dlg_curr_l4 = UserMsg(label="Leg 4 (mm) : %8.4f" % (curr_leg_length[3]))
+        dlg_curr_l5 = UserMsg(label="Leg 5 (mm) : %8.4f" % (curr_leg_length[4]))
+        dlg_curr_l6 = UserMsg(label="Leg 6 (mm) : %8.4f" % (curr_leg_length[5]))
         cont_curr = Container(
             [
                 dlg_curr_l1,
@@ -547,17 +547,17 @@ class esrf_hexapode(Controller):
 
         curr_pos = self.device.read_attribute("Position").value
 
-        dlg_curr_tx = UserMsg(label=f"Tx (mm)   : %8.4f" % curr_pos[0])
-        dlg_curr_ty = UserMsg(label=f"Ty (mm)   : %8.4f" % curr_pos[1])
-        dlg_curr_tz = UserMsg(label=f"Tz (mm)   : %8.4f" % curr_pos[2])
+        dlg_curr_tx = UserMsg(label="Tx (mm)   : %8.4f" % curr_pos[0])
+        dlg_curr_ty = UserMsg(label="Ty (mm)   : %8.4f" % curr_pos[1])
+        dlg_curr_tz = UserMsg(label="Tz (mm)   : %8.4f" % curr_pos[2])
         dlg_curr_rx = UserMsg(
-            label=f"Rx (mrad) : %8.4f" % math.radians(float(curr_pos[5])) * 1000.0
+            label="Rx (mrad) : %8.4f" % math.radians(float(curr_pos[5])) * 1000.0
         )
         dlg_curr_ry = UserMsg(
-            label=f"Ry (mrad) : %8.4f" % math.radians(float(curr_pos[4])) * 1000.0
+            label="Ry (mrad) : %8.4f" % math.radians(float(curr_pos[4])) * 1000.0
         )
         dlg_curr_rz = UserMsg(
-            label=f"Rz (mrad) : %8.4f" % math.radians(float(curr_pos[3])) * 1000.0
+            label="Rz (mrad) : %8.4f" % math.radians(float(curr_pos[3])) * 1000.0
         )
         cont_curr = Container(
             [
@@ -664,12 +664,12 @@ class esrf_hexapode(Controller):
 
         curr_leg_length = self.device.read_attribute("LegLength").value
 
-        dlg_curr_l1 = UserMsg(label=f"Leg 1 (mm) : %8.4f" % (curr_leg_length[0]))
-        dlg_curr_l2 = UserMsg(label=f"Leg 2 (mm) : %8.4f" % (curr_leg_length[1]))
-        dlg_curr_l3 = UserMsg(label=f"Leg 3 (mm) : %8.4f" % (curr_leg_length[2]))
-        dlg_curr_l4 = UserMsg(label=f"Leg 4 (mm) : %8.4f" % (curr_leg_length[3]))
-        dlg_curr_l5 = UserMsg(label=f"Leg 5 (mm) : %8.4f" % (curr_leg_length[4]))
-        dlg_curr_l6 = UserMsg(label=f"Leg 6 (mm) : %8.4f" % (curr_leg_length[5]))
+        dlg_curr_l1 = UserMsg(label="Leg 1 (mm) : %8.4f" % (curr_leg_length[0]))
+        dlg_curr_l2 = UserMsg(label="Leg 2 (mm) : %8.4f" % (curr_leg_length[1]))
+        dlg_curr_l3 = UserMsg(label="Leg 3 (mm) : %8.4f" % (curr_leg_length[2]))
+        dlg_curr_l4 = UserMsg(label="Leg 4 (mm) : %8.4f" % (curr_leg_length[3]))
+        dlg_curr_l5 = UserMsg(label="Leg 5 (mm) : %8.4f" % (curr_leg_length[4]))
+        dlg_curr_l6 = UserMsg(label="Leg 6 (mm) : %8.4f" % (curr_leg_length[5]))
         cont_curr = Container(
             [
                 dlg_curr_l1,
@@ -820,12 +820,12 @@ class esrf_hexapode(Controller):
                 border=1,
             )
 
-            dlg_curr_l1 = UserMsg(label=f"Leg 1 (mm) : %8.4f" % (curr_leg_length[0]))
-            dlg_curr_l2 = UserMsg(label=f"Leg 2 (mm) : %8.4f" % (curr_leg_length[1]))
-            dlg_curr_l3 = UserMsg(label=f"Leg 3 (mm) : %8.4f" % (curr_leg_length[2]))
-            dlg_curr_l4 = UserMsg(label=f"Leg 4 (mm) : %8.4f" % (curr_leg_length[3]))
-            dlg_curr_l5 = UserMsg(label=f"Leg 5 (mm) : %8.4f" % (curr_leg_length[4]))
-            dlg_curr_l6 = UserMsg(label=f"Leg 6 (mm) : %8.4f" % (curr_leg_length[5]))
+            dlg_curr_l1 = UserMsg(label="Leg 1 (mm) : %8.4f" % (curr_leg_length[0]))
+            dlg_curr_l2 = UserMsg(label="Leg 2 (mm) : %8.4f" % (curr_leg_length[1]))
+            dlg_curr_l3 = UserMsg(label="Leg 3 (mm) : %8.4f" % (curr_leg_length[2]))
+            dlg_curr_l4 = UserMsg(label="Leg 4 (mm) : %8.4f" % (curr_leg_length[3]))
+            dlg_curr_l5 = UserMsg(label="Leg 5 (mm) : %8.4f" % (curr_leg_length[4]))
+            dlg_curr_l6 = UserMsg(label="Leg 6 (mm) : %8.4f" % (curr_leg_length[5]))
             cont_curr = Container(
                 [
                     dlg_curr_l1,

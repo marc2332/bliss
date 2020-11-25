@@ -410,7 +410,7 @@ class TangoWago:
         self.comm = comm
         self.modules_config = modules_config
 
-        global_map.register(self, tag=f"TangoEngine", children_list=[self.comm])
+        global_map.register(self, tag="TangoEngine", children_list=[self.comm])
 
     def get(self, *logical_names, **kwargs):
         log_debug(self, "In get logical_names=%s kwargs=%s", logical_names, kwargs)
@@ -1137,7 +1137,7 @@ class WagoController:
         self.coupler = False
 
         self.lock = gevent.lock.Semaphore()
-        global_map.register(self, tag=f"Engine", children_list=[comm])
+        global_map.register(self, tag="Engine", children_list=[comm])
 
     def connect(self):
         """ Connect to the wago. Check if we have a coupler or a controller.
@@ -1531,7 +1531,7 @@ class WagoController:
                     check,
                 )
                 log_debug(self, "Last response: Ack (should be 0 or 2) is %s", ack)
-                raise MissingFirmware(f"ACK not received")
+                raise MissingFirmware("ACK not received")
             try:
                 check, _, ack = self.client_read_input_registers(
                     addr, "H" * size, timeout=self.timeout
@@ -1608,7 +1608,7 @@ class WagoController:
                     command,
                     command_executed,
                 )
-                raise TimeoutError(f"ACK not received")
+                raise TimeoutError("ACK not received")
 
             try:
                 check, error_code, command_executed, registers_to_read = self.client_read_input_registers(
@@ -1628,7 +1628,7 @@ class WagoController:
             if error_code != 0:
                 log_error(
                     self,
-                    f"devwccomm Phase 4 : Command %s failed with error: 0x%x %s",
+                    "devwccomm Phase 4 : Command %s failed with error: 0x%x %s",
                     command_executed,
                     error_code,
                     ERRORS[error_code],
@@ -1766,14 +1766,14 @@ class WagoController:
             out += f"Controller date of firmware  (INFO_DATE)    : {self.firmware['date']}\n"
             out += f"time of firmware  (INFO_TIME)    : {self.firmware['time']}\n"
 
-        out += f"\nWago modules physically plugged and seen by the controller:\n"
+        out += "\nWago modules physically plugged and seen by the controller:\n"
         try:
             out += self.plugged_modules_description()
         except Exception:
             log_exception(self, "Exception on dev_status")
             raise
 
-        out += f"\nWago modules known by the device server:\n"
+        out += "\nWago modules known by the device server:\n"
         for i, mapping in enumerate(self.modules_config.mapping):
             module_reference = mapping["module"]
             module_info = get_channel_info(module_reference)

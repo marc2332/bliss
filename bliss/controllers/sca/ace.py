@@ -589,12 +589,12 @@ class Ace:
 
             if us_time < 1 or us_time > 2 ** 31:
                 raise ValueError(
-                    f"Ace counting time must be in range [0.000001, 2147.483648] second "
+                    "Ace counting time must be in range [0.000001, 2147.483648] second "
                 )
 
             self.putget("TCT %d" % us_time)
         else:
-            raise RuntimeError(f"Ace counter not ready!")
+            raise RuntimeError("Ace counter not ready!")
 
     def counting_stop(self):
         self.putget("STCT")

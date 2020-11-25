@@ -253,7 +253,7 @@ class tango_attr_as_counter(SamplingCounter):
             if self.tango_format != "":
                 info_string += f'  Tango format = "{self.tango_format}"\n'
             else:
-                info_string += f"  no format\n"
+                info_string += "  no format\n"
 
         # UNIT
         if self.yml_unit is not None:
@@ -262,13 +262,13 @@ class tango_attr_as_counter(SamplingCounter):
             if self.tango_unit != "":
                 info_string += f'  Tango unit = "{self.tango_unit}"\n'
             else:
-                info_string += f"  no unit\n"
+                info_string += "  no unit\n"
 
         # INDEX if any
         if self.index is not None:
             info_string += f"  index: {self.index}\n"
         else:
-            info_string += f"  scalar\n"
+            info_string += "  scalar\n"
 
         # VALUE
         info_string += f"  value: {self.value}\n"

@@ -367,7 +367,7 @@ class Cyberstar:
         log_debug(self, "Cyberstar:sca_low.setter %s" % value)
 
         if value >= self.sca_up:
-            raise ValueError(f"Error: sca_low value must be lower than sca_up")
+            raise ValueError("Error: sca_low value must be lower than sca_up")
 
         self._set_value("sca_low", value)
         self._update_sca_window_size()
@@ -382,7 +382,7 @@ class Cyberstar:
         log_debug(self, "Cyberstar:sca_up.setter %s" % value)
 
         if value <= self.sca_low:
-            raise ValueError(f"Error: sca_up value must be greater than sca_low")
+            raise ValueError("Error: sca_up value must be greater than sca_low")
 
         self._set_value("sca_up", value)
         self._update_sca_window_size()

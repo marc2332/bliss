@@ -403,13 +403,13 @@ class PI_E753(Controller):
             for bs in self.comm.write_readlines(b"IFC?  IPADR MACADR IPSTART\n", 3)
         ]
 
-        info_str = f"CONTROLLER:\n"
+        info_str = "CONTROLLER:\n"
         info_str += f"     ID: {idn}\n"
         info_str += f"     MAC address: {ifc[1]}\n"
         info_str += f"     IP address: {ifc[0]}\n"
         _start_mode = "use IPADR" if ifc[2] == "0" else "use default -> 192.168.0.1"
         info_str += f"     IP start: IPSTART={ifc[2]}({_start_mode})\n"
-        info_str += f"COMMUNICATION CONFIG:\n     "
+        info_str += "COMMUNICATION CONFIG:\n     "
         info_str += self.comm.__info__()
         return info_str
 

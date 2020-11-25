@@ -169,8 +169,8 @@ class EnergyWavelength(CalcController):
         info_str += f"           mono axis: {_mono_axis.name} ({_mono_axis.position:10.5f} deg)\n"
 
         if self.lut:
-            info_str += f"     Use LUT: \n"
-            info_str += f"     \n"
+            info_str += "     Use LUT: \n"
+            info_str += "     \n"
         else:
             _dspace = _ene_axis.settings.get("dspace")
             info_str += f"              dspace: {_dspace}\n"

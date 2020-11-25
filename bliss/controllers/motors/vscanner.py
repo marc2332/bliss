@@ -283,7 +283,7 @@ class VSCANNER(Controller):
             # Q: in which case there is no velocity in motion ???
 
         if any(velocities):
-            _msg = f"start_all() -- SCAN (relative) move"
+            _msg = "start_all() -- SCAN (relative) move"
             log_debug(self, _msg)
 
             # first_axis.velocity is in user units.
@@ -421,14 +421,14 @@ class VSCANNER(Controller):
         """
         info_str = ""
         info_str += "###############################\n"
-        info_str += f"Config:\n"
+        info_str += "Config:\n"
         info_str += f"  url={self.config.config_dict['serial']['url']}\n"
         info_str += f"  class={self.config.config_dict['class']}\n"
         #        info_str += f"  channel letter:{axis.chan_letter}\n"
         info_str += "###############################\n"
         info_str += f"?ERR: {self.get_error()}\n"
         info_str += "###############################\n"
-        info_str += f"'?INFO' command:\n"
+        info_str += "'?INFO' command:\n"
         info_str += f"firmware version   : {self.get_version()}\n"
         info_str += f"output voltage     : {self.get_voltages()}\n"
         info_str += f"unit state         : {self.get_state()}\n"

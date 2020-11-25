@@ -169,7 +169,7 @@ def main():
       path: {BLISS_DIR}
     """
 
-    template_body = f"""
+    template_body = """
     build:
       number: 0
       script: python -m pip install --no-deps .

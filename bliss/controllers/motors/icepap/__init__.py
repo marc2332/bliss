@@ -356,7 +356,7 @@ class Icepap(Controller):
         info_str += f"     {self.read_encoder_all_types(axis)}\n"
 
         if isinstance(axis, LinkedAxis):
-            info_str += f"LINKED AXIS:\n"
+            info_str += "LINKED AXIS:\n"
             info_str += f"     {self.get_linked_axis()}\n"
 
         return info_str

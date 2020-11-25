@@ -19,6 +19,7 @@ from bliss.scanning.scan import Scan
 from bliss.data.nodes.scan import ScanNode
 from bliss.data.node import get_session_node
 from bliss.scanning.scan import ScanState, ScanPreset
+from bliss.scanning.scan_info import ScanInfo
 from bliss.data.node import create_node
 from bliss import current_session
 from bliss.common.logtools import user_warning
@@ -54,7 +55,7 @@ class Sequence:
 
         self.title = title
         self.scan = None
-        self._scan_info = scan_info
+        self._scan_info = ScanInfo.normalize(scan_info)
         self.custom_channels = dict()
 
         self._scans = list()  # scan objects or scan nodes

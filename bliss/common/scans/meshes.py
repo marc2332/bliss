@@ -22,7 +22,7 @@ from bliss.common.utils import rounder, shorten_signature, typeguardTypeError_to
 from bliss.common.cleanup import cleanup, axis as cleanup_axis
 from bliss.scanning.scan import Scan, StepScanDataWatch
 from bliss.scanning.acquisition.motor import MeshStepTriggerMaster
-from .scan_info import ScanInfoFactory
+from bliss.scanning.scan_info import ScanInfo
 from .step_by_step import DEFAULT_CHAIN
 from bliss.common.types import (
     _int,
@@ -72,8 +72,7 @@ def anmesh(
     """
     assert len(motor_tuple_list) >= 2
 
-    if scan_info is None:
-        scan_info = dict()
+    scan_info = ScanInfo.normalize(scan_info)
 
     scan_info.update(
         {
@@ -118,8 +117,6 @@ def anmesh(
     for i, npoints in enumerate(npoints_list):
         scan_info[f"npoints{i+1}"] = npoints
 
-    factory = ScanInfoFactory(scan_info)
-
     for i, (motor, start, stop, intervals) in enumerate(motor_tuple_list):
         kind: str
         if i == 0:
@@ -128,7 +125,7 @@ def anmesh(
             kind = "backnforth" if backnforth else "forth"
         else:
             kind = "step"
-        factory.set_channel_meta(
+        scan_info.set_channel_meta(
             f"axis:{motor.name}",
             start=start,
             stop=stop,
@@ -139,7 +136,7 @@ def anmesh(
             group="scatter",
         )
 
-    factory.add_scatter_plot(
+    scan_info.add_scatter_plot(
         x=f"axis:{motor_list[0].name}", y=f"axis:{motor_list[1].name}"
     )
 
@@ -183,8 +180,7 @@ def anmesh(
     # FIXME: Replace scan_info read by a bliss API
     for top_master, acquisition_chain in scan.scan_info["acquisition_chain"].items():
         for channel_name in acquisition_chain["scalars"]:
-            factory = ScanInfoFactory(scan_info)
-            factory.set_channel_meta(channel_name, group="scatter")
+            scan_info.set_channel_meta(channel_name, group="scatter")
 
     if run:
         scan.run()

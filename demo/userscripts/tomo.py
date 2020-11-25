@@ -17,7 +17,7 @@ from bliss.scanning.chain import AcquisitionChannel
 from bliss.config.streaming import DataStreamReaderStopHandler
 from bliss.data.node import get_node
 from bliss.scanning.group import Sequence
-from bliss.common.scans.scan_info import ScanInfoFactory
+from bliss.scanning.scan_info import ScanInfo
 
 
 class ScanReEmitter(gevent.Greenlet):
@@ -87,11 +87,11 @@ def fullfield_tomo(session, nchunks=4, expo=1e-6):
     nrot = 0
     nrots = (180 - 0) // rotinc
 
-    scan_info = {"type": "sinogram", "count_time": expo}
-    builder = ScanInfoFactory(scan_info)
+    scan_info = ScanInfo()
+    scan_info.update({"type": "sinogram", "count_time": expo})
 
     # Create data group for each extra data
-    builder.set_channel_meta(
+    scan_info.set_channel_meta(
         "rotation",
         start=0,
         stop=180,
@@ -101,7 +101,7 @@ def fullfield_tomo(session, nchunks=4, expo=1e-6):
         axis_kind="forth",
         group="sinogram",
     )
-    builder.set_channel_meta(
+    scan_info.set_channel_meta(
         "translation",
         start=0,
         stop=npixels - 1,
@@ -111,10 +111,10 @@ def fullfield_tomo(session, nchunks=4, expo=1e-6):
         axis_kind="forth",
         group="sinogram",
     )
-    builder.set_channel_meta("sinogram", group="sinogram")
+    scan_info.set_channel_meta("sinogram", group="sinogram")
 
     # Define a default plot
-    builder.add_scatter_plot(x="translation", y="rotation", value="sinogram")
+    scan_info.add_scatter_plot(x="translation", y="rotation", value="sinogram")
 
     seq = Sequence(title="halfturn", scan_info=scan_info)
 

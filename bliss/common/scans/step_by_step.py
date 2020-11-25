@@ -49,7 +49,7 @@ from bliss.scanning.scan import Scan, StepScanDataWatch
 from bliss.scanning.acquisition.motor import VariableStepTriggerMaster
 from bliss.scanning.acquisition.motor import MeshStepTriggerMaster
 from bliss.controllers.motor import CalcController
-from .scan_info import ScanInfoFactory
+from bliss.scanning.scan_info import ScanInfo
 from bliss.common.types import (
     _int,
     _float,
@@ -357,14 +357,12 @@ def lookupscan(
     scan_info: Optional[dict] = None,
     scan_params: Optional[dict] = None,
     """
-    if scan_info is None:
-        scan_info = dict()
+    scan_info = ScanInfo.normalize(scan_info)
     if scan_params is None:
         scan_params = dict()
 
     npoints = len(motor_pos_tuple_list[0][1])
     motors_positions = list()
-    title_list = list()
     scan_axes = set()
 
     for m_tup in motor_pos_tuple_list:
@@ -473,8 +471,9 @@ def anscan(
     """
 
     npoints = intervals + 1
-    if scan_info is None:
-        scan_info = dict()
+
+    scan_info = ScanInfo.normalize(scan_info)
+
     motors_positions = list()
     title_list = list()
     starts_list = list()
@@ -500,10 +499,9 @@ def anscan(
     scan_info["start"] = starts_list
     scan_info["stop"] = stops_list
 
-    factory = ScanInfoFactory(scan_info)
     for motor, start, stop in motor_tuple_list:
         d = motor.position if scan_type == "dscan" else 0
-        factory.set_channel_meta(
+        scan_info.set_channel_meta(
             f"axis:{motor.name}", start=start + d, stop=stop + d, points=npoints
         )
 
@@ -1051,17 +1049,9 @@ def timescan(
         return_scan (bool): True by default
         npoints (int): number of points [default: 0, meaning infinite number of points]
     """
-    if scan_info is None:
-        scan_info = dict()
+    scan_info = ScanInfo.normalize(scan_info)
 
-    scan_info.update(
-        {
-            "type": scan_type,
-            "save": save,
-            "sleep_time": sleep_time,
-            #       "output_mode": kwargs.get("output_mode", "tail"),
-        }
-    )
+    scan_info.update({"type": scan_type, "save": save, "sleep_time": sleep_time})
 
     if title is None:
         args = scan_type, count_time

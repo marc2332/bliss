@@ -44,6 +44,7 @@ from louie import saferef
 from bliss.common.plot import get_plot
 from bliss import __version__ as publisher_version
 from bliss.common import logtools
+from bliss.scanning.scan_info import ScanInfo
 
 
 logger = logging.getLogger("bliss.scans")
@@ -118,14 +119,14 @@ class DataWatchCallback:
 
         :param dict data_events: a dict with Acq(Device/Master) as key and a set of signal as values
         :param dict nodes: a dict with Acq(Device/Master) as key and the associated data node as value
-        :param dict scan_info: dictionnary which contains the current scan state
+        :param dict scan_info: dictionary which contains the current scan state
         """
         raise NotImplementedError
 
     def on_scan_end(self, scan_info):
         """Called at the end of the scan.
         
-        :param dict scan_info: dictionnary which contains the current scan state
+        :param dict scan_info: dictionary which contains the current scan state
         """
         pass
 
@@ -654,25 +655,28 @@ class Scan:
         name="scan",
         scan_info=None,
         save=True,
-        save_images=None,  # None means follows "save"
+        save_images=None,
         scan_saving=None,
         data_watch_callback=None,
         watchdog_callback=None,
     ):
         """
-        This class publish data and trig the writer if any.
+        Scan class to publish data and trigger the writer if any.
 
-        chain -- acquisition chain you want to use for this scan.
-        name -- scan name, if None set default name *scan*
-        parent -- the parent is the root node of the data tree.
-        usually the parent is a Container like to a session,sample,experiment...
-        i.e: parent = Container('eh3')
-        scan_info -- should be the scan parameters as a dict
-        writer -- is the final file writer (hdf5,cvs,spec file...)
-        data_watch_callback -- a callback inherited from DataWatchCallback
+        Arguments:
+            chain: Acquisition chain you want to use for this scan.
+            name: Scan name, if None set default name *scan*
+            scan_info: Scan parameters if some, as a dict (or as ScanInfo
+                       object)
+            save: True if this scan have to be saved
+            save_images: None means follows "save"
+            scan_saving: Object describing how to save the scan, if any
+            data_watch_callback: a callback inherited from `DataWatchCallback`
         """
         self.__name = name
         self.__scan_number = None
+        self._scan_info = ScanInfo()
+
         self.root_node = None
         self._cache_cnx = None
         self._shadow_scan_number = not save
@@ -754,7 +758,8 @@ class Scan:
     def _init_scan_info(self, scan_info=None, save=True):
         """Initialize `scan_info`"""
         with time_profile(self._stats_dict, "scan.init.scan_info", logger=logger):
-            self._scan_info = dict(scan_info) if scan_info is not None else dict()
+            if scan_info is not None:
+                self._scan_info.update(scan_info)
             scan_saving = self.__scan_saving
             self._scan_info.setdefault("title", self.__name)
             self._scan_info["session_name"] = scan_saving.session

@@ -335,10 +335,12 @@ def set_ttl(db_name):
     """Create a new DataNode in order to call its set_ttl
     """
     # Do not create a Redis connection pool during garbage collection
-    if client.has_default_connection():
-        node = get_node(db_name, state="exists")
-        if node is not None:
-            node.set_ttl()
+    connection = client.get_existing_redis_connection(db=1, timeout=10)
+    if connection is None:
+        return
+    node = get_node(db_name, state="exists", connection=connection)
+    if node is not None:
+        node.set_ttl()
 
 
 class DataNodeMetaClass(type):

@@ -6,7 +6,9 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 import enum
 import gevent
+import functools
 from tabulate import tabulate
+
 from bliss import global_map
 from bliss.config.beacon_object import BeaconObject
 from bliss.common.scans import DEFAULT_CHAIN
@@ -53,8 +55,9 @@ class MachInfo(BeaconObject):
         for cnt_name, attr_name in self.COUNTERS:
             counter_config = config.clone()
             counter_config["attr_name"] = attr_name
+            counter_config["mode"] = "SINGLE"
             controller = TangoCounterController(
-                name, self.tango_uri, global_map_register=False
+                name, self.proxy, global_map_register=False
             )
             cnt = TangoAttrCounter(cnt_name, counter_config, controller)
             self.__counters.append(cnt)
@@ -86,6 +89,13 @@ class MachInfo(BeaconObject):
             self._counter_grp = dict()
 
         self.initialize()
+
+    @property
+    @functools.lru_cache(maxsize=1)
+    def proxy(self):
+        machinfo_dev = tango.DeviceProxy(self.tango_uri)
+        machinfo_dev.set_source(tango.DevSource.CACHE_DEV)
+        return machinfo_dev
 
     @property
     @BeaconObject.lazy_init
@@ -276,7 +286,7 @@ class MachInfo(BeaconObject):
         return str_info
 
     def _read_attributes(self, attr_to_read):
-        dev_attrs = tango.DeviceProxy(self.tango_uri).read_attributes(attr_to_read)
+        dev_attrs = self.proxy.read_attributes(attr_to_read)
 
         # Check error
         for attr in dev_attrs:
@@ -309,9 +319,9 @@ class MachInfo(BeaconObject):
         Set the automatic mode of the FE, True or False
         """
         if newmode is True:
-            tango.DeviceProxy(self.tango_uri).Automatic()
+            self.proxy.Automatic()
         else:
-            tango.DeviceProxy(self.tango_uri).Manual()
+            self.proxy.Manual()
 
     @property
     def all_information(self):

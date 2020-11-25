@@ -114,7 +114,7 @@ def main(args=None):
 
     obj_name = arguments["name"]
     if obj_name is None:
-        raise ValueError(f"Argument '--name' is required")
+        raise ValueError("Argument '--name' is required")
 
     config = get_config()
     cfg = config.get_config(obj_name)

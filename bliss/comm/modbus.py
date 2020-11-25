@@ -181,7 +181,7 @@ class Modbus_RTU:
     def _read(self, func_code, address, nb, struct_format, timeout_errmsg, timeout):
         log_debug_data(
             self,
-            f"In _read",
+            "In _read",
             {
                 "fc": func_code,
                 "addr": address,
@@ -196,7 +196,7 @@ class Modbus_RTU:
     def _write(self, func_code, address, struct_format, value, timeout_errmsg, timeout):
         log_debug_data(
             self,
-            f"In _write",
+            "In _write",
             {
                 "fc": func_code,
                 "addr": address,
@@ -404,7 +404,7 @@ class ModbusTcp:
     def read_holding_registers(self, address, struct_format, timeout=None):
         log_debug_data(
             self,
-            f"read_holding_registers",
+            "read_holding_registers",
             {"address": address, "num": len(struct_format)},
         )
         timeout_errmsg = "timeout on read_holding_registers modbus tcp (%s, %d)" % (
@@ -424,7 +424,7 @@ class ModbusTcp:
     def write_register(self, address, struct_format, value, timeout=None):
         log_debug_data(
             self,
-            f"write_register",
+            "write_register",
             {"address": address, "num": len(struct_format), "value": value},
         )
         timeout_errmsg = "timeout on write_register modbus tcp (%s, %d)" % (
@@ -435,7 +435,7 @@ class ModbusTcp:
 
     @try_connect_modbustcp
     def write_float(self, address, value, timeout=None):
-        log_debug_data(self, f"write_float", {"address": address, "value": value})
+        log_debug_data(self, "write_float", {"address": address, "value": value})
         timeout_errmsg = "timeout on write_registers modbus tcp (%s, %d)" % (
             self._host,
             self._port,
@@ -468,7 +468,7 @@ class ModbusTcp:
     def read_input_registers(self, address, struct_format, timeout=None):
         log_debug_data(
             self,
-            f"read_input_registers",
+            "read_input_registers",
             {"address": address, "num": len(struct_format)},
         )
         timeout_errmsg = "timeout on read_input_registers modbus tcp (%s, %d)" % (
@@ -486,7 +486,7 @@ class ModbusTcp:
 
     @try_connect_modbustcp
     def read_coils(self, address, nb_coils, timeout=None):
-        log_debug_data(self, f"read_coils", {"address": address, "num": nb_coils})
+        log_debug_data(self, "read_coils", {"address": address, "num": nb_coils})
         timeout_errmsg = "timeout on read_coils tcp (%s, %d)" % (self._host, self._port)
         nb_bytes = ((nb_coils + 7) & ~7) // 8
         struct_format = "%dB" % nb_bytes
@@ -502,7 +502,7 @@ class ModbusTcp:
 
     @try_connect_modbustcp
     def write_coil(self, address, on_off, timeout=None):
-        log_debug_data(self, f"write_coil", {"address": address, "value": on_off})
+        log_debug_data(self, "write_coil", {"address": address, "value": on_off})
         timeout_errmsg = "timeout on write_coil tcp (%s, %d)" % (self._host, self._port)
         value = 0xFF00 if on_off else 0x0000
         self._write(0x05, address, "H", value, timeout_errmsg, timeout)
@@ -511,7 +511,7 @@ class ModbusTcp:
     def write_registers(self, address, struct_format, values, timeout=None):
         log_debug_data(
             self,
-            f"write_registers",
+            "write_registers",
             {"address": address, "num": len(struct_format), "values": values},
         )
         timeout_errmsg = "timeout on write_registers modbus tcp (%s, %d)" % (
@@ -522,7 +522,7 @@ class ModbusTcp:
 
     @try_connect_modbustcp
     def write_coils(self, address, on_off, timeout=None):
-        log_debug_data(self, f"write_coils", {"address": address, "values": on_off})
+        log_debug_data(self, "write_coils", {"address": address, "values": on_off})
         # implements function code 16
         raise NotImplementedError
 

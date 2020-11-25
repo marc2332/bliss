@@ -467,7 +467,7 @@ class IntegratingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
             self._AcquisitionObject__start_once = p.start_once
         else:
             raise ValueError(
-                f"Wrong master node! This acquistion object is not placed below the expected master_controller acquisition object"
+                "Wrong master node! This acquistion object is not placed below the expected master_controller acquisition object"
             )
 
     def prepare(self):

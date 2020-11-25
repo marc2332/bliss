@@ -54,11 +54,11 @@ def test_weed(default_session, dummy_tango_server, capsys):
     wid_output = capsys.readouterr().out
 
     assert (
-        wid_output == f"\n    ---------------------------------------\n"
-        f"    ID Device Server id00/tango/dummy\n"
-        f"            Power: 0.000 /  0.0  KW\n"
-        f"    Power density: 0.000 / 0.0  KW/mr2\n\n"
-        f"    u23a - GAP:1.408 - ENABLED   \n\n"
+        wid_output == "\n    ---------------------------------------\n"
+        "    ID Device Server id00/tango/dummy\n"
+        "            Power: 0.000 /  0.0  KW\n"
+        "    Power density: 0.000 / 0.0  KW/mr2\n\n"
+        "    u23a - GAP:1.408 - ENABLED   \n\n"
     )
 
     und_dev.setDisabled(True)

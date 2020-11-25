@@ -195,10 +195,10 @@ class NhqChannel:
             if self._module_status is None:
                 self.module_status
 
-            info_list.append(f"")
+            info_list.append("")
             for k, v in self._module_status.items():
                 info_list.append(f"{k:12s}: {v}")
-            info_list.append(f"")
+            info_list.append("")
 
         st = self.status
         info_list.append(f"Status      : {st} ({self.nhq._STATUS2INFO[st]})")
@@ -485,14 +485,14 @@ class Nhq:
         info_list.append(
             f"=== Controller {self.name} (sn{self._unit_number} ver{self._software_version}) ==="
         )
-        info_list.append(f"")
+        info_list.append("")
         # info_list.append(f"Unit number     : {self.unit_number}")
         # info_list.append(f"Software version: {self.software_version}")
         if level > 1:
             info_list.append(f"Break time      : {self.break_time}ms")
         info_list.append(f"Maximum voltage : {self._vout_max}")
         info_list.append(f"Maximum current : {self._iout_max}")
-        info_list.append(f"")
+        info_list.append("")
 
         txt = "\n".join(info_list)
 

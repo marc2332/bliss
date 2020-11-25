@@ -148,11 +148,11 @@ class CT2Controller(Proxy, CounterController):
         if self.input_channel is not None:
             infos += f"  input channel  : {self.input_channel}\n"
         else:
-            infos += f"  input channel  : Not Configured\n"
+            infos += "  input channel  : Not Configured\n"
         if self.output_channel is not None:
             infos += f"  output channel : {self.output_channel}\n"
         else:
-            infos += f"  output channel  : Not Configured\n"
+            infos += "  output channel  : Not Configured\n"
         return infos
 
 

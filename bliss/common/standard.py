@@ -335,7 +335,7 @@ def wid():
 
     undu_str = ""
     for id_ds in ID_DS_list:
-        undu_str += f"\n    ---------------------------------------\n"
+        undu_str += "\n    ---------------------------------------\n"
         undu_str += f"    ID Device Server {id_ds.ds_name}\n"
 
         power = f"{id_ds.device.Power:.3f}"

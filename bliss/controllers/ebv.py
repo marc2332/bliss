@@ -200,7 +200,7 @@ class BpmController(SamplingCounterController):
         info_str += f"    roi      : {self.roi}\n"
         info_str += f"    flip     : {self.flip}\n"
         info_str += f"    rotation : {self.rotation}\n"
-        info_str += f"\n"
+        info_str += "\n"
 
         return info_str
 

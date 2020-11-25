@@ -252,9 +252,9 @@ def DrawArc(arry, value=1, cx=0, cy=0, r1=100, r2=120, a1=0, a2=180):
 
     # check input args
     if r1 < 0 or r2 < 0:
-        raise ValueError(f"radius must be a positive number !")
+        raise ValueError("radius must be a positive number !")
     if a1 < 0 or a2 < 0 or a1 > 360 or a2 > 360:
-        raise ValueError(f"angles must be in [0, 360] degree !")
+        raise ValueError("angles must be in [0, 360] degree !")
 
     h, w = arry.shape
     cx = w / 2 + cx

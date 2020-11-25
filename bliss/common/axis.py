@@ -1151,7 +1151,7 @@ class Axis:
         try:
             info_string += f"     state (R): {self.state}\n"
         except Exception:
-            info_string += f"     ERROR: unable to get state\n"
+            info_string += "     ERROR: unable to get state\n"
 
         # ACCELERATION
         try:
@@ -1170,7 +1170,7 @@ class Axis:
             )
             info_string += f"     acctime (RW):      {_acc_time:10.5f}  (config: {_acc_time_config})\n"
         except Exception:
-            info_string += f"     acceleration: None\n"
+            info_string += "     acceleration: None\n"
 
         # VELOCITY
         try:
@@ -1185,13 +1185,13 @@ class Axis:
                 f"     velocity (RW):     {_vel:10.5f}  (config: {_vel_config})\n"
             )
         except Exception:
-            info_string += f"     velocity: None\n"
+            info_string += "     velocity: None\n"
 
         # CONTROLLER
         try:
             info_string += self.__controller.__info__()
         except Exception:
-            info_string += f"ERROR: Unable to get info from controller\n"
+            info_string += "ERROR: Unable to get info from controller\n"
 
         # SPECIFIC AXIS INFO
         try:
@@ -1204,7 +1204,7 @@ class Axis:
         try:
             info_string += self.encoder.__info__()
         except Exception:
-            info_string += f"ENCODER:\n     None\n"
+            info_string += "ENCODER:\n     None\n"
 
         return info_string
 
@@ -1958,7 +1958,7 @@ class Axis:
                 raise RuntimeError("axis %s state is %r" % (self.name, "MOVING"))
 
             # create motion object for hooks
-            motion = Motion(self, switch, None, "homing", user_target_pos=f"home")
+            motion = Motion(self, switch, None, "homing", user_target_pos="home")
             motion.polling_time = (
                 self._polling_time if polling_time is None else polling_time
             )

@@ -360,7 +360,7 @@ class LimaImageChannelDataNode(_ChannelDataNodeBase):
             if len(self._queue_ref) == 0:
                 # Workaround for the issue https://gitlab.esrf.fr/bliss/bliss/-/issues/2128
                 _logger.debug(
-                    f"Inconsistency on the Redis data structure. 'image_data_ref' was removed (or is empty)"
+                    "Inconsistency on the Redis data structure. 'image_data_ref' was removed (or is empty)"
                 )
                 return EventData(
                     first_index=first_index, data=data, description=description

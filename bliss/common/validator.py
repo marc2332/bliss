@@ -48,7 +48,7 @@ class BlissValidator(Validator):
         { 'nullable': True}
         """
         if not value == expected_value:
-            self._error(field, f" non expected value")
+            self._error(field, " non expected value")
 
     def _normalize_default_setter_find_default(self, mapping, schema, field):
 

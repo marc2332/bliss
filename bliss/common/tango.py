@@ -123,7 +123,7 @@ except ImportError:
 
 
 def logging_call(*args, name=None, tango_func=None, logger=None):
-    logger(f"call %s%s", name, args)
+    logger("call %s%s", name, args)
     ret = tango_func(*args)
     logger("returned: %s", ret)
     return ret

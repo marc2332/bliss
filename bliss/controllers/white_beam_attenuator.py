@@ -198,12 +198,12 @@ class WhiteBeamAttenuator:
 
             for motor in att["attenuator"].motors.values():
                 if "HOME" in motor.state:
-                    info_str += f" is in HOME position\n"
+                    info_str += " is in HOME position\n"
                 else:
                     index = info_str.rfind("\n")
                     info_str = (
                         info_str[: index + 1]
-                        + f" WARNING:"
+                        + " WARNING:"
                         + info_str[index + 1 :]
                         + " not in HOME position\n"
                     )

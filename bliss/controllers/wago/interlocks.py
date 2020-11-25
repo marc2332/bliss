@@ -874,7 +874,7 @@ def interlock_download(
 
     Note: wago mapping should be set before calling this
     """
-    log_info(wago, f"Checking interlock on Wago")
+    log_info(wago, "Checking interlock on Wago")
 
     registered_inst, available_inst, free_inst = interlock_memory(wago)
 
@@ -960,7 +960,7 @@ def interlock_download(
 
 
 def interlock_state(wago: Union[TangoWago, WagoController]):
-    log_info(wago, f"Checking interlock state on Wago")
+    log_info(wago, "Checking interlock state on Wago")
     registered_inst, available_inst, free_inst = interlock_memory(wago)
 
     state_list = []

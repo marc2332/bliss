@@ -997,8 +997,8 @@ def test_user_msg(roby):
         roby.jog(10)
     assert (
         str(user_msg.value)
-        == f"Moving roby from 0 until it is stopped, at constant velocity in positive direction: 10.0\n"
-        f"To stop it: roby.stop()"
+        == "Moving roby from 0 until it is stopped, at constant velocity in positive direction: 10.0\n"
+        "To stop it: roby.stop()"
     )
 
 

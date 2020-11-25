@@ -92,7 +92,7 @@ def test_lsobj(session, beacon, setup_globals, capsys):
     lsobj()
     captured = capsys.readouterr()
     s1 = (
-        f"beamstop  att1  MG1  MG2  bad  calc_mot1  calc_mot2  custom_axis  diode  "
+        "beamstop  att1  MG1  MG2  bad  calc_mot1  calc_mot2  custom_axis  diode  "
         "diode2  diode3  diode4  diode5  diode6  diode7  diode8  diode9  heater  "
         "hook0  hook1  hooked_error_m0  hooked_m0  hooked_m1  integ_diode  jogger  "
         "m0  m1  m1enc  omega  roby  robz  robz2  s1b  s1d  s1f  s1hg  s1ho  s1u  "

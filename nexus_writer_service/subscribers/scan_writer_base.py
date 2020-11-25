@@ -1259,41 +1259,52 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         :param Subscan subscan:
         :returns int:
         """
-        if subscan is None:
-            return self.get_info("npoints", cache=True)
-        # TODO: currently subscans always give 0 (npoints is not published in Redis)
+        # TODO: currently "npoints" is not published in the subscan but in the scan.
+        # So this will always return 0 when `subscan is not None`.
         return self.get_subscan_info(subscan, "npoints", default=0, cache=True)
 
     def scan_ndim(self, subscan):
         """
-        Number of dimensions of the subscan
+        Number of dimensions of the subscan (0 means a scalar scan like a ct)
 
         :param Subscan subscan:
         :returns int:
         """
-        # TODO: currently subscans always give 1 (data_dim is not published in Redis)
         if self.scan_size(subscan) == 1:
             default = 0  # scalar
         else:
             default = 1  # vector
-        return self.get_subscan_info(subscan, "data_dim", default, cache=True)
+        # TODO: currently "data_dim" is not published in the subscan but in the scan.
+        # So ndim will always be 1 when `subscan is not None`.
+        ndim = self.get_subscan_info(subscan, "data_dim", default=default, cache=True)
+        if ndim > 1:
+            if not all(
+                self.get_subscan_info(subscan, f"npoints{i}", default=0, cache=True)
+                for i in range(1, ndim + 1)
+            ):
+                ndim = 1
+        return ndim
 
     def scan_shape(self, subscan):
         """
-        Shape of the subscan
+        Shape of the subscan (empty means a scalar scan like a ct).
+        Dimensions with size 0 are variable (can only occur for 1D scans).
 
         :param Subscan subscan:
         :returns tuple:
         """
         ndim = self.scan_ndim(subscan)
         if ndim == 0:
+            # A scalar scan like a ct
             return tuple()
         elif ndim == 1:
+            # A 1D scan like a loopscan (fixed) or timescan (variable)
             return (self.scan_size(subscan),)
         else:
+            # An nD scan like a mesh
             # Fast axis first
             s = tuple(
-                self.get_subscan_info(subscan, "npoints{}".format(i), cache=True)
+                self.get_subscan_info(subscan, f"npoints{i}", default=0, cache=True)
                 for i in range(1, ndim + 1)
             )
             if self.saveorder.order == "C":

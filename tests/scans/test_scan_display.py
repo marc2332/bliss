@@ -354,19 +354,27 @@ def test_scan_display_ascan(session, scan_data_listener_process):
 
 def test_scan_display_ct(session, scan_data_listener_process):
     """Check the output displayed by the ScanDataListener with ascan"""
+    diode0 = session.config.get("diode0")
+    diode1 = session.config.get("diode1")
     diode4 = session.config.get("diode4")
     diode5 = session.config.get("diode5")
-    scans.ct(0.1, diode4, diode5)
+    scans.ct(0.1, diode0, diode1, diode4, diode5)
 
     # EXPECTED OUTPUT
+    # diode0  =  4.00000      (  40.0000   /s)    simulation_diode_sampling_controller
+    # diode1  =  5.00000      (  50.0000   /s)    simulation_diode_sampling_controller
     # diode4  =  4.00000      (  40.0000   /s)    simulation_diode_sampling_controller
     # diode5  =  5.00000      (  50.0000   /s)    simulation_diode_sampling_controller
 
     with grab_lines(scan_data_listener_process) as lines:
-        line_diode4 = "diode4  =      4.00000    (   40.0000  /s)  simulation_diode_sampling_controller"
-        line_diode5 = "diode5  =      5.00000    (   50.0000  /s)  simulation_diode_sampling_controller"
-        assert lines[10].strip() == line_diode4
-        assert lines[11].strip() == line_diode5
+        line_diode0 = "diode0  =      -2.00000     (    -20.0000      /s)  simulation_diode_sampling_controller"
+        line_diode1 = "diode1  =       3.00000e+07 (      3.00000e+08 /s)  simulation_diode_sampling_controller"
+        line_diode4 = "diode4  =       4.00000     (     40.0000      /s)  simulation_diode_sampling_controller"
+        line_diode5 = "diode5  =       5.00000     (     50.0000      /s)  simulation_diode_sampling_controller"
+        assert lines[10].strip() == line_diode0
+        assert lines[11].strip() == line_diode1
+        assert lines[12].strip() == line_diode4
+        assert lines[13].strip() == line_diode5
 
 
 def test_scan_display_loopscan(session, scan_data_listener_process):

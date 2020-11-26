@@ -16,7 +16,6 @@ import signal
 import atexit
 import contextlib
 import gevent
-from math import log10
 
 from bliss.data.scan import watch_session_scans
 from bliss.common.utils import nonblocking_print
@@ -427,12 +426,12 @@ class _ScanPrinterBase:
         e = ""
         for ctrl, values in info_dict.items():
             for dname, v, nv in values:
-                g = int(log10(v))
-                ng = int(log10(nv))
                 v = f"{v:#g}"
                 nv = f"{nv:#g}"
+                g = len(v.split(".")[0])
+                ng = len(nv.split(".")[0])
                 lines.append(
-                    f"  {dname:>{width}}  = {e:{5-g}}{v:{10+g}} ({e:{4-ng}}{nv:^{8}}{e:{ng}}/s)  {ctrl}"
+                    f"  {dname:>{width}}  = {e:{7-g}}{v:{10+g}} ({e:{7-ng}}{nv:{12+ng}} /s)  {ctrl}"
                 )
 
             # separate data blocks per controller

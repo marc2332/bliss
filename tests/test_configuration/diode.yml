@@ -5,6 +5,19 @@
   independent: True
   user_tag: TEST.DIODE
 -
+  name: diode0
+  plugin: bliss
+  class: simulation_diode
+  independent: True
+  constant: -2
+-
+  name: diode1
+  plugin: bliss
+  class: simulation_diode
+  independent: True
+  constant: 30000000
+  mode : INTEGRATE
+-
   name: diode2
   plugin: bliss
   class: simulation_diode

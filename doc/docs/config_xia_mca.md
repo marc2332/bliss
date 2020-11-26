@@ -11,15 +11,13 @@ Devices are plugged in a windows (10 pro 64 bits) computer.
 BLISS must be installed on the windows PC to be able to run a BLISS RPC server.
 
 **Handel** is the library used to deal with XIA devices and data. Handel comes
-with **ProSpect** software.
+with **ProSpect** which is the windows software provided by XIA to test and
+calibrate XIA devices.
 
 To access XIA device using the Handel library from BLISS running on a linux
 station, a BLISS rpc server named `bliss-handel-server` must be running on the
 windows PC.
 
-
-**ProSpect** is the windows software provided by XIA to control and calibrate
-XIA devices.
 
 There are 2 versions of ProSpect:
 
@@ -30,22 +28,21 @@ There are 2 versions of ProSpect:
 ## Windows PC installation
 
 !!! note "Windows version must be 7 or 10 pro 64 bits"
-
-!!! tip "SSH"
-    To make your life easier using a remote windows computer, you can install cygwin
-    and ssh on it
-    http://wikiserv.esrf.fr/bliss/index.php/Full_Cygwin_%2B_OpenSSH_installation_on_a_Windows_host
-
+    Windows 7 is now deprecated.
 
 ### Installation of conda
 
 * download a conda installer:
     * [miniconda](https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe)
 * launch installer:
-    * "for all users"
-    * "use as default python"
+    * tick "for all users"
+    * tick "use as default python"
+    * "Destination Folder:" `C:\ProgramData\Miniconda3`
+    * ??? untick ??? "Add Miniconda3 to the system PATH environment variable"
+    * ??? tick ??? "Register Miniconda3 as the system Python 3.8"
 * Create a link from taskbar to anaconda shell
-    * start / all program / anaconda3 / right click on anaconda shell / pin to taskbar
+    * win7: start / all program / anaconda3 / right click on anaconda shell / pin to taskbar
+    * win10: Windows / type anaconda / highlight "Anaconda Powershell Prompt" + select "Pin to taskbar" on the right panel
 * create `bliss` Conda environment with python 3.7 and git
     * Start anaconda shell
     * `conda create -n bliss python=3.7 git pip`
@@ -64,7 +61,8 @@ conda config --env --append channels tango-controls
     conda install bliss
     ```
 
-*Alternatively* in order to install BLISS from the sources:
+*Alternatively*, in order to install BLISS from the sources or to devellop or to
+have on-the-edge version:
 
 * ensure some packages are installed:
     ```
@@ -120,8 +118,7 @@ The packages are copied in `C:\blissadm\xia_software\` directory
 
 !!! note "For the FalconX"
     * Connection to the falconX can be tested with a browser using address `http://192.168.200.201`
-    * Check firware version (must be ??? 0.8.7 ???)
-
+    * Check firware version (must be 0.9.3)
 
 * Install Handel libraries and make them accessible:
     * Xmap/mercury: extract `handel-all-1.2.22-x64.zip` file (right clic on it, 7-zip / extract here...)

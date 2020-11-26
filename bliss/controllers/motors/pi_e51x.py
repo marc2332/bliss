@@ -448,7 +448,8 @@ class PI_E51X(Controller):
         )
         if self._axis_closed_loop[axis] != onoff:
             raise RuntimeError(
-                "Failed to change %s closed_loop mode to %s" % (axis.name, onoff)
+                "Failed to change %s closed_loop mode to %s (check servo switch ?)"
+                % (axis.name, onoff)
             )
 
     def _get_on_target_status(self, axis):

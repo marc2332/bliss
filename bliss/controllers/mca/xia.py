@@ -550,26 +550,36 @@ class BaseXIA(BaseMCA):
 
     # Dialogs to configure XIA device
     def select_config(self):
+        """ User dialog to select a configuration file.
+        """
         config_list = self.available_configurations
         dlg_list = list(zip(config_list, config_list))
         dlg = UserChoice(label="Configuration File", values=dlg_list)
-        self.load_configuration(display(dlg))
+        ans = display(dlg)
+        if ans is not None:
+            self.load_configuration(ans)
 
     def select_trig(self):
+        """ User dialog to select a trigger mode.
+        """
         triggers_list = [ttt.name for ttt in TriggerMode]
         dlg_list = list(zip(triggers_list, ["1 - SOFTWARE", "2 - SYNC", "3 - GATE"]))
         dlg = UserChoice(label="Trigger Mode", values=dlg_list)
         ans = display(dlg)
-        print(f"user choose '{ans}'")
-        self.trigger_mode = ans
+        if ans is not None:
+            print(f"user choose '{ans}'")
+            self.trigger_mode = ans
 
     def select_preset_mode(self):
+        """ User dialog to select a preset mode.
+        """
         preset_list = [ppp.name for ppp in self.supported_preset_modes]
         dlg_list = list(zip(preset_list, preset_list))
         dlg = UserChoice(label="Preset Mode", values=dlg_list)
         ans = display(dlg)
-        print(f"user choose '{ans}'")
-        self.preset_mode = ans
+        if ans is not None:
+            print(f"user choose '{ans}'")
+            self.preset_mode = ans
 
 
 # Specific XIA classes

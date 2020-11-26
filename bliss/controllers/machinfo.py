@@ -35,7 +35,14 @@ class MachInfo(BeaconObject):
     - SR_Refill_Countdown
     """
 
-    SRMODE = enum.Enum("SRMODE", "USM MDT Shutdown SafetyTest IdTest")
+    class SRMODE(enum.Enum):
+        Unknown = -1
+        USM = 1
+        MDT = 2
+        Shutdown = 3
+        SafetyTest = 4
+        IdTest = 5
+
     name = BeaconObject.config_getter("name")
     extra_checktime = BeaconObject.property_setting("extra_checktime", default=0.)
     waittime = BeaconObject.property_setting("waittime", default=0)

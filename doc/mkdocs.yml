@@ -39,7 +39,7 @@ nav:
                       - Sessions: config_sessions.md
                       - Aliases: config_alias.md
                       - Measurement groups: config_mg.md
-                - Devices configuration templates:
+                - Devices:
                       - 2D detectors (Lima): config_lima.md
                       - Actuators: config_actuator.md
                       - APC: config_apc.md
@@ -51,6 +51,7 @@ nav:
                       - Elettra / ePicea 4 quadrant diode BPM: config_elettra.md
                       - Energy and Wavelength: config_enwl.md
                       - ESRF BeamViewer (EBV): config_beamviewer.md
+                      - KB Mirror: config_kb.md
                       - Keithley:
                             - Ammeter and Multimeter: config_keithley.md
                             - 428: config_keithley_428.md

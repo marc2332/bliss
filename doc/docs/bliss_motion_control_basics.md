@@ -32,6 +32,8 @@ To match mechanical reality, an Axis also deals with:
 * backlash
 * limits
 * steps_per_unit
+* velocity_low_limit
+* velocity_high_limit
 
 And to be usable, another set of notions is present:
 
@@ -113,7 +115,7 @@ DEMO [2]: m1.state  ⏎
 An axis must be in `READY` state to be moved.
 
 
-### position / dial / offset / steps_per_unit / sign
+### position / dial / offset / steps_per_unit / sign / velocity_low_limit / velocity_high_limit
 
 `steps_per_unit` is the conversion factor applied to transform
 position given by a motor controller (typically "motor steps") into
@@ -125,7 +127,9 @@ position in user units. The dial position is accessible through the
 
 The **user position** derives from the dial, following the formula
 defined below:
- 
+
+`velocity_low_limit` and `velocity_high_limit` are optional velocity limit defined in the configuration.
+
 ```user_position = (sign * dial_position) + offset```
 
 By default, the sign of user and dial is 1 (no sign change), and offset is 0

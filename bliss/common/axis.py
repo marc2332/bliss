@@ -49,6 +49,16 @@ class AxisFaultError(RuntimeError):
     pass
 
 
+def float_or_inf(value, inf_sign=1):
+    if value is None:
+        value = float("inf")
+        sign = math.copysign(1, inf_sign)
+    else:
+        sign = 1
+    value = float(value)  # accepts float or numpy array of 1 element
+    return sign * value
+
+
 def _prepare_one_controller_motions(controller, motions):
     try:
         controller.prepare_all(*motions)
@@ -787,6 +797,12 @@ class Axis(Scannable):
                 self.__config_jog_velocity = self.config.get(
                     "jog_velocity", float, self.__config_velocity
                 )
+            self.__config_velocity_low_limit = self.config.get(
+                "velocity_low_limit", float, float("inf")
+            )
+            self.__config_velocity_high_limit = self.config.get(
+                "velocity_high_limit", float, float("inf")
+            )
         if acceleration:
             if "acceleration" in self.settings.config_settings:
                 self.__config_acceleration = self.config.get("acceleration", float)
@@ -1195,6 +1211,13 @@ class Axis(Scannable):
             info_string += (
                 f"     velocity (RW):     {_vel:10.5f}  (config: {_vel_config})\n"
             )
+            # velocity limits
+            vel_low, vel_high = self.velocity_limits
+            vel_config_low, vel_config_high = self.config_velocity_limits
+            if vel_low is not None:
+                info_string += f"     velocity_low_limit (RW):     {vel_low:10.5f}  (config: {vel_config_low})\n"
+            if vel_high is not None:
+                info_string += f"     velocity_high_limit (RW):     {vel_high:10.5f}  (config: {vel_config_high})\n"
         except Exception:
             info_string += "     velocity: None\n"
 
@@ -1226,6 +1249,17 @@ class Axis(Scannable):
         self._set_position = self.position
         event.send(self, "sync_hard")
 
+    def _check_velocity_limits(self, new_velocity):
+        min_velocity, max_velocity = self.velocity_limits
+        if abs(new_velocity) > abs(max_velocity):
+            raise ValueError(
+                f"Velocity ({new_velocity}) exceeds max. velocity: {max_velocity}"
+            )
+        if min_velocity != float("inf") and abs(new_velocity) < abs(min_velocity):
+            raise ValueError(
+                f"Velocity ({new_velocity}) is below min. velocity: {min_velocity}"
+            )
+
     @property
     @lazy_init
     def velocity(self):
@@ -1249,6 +1283,7 @@ class Axis(Scannable):
         new_velocity = float(
             new_velocity
         )  # accepts both float or numpy array of 1 element
+        self._check_velocity_limits(new_velocity)
         self.__controller.set_velocity(self, new_velocity * abs(self.steps_per_unit))
         _user_vel = self.__controller.read_velocity(self) / abs(self.steps_per_unit)
         self.settings.set("velocity", _user_vel)
@@ -1264,6 +1299,59 @@ class Axis(Scannable):
             float: config velocity (user units/second)
         """
         return self.__config_velocity
+
+    @property
+    @lazy_init
+    def config_velocity_limits(self):
+        """
+        Return the config velocity limits.
+
+        Return:
+            (low_limit, high_limit): config velocity (user units/second)
+        """
+        return self.__config_velocity_low_limit, self.__config_velocity_high_limit
+
+    @property
+    def velocity_limits(self):
+        return self.velocity_low_limit, self.velocity_high_limit
+
+    @velocity_limits.setter
+    def velocity_limits(self, limits):
+        try:
+            if len(limits) != 2:
+                raise TypeError
+        except TypeError:
+            raise ValueError("Usage: .velocity_limits = low, high")
+        ll = float_or_inf(limits[0], inf_sign=1)
+        hl = float_or_inf(limits[1], inf_sign=1)
+        self.settings.set("velocity_low_limit", ll)
+        self.settings.set("velocity_high_limit", hl)
+
+    @property
+    @lazy_init
+    def velocity_high_limit(self):
+        """
+        Return the limit max of velocity
+        """
+        return float_or_inf(self.settings.get("velocity_high_limit"))
+
+    @velocity_high_limit.setter
+    @lazy_init
+    def velocity_high_limit(self, value):
+        self.settings.set("velocity_high_limit", float_or_inf(value))
+
+    @property
+    @lazy_init
+    def velocity_low_limit(self):
+        """
+        Return the limit max of velocity
+        """
+        return float_or_inf(self.settings.get("velocity_low_limit"))
+
+    @velocity_low_limit.setter
+    @lazy_init
+    def velocity_low_limit(self, value):
+        self.settings.set("velocity_low_limit", float_or_inf(value))
 
     def _set_jog_motion(self, motion, velocity):
         """Set jog velocity to controller
@@ -1451,12 +1539,8 @@ class Axis(Scannable):
 
     @property
     def dial_limits(self):
-        ll = self.settings.get("low_limit")
-        if ll is None:
-            ll = float("-inf")
-        hl = self.settings.get("high_limit")
-        if hl is None:
-            hl = float("+inf")
+        ll = float_or_inf(self.settings.get("low_limit"), inf_sign=-1)
+        hl = float_or_inf(self.settings.get("high_limit"), inf_sign=1)
         return ll, hl
 
     @dial_limits.setter
@@ -1469,9 +1553,9 @@ class Axis(Scannable):
             if len(limits) != 2:
                 raise TypeError
         except TypeError:
-            raise ValueError("Usage: .dial_limits(low, high)")
-        ll = float(limits[0]) if limits[0] is not None else float("-inf")
-        hl = float(limits[1]) if limits[1] is not None else float("+inf")
+            raise ValueError("Usage: .dial_limits = low, high")
+        ll = float_or_inf(limits[0], inf_sign=-1)
+        hl = float_or_inf(limits[1], inf_sign=1)
         self.settings.set("low_limit", ll)
         self.settings.set("high_limit", hl)
 
@@ -1835,6 +1919,8 @@ class Axis(Scannable):
         else:
             velocity = self.jog_velocity
 
+        self._check_velocity_limits(velocity)
+
         with self._lock:
             if self.is_moving:
                 raise RuntimeError("axis %s state is %r" % (self.name, "MOVING"))
@@ -2053,7 +2139,10 @@ class Axis(Scannable):
         Settings to save can be specified.
         """
         if velocity:
+            ll, hl = self.velocity_limits
             self.__config.set("velocity", self.velocity)
+            self.__config.set("velocity_low_limit", ll)
+            self.__config.set("velocity_high_limit", hl)
         if acceleration:
             self.__config.set("acceleration", self.acceleration)
         if limits:
@@ -2100,6 +2189,8 @@ class Axis(Scannable):
 
         if velocity:
             self.settings.clear("velocity")
+            self.settings.clear("velocity_low_limit")
+            self.settings.clear("velocity_high_limit")
         if acceleration:
             self.settings.clear("acceleration")
         if limits:

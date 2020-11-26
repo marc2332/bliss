@@ -60,6 +60,8 @@ class ControllerAxisSettings:
         self.add("low_limit", floatOrNone)
         self.add("high_limit", floatOrNone)
         self.add("velocity", float, config=True, hardware=True)
+        self.add("velocity_high_limit", floatOrNone)
+        self.add("velocity_low_limit", floatOrNone)
         self.add("jog_velocity", float, hardware=True)
         self.add("acceleration", float, config=True, hardware=True)
         self.add("dial_position", float, hardware=True)
@@ -246,6 +248,11 @@ class AxisSettings:
 
         self.set("low_limit", low_limit_dial)
         self.set("high_limit", high_limit_dial)
+
+        vel_low_limit = self._get_setting_or_config_value("velocity_low_limit")
+        vel_high_limit = self._get_setting_or_config_value("velocity_high_limit")
+        self.set("velocity_low_limit", vel_low_limit)
+        self.set("velocity_high_limit", vel_high_limit)
 
         for setting_name in config_settings:
             value = self._get_setting_or_config_value(setting_name)

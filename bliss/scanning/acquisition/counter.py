@@ -25,6 +25,7 @@ class BaseCounterAcquisitionSlave(AcquisitionSlave):
         *counters,
         count_time=None,
         npoints=1,
+        trigger_type=AcquisitionSlave.SOFTWARE,
         prepare_once=False,
         start_once=False,
         ctrl_params=None,
@@ -40,7 +41,7 @@ class BaseCounterAcquisitionSlave(AcquisitionSlave):
         super().__init__(
             *counters,
             npoints=npoints,
-            trigger_type=AcquisitionSlave.SOFTWARE,
+            trigger_type=trigger_type,
             prepare_once=prepare_once,
             start_once=start_once,
             ctrl_params=ctrl_params,

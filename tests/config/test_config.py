@@ -60,6 +60,37 @@ def test_config_save(beacon, beacon_directory, file_name, node_name, copy):
             f.write(test_file_contents)
 
 
+@pytest.mark.parametrize("file_name, node_name", [["read_write.yml", "rw_test"]])
+def test_config_save_delete_item(beacon, beacon_directory, file_name, node_name):
+    test_file_path = os.path.join(beacon_directory, file_name)
+    rw_cfg = beacon.get_config(node_name)
+    test_file_contents = client.get_text_file(file_name)
+
+    assert list(rw_cfg["three"]) == ["a", "b", "c"]
+    rw_cfg["three"].pop(1)
+
+    try:
+        rw_cfg.save()
+        beacon.reload()
+        # with open(test_file_path) as f:
+        #    content = f.read()
+
+        rw_cfg2 = beacon.get_config(node_name)
+
+        assert list(rw_cfg2["three"]) == ["a", "c"]
+
+        rw_cfg2["three"].append("d")
+        rw_cfg2["three"].insert(0, "e")
+        rw_cfg2.save()
+        beacon.reload()
+        rw_cfg3 = beacon.get_config(node_name)
+        assert list(rw_cfg3["three"]) == ["e", "a", "c", "d"]
+
+    finally:
+        with open(test_file_path, "w") as f:
+            f.write(test_file_contents)
+
+
 def test_yml_load_exception(beacon, beacon_directory):
     new_file = "%s/bad.yml" % beacon_directory
 

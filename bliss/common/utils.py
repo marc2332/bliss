@@ -648,18 +648,24 @@ def prudent_update(d, u):
                     else:
                         d[k] = v
             elif is_mutsequence(d):
-                for num, (el1, el2) in enumerate(zip_longest(d, u, fillvalue=MISSING)):
-                    if el2 == MISSING:
-                        # Nothing to do
-                        pass
-                    else:
-                        # missing el1 is managed by prudent_update
-                        # when el1==MISSING el2!=MISSING -> el2 returned
-                        value = prudent_update(el1, el2)
-                        try:
-                            d[num] = value
-                        except IndexError:
-                            d.append(value)
+                if len(u) < len(d):
+                    # issue 2348: if updated element is smaller than existing one, updated replaces existing
+                    d = u
+                else:
+                    for num, (el1, el2) in enumerate(
+                        zip_longest(d, u, fillvalue=MISSING)
+                    ):
+                        if el2 == MISSING:
+                            # Nothing to do
+                            pass
+                        else:
+                            # missing el1 is managed by prudent_update
+                            # when el1==MISSING el2!=MISSING -> el2 returned
+                            value = prudent_update(el1, el2)
+                            try:
+                                d[num] = value
+                            except IndexError:
+                                d.append(value)
             else:
                 raise NotImplementedError
             return d

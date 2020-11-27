@@ -36,10 +36,14 @@ cli_saveoptions["stackmca"] = {
 
 
 def default_saveoptions():
-    return {
-        options["dest"]: options["action"] == "store_false"
-        for options in cli_saveoptions.values()
-    }
+    saveoptions = {}
+    for name, options in cli_saveoptions.items():
+        if "default" in options:
+            v = options["default"]
+        else:
+            v = options["action"] == "store_false"
+        saveoptions[options["dest"]] = v
+    return saveoptions
 
 
 class NexusScanWriterConfigurable(scan_writer_base.NexusScanWriterBase):

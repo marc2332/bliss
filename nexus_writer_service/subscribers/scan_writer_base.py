@@ -37,6 +37,16 @@ from .nxdata_proxy import NXdataProxy
 logger = logging.getLogger(__name__)
 
 
+resource_profiling_choices = base_subscriber.BaseSubscriber.PROFILE_PARAMETERS
+
+
+def resource_profiling_from_string(s):
+    try:
+        return resource_profiling_choices[s.upper()]
+    except KeyError:
+        raise ValueError()
+
+
 cli_saveoptions = {
     "keepshape": {
         "dest": "flat",
@@ -65,17 +75,23 @@ cli_saveoptions = {
     },
     "resource_profiling": {
         "dest": "resource_profiling",
-        "action": "store_true",
+        "default": resource_profiling_choices.OFF,
+        "type": resource_profiling_from_string,
+        "choices": list(resource_profiling_choices),
         "help": "Enable resource profiling",
     },
 }
 
 
 def default_saveoptions():
-    return {
-        options["dest"]: options["action"] == "store_false"
-        for options in cli_saveoptions.values()
-    }
+    saveoptions = {}
+    for name, options in cli_saveoptions.items():
+        if "default" in options:
+            v = options["default"]
+        else:
+            v = options["action"] == "store_false"
+        saveoptions[options["dest"]] = v
+    return saveoptions
 
 
 def timediff(tend, tstart):
@@ -88,7 +104,7 @@ def timediff(tend, tstart):
         return "NaN"
 
 
-class Subscan(object):
+class Subscan:
     def __init__(self, subscriber, node, parentlogger=None):
         """
         :param BaseSubscriber subscriber:
@@ -169,7 +185,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         self,
         db_name,
         node_type=None,
-        resource_profiling=False,
+        resource_profiling=None,
         parentlogger=None,
         **saveoptions,
     ):
@@ -177,7 +193,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         :param str db_name:
         :param str node_type:
         :param Logger parentlogger:
-        :param bool resource_profiling:
+        :param PROFILE_PARAMETERS resource_profiling:
         :param saveoptions:
         """
         if parentlogger is None:

@@ -90,7 +90,7 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
         configurable=True,
         purge_delay=300,
         parentlogger=None,
-        resource_profiling=False,
+        resource_profiling=None,
         **saveoptions,
     ):
         """
@@ -98,7 +98,8 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
         :param bool configurable: generic or configurable writer
         :param int purge_delay: purge finished scans after x seconds
         :param Logger parentlogger:
-        :param saveoptions:
+        :param PROFILE_PARAMETERS resource_profiling:
+        :param **saveoptions:
         """
         self.configurable = configurable
         self.writers = {}
@@ -130,6 +131,8 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
 
     @resource_profiling.setter
     def resource_profiling(self, value):
+        if value is None:
+            value = self.PROFILE_PARAMETERS.OFF
         self.writer_saveoptions["resource_profiling"] = value
 
     @property
@@ -303,8 +306,15 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
         else:
             msg = "{} scan writers ({} active)".format(n, nactive)
         self.logger.info(msg)
-        if self.resource_profiling:
+        if self.resource_profiling != self.PROFILE_PARAMETERS.OFF:
             self.log_resources()
+
+    def _get_profile_arguments(self):
+        """
+        :returns dict or None:
+        """
+        # No time or CPU profiling for the session
+        return None
 
     @property
     def resources(self):

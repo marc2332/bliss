@@ -35,6 +35,15 @@ controller:
 - class: mockup
   axes:
   - class: MockupAxis
+    name: robu
+    backlash: 2
+    steps_per_unit: 10000
+    velocity: 2500.0
+    acceleration: 1000.0
+    low_limit: -.inf
+    high_limit: .inf
+    default_cust_attr: 6.28
+  - class: MockupAxis
     name: roby
     backlash: 2
     steps_per_unit: 10000
@@ -229,6 +238,14 @@ controller:
   - name: $nsa
     tags: real real_mot
   - name: calc_mot3
+    tags: calc_mot
+    s_param: 2
+- class: calc_motor_mockup
+  module: mockup
+  axes:
+  - name: $robu
+    tags: real real_mot
+  - name: calc_mot4
     tags: calc_mot
     s_param: 2
 - class: mockup

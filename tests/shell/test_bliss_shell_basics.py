@@ -529,5 +529,5 @@ def test_getattribute_evaluation():
 
     a = A()
 
-    with gevent.timeout.Timeout(1):
+    with gevent.timeout.Timeout(3):
         result, cli, _ = _feed_cli_with_input("a.foo()\r", local_globals={"a": a})

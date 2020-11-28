@@ -25,6 +25,7 @@ def test_bad_start(bad_motor):
     assert bad_motor.position == 0
 
 
+@pytest.mark.flaky(reruns=3, reason="issue2353")
 def test_bad_start_group(bad_motor, robz):
     grp = Group(bad_motor, robz)
     bad_motor.controller.bad_start = True

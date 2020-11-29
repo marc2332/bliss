@@ -229,7 +229,7 @@ def test_sequence_invalid_group(session):
         g = Group(s1, 158453)
 
 
-def test_sequence_ttl(session):
+def test_sequence_ttl(session, enable_ttl):
     diode = session.config.get("diode")
     s1 = scans.loopscan(3, .1, diode)
     s1_ttl1 = s1.node.connection.ttl(s1.node.db_name)

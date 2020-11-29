@@ -64,7 +64,7 @@ def test_parent_node(session):
     assert isinstance(parent_node, DataNodeContainer)
 
 
-def test_scan_node(session, redis_data_conn):
+def test_scan_node(session, redis_data_conn, enable_ttl):
     scan_saving = session.scan_saving
     parent = scan_saving.get_parent_node()
     m = getattr(setup_globals, "roby")
@@ -120,7 +120,7 @@ def test_scan_node(session, redis_data_conn):
     assert sessions_list()[0].name == "test_session"
 
 
-def test_interrupted_scan(session, redis_data_conn):
+def test_interrupted_scan(session, redis_data_conn, enable_ttl):
     """
     Start a scan and simulate a ctrl-c.
     """
@@ -412,22 +412,22 @@ def test_corrupt_lima_data_channel_node(lima_session, redis_data_conn):
     assert len(images) == 0
 
 
-def test_ttl_on_data_node(beacon, redis_data_conn):
+def test_ttl_on_data_node(beacon, redis_data_conn, enable_ttl):
     redis_data_conn.delete("testing")
     node = DataNode("test", "testing", create=True)
     node.set_ttl()
-    assert redis_data_conn.ttl("testing") == DataNode.default_time_to_live
+    assert redis_data_conn.ttl("testing") == enable_ttl
     del node
-    assert redis_data_conn.ttl("testing") == DataNode.default_time_to_live
+    assert redis_data_conn.ttl("testing") == enable_ttl
 
     redis_data_conn.delete("testing")
     node = DataNode("test", "testing", create=True)
     assert redis_data_conn.ttl("testing") == -1
     del node
-    assert redis_data_conn.ttl("testing") == DataNode.default_time_to_live
+    assert redis_data_conn.ttl("testing") == enable_ttl
 
 
-def test_ttl_setter(session, capsys):
+def test_ttl_setter(session, capsys, enable_ttl):
     heater = getattr(setup_globals, "heater")
     diode = getattr(setup_globals, "diode")
     roby = getattr(setup_globals, "roby")

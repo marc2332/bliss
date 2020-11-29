@@ -1203,8 +1203,8 @@ class Scan:
         db_names |= set(self.node.get_db_names())
         self.node.apply_ttl(db_names)
         for node in nodes:
-            node.ttl_is_set()
-        self.node.ttl_is_set()
+            node.detach_ttl_setter()
+        self.node.detach_ttl_setter()
 
     def _device_event(self, event_dict=None, signal=None, sender=None):
         with time_profile(self._stats_dict, "scan.events.device", logger=logger):

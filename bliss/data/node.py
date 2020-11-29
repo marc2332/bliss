@@ -99,6 +99,7 @@ import pkgutil
 import os
 import weakref
 import warnings
+from numbers import Number
 from bliss.common.event import dispatcher
 from bliss.common.utils import grouped
 from bliss.common.greenlet_utils import protect_from_kill, AllowKill
@@ -332,15 +333,32 @@ def _create_node(*args, **kwargs):
 
 
 def set_ttl(db_name):
-    """Create a new DataNode in order to call its set_ttl
+    """Set the time-to-live upon garbage collection of DataNode
+    which was instantiated with `create==True` (also affects the parents).
     """
+    if DataNode._TIMETOLIVE is None:
+        return
     # Do not create a Redis connection pool during garbage collection
     connection = client.get_existing_redis_connection(db=1, timeout=10)
     if connection is None:
         return
+    # New instance needs to be created because we are in garbage collection
+    # of the original instance
     node = get_node(db_name, state="exists", connection=connection)
     if node is not None:
         node.set_ttl()
+
+
+def enable_ttl(ttl: Number = 24 * 3600):
+    """Enable `set_ttl`
+    """
+    DataNode._TIMETOLIVE = ttl
+
+
+def disable_ttl():
+    """Disable `set_ttl`
+    """
+    DataNode._TIMETOLIVE = None
 
 
 class DataNodeMetaClass(type):
@@ -363,7 +381,7 @@ class DataNode(metaclass=DataNodeMetaClass):
     a `DataNode` depending on its state.
     """
 
-    default_time_to_live = 24 * 3600  # 1 day
+    _TIMETOLIVE = 24 * 3600  # 1 day
     VERSION = (1, 0)  # change major version for incompatible API changes
 
     @staticmethod
@@ -619,11 +637,12 @@ class DataNode(metaclass=DataNodeMetaClass):
     def set_ttl(self):
         """Set the time-to-live for all Redis objects associated to this node
         """
-        self.apply_ttl(set(self.get_db_names()))
-        self.ttl_is_set()
+        if self._TIMETOLIVE is not None:
+            self.apply_ttl(set(self.get_db_names()))
+        self.detach_ttl_setter()
 
-    def ttl_is_set(self):
-        """This DataNode's ttl has been set
+    def detach_ttl_setter(self):
+        """Make sure ttl is not set upon garbage collection.
         """
         if self._ttl_setter is not None:
             self._ttl_setter.detach()
@@ -633,10 +652,12 @@ class DataNode(metaclass=DataNodeMetaClass):
 
         :param list(str) db_names:
         """
+        if self._TIMETOLIVE is None:
+            return
         p = self.connection.pipeline()
         try:
             for name in db_names:
-                p.expire(name, self.default_time_to_live)
+                p.expire(name, self._TIMETOLIVE)
         finally:
             p.execute()
 

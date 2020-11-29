@@ -46,6 +46,8 @@ from bliss.common.utils import grouped
 from bliss.tango.clients.utils import wait_tango_device, wait_tango_db
 from bliss import logging_startup
 from bliss.scanning import scan_meta
+from bliss.data.node import enable_ttl as _enable_ttl
+from bliss.data.node import disable_ttl as _disable_ttl
 import socket
 
 BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -313,7 +315,22 @@ def wait_ports(ports, timeout=10):
 
 
 @pytest.fixture
-def beacon(ports):
+def disable_ttl():
+    _disable_ttl()
+
+
+@pytest.fixture
+def enable_ttl(disable_ttl):
+    # We use `disable_ttl` to make sure enable has priority over disable,
+    # regardless of the fixture order
+    ttl = 24 * 3600
+    _enable_ttl(ttl)
+    yield ttl
+    _disable_ttl()
+
+
+@pytest.fixture
+def beacon(ports, disable_ttl):
     redis_db = redis.Redis(port=ports.redis_port)
     redis_db.flushall()
     redis_data_db = redis.Redis(port=ports.redis_data_port)

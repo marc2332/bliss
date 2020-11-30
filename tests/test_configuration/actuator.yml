@@ -2,6 +2,15 @@
   plugin: bliss
   class: actuator
   controller: $_simulation_actuator_controller
+  actuator_state_in: set_in
+  actuator_state_out: set_out
+  actuator_cmd: set_in
+  
+
+- name: actuator_cmd
+  plugin: bliss
+  class: actuator
+  controller: $_simulation_actuator_controller
   actuator_cmd: set_in
   
 

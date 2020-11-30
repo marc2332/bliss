@@ -11,6 +11,7 @@ from unittest import mock
 from bliss.common import scans
 from bliss.common import encoder as encoder_mod
 from bliss.common.encoder import encoder_noise_round
+from bliss.controllers.motors.mockup import Mockup
 
 
 def test_get_encoder(m0, m1enc, m1):
@@ -68,6 +69,27 @@ def test_encoder_counter(default_session, m1, m1enc):
     m1enc.counter.conversion_function = lambda x: x * 2
     ct = scans.ct(0.1, m1enc)
     assert ct.get_data()["m1enc"] == m1enc.read() * 2
+
+
+def test_encoder_controller_multiple(default_session, m1, m1enc, m2, m2enc):
+    assert m1enc.controller is m2enc.controller
+    ## configure to read only once, to check how many times read_all is called
+    m1enc.counter.mode = "SINGLE"
+    m2enc.counter.mode = "SINGLE"
+    ##
+
+    with mock.patch.object(
+        m1enc.controller,
+        "read_encoder_multiple",
+        wraps=m1enc.controller.read_encoder_multiple,
+    ) as read_encoder_multiple:
+        s = scans.loopscan(1, 0.1, m1enc, m2enc, save=False)
+
+        read_encoder_multiple.assert_called_once_with(m1enc, m2enc)
+
+    data = s.get_data()
+    assert data["m1enc"] == m1enc.read()
+    assert data["m2enc"] == m2enc.read()
 
 
 def test_maxee_mode_read_encoder(mot_maxee):

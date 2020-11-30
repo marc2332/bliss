@@ -513,17 +513,14 @@ class UserLogger(PrintLogger, GreenletDisableLogger):
     def __init__(self, _args, **kw):
         super().__init__(_args, **kw)
         self.propagate = False
-        self._null_handler = logging.NullHandler()
-        self._print_handler = PrintHandler()
-        self.disable()
+        self.disabled = True
+        self.addHandler(PrintHandler())
 
     def enable(self):
-        self.addHandler(self._print_handler)
-        self.removeHandler(self._null_handler)
+        self.disabled = False
 
     def disable(self):
-        self.removeHandler(self._print_handler)
-        self.addHandler(self._null_handler)
+        self.disabled = True
 
 
 class Elogbook(PrintLogger, ElogLogger):
@@ -539,18 +536,16 @@ class Elogbook(PrintLogger, ElogLogger):
     def __init__(self, _args, **kw):
         super().__init__(_args, **kw)
         self.propagate = False
-        self._null_handler = logging.NullHandler()
-        self._elog_handler = ElogHandler()
-        self._elog_handler.addFilter(elogbook_filter)
-        self.disable()
+        self.disabled = True
+        handler = ElogHandler()
+        handler.addFilter(elogbook_filter)
+        self.addHandler(handler)
 
     def enable(self):
-        self.addHandler(self._elog_handler)
-        self.removeHandler(self._null_handler)
+        self.disabled = False
 
     def disable(self):
-        self.removeHandler(self._elog_handler)
-        self.addHandler(self._null_handler)
+        self.disabled = True
 
     def print(self, *args, **kw):
         self._set_msg_type(kw, "comment")

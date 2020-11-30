@@ -24,7 +24,7 @@ from bliss.controllers.motors.icepap.comm import _command, _ackcommand, _vdata_h
 from bliss.controllers.motors.icepap.linked import LinkedAxis
 
 # next imports are needed by the emotion plugin
-from bliss.common.encoder import Encoder
+from bliss.common.encoder import Encoder as BaseEncoder
 from bliss.controllers.motors.icepap.shutter import Shutter
 from bliss.controllers.motors.icepap.switch import Switch
 
@@ -41,6 +41,22 @@ def _object_method_filter(obj):
     if isinstance(obj, (LinkedAxis, TrajectoryAxis)):
         return False
     return True
+
+
+class Encoder(BaseEncoder):
+    @property
+    def address(self):
+        # address form is XY : X=rack {0..?} Y=driver {1..8}
+        return self.config.get("address", int)
+
+    @property
+    def enctype(self):
+        # Get optional encoder input to read
+        enctype = self.config.get("type", str, "ENCIN").upper()
+        # Minium check on encoder input
+        if enctype not in ["ENCIN", "ABSENC", "INPOS", "MOTOR", "AXIS", "SYNC"]:
+            raise ValueError("Invalid encoder type")
+        return enctype
 
 
 class Icepap(Controller):
@@ -500,20 +516,26 @@ class Icepap(Controller):
         return limit_step / axis.steps_per_unit
 
     def initialize_encoder(self, encoder):
-        # Get axis config from bliss config
-        # address form is XY : X=rack {0..?} Y=driver {1..8}
-        encoder.address = encoder.config.get("address", int)
-
-        # Get optional encoder input to read
-        enctype = encoder.config.get("type", str, "ENCIN").upper()
-        # Minium check on encoder input
-        if enctype not in ["ENCIN", "ABSENC", "INPOS", "MOTOR", "AXIS", "SYNC"]:
-            raise ValueError("Invalid encoder type")
-        encoder.enctype = enctype
+        pass
 
     def read_encoder(self, encoder):
         value = _command(self._cnx, "?ENC %s %d" % (encoder.enctype, encoder.address))
         return int(value)
+
+    def read_encoder_multiple(self, *encoder):
+        enc_types = set(enc.enctype for enc in encoder)
+        if len(enc_types) > 1:
+            # cannot read multiple encoders with different types,
+            # so fallback to 'slow' solution with multiple reads
+            # 'NotImplementedError' will make the controller use
+            # the 'read_encoder' above
+            raise NotImplementedError
+        enc_type = enc_types.pop()
+        values = _command(
+            self._cnx,
+            f"?ENC {enc_type} {' '.join(f'{enc.address}' for enc in encoder)}",
+        )
+        return list(map(int, values.split(" ")))
 
     def read_encoder_all_types(self, axis):
         """Return a named-tuple of all ENC value

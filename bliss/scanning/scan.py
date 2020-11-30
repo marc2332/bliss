@@ -40,7 +40,6 @@ from bliss.scanning.chain import AcquisitionSlave, AcquisitionMaster, StopChain
 from bliss.scanning.writer.null import Writer as NullWriter
 from bliss.scanning import scan_math
 from bliss.common.logtools import disable_user_output
-from bliss.common.logtools import enable_user_output
 from louie import saferef
 from bliss.common.plot import get_plot
 from bliss import __version__ as publisher_version
@@ -185,8 +184,9 @@ class StepScanDataWatch(DataWatchCallback):
                 name = channel.name
                 if name not in self._missing:
                     self._missing.add(name)
-                    with enable_user_output():
-                        logtools.user_warning(f"data watcher failed for '{name}' ({e})")
+                    logtools.log_warning(
+                        self, f"data watcher failed for '{name}' ({e})"
+                    )
                 data = numpy.nan
             data = numpy.atleast_1d(data)
             if data.size:

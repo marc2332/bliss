@@ -1,6 +1,7 @@
 import pytest
 from bliss.shell.standard import wm
 from bliss import global_map
+from bliss.common.scans import loopscan
 
 alias_dump = """Alias    Original fullname
 -------  ----------------------------------
@@ -193,3 +194,26 @@ def test_alias_wm(alias_session, capsys):
     output = capsys.readouterr()[0]
     assert "robyy" in output
     assert "inf" in output
+
+
+def test_encoder_alias(default_session):
+    m1 = default_session.config.get("m1")
+    m1enc = default_session.config.get("m1enc")
+    mot_maxee = default_session.config.get("mot_maxee")
+    mot_maxee_enc = default_session.config.get("mot_maxee_enc")
+
+    ALIASES = default_session.env_dict["ALIASES"]
+
+    s1 = loopscan(1, .01, mot_maxee_enc)
+    assert "encoder:mot_maxee_enc" in list(s1.get_data())
+
+    s2 = loopscan(1, .01, m1enc)
+    assert "encoder:m1enc" in list(s2.get_data())
+
+    ALIASES.add("mynewalias", m1enc.counter)
+
+    s3 = loopscan(1, .01, m1enc)
+    assert "encoder:mynewalias" in list(s3.get_data())
+
+    s4 = loopscan(1, .01, mot_maxee_enc)
+    assert "encoder:mot_maxee_enc" in list(s4.get_data())

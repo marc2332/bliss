@@ -206,7 +206,7 @@ nav:
                 - Shell signature hint: dev_shell_signature.md
                 - Tips'n'tricks: dev_tipsntricks.md
                 - Dealing with energy: dev_energy.md
-                - Xia handle: config_mca_handel.md
+                - Xia handel: config_mca_handel.md
                 - Speedgoat: config_speedgoat.md
                 - timedisplay: timedisplay.md
                 - Dataset handling: dev_data_set.md

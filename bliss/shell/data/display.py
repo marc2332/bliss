@@ -17,6 +17,7 @@ import atexit
 import contextlib
 import gevent
 import typing
+import gevent.event
 
 from bliss.data.scan import watch_session_scans
 from bliss.common.utils import nonblocking_print
@@ -706,17 +707,27 @@ class ScanDataListener(_ScanPrinterBase):
 
         msg = f" Watching scans from Bliss session: '{self.session_name}' "
         line = get_decorated_line(msg, deco=">", rdeco="<", head="\n", tail="\n")
-        print(line)
 
-        # Start the watch, winter is coming...
-        watch_session_scans(
-            self.session_name,
-            self.on_scan_new,
-            self.on_scan_new_child,
-            self.on_scan_data,
-            self.on_scan_end,
-            exclude_existing_scans=False,
-        )
+        ready_event = gevent.event.Event()
+
+        def print_ready():
+            ready_event.wait()
+            print(line)
+
+        g = gevent.spawn(print_ready)
+
+        try:
+            watch_session_scans(
+                self.session_name,
+                self.on_scan_new,
+                self.on_scan_new_child,
+                self.on_scan_data,
+                self.on_scan_end,
+                exclude_existing_scans=True,
+                ready_event=ready_event,
+            )
+        finally:
+            g.kill()
 
 
 @contextlib.contextmanager

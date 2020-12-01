@@ -47,6 +47,7 @@ There are 2 versions of ProSpect:
     * Start anaconda shell
     * `conda create -n bliss python=3.7 git pip`
 * activate bliss environment: `conda activate bliss`
+* install git support for python: `conda install gitpython`
 * add channels:
 ```
 conda config --env --add channels esrf-bcu
@@ -101,7 +102,7 @@ have on-the-edge version:
     * *Handel* library for Mercury/Xmap devices
         * version 1.2.22 64 bits
     * *Handel* library for Falconx
-        * version 1.1.20 64 bits
+        * version 1.1.21 64 bits
 
 The packages are copied in `C:\blissadm\xia_software\` directory
 
@@ -118,11 +119,11 @@ The packages are copied in `C:\blissadm\xia_software\` directory
 
 !!! note "For the FalconX"
     * Connection to the falconX can be tested with a browser using address `http://192.168.200.201`
-    * Check firware version (must be 0.9.3)
+    * Check firware version (must be 20.1.0)
 
 * Install Handel libraries and make them accessible:
     * Xmap/mercury: extract `handel-all-1.2.22-x64.zip` file (right clic on it, 7-zip / extract here...)
-    * Falconx: idem with `handel-sitoro-fxn-1.1.20-x64.zip`
+    * Falconx: idem with `handel-sitoro-fxn-1.1.21-x64.zip`
     * move it in the `blissadm` directory: `C:\blissadm\handel-all-1.2.22-x64`
 
 * Create a batch script to start `bliss-handel-server`:
@@ -145,7 +146,7 @@ bliss-handel-server.exe
 miniconda example script for FalconX:
 ```
 set root=c:\programdata\miniconda3
-set path=%path%;C:\blissadm\handel-sitoro-fxn-1.1.20-x64\lib
+set path=%path%;C:\blissadm\handel-sitoro-fxn-1.1.21-x64\lib
 call %root%\scripts\activate.bat bliss
 bliss-handel-server.exe
 ```

@@ -69,6 +69,10 @@ class TangoShutter(BaseShutter):
         self._frontend = "FrontEnd" in self.__control.info().dev_class
 
     @property
+    def proxy(self):
+        return self.__control
+
+    @property
     def frontend(self):
         """ Check if the device is a front end type
         Returns:
@@ -148,13 +152,14 @@ class TangoShutter(BaseShutter):
 
         if state.name in ("OPEN", "RUNNING"):
             log_warning(self, f"{self.name} already open, command ignored")
+        elif state == TangoShutterState.DISABLE:
+            log_warning(self, f"{self.name} disabled, command ignored")
         elif state == TangoShutterState.CLOSED:
             try:
                 self.__control.open()
                 self._wait(TangoShutterState.OPEN, timeout)
                 user_print(f"{self.name} was {state.name} and is now {self.state.name}")
             except RuntimeError as err:
-                print(err)
                 raise
         else:
             raise RuntimeError(
@@ -171,13 +176,14 @@ class TangoShutter(BaseShutter):
         state = self.state
         if state == TangoShutterState.CLOSED:
             log_warning(self, f"{self.name} already closed, command ignored")
+        elif state == TangoShutterState.DISABLE:
+            log_warning(self, f"{self.name} disabled, command ignored")
         elif state.name in ("OPEN", "RUNNING"):
             try:
                 self.__control.close()
                 self._wait(TangoShutterState.CLOSED, timeout)
                 user_print(f"{self.name} was {state.name} and is now {self.state.name}")
             except RuntimeError as err:
-                print(err)
                 raise
         else:
             raise RuntimeError(

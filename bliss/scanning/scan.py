@@ -43,6 +43,7 @@ from bliss.common.logtools import disable_user_output
 from louie import saferef
 from bliss.common.plot import get_plot
 from bliss import __version__ as publisher_version
+from bliss.common import logtools
 
 
 logger = logging.getLogger("bliss.scans")
@@ -95,7 +96,7 @@ class DataWatchCallback:
         **on_scan_data** will be only called when new data are
         emitted.
 
-        state -- either ScanState.PREPARING or ScanState.STOPPING.
+        :param ScanState state: either ScanState.PREPARING or ScanState.STOPPING.
 
         i.e: return state == ScanState.PREPARING will inform that
         **on_scan_data** will be called during **PREPARING** scan
@@ -105,88 +106,114 @@ class DataWatchCallback:
         return False
 
     def on_scan_new(self, scan, scan_info):
-        """
-        This callback is called when the scan is about to starts
+        """This callback is called when the scan is about to starts
         
-        scan -- is the scan object
-        scan_info -- is the dict of information about this scan
+        :param Scan scan: is the scan object
+        :param dict scan_info: is the dict of information about this scan
         """
         pass
 
     def on_scan_data(self, data_events, nodes, scan_info):
-        """
-        This callback is called when new data is emitted.
+        """This callback is called when new data is emitted.
 
-        data_events --  a dict with Acq(Device/Master) as key and a set of signal as values
-        nodes -- a dict with Acq(Device/Master) as key and the associated data node as value
-        scan_info -- dictionnary which contains the current scan state
+        :param dict data_events: a dict with Acq(Device/Master) as key and a set of signal as values
+        :param dict nodes: a dict with Acq(Device/Master) as key and the associated data node as value
+        :param dict scan_info: dictionnary which contains the current scan state
         """
         raise NotImplementedError
 
     def on_scan_end(self, scan_info):
-        """
-        Called at the end of the scan.
+        """Called at the end of the scan.
+        
+        :param dict scan_info: dictionnary which contains the current scan state
         """
         pass
 
 
-def is_zerod(node):
-    return node.type == "channel" and len(node.shape) == 0
-
-
 class StepScanDataWatch(DataWatchCallback):
-    """
-    This class is an helper to follow data generation by a step scan like:
-    an acquisition chain with motor(s) as the top-master.
-    This produce event compatible with the ScanListener class (bliss.shell)
+    """Follow 0D data generation for a step scan. Data is buffered and
+    yielded to the callback point-per-point (i.e. channels are synchronized).
     """
 
     def __init__(self):
-        self._last_point_display = 0
-        self._channel_name_2_channel = dict()
-        self._init_done = False
+        self._buffers = dict()
+        self._missing = set()
+
+    def _init_buffers(self, nodes):
+        """
+        :param dict nodes:
+        """
+        if self._buffers or not nodes:
+            return
+        for name, node in nodes.items():
+            if node.type != "channel" or node.shape:
+                continue  # Does not generate 0D data
+            info = {"node": node, "queue": collections.deque(), "from_index": 0}
+            self._buffers[node.fullname] = info
 
     def on_scan_new(self, scan, scan_info):
-
         cb = _SCAN_WATCH_CALLBACKS["new"]()
         if cb is not None:
             cb(scan, scan_info)
+
+    def _get_info(self, channel):
+        """
+        :param AcquisitionChannel or AcquisitionObject channel:
+        :return None or dict:
+        """
+        try:
+            fullname = channel.fullname
+        except AttributeError:
+            return None  # AcquisitionObject
+        return self._buffers.get(fullname, None)
+
+    def _fetch_data(self, data_events):
+        """
+        :param dict data_events:
+        """
+        for channel in data_events:
+            info = self._get_info(channel)
+            if info is None:
+                continue
+            node = info["node"]
+            try:
+                data = node.get(info["from_index"], -1)
+            except Exception as e:
+                # Most likely the data has already disappeared from Redis.
+                # Only show this message once per channel.
+                name = channel.name
+                if name not in self._missing:
+                    self._missing.add(name)
+                    logtools.log_warning(
+                        self, f"data watcher failed for '{name}' ({e})"
+                    )
+                data = numpy.nan
+            data = numpy.atleast_1d(data)
+            if data.size:
+                info["queue"].extend(data)
+                info["from_index"] += data.size
+
+    def _pop_data(self):
+        """
+        :yields dict: fullname:num
+        """
+        npop = min(len(info["queue"]) for info in self._buffers.values())
+        for _ in range(npop):
+            yield {
+                fullname: info["queue"].popleft()
+                for fullname, info in self._buffers.items()
+            }
 
     def on_scan_data(self, data_events, nodes, scan_info):
         cb = _SCAN_WATCH_CALLBACKS["data"]()
         if cb is None:
             return
-
-        if not self._init_done:
-            for acq_device_or_channel, data_node in nodes.items():
-                if is_zerod(data_node):
-                    channel = data_node
-                    self._channel_name_2_channel[channel.fullname] = channel
-            self._init_done = True
-
-        min_nb_points = None
-        for channels_name, channel in self._channel_name_2_channel.items():
-            nb_points = len(channel)
-            if min_nb_points is None:
-                min_nb_points = nb_points
-            elif min_nb_points > nb_points:
-                min_nb_points = nb_points
-
-        if min_nb_points is None or self._last_point_display >= min_nb_points:
-            return
-
-        for point_nb in range(self._last_point_display, min_nb_points):
-            values = {
-                ch_name: ch.get(point_nb)
-                for ch_name, ch in iter(self._channel_name_2_channel.items())
-            }
-
-            cb(scan_info, values)
-
-        self._last_point_display = min_nb_points
+        self._init_buffers(nodes)
+        self._fetch_data(data_events)
+        for pointdatadict in self._pop_data():
+            cb(scan_info, pointdatadict)
 
     def on_scan_end(self, scan_info):
-
         cb = _SCAN_WATCH_CALLBACKS["end"]()
         if cb is not None:
             cb(scan_info)

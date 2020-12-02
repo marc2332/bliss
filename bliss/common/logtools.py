@@ -431,26 +431,52 @@ class GreenletDisableLogger(logging.Logger):
         """Enable all disabled greenlets
         """
         self._disabled_greenlets = weakref.WeakKeyDictionary()
+        self._enabled_greenlets = weakref.WeakKeyDictionary()
 
     def _greenlet_filter(self, record):
         """Filter out this log record when the logging is disabled
         for the current greenlet.
         """
-        current = gevent.getcurrent()
-        while current:
-            # looping parents greenlets
-            # until we find a disabled one
-            # or we arrive at root
-            if self._disabled_greenlets.get(current, 0) > 0:
-                return False
-            try:
-                current = current.spawning_greenlet()
-            except AttributeError:
-                current = current.parent
+        for greenlet in self._iter_greenlets():
+            if self._disabled_greenlets.get(greenlet, 0) > 0:
+                # We are in a "disabled" context
+                for greenlet in self._iter_greenlets():
+                    # The "disabled" context has been re-enabled
+                    if self._enabled_greenlets.get(greenlet, 0) > 0:
+                        return True
+                else:
+                    return False
         return True
+
+    def _iter_greenlets(self):
+        """Yields the current greenlet and its parents
+        """
+        greenlet = gevent.getcurrent()
+        while greenlet:
+            yield greenlet
+            try:
+                # gevent.Greenlet
+                greenlet = greenlet.spawning_greenlet()
+            except AttributeError:
+                # greenlet.greenlet
+                greenlet = greenlet.parent
 
     @contextmanager
     def disable_in_greenlet(self, greenlet=None):
+        """Disable logging in this greenlet
+        """
+        with self._greenlet_context(self._disabled_greenlets, greenlet=greenlet):
+            yield
+
+    @contextmanager
+    def enable_in_greenlet(self, greenlet=None):
+        """Re-enable disabled logging in this greenlet. No effect otherwise.
+        """
+        with self._greenlet_context(self._enabled_greenlets, greenlet=greenlet):
+            yield
+
+    @contextmanager
+    def _greenlet_context(self, greenlets, greenlet=None):
         """Disable logging in a greenlet within this context.
         It takes the current greenlet by default.
         """
@@ -458,18 +484,18 @@ class GreenletDisableLogger(logging.Logger):
         if greenlet is None:
             current = gevent.getcurrent()
         try:
-            self._disabled_greenlets[current] += 1
+            greenlets[current] += 1
         except KeyError:
-            self._disabled_greenlets[current] = 1
+            greenlets[current] = 1
 
         try:
             yield
         finally:
             # Decrement the greenlet counter
             try:
-                self._disabled_greenlets[current] -= 1
-                if self._disabled_greenlets[current] <= 0:
-                    del self._disabled_greenlets[current]
+                greenlets[current] -= 1
+                if greenlets[current] <= 0:
+                    del greenlets[current]
             except KeyError:
                 pass
 
@@ -481,22 +507,20 @@ class UserLogger(PrintLogger, GreenletDisableLogger):
     In addition to the standard logger methods we have:
         print: use like the builtin `print` ("info" level or higher)
         disable_in_greenlet: disable logging for a greenlet (current by default)
+        enable_in_greenlet: re-enable when greenlet is disabled (no effect otherwise)
     """
 
     def __init__(self, _args, **kw):
         super().__init__(_args, **kw)
         self.propagate = False
-        self._null_handler = logging.NullHandler()
-        self._print_handler = PrintHandler()
-        self.disable()
+        self.disabled = True
+        self.addHandler(PrintHandler())
 
     def enable(self):
-        self.addHandler(self._print_handler)
-        self.removeHandler(self._null_handler)
+        self.disabled = False
 
     def disable(self):
-        self.removeHandler(self._print_handler)
-        self.addHandler(self._null_handler)
+        self.disabled = True
 
 
 class Elogbook(PrintLogger, ElogLogger):
@@ -512,18 +536,16 @@ class Elogbook(PrintLogger, ElogLogger):
     def __init__(self, _args, **kw):
         super().__init__(_args, **kw)
         self.propagate = False
-        self._null_handler = logging.NullHandler()
-        self._elog_handler = ElogHandler()
-        self._elog_handler.addFilter(elogbook_filter)
-        self.disable()
+        self.disabled = True
+        handler = ElogHandler()
+        handler.addFilter(elogbook_filter)
+        self.addHandler(handler)
 
     def enable(self):
-        self.addHandler(self._elog_handler)
-        self.removeHandler(self._null_handler)
+        self.disabled = False
 
     def disable(self):
-        self.removeHandler(self._elog_handler)
-        self.addHandler(self._null_handler)
+        self.disabled = True
 
     def print(self, *args, **kw):
         self._set_msg_type(kw, "comment")
@@ -539,6 +561,7 @@ user_warning = userlogger.warning
 user_error = userlogger.error
 user_critical = userlogger.critical
 disable_user_output = userlogger.disable_in_greenlet
+enable_user_output = userlogger.enable_in_greenlet
 
 elogbook = Elogbook("bliss.elogbook", level=logging.NOTSET)
 

@@ -316,25 +316,40 @@ def test_scan_watch_data_callback_not_a_callable():
 
 def test_scan_callbacks(session):
 
-    res = {"new": False, "end": False, "values": []}
+    res = {"new": False, "end": False, "values1": [], "values2": [], "values3": []}
 
     def on_scan_new(scan, scan_info):
         res["new"] = True
 
     def on_scan_data(scan_info, values):
         # values is indexed by *channel* full name
-        res["values"].append(values[simul_counter.fullname])
+        res["values1"].append(values[simul_counter1.fullname])
+        res["values2"].append(values[simul_counter2.fullname])
+        res["values3"].append(values[simul_counter3.fullname])
 
     def on_scan_end(scan_info):
         res["end"] = True
 
     scan.set_scan_watch_callbacks(on_scan_new, on_scan_data, on_scan_end)
 
-    simul_counter = session.env_dict["sim_ct_gauss"]
-    s = scans.timescan(0.1, simul_counter, npoints=2, return_scan=True, save=False)
+    simul_counter1 = session.env_dict["sim_ct_gauss"]
+    simul_counter2 = session.env_dict["sim_ct_gauss_noise"]
+    simul_counter3 = session.env_dict["sim_ct_rand_12"]
+
+    scans.timescan(
+        0.1,
+        simul_counter1,
+        simul_counter2,
+        simul_counter3,
+        npoints=17,
+        return_scan=True,
+        save=False,
+    )
     assert res["new"]
     assert res["end"]
-    assert numpy.array_equal(numpy.array(res["values"]), simul_counter.data)
+    assert numpy.array_equal(numpy.array(res["values1"]), simul_counter1.data)
+    assert numpy.array_equal(numpy.array(res["values2"]), simul_counter2.data)
+    assert numpy.array_equal(numpy.array(res["values3"]), simul_counter3.data)
 
 
 def test_timescan_with_lima(default_session, lima_simulator):
@@ -367,16 +382,16 @@ def test_scan_watch_data_set_callback_to_test_saferef(session, capsys):
 
     scan.set_scan_watch_callbacks(on_scan_new, on_scan_data, on_scan_end)
 
-    scans.ascan(roby, 0, 1, 3, 0.01, diode, save=False)
+    scans.ascan(roby, 0, 1, 13, 0.01, diode, save=False)
 
     captured = capsys.readouterr()
-    assert captured.out == "scan_new\n" + "scan_data\n" * 4 + "scan_end\n"
+    assert captured.out == "scan_new\n" + "scan_data\n" * 14 + "scan_end\n"
 
     del on_scan_new
     del on_scan_data
     del on_scan_end
 
-    scans.ascan(roby, 0, 1, 3, 0.01, diode, save=False)
+    scans.ascan(roby, 0, 1, 5, 0.01, diode, save=False)
 
     captured = capsys.readouterr()
     assert captured.out == ""

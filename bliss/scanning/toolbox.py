@@ -15,7 +15,7 @@ from bliss.common.measurementgroup import (
     _get_counters_from_object,
 )
 from bliss.common.counter import CalcCounter, Counter
-from bliss.controllers.counter import CalcCounterController, CounterController
+from bliss.controllers.counter import CalcCounterController
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 
@@ -39,7 +39,7 @@ def get_all_counters(counter_args):
         raise ValueError(
             "Missing counters, not in global_map: {}.\n"
             "Hint: disable inactive counters.".format(
-                ", ".join([x if type(x) == type("") else x.name for x in missing])
+                ", ".join([x if isinstance(x, str) else x.name for x in missing])
             )
         )
 
@@ -171,6 +171,14 @@ class ChainBuilder:
     @property
     def nodes(self):
         return self.get_top_level_nodes()
+
+    def add_extra_counters(self, *counters):
+        """add extra counters and rebuild the chain nodes"""
+        curr_list = self._counter_list
+        curr_list.extend(counters)
+        self._build_counter_list(curr_list)
+        self._cached_nodes = {}
+        self._introspect()
 
     # ---------- Nodes filtering tools -------------------------------
     def get_all_nodes(self):
@@ -308,6 +316,15 @@ class DefaultAcquisitionChain:
         timer = SoftwareTimerMaster(count_time, npoints=npoints, sleep_time=sleep_time)
 
         builder = ChainBuilder(counter_args)
+
+        # Add encoder counters associated to scan motors, if any
+        if top_master:
+            encoder_counters = [
+                axis.encoder.counter
+                for axis in top_master.device.axes.values()
+                if axis.encoder
+            ]
+            builder.add_extra_counters(*encoder_counters)
 
         # --- create acq obj and populate the chain
         topnodes = builder.get_top_level_nodes()

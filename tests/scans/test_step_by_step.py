@@ -39,6 +39,15 @@ def test_ascan_gauss2(session):
     assert numpy.array_equal(scan_data["sim_ct_gauss"], simul_counter.data)
 
 
+def test_ascan_encoder_in_counters(session):
+    # issue #1990
+    m1 = session.env_dict["m1"]
+    simul_counter = session.env_dict["sim_ct_gauss"]
+    s = scans.ascan(m1, 0, 0.1, 2, 0, simul_counter, return_scan=True, save=False)
+    scan_data = s.get_data()
+    assert "encoder:m1enc" in scan_data
+
+
 def test_dscan(session):
     simul_counter = session.env_dict["sim_ct_gauss"]
     robz2 = session.env_dict["robz2"]

@@ -22,6 +22,7 @@ import numpy
 import sys
 from bliss.controllers.motors.icepap.comm import _command, _ackcommand, _vdata_header
 from bliss.controllers.motors.icepap.linked import LinkedAxis
+from bliss.common.logtools import log_warning
 
 # next imports are needed by the emotion plugin
 from bliss.common.encoder import Encoder
@@ -284,6 +285,9 @@ class Icepap(Controller):
             if stop_code:
                 sc_status = self.STATUS_STOPCODE.get(stop_code)[0]
                 state.set(sc_status)
+                if sc_status == "SCSETTLINGTO":
+                    log_warning(self, "Closed loop error: settling timeout")
+                    return state
                 if sc_status not in ("SCEOM", "SCSTOP", "SCABORT"):
                     in_limit_search = self._limit_search_in_progress.get(axis, 0)
                     if in_limit_search > 0 and sc_status == "SCLIMPOS":

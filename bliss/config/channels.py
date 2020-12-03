@@ -203,7 +203,7 @@ class Bus(AdvancedInstantiationInterface):
     def query(self, name):
         # Initialize
         reply_value = None
-        query_id = uuid.uuid1().hex
+        query_id = uuid.uuid4().hex
 
         try:
             query = _Query(name, query_id)
@@ -224,12 +224,11 @@ class Bus(AdvancedInstantiationInterface):
                     reply_value = reply.value
                     break
         finally:
-            try:
-                self._pending_updates.remove(query)
-            except KeyError:
-                pass
+            self._pending_updates.discard(query)
             # Unregister queue
-            del self._queries[query_id]
+            # warning: if the task is killed, maybe the query id is not
+            # in the dictionary yet
+            self._queries.pop(query_id, None)
 
         # Return value
         return reply_value

@@ -59,8 +59,8 @@ this way.
 ```
 scan_info = {}
 
-from bliss.commons.scans.scan_info import ScanInfoBuilder
-builder = ScanInfoBuilder(scan_info)
+from bliss.commons.scans.scan_info import ScanInfoFactory
+builder = ScanInfoFactory(scan_info)
 builder.set_channel_meta("my_channel", start=1, stop=2)
 
 scan = Scan(
@@ -164,8 +164,8 @@ recommended to use it.
 ```
 scan_info = {}
 
-from bliss.commons.scans.scan_info import ScanInfoBuilder
-builder = ScanInfoBuilder(scan_info)
+from bliss.commons.scans.scan_info import ScanInfoFactory
+builder = ScanInfoFactory(scan_info)
 builder.add_scatter_plot(name="unique-plot-name",
                          x="axis:sx",
                          y="axis:sy",

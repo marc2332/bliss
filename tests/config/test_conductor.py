@@ -17,6 +17,59 @@ import gc
 import os
 
 
+@pytest.fixture
+def new_conductor_conn(ports, clean_socket):
+    conn = connection.Connection("localhost", ports.beacon_port)
+    yield conn
+    conn.close()
+
+
+def test_address_queries(new_conductor_conn):
+    assert new_conductor_conn.get_redis_connection_address()
+    assert new_conductor_conn.get_redis_data_server_connection_address()
+    assert new_conductor_conn.get_log_server_address()
+
+
+def test_redis_connections(new_conductor_conn):
+    getconnection = new_conductor_conn.get_redis_connection
+    conn1 = getconnection(db=0, single_connection_client=False, pool_name="pool1")
+    assert len(conn1.client_list()) == 1
+    conn2 = getconnection(db=0, single_connection_client=False, pool_name="pool1")
+    assert len(conn1.client_list()) == 1
+    assert conn1 is conn2
+    conn3 = getconnection(db=0, single_connection_client=True, pool_name="pool1")
+    assert len(conn1.client_list()) == 2
+    assert conn2 != conn3
+    conn4 = getconnection(db=0, single_connection_client=True, pool_name="pool1")
+    assert len(conn1.client_list()) == 3
+    assert conn3 != conn4
+    conn5 = getconnection(db=0, single_connection_client=False, pool_name="pool2")
+    assert len(conn1.client_list()) == 4
+    assert conn1 != conn5
+
+
+def test_multiple_greenlets(new_conductor_conn):
+    def get_redis_conn():
+        # retrieve redis connection from Beacon:
+        # this will call 'connect' concurrently
+        redis_conn = new_conductor_conn.get_redis_connection()
+
+        redis_keys = redis_conn.keys("*")
+
+        return redis_conn, redis_keys
+
+    # start 2 greenlets
+    g1 = gevent.spawn(get_redis_conn)
+    g2 = gevent.spawn(get_redis_conn)
+
+    redis_conn1, keys1 = g1.get()
+    redis_conn2, keys2 = g2.get()
+
+    assert redis_conn1 is redis_conn2
+
+    assert len(new_conductor_conn._redis_connections.get("default", {})) == 1
+
+
 def test_client_name(beacon):
     conductor_conn = client.get_default_connection()
 
@@ -90,38 +143,6 @@ def test_2_clients_1_dead(beacon, two_clients):
             gevent.sleep(0.1)
     conductor_conn2.lock(roby.name)
     assert conductor_conn2.who_locked(roby.name) == {roby.name: "test2"}
-
-
-@contextlib.contextmanager
-def new_conductor_conn(port):
-    conductor_conn = connection.Connection("localhost", port)
-    yield conductor_conn
-    conductor_conn.close()
-
-
-def test_multiple_greenlets(ports):
-    # make a new connection to Beacon, so it is not already connected
-    with new_conductor_conn(ports.beacon_port) as conductor_conn:
-
-        def get_redis_conn():
-            # retrieve redis connection from Beacon:
-            # this will call 'connect' concurrently
-            redis_conn = conductor_conn.get_redis_connection()
-
-            redis_keys = redis_conn.keys("*")
-
-            return redis_conn, redis_keys
-
-        # start 2 greenlets
-        g1 = gevent.spawn(get_redis_conn)
-        g2 = gevent.spawn(get_redis_conn)
-
-        redis_conn1, keys1 = g1.get()
-        redis_conn2, keys2 = g2.get()
-
-        assert redis_conn1 is redis_conn2
-
-        assert len(conductor_conn._redis_pool_connection.get("default", {})) == 1
 
 
 def test_single_bus_for_channels(beacon):

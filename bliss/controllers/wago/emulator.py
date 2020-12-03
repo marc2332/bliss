@@ -409,7 +409,7 @@ class WagoEmulator:
 
         self.host = "localhost"
         self.port = get_open_ports(1)[0]
-        self.server_ready_event = gevent.event.Event()  # threading.Event()
+        self.server_ready_event = gevent.event.Event()
 
         self.task = gevent.spawn(
             Wago,

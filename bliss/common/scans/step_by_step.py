@@ -1051,10 +1051,6 @@ def timescan(
         return_scan (bool): True by default
         npoints (int): number of points [default: 0, meaning infinite number of points]
     """
-    #        output_mode (str): valid are 'tail' (append each line to output) or
-    #                           'monitor' (refresh output in single line)
-    #                           [default: 'tail']
-
     if scan_info is None:
         scan_info = dict()
 

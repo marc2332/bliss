@@ -15,7 +15,7 @@ import reprlib
 import datetime
 import logging
 import hashlib
-
+import time
 import numpy
 from tabulate import tabulate
 from ruamel.yaml import YAML
@@ -1315,13 +1315,13 @@ class ParametersWardrobe(metaclass=ParametersType):
         # the first item is the currently used one
         self._instances = QueueSetting("parameters:%s" % name, connection=connection)
         self._wardr_name = name  # name of the ParametersWardrobe
+        # adding attribute for creation_date and last_accessed
         self._property_attributes = tuple(property_attributes) + (
             "creation_date",
             "last_accessed",
         )
-        self._not_removable = tuple(not_removable)
 
-        # adding attributes for last_accessed and creation_date
+        self._not_removable = tuple(not_removable)
 
         # creates the two needed proxies
         _change_to_obj_marshalling(keys)  # allows pickling complex objects
@@ -1343,7 +1343,7 @@ class ParametersWardrobe(metaclass=ParametersType):
             self.switch("default")
         else:
             # Existant Wardrobe, switch to last used
-            self.switch(self.current_instance)
+            self.switch(self.current_instance, update=False)
 
     def _hash(self, name):
         """
@@ -1355,28 +1355,25 @@ class ParametersWardrobe(metaclass=ParametersType):
         keys_proxy_default = (
             x for x in self._proxy_default.keys() if not x.startswith("_")
         )
-        return (
-            list(keys_proxy_default)
-            + [
-                "add",
-                "remove",
-                "switch",
-                "instances",
-                "current_instance",
-                "to_dict",
-                "from_dict",
-                "to_file",
-                "from_file",
-                "to_beacon",
-                "from_beacon",
-                "freeze",
-                "show_table",
-                "creation_date",
-                "last_accessed",
-                "purge",
-            ]
-            + list(self._property_attributes)
-        )
+        attributes = [
+            "add",
+            "remove",
+            "switch",
+            "instances",
+            "current_instance",
+            "to_dict",
+            "from_dict",
+            "to_file",
+            "from_file",
+            "to_beacon",
+            "from_beacon",
+            "freeze",
+            "show_table",
+            "creation_date",
+            "last_accessed",
+            "purge",
+        ]
+        return list(keys_proxy_default) + attributes + list(self._property_attributes)
 
     def to_dict(self, export_properties=False):
         """
@@ -1670,7 +1667,7 @@ class ParametersWardrobe(metaclass=ParametersType):
         Args: 
             get_properties: if False it will remove property attributes
                             and also creation/modification info
-                            stored in _last_accessed and _creation_date
+                            stored in _creation_date
 
         Returns:
             dictionary with (parameter,value) pairs
@@ -1693,15 +1690,11 @@ class ParametersWardrobe(metaclass=ParametersType):
                 attrs.remove("_creation_date")
             except Exception:
                 pass
-            try:
-                attrs.remove("_last_accessed")
-            except Exception:
-                pass
 
         for attr in attrs:
             instance_[attr] = getattr(self, attr)
 
-        self.switch(self.current_instance)  # back to current instance
+        self.switch(self.current_instance, update=False)  # back to current instance
         return instance_
 
     def _get_all_instances(self):
@@ -1861,13 +1854,7 @@ class ParametersWardrobe(metaclass=ParametersType):
         # if is a new instance we will set the creation date
         if name not in self.instances:
             self._proxy["_creation_date"] = datetime.datetime.now().strftime(
-                "%Y-%m-%d-%H:%M"
-            )
-
-        # updating last_accessed
-        if update:
-            self._proxy["_last_accessed"] = datetime.datetime.now().strftime(
-                "%Y-%m-%d-%H:%M"
+                "%Y-%m-%d %H:%M:%S"
             )
 
         # adding default
@@ -1910,16 +1897,21 @@ class ParametersWardrobe(metaclass=ParametersType):
 
     @property
     def last_accessed(self):
-        attr_name = "_last_accessed"
-        if not hasattr(self, attr_name):
-            self._proxy[attr_name] = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M")
-            self._populate(attr_name)
-        return getattr(self, attr_name)
+        key_name = self._proxy._name
+        idletime = self._proxy.connection.object("idletime", key_name)
+        last_accessed_time = time.time() - float(idletime)
+        return str(
+            datetime.datetime.fromtimestamp(last_accessed_time).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+        )
 
     @property
     def creation_date(self):
         attr_name = "_creation_date"
         if not hasattr(self, attr_name):
-            self._proxy[attr_name] = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M")
+            self._proxy[attr_name] = datetime.datetime.now().strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
             self._populate(attr_name)
         return getattr(self, attr_name)

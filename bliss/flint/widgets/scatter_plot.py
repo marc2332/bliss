@@ -251,6 +251,14 @@ class ScatterNormalization:
                 ((xmeta.start, ymeta.start), (xmeta.stop, ymeta.stop)),
             )
 
+        initialized = False
+        hasAxisPoints = (
+            xmeta.axisPointsHint is not None and ymeta.axisPointsHint is not None
+        )
+        hasAxisPointsHint = (
+            xmeta.axisPoints is not None and ymeta.axisPoints is not None
+        )
+
         if xmeta.axisKind is not None and ymeta.axisKind is not None:
             if xmeta.axisId < ymeta.axisId:
                 order = "row"
@@ -260,10 +268,9 @@ class ScatterNormalization:
             scatter.setVisualizationParameter(
                 scatter.VisualizationParameter.GRID_MAJOR_ORDER, order
             )
+            initialized = True
 
-        if self.__skipImage or (
-            xmeta.axisPointsHint is not None and ymeta.axisPointsHint is not None
-        ):
+        if self.__skipImage or hasAxisPointsHint or (hasAxisPoints and not initialized):
             width, height = xmeta.axisPointsHint, ymeta.axisPointsHint
             if width is None:
                 width = xmeta.axisPoints
@@ -282,9 +289,17 @@ class ScatterNormalization:
                     and ymeta.start is not None
                     and ymeta.stop is not None
                 ):
+                    xrange = min(xmeta.start, xmeta.stop), max(xmeta.start, xmeta.stop)
+                    yrange = min(ymeta.start, ymeta.stop), max(ymeta.start, ymeta.stop)
+                    if width > 1 and height > 1:
+                        x_half_px = abs(xmeta.start - xmeta.stop) / (width - 1) * 0.5
+                        y_half_px = abs(ymeta.start - ymeta.stop) / (height - 1) * 0.5
+                        xrange = xrange[0] - x_half_px, xrange[1] + x_half_px
+                        yrange = yrange[0] - y_half_px, yrange[1] + y_half_px
+
                     scatter.setVisualizationParameter(
                         scatter.VisualizationParameter.DATA_BOUNDS_HINT,
-                        ((ymeta.start, ymeta.stop), (xmeta.start, xmeta.stop)),
+                        (yrange, xrange),
                     )
 
     def isImageRenderingSupported(

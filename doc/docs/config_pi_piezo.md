@@ -41,3 +41,17 @@ controller:
 
 !!! note
 If `port` is not specified in `url`, e753 uses by default port `50000`.
+
+!!! warning 
+    The PI controller only accepts a single tcp connection
+
+If a controller needs to be accessible in multiple sessions simultaneously
+the tcp connection needs to be proxied as follows:
+
+```yaml
+controller:
+  class: PI_E753
+  tcp-proxy:
+    tcp:
+       url: e754id42:50000
+```

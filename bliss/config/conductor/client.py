@@ -7,6 +7,7 @@
 
 import os, sys
 import io
+import warnings
 import gevent
 from . import connection
 from .connection import StolenLockException
@@ -129,8 +130,13 @@ def get_existing_redis_connection(
 
 
 @check_connection
+def close_all_redis_connections(connection=None):
+    return connection.close_all_redis_connections()
+
+
 def clean_all_redis_connection(connection=None):
-    return connection.clean_all_redis_connection()
+    warnings.warn("Use 'close_all_redis_connections' instead", FutureWarning)
+    return close_all_redis_connections(connection=connection)
 
 
 @check_connection
@@ -139,7 +145,7 @@ def get_config_file(file_path, connection=None):
 
 
 def get_text_file(file_path, connection=None):
-    return get_config_file(file_path).decode()
+    return get_config_file(file_path, connection=connection).decode()
 
 
 def get_file(

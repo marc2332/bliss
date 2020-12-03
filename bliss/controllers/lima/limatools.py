@@ -82,7 +82,7 @@ def limatake(
     nbframes: numbers.Integral = 1,
     save: bool = False,
     run: bool = True,
-    **kwargs
+    **kwargs,
 ):
     """Perform an acquisition with lima devices active in current measurement
     group.

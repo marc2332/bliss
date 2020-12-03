@@ -57,11 +57,9 @@ following code is the exact same as the previous one. It is recommended to use
 this way.
 
 ```
-scan_info = {}
-
-from bliss.commons.scans.scan_info import ScanInfoFactory
-builder = ScanInfoFactory(scan_info)
-builder.set_channel_meta("my_channel", start=1, stop=2)
+from bliss.scanning.scan_info import ScanInfo
+scan_info = ScanInfo()
+scan_info.set_channel_meta("my_channel", start=1, stop=2)
 
 scan = Scan(
     chain,
@@ -162,14 +160,12 @@ An helper is provided to simplify the creation of your `scan_info`. It is
 recommended to use it.
 
 ```
-scan_info = {}
-
-from bliss.commons.scans.scan_info import ScanInfoFactory
-builder = ScanInfoFactory(scan_info)
-builder.add_scatter_plot(name="unique-plot-name",
-                         x="axis:sx",
-                         y="axis:sy",
-                         value="diode2")
+from bliss.scanning.scan_info import ScanInfo
+scan_info = ScanInfo()
+scan_info.add_scatter_plot(name="unique-plot-name",
+                           x="axis:sx",
+                           y="axis:sy",
+                           value="diode2")
 ```
 
 # Examples
@@ -189,12 +185,11 @@ to make them understandable client side.
 
 ```
 from bliss.scanning.group import Sequence
-from bliss.common.scans.scan_info import ScanInfoFactory
+from bliss.scanning.scan_info import ScanInfo
 
 flint()
-scan_info = {}
-factory = ScanInfoFactory(scan_info)
-factory.set_sequence_info(scan_count=10)
+scan_info = ScanInfo()
+scan_info.set_sequence_info(scan_count=10)
 
 seq = Sequence(scan_info=scan_info)
 with seq.sequence_context() as scan_seq:

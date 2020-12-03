@@ -53,7 +53,8 @@ class Sequence:
     def __init__(self, scan_info=None, title="sequence_of_scans"):
 
         self.title = title
-        self.scan_info = scan_info
+        self.scan = None
+        self._scan_info = scan_info
         self.custom_channels = dict()
 
         self._scans = list()  # scan objects or scan nodes
@@ -205,13 +206,25 @@ class Sequence:
                     )
                     scan._set_state(ScanState.USER_ABORTED)
 
-        self.scan = ScanGroup(chain, self.title, save=True, scan_info=self.scan_info)
+        self.scan = ScanGroup(chain, self.title, save=True, scan_info=self._scan_info)
         state_preset = StatePreset(self)
         self.scan.add_preset(state_preset)
 
     @property
     def node(self):
         return self.scan.node
+
+    @property
+    def scan_info(self):
+        """Return the scan info of this sequence.
+
+        Which is the initial one, or the one published by the scan which publish
+        this sequence.
+        """
+        if self.scan is None:
+            return self._scan_info
+        else:
+            self.scan.scan_info
 
     @property
     def state(self):

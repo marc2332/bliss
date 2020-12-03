@@ -118,53 +118,71 @@ def clean_louie():
     disp.reset()
 
 
-class GreenletsContext:
+class ResourcesContext:
     """
-    This context ensure that every greenlet created during its execution
+    This context ensure that every resource created during its execution
     are properly released.
 
-    If a greenlet is still alive at the exit, a warning is displayed,
-    and it tries to kill it.
+    If a resource is not released at the exit, a warning is displayed,
+    and it tries to release it.
 
-    It is not concurrency safe. The global context is used to
-    check available greenlets.
+    It is not concurrency safe.
     """
 
-    def __init__(self):
-        self.greenlets_before = weakref.WeakSet()
-        self.all_greenlets_ready = None
+    def __init__(self, release, is_released, *resource_classes):
+        self.resource_classes = resource_classes
+        self.is_released = is_released
+        self.release = release
+        self.resources_before = weakref.WeakSet()
+        self.all_resources_released = None
 
     def __enter__(self):
-        self.greenlets_before.clear()
-        self.all_greenlets_ready = None
+        self.resources_before.clear()
+        self.all_resources_released = None
 
         for ob in gc.get_objects():
             try:
-                if not isinstance(ob, Greenlet):
+                if not isinstance(ob, self.resource_classes):
                     continue
             except ReferenceError:
                 continue
-            self.greenlets_before.add(ob)
+            self.resources_before.add(ob)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        greenlets = []
+        resources = []
         for ob in gc.get_objects():
             try:
-                if not isinstance(ob, Greenlet):
+                if not isinstance(ob, self.resource_classes):
                     continue
             except ReferenceError:
                 continue
-            if ob in self.greenlets_before:
+            if ob in self.resources_before:
                 continue
 
-            if not ob.ready():
-                eprint(f"Dangling greenlet (teardown): {ob}")
-            greenlets.append(ob)
+            if not self.is_released(ob):
+                eprint(f"Resource not released: {ob}")
+            resources.append(ob)
 
-        self.greenlets_before.clear()
-        self.all_greenlets_ready = all(gr.ready() for gr in greenlets)
-        with gevent.Timeout(10, RuntimeError("Dangling greenlets cannot be killed")):
-            gevent.killall(greenlets)
+        self.resources_before.clear()
+        self.all_resources_released = all(self.is_released(r) for r in resources)
+        if not resources:
+            return
+        err_msg = f"Resources {self.resource_classes} cannot be released"
+        with gevent.Timeout(10, RuntimeError(err_msg)):
+            for r in resources:
+                self.release(r)
+
+
+class GreenletsContext(ResourcesContext):
+    def __init__(self):
+        super().__init__(lambda glt: glt.kill(), lambda glt: glt.ready(), Greenlet)
+
+
+class SocketsContext(ResourcesContext):
+    def __init__(self):
+        super().__init__(
+            lambda sock: sock.close(), lambda sock: sock.fileno() == -1, socket.socket
+        )
 
 
 @pytest.fixture
@@ -197,7 +215,40 @@ def clean_gevent():
         yield d
     end_check = d.get("end-check")
     if end_check:
-        assert context.all_greenlets_ready
+        assert context.all_resources_released
+
+
+@pytest.fixture
+def clean_socket():
+    """
+    Context manager to check that sockets are properly closed during a test.
+
+    It is not concurrency safe. The global context is used to
+    check available sockets.
+
+    If the fixture is used as the last argument if will only test the sockets
+    creating during the test.
+
+    .. code-block:: python
+
+        def test_a(fixture_a, fixture_b, clean_gevent):
+            ...
+
+    If the fixture is used as the first argument if will also test sockets
+    created by sub fixtures.
+
+    .. code-block:: python
+
+        def test_b(clean_socket, fixture_a, fixture_b):
+            ...
+    """
+    d = {"end-check": True}
+    context = SocketsContext()
+    with context:
+        yield d
+    end_check = d.get("end-check")
+    if end_check:
+        assert context.all_resources_released
 
 
 @pytest.fixture

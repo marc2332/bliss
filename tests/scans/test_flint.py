@@ -6,7 +6,7 @@ import logging
 
 import bliss
 from bliss.common import plot
-from bliss.common.scans.scan_info import ScanInfoFactory
+from bliss.scanning.scan_info import ScanInfo
 from bliss.flint.client import plots
 from bliss.scanning.scan import Scan
 from bliss.scanning.scan_display import ScanDisplay
@@ -56,8 +56,7 @@ def test_custom_mesh_plot(test_session_with_flint):
     s = amesh(roby, 0, 1, 3, robz, 0, 1, 3, 0.001, diode, diode2, run=False)
 
     # add a custom plot
-    builder = ScanInfoFactory(s.scan_info)
-    builder.add_scatter_plot(
+    s.scan_info.add_scatter_plot(
         name="foo", x="axis:roby", y="axis:robz", value=diode2.fullname
     )
     s.run()
@@ -394,9 +393,8 @@ def test_sequence(test_session_with_flint, lima_simulator):
 
     flint = plot.get_flint()
 
-    scan_info = {}
-    factory = ScanInfoFactory(scan_info)
-    factory.add_scatter_plot(x="x", y="y", value="diode")
+    scan_info = ScanInfo()
+    scan_info.add_scatter_plot(x="x", y="y", value="diode")
 
     seq = Sequence(scan_info=scan_info)
     with seq.sequence_context() as scan_seq:

@@ -7,7 +7,7 @@ from silx.gui.utils.testutils import TestCaseQt
 from silx.gui import qt
 from silx.gui.plot import items as silx_items
 
-from bliss.common.scans.scan_info import ScanInfoFactory
+from bliss.scanning.scan_info import ScanInfo
 
 from bliss.flint.widgets.scatter_plot import ScatterPlotWidget
 from bliss.flint.widgets.scatter_plot import ScatterNormalization
@@ -356,11 +356,11 @@ class TestScatterPlot(TestCaseQt):
 
 
 def test_scatter_normalization__normal():
-    scan_info = {"acquisition_chain": {"timer": {"scalars": ["a", "b", "c"]}}}
-    factory = ScanInfoFactory(scan_info)
-    factory.set_channel_meta("a", axis_id=0, axis_points=3, axis_kind="forth")
-    factory.set_channel_meta("b", axis_id=1, axis_points=3, axis_kind="forth")
-    factory.add_scatter_plot("foo", x="a", y="b", value="c")
+    scan_info = ScanInfo()
+    scan_info.update({"acquisition_chain": {"timer": {"scalars": ["a", "b", "c"]}}})
+    scan_info.set_channel_meta("a", axis_id=0, axis_points=3, axis_kind="forth")
+    scan_info.set_channel_meta("b", axis_id=1, axis_points=3, axis_kind="forth")
+    scan_info.add_scatter_plot("foo", x="a", y="b", value="c")
     scan = scan_info_helper.create_scan_model(scan_info, False)
     plots = scan_info_helper.create_plot_model(scan_info, scan)
     item = plots[0].items()[0]
@@ -374,12 +374,14 @@ def test_scatter_normalization__normal():
 
 
 def test_scatter_normalization__normal_frame():
-    scan_info = {"acquisition_chain": {"timer": {"scalars": ["a", "b", "c", "d"]}}}
-    factory = ScanInfoFactory(scan_info)
-    factory.set_channel_meta("a", axis_id=0, axis_points=3, axis_kind="forth")
-    factory.set_channel_meta("b", axis_id=1, axis_points=3, axis_kind="forth")
-    factory.set_channel_meta("c", axis_id=2, axis_points=3, axis_kind="step")
-    factory.add_scatter_plot("foo", x="a", y="b", value="d")
+    scan_info = ScanInfo()
+    scan_info.update(
+        {"acquisition_chain": {"timer": {"scalars": ["a", "b", "c", "d"]}}}
+    )
+    scan_info.set_channel_meta("a", axis_id=0, axis_points=3, axis_kind="forth")
+    scan_info.set_channel_meta("b", axis_id=1, axis_points=3, axis_kind="forth")
+    scan_info.set_channel_meta("c", axis_id=2, axis_points=3, axis_kind="step")
+    scan_info.add_scatter_plot("foo", x="a", y="b", value="d")
     scan = scan_info_helper.create_scan_model(scan_info, False)
     plots = scan_info_helper.create_plot_model(scan_info, scan)
     plot = plots[0]
@@ -396,15 +398,17 @@ def test_scatter_normalization__normal_frame():
 
 
 def test_scatter_normalization__backnforth():
-    scan_info = {"acquisition_chain": {"timer": {"scalars": ["a", "b", "c", "d"]}}}
-    factory = ScanInfoFactory(scan_info)
-    factory.set_channel_meta(
+    scan_info = ScanInfo()
+    scan_info.update(
+        {"acquisition_chain": {"timer": {"scalars": ["a", "b", "c", "d"]}}}
+    )
+    scan_info.set_channel_meta(
         "a", axis_id=0, axis_points=3, group="g", axis_kind="backnforth"
     )
-    factory.set_channel_meta(
+    scan_info.set_channel_meta(
         "b", axis_id=1, axis_points=3, group="g", axis_kind="forth"
     )
-    factory.add_scatter_plot("foo", x="a", y="b", value="d")
+    scan_info.add_scatter_plot("foo", x="a", y="b", value="d")
     scan = scan_info_helper.create_scan_model(scan_info, False)
     plots = scan_info_helper.create_plot_model(scan_info, scan)
     plot = plots[0]
@@ -421,18 +425,20 @@ def test_scatter_normalization__backnforth():
 
 
 def test_scatter_normalization__3d_backnforth():
-    scan_info = {"acquisition_chain": {"timer": {"scalars": ["a", "b", "c", "d"]}}}
-    factory = ScanInfoFactory(scan_info)
-    factory.set_channel_meta(
+    scan_info = ScanInfo()
+    scan_info.update(
+        {"acquisition_chain": {"timer": {"scalars": ["a", "b", "c", "d"]}}}
+    )
+    scan_info.set_channel_meta(
         "a", axis_id=0, axis_points=2, group="g", axis_kind="backnforth"
     )
-    factory.set_channel_meta(
+    scan_info.set_channel_meta(
         "b", axis_id=1, axis_points=3, group="g", axis_kind="backnforth"
     )
-    factory.set_channel_meta(
+    scan_info.set_channel_meta(
         "c", axis_id=2, axis_points=4, group="g", axis_kind="forth"
     )
-    factory.add_scatter_plot("foo", x="a", y="b", value="d")
+    scan_info.add_scatter_plot("foo", x="a", y="b", value="d")
     scan = scan_info_helper.create_scan_model(scan_info, False)
     plots = scan_info_helper.create_plot_model(scan_info, scan)
     plot = plots[0]

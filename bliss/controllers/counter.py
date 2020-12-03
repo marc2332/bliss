@@ -177,6 +177,7 @@ class CalcCounterController(CounterController):
         self._input_counters = []
         self._output_counters = []
         self._counters = {}
+        self._config = config
         self.tags = {}
 
         self.data = {}

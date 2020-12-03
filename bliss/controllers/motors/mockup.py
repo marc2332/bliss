@@ -250,6 +250,9 @@ class Mockup(Controller):
 
         return enc_steps
 
+    def read_encoder_multiple(self, *encoder_list):
+        return [self.read_encoder(enc) for enc in encoder_list]
+
     def set_encoder(self, encoder, encoder_steps):
         self.__encoders[encoder]["steps"] = encoder_steps
 

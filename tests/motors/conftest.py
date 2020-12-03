@@ -34,6 +34,7 @@ roby = motor_fixture("roby")
 robz2 = motor_fixture("robz2")
 m0 = motor_fixture("m0")
 m1 = motor_fixture("m1")
+m2 = motor_fixture("m2")
 jogger = motor_fixture("jogger")
 omega = motor_fixture("omega")
 hooked_m0 = motor_fixture("hooked_m0")
@@ -68,6 +69,12 @@ def calc_mot2(calc_mot1, _calc_mot2):
 @pytest.fixture
 def m1enc(beacon):
     m = beacon.get("m1enc")
+    yield m
+
+
+@pytest.fixture
+def m2enc(beacon):
+    m = beacon.get("m2enc")
     yield m
 
 

@@ -1,0 +1,7 @@
+plugin: bliss
+package: bliss.common.encoder
+class: EncoderFilter
+name: encfilter1
+encoder_precision: 5
+encoder: $mot_maxee_enc
+

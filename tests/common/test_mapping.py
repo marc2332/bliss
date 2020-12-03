@@ -306,7 +306,7 @@ def test_global_map(beacon, s1hg, roby):
             heater.controller,
             "motion_hooks",
         },
-        "counters": {"thermo_sample", "sample_regulation", "heater"},
+        "counters": {"encoder", "thermo_sample", "sample_regulation", "heater"},
         "global": {"controllers", "comms", "counters", "axes"},
         "motion_hooks": {"hook0"},
         "sample_regulation": {"thermo_sample", "heater"},

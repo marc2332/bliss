@@ -7,17 +7,13 @@
 
 from bliss.common.motor_config import MotorConfig
 from bliss.common.counter import SamplingCounter
-from bliss.controllers import counter
-from bliss.common import event
+from bliss.controllers.counter import CalcCounterController
+
 from functools import wraps
-import time
-import gevent
-import re
-import types
 import weakref
 
 
-class Encoder:
+class Encoder(SamplingCounter):
     def lazy_init(func):
         @wraps(func)
         def func_wrapper(self, *args, **kwargs):
@@ -26,23 +22,11 @@ class Encoder:
 
         return func_wrapper
 
-    def __init__(self, name, controller, config):
-        self.__name = name
-        self.__controller = controller
-        self._counter_controller = counter.SamplingCounterController(name)
-        # note: read_all is not implemented, multiple encoders from the same controller will not be read in one go
-        self._counter_controller.read_all = types.MethodType(
-            self._read_all_counters, self._counter_controller
-        )
-        self._counter_controller.create_counter(
-            SamplingCounter, "position", unit=config.get("unit")
-        )
+    def __init__(self, name, controller, motor_controller, config):
+        super().__init__(name, controller, unit=config.get("unit"))
+        self.__controller = motor_controller
         self.__config = MotorConfig(config)
         self.__axis_ref = None
-
-    @property
-    def name(self):
-        return self.__name
 
     @property
     def controller(self):
@@ -59,17 +43,13 @@ class Encoder:
             self.__axis_ref = weakref.ref(axis)
 
     @property
-    def counters(self):
-        """CounterContainer protocol"""
-        return self._counter_controller.counters
-
-    @property
     def counter(self):
+        # TODO: deprecate this
         """Convenience access to the counter object
 
         Useful to set conversion function for example
         """
-        return self._counter_controller.counters[0]
+        return self  # backward compatibility
 
     @property
     def config(self):
@@ -91,15 +71,7 @@ class Encoder:
         """
         Returns encoder value *in user units*.
         """
-        return self.controller.read_encoder(self) / float(self.steps_per_unit)
-
-    @lazy_init
-    def _read_all_counters(self, counter_controller, *counters):
-        """
-        This method can be inherited to read other counters
-        from Encoder
-        """
-        return [self.read()]
+        return self.raw_read  # backward compatibility
 
     @lazy_init
     def set(self, new_value):
@@ -123,65 +95,6 @@ class Encoder:
         info_str += f"     tolerance (to check pos at end of move): {self.tolerance}\n"
         info_str += f"     dial_measured_position: {self.read():10.5f}\n"
         return info_str
-
-
-class EncoderFilter(Encoder):
-    """
-    This encoder return a measure position which is filtered.
-    return the *axis._set_position* if position is inside the **encoder_precision**
-    or the encoder value.
-    """
-
-    POSSIBLE_COUNTERS = ["position_raw", "position_error"]
-
-    def __init__(self, name, controller, config):
-        super().__init__(name, controller, config)
-        enable_counters = config.get("enable_counters", [])
-        for cnt_name in enable_counters:
-            if cnt_name not in EncoderFilter.POSSIBLE_COUNTERS:
-                raise ValueError(
-                    f"Counter can't be {cnt_name} only "
-                    f"be in {EncoderFilter.POSSIBLE_COUNTERS}"
-                )
-            self._counter_controller.create_counter(
-                SamplingCounter, cnt_name, unit=config.get("unit")
-            )
-
-    def read(self):
-        """ takes first value read which is the filtered value """
-        return self._read_all_counters(self._counter_controller, self.counter)[0]
-
-    @Encoder.lazy_init
-    def _read_all_counters(self, counter_controller, *counters):
-        """
-        This method can be inherited to read other counters
-        from Encoder
-        """
-        encoder_value = super().read()
-        corrected_value = encoder_value
-        axis = self.axis
-        if axis is not None:
-            user_target_position = axis._set_position
-            dial_target_position = axis.user2dial(user_target_position)
-            encoder_stepsize = 1.0 / self.config.get("steps_per_unit", float, 1.0)
-            encoder_precision = self.config.get("encoder_precision", float, 0.0)
-            # this should probably be in the motor controller rather than the encoder
-            corrected_value = encoder_noise_round(
-                encoder_value, dial_target_position, encoder_stepsize, encoder_precision
-            )
-
-        values = list()
-        for cnt in counters:
-            if cnt.name == "position":
-                values.append(corrected_value)
-            elif cnt.name == "position_raw":
-                values.append(encoder_value)
-            elif cnt.name == "position_error":
-                if axis is None:
-                    values.append(float("nan"))
-                else:
-                    values.append(dial_target_position - encoder_value)
-        return values
 
 
 def encoder_noise_round(obs_value, expected_value, stepsize, noise):
@@ -211,3 +124,52 @@ def encoder_noise_round(obs_value, expected_value, stepsize, noise):
     # noise is high - take expected value
     # noise is low  - take observed value
     return calc
+
+
+class EncoderFilter(CalcCounterController):
+    """
+    This calc controller creates 2 counters to return a filtered measured position
+    from an encoder.
+    
+    Input counter:
+       - encoder
+    Output counters:
+       - position:  *axis._set_position* if position is inside the **encoder_precision** or the encoder value.
+       - position_error
+    """
+
+    def __init__(self, name, config):
+        self._encoder = config["encoder"]
+        assert isinstance(self._encoder, Encoder)
+
+        config["inputs"] = [{"counter": self._encoder, "tags": "enc"}]
+        config["outputs"] = [
+            {"name": "position", "tags": "corrected_position"},
+            {"name": "position_error", "tags": "error"},
+        ]
+
+        super().__init__(name, config)
+
+    @property
+    def encoder_precision(self):
+        try:
+            return float(self._config["encoder_precision"])
+        except KeyError:
+            return 0
+
+    def calc_function(self, input_dict):
+        encoder_value = corrected_value = input_dict["enc"]
+        axis = self._encoder.axis
+        if axis is not None:
+            user_target_position = axis._set_position
+            dial_target_position = axis.user2dial(user_target_position)
+            encoder_stepsize = 1.0 / self._encoder.steps_per_unit
+            encoder_precision = self.encoder_precision
+
+            corrected_value = encoder_noise_round(
+                encoder_value, dial_target_position, encoder_stepsize, encoder_precision
+            )
+
+        error = float("nan") if axis is None else dial_target_position - encoder_value
+
+        return {"corrected_position": corrected_value, "error": error}

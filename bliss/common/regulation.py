@@ -904,28 +904,10 @@ class Loop(SamplingCounterController):
         self._deadband_idle_factor = value / 100.
 
     def is_in_deadband(self):
-
-        current_value = self.input.read()
-
-        if (current_value < self.setpoint - self.deadband) or (
-            current_value > self.setpoint + self.deadband
-        ):
-            return False
-        else:
-            return True
+        return self._x_is_in_deadband(self.input.read())
 
     def is_in_idleband(self):
-
-        current_value = self.input.read()
-
-        if (
-            current_value < self.setpoint - self.deadband * self._deadband_idle_factor
-        ) or (
-            current_value > self.setpoint + self.deadband * self._deadband_idle_factor
-        ):
-            return False
-        else:
-            return True
+        return self._x_is_in_idleband(self.input.read())
 
     ##--- DATA HISTORY METHODS
     def clear_history_data(self):
@@ -1361,7 +1343,13 @@ class Loop(SamplingCounterController):
 
         try:
             self._use_soft_ramp = False
+
+            current_value = self.input.read()
+            if not self._x_is_in_deadband(current_value):
+                self._controller.set_setpoint(self, current_value)
+
             self._controller.start_ramp(self, value)
+
         except NotImplementedError:
             self._use_soft_ramp = True
             self._ramp.start(value)
@@ -1409,6 +1397,22 @@ class Loop(SamplingCounterController):
         )
 
         self._soft_axis._unit = self.input.config.get("unit", "N/A")
+
+    def _x_is_in_deadband(self, x):
+        sp = self.setpoint
+        if (x < sp - self.deadband) or (x > sp + self.deadband):
+            return False
+        else:
+            return True
+
+    def _x_is_in_idleband(self, x):
+        sp = self.setpoint
+        if (x < sp - self.deadband * self._deadband_idle_factor) or (
+            x > sp + self.deadband * self._deadband_idle_factor
+        ):
+            return False
+        else:
+            return True
 
 
 class SoftLoop(Loop):
@@ -1693,12 +1697,11 @@ class SoftLoop(Loop):
             if self.input.allow_regulation():
                 input_value = self.input.read()
                 power_value = self.pid(input_value)
+                self._pid_output_value = output_value = self._get_power2unit(
+                    power_value
+                )
 
-                output_value = self._get_power2unit(power_value)
-
-                self._pid_output_value = output_value
-
-                if not self.is_in_idleband():
+                if not self._x_is_in_idleband(input_value):
                     self.output.set_value(output_value)
 
             gevent.sleep(self.pid.sample_time)

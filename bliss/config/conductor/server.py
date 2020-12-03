@@ -979,29 +979,30 @@ def main(args=None):
     # Argument parsing
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--db_path",
         "--db-path",
+        "--db_path",
         dest="db_path",
         default=os.environ.get("BEACON_DB_PATH", "./db"),
         help="database path",
     )
     parser.add_argument(
-        "--redis_port",
         "--redis-port",
+        "--redis_port",
         dest="redis_port",
         default=6379,
         type=int,
         help="redis connection port",
     )
     parser.add_argument(
-        "--redis_conf",
         "--redis-conf",
+        "--redis_conf",
         dest="redis_conf",
         default=redis_conf.get_redis_config_path(),
         help="path to alternative redis configuration file",
     )
     parser.add_argument(
         "--redis-data-port",
+        "--redis_data_port",
         dest="redis_data_port",
         default=6380,
         type=int,
@@ -1009,6 +1010,7 @@ def main(args=None):
     )
     parser.add_argument(
         "--redis-data-conf",
+        "--redis_data_conf",
         dest="redis_data_conf",
         default=redis_conf.get_redis_data_config_path(),
         help="path to alternative redis configuration file for data server",
@@ -1029,40 +1031,40 @@ def main(args=None):
         "otherwise takes a free port)",
     )
     parser.add_argument(
-        "--tango_port",
         "--tango-port",
+        "--tango_port",
         dest="tango_port",
         type=int,
         default=0,
         help="tango server port (default to 0: disable)",
     )
     parser.add_argument(
-        "--tango_debug_level",
         "--tango-debug-level",
+        "--tango_debug_level",
         dest="tango_debug_level",
         type=int,
         default=0,
         help="tango debug level (default to 0: WARNING,1:INFO,2:DEBUG)",
     )
     parser.add_argument(
-        "--webapp_port",
         "--webapp-port",
+        "--webapp_port",
         dest="webapp_port",
         type=int,
         default=9030,
         help="web server port for beacon configuration (0: disable)",
     )
     parser.add_argument(
-        "--homepage_port",
         "--homepage-port",
+        "--homepage_port",
         dest="homepage_port",
         type=int,
         default=9010,
         help="web port for the homepage (0: disable)",
     )
     parser.add_argument(
-        "--log_server_port",
         "--log-server-port",
+        "--log_server_port",
         dest="log_server_port",
         type=int,
         default=9020,
@@ -1093,6 +1095,7 @@ def main(args=None):
         help="Web port for the log viewer socket (0: disable)",
     )
     parser.add_argument(
+        "--redis-socket",
         "--redis_socket",
         dest="redis_socket",
         default="/tmp/redis.sock",

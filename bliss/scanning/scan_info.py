@@ -28,6 +28,12 @@ class ScanInfo(dict):
         self._scan_info = self
 
     def _set_scan_info(self, scan_info):
+        """This method and attribute is a trick to make the backward compatible
+        implementation of ScanInfoFactory easy. This have to be removed together
+        with ScanInfoFactory in few version.
+
+        Introduced with BLISS 1.7
+        """
         self._scan_info = scan_info
 
     @staticmethod

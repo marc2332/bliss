@@ -4,7 +4,11 @@
 #
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
+"""
+Test for backward compatibility created for BLISS 1.7.
 
+Can be removed in few version together with ScanInfoFactory.
+"""
 from bliss.common.scans.scan_info import ScanInfoFactory
 
 

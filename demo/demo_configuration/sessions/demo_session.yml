@@ -14,6 +14,7 @@
     - slit_vertical_gap
     - slit_vertical_offset
     - beamviewer
+    - lima_simulator
     - tomocam
     - diffcam
     - mca1

@@ -1725,16 +1725,8 @@ class Axis:
             self.__move_done_callback.set()
 
     def _check_ready(self):
-        initial_state = self.state
-        if not initial_state.READY and not initial_state.MOVING:
-            # read state from hardware
-            initial_state = self.hw_state
-            self._update_settings(state=initial_state)
-
-        if not initial_state.READY:
-            raise RuntimeError(
-                "axis %s state is " "%r" % (self.name, str(initial_state))
-            )
+        if not self.controller.check_ready_to_move(self, self.state):
+            raise RuntimeError("axis %s state is " "%r" % (self.name, str(self.state)))
 
     @lazy_init
     def move(self, user_target_pos, wait=True, relative=False, polling_time=None):

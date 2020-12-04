@@ -361,6 +361,17 @@ class Controller:
     def state(self, axis):
         raise NotImplementedError
 
+    def check_ready_to_move(self, axis, state):
+        """
+        method to check if the axis can move with the current state
+        """
+        if not state.READY and not state.MOVING:
+            # read state from hardware
+            state = axis.hw_state
+            axis._update_settings(state=state)
+
+        return state.READY
+
     def get_info(self, axis):
         raise NotImplementedError
 

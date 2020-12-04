@@ -9,10 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Flint:
-    - Custom scan description (`scan_info`)
-        - A `set_sequence_info` was added to define the amount of excepted scans
-          from a sequence
+- Custom scan description (`scan_info`)
+    - `bliss.scanning.scan_info.ScanInfo` was created in order to replace
+      scan_info dictionary and ScanInfoFactory
+    - A `set_sequence_info` helper was added to define the amount of excepted
+      scans from a sequence
 
 ### Changed
 

@@ -82,7 +82,7 @@ def limatake(
     nbframes: numbers.Integral = 1,
     save: bool = False,
     run: bool = True,
-    **kwargs
+    **kwargs,
 ):
     """Perform an acquisition with lima devices active in current measurement
     group.
@@ -153,7 +153,7 @@ def limatake(
 
     scan_info = lima_params
     scan_info.update(acq_params)
-    scan_info["title"] = "limatake {0:.4f} {1}".format(expotime, nbframes)
+    scan_info["title"] = f"limatake {expotime:.4f} {nbframes}"
     scan_info["type"] = "limatake"
     scan = Scan(
         chain,

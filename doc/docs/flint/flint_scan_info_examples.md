@@ -54,32 +54,31 @@ This example create a regular scatter.
 ![Regular scatter in Flint](img/scan_info/regular-scatter.png)
 
 ```
-from bliss.common.scans.scan_info import ScanInfoFactory
+from bliss.scanning.scan_info import ScanInfo
 import numpy
 
-scan_info = {}
-factory = ScanInfoFactory(scan_info)
+scan_info = ScanInfo()
 
 # Specify the same group for all this channels (axis or values)
-factory.set_channel_meta("axis1",
-                         # The group have to be the same for all this channels
-                         group="foo",
-                         # This is the fast axis
-                         axis_id=0,
-                         # In forth direction only
-                         axis_kind="forth",
-                         # The grid have to be specified
-                         start=0, stop=9, axis_points=10,
-                         # Optionally the full number of points can be specified
-                         points=100)
-factory.set_channel_meta("axis2", group="foo", axis_id=1,
-                         axis_kind="forth",
-                         start=0, stop=9,
-                         axis_points=10, points=100)
-factory.set_channel_meta("diode1", group="foo")
+scan_info.set_channel_meta("axis1",
+                           # The group have to be the same for all this channels
+                           group="foo",
+                           # This is the fast axis
+                           axis_id=0,
+                           # In forth direction only
+                           axis_kind="forth",
+                           # The grid have to be specified
+                           start=0, stop=9, axis_points=10,
+                           # Optionally the full number of points can be specified
+                           points=100)
+scan_info.set_channel_meta("axis2", group="foo", axis_id=1,
+                           axis_kind="forth",
+                           start=0, stop=9,
+                           axis_points=10, points=100)
+scan_info.set_channel_meta("diode1", group="foo")
 
 # Request a specific scatter to be displayed
-factory.add_scatter_plot(x="axis1", y="axis2", value="diode1")
+scan_info.add_scatter_plot(x="axis1", y="axis2", value="diode1")
 
 # Generate the data
 slow, fast = numpy.mgrid[0:10, 0:10]
@@ -111,29 +110,28 @@ For now only Flint will only display the last frame.
 ![Regular scatter in Flint](img/scan_info/regular-scatter-3d.png)
 
 ```
-from bliss.common.scans.scan_info import ScanInfoFactory
+from bliss.scanning.scan_info import ScanInfo
 import numpy
 
-scan_info = {}
-factory = ScanInfoFactory(scan_info)
+scan_info = ScanInfo()
 
-factory.set_channel_meta("axis1", group="foo", axis_id=0,
-                         axis_kind="forth",
-                         start=0, stop=9, axis_points=10,
-                         points=1000)
-factory.set_channel_meta("axis2", group="foo", axis_id=1,
-                         axis_kind="forth",
-                         start=0, stop=9, axis_points=10,
-                         points=1000)
+scan_info.set_channel_meta("axis1", group="foo", axis_id=0,
+                           axis_kind="forth",
+                           start=0, stop=9, axis_points=10,
+                           points=1000)
+scan_info.set_channel_meta("axis2", group="foo", axis_id=1,
+                           axis_kind="forth",
+                           start=0, stop=9, axis_points=10,
+                           points=1000)
 # The slowest axes have to be describe as stepper
-factory.set_channel_meta("frame", group="foo", axis_id=2,
-                         axis_kind="step",
-                         start=0, stop=9, axis_points=10,
-                         points=1000)
-factory.set_channel_meta("diode1", group="foo")
+scan_info.set_channel_meta("frame", group="foo", axis_id=2,
+                           axis_kind="step",
+                           start=0, stop=9, axis_points=10,
+                           points=1000)
+scan_info.set_channel_meta("diode1", group="foo")
 
 # Request a specific scatter to be displayed
-factory.add_scatter_plot(x="axis1", y="axis2", value="diode1")
+scan_info.add_scatter_plot(x="axis1", y="axis2", value="diode1")
 
 # Generate the data
 frame, slow, fast = numpy.mgrid[0:10, 0:10, 0:10]
@@ -160,25 +158,24 @@ That's what we simulate here. `axis1` and `axis2` are also provided as
 ![Axis and encoder together](img/scan_info/scatter-encoder.png)
 
 ```
-from bliss.common.scans.scan_info import ScanInfoFactory
+from bliss.scanning.scan_info import ScanInfo
 import numpy
 
-scan_info = {}
-factory = ScanInfoFactory(scan_info)
+scan_info = ScanInfo()
 
-factory.set_channel_meta("axis1", group="foo", axis_id=0, axis_kind="forth",
-                         start=0, stop=9, axis_points=10, points=100)
-factory.set_channel_meta("axis2", group="foo", axis_id=1, axis_kind="forth",
-                         start=0, stop=9, axis_points=10, points=100)
+scan_info.set_channel_meta("axis1", group="foo", axis_id=0, axis_kind="forth",
+                           start=0, stop=9, axis_points=10, points=100)
+scan_info.set_channel_meta("axis2", group="foo", axis_id=1, axis_kind="forth",
+                           start=0, stop=9, axis_points=10, points=100)
 # Index are reused for the encoded
-factory.set_channel_meta("axis1-enc", group="foo", axis_id=0, axis_kind="forth",
-                         start=0, stop=9, axis_points=10, points=100)
-factory.set_channel_meta("axis2-enc", group="foo", axis_id=1, axis_kind="forth",
-                         start=0, stop=9, axis_points=10, points=100)
-factory.set_channel_meta("diode1", group="foo")
+scan_info.set_channel_meta("axis1-enc", group="foo", axis_id=0, axis_kind="forth",
+                           start=0, stop=9, axis_points=10, points=100)
+scan_info.set_channel_meta("axis2-enc", group="foo", axis_id=1, axis_kind="forth",
+                           start=0, stop=9, axis_points=10, points=100)
+scan_info.set_channel_meta("diode1", group="foo")
 
 # Request a specific scatter to be displayed
-factory.add_scatter_plot(x="axis1", y="axis2", value="diode1")
+scan_info.add_scatter_plot(x="axis1", y="axis2", value="diode1")
 
 # Generate the data
 slow, fast = numpy.mgrid[0:10, 0:10]
@@ -221,21 +218,20 @@ used to know the amount of pixels to used per axis.
 ![Non-regular scatter in Flint](img/scan_info/irregular-scatter.png)
 
 ```
-from bliss.common.scans.scan_info import ScanInfoFactory
+from bliss.scanning.scan_info import ScanInfo
 import numpy
 
-scan_info = {}
-factory = ScanInfoFactory(scan_info)
+scan_info = ScanInfo()
 
 # There is no hint for axis kind, and axis npoints is a hint
-factory.set_channel_meta("axis1", group="foo", axis_id=0,
-                         min=0, max=9, axis_points_hint=10, points=500)
-factory.set_channel_meta("axis2", group="foo", axis_id=1,
-                         min=0, max=9, axis_points_hint=10, points=500)
-factory.set_channel_meta("diode1", group="foo")
+scan_info.set_channel_meta("axis1", group="foo", axis_id=0,
+                           min=0, max=9, axis_points_hint=10, points=500)
+scan_info.set_channel_meta("axis2", group="foo", axis_id=1,
+                           min=0, max=9, axis_points_hint=10, points=500)
+scan_info.set_channel_meta("diode1", group="foo")
 
 # Request a specific scatter to be displayed
-factory.add_scatter_plot(x="axis1", y="axis2", value="diode1")
+scan_info.add_scatter_plot(x="axis1", y="axis2", value="diode1")
 
 # Generate the data
 axis1 = numpy.random.rand(500) * 9
@@ -260,25 +256,24 @@ This also can work for extra dimensions with steppers.
 ![Non-regular scatter in Flint](img/scan_info/irregular-scatter-3d.png)
 
 ```
-from bliss.common.scans.scan_info import ScanInfoFactory
+from bliss.scanning.scan_info import ScanInfo
 import numpy
 
-scan_info = {}
-factory = ScanInfoFactory(scan_info)
+scan_info = ScanInfo()
 
 # There is no hint for axis kind, and axis npoints is a hint
-factory.set_channel_meta("axis1", group="foo", axis_id=0,
-                         min=0, max=9, axis_points_hint=10, points=500)
-factory.set_channel_meta("axis2", group="foo", axis_id=1,
-                         min=0, max=9, axis_points_hint=10, points=500)
-factory.set_channel_meta("frame", group="foo", axis_id=2,
-                         axis_kind="step",
-                         start=0, stop=4, axis_points=5,
-                         points=500)
-factory.set_channel_meta("diode1", group="foo")
+scan_info.set_channel_meta("axis1", group="foo", axis_id=0,
+                           min=0, max=9, axis_points_hint=10, points=500)
+scan_info.set_channel_meta("axis2", group="foo", axis_id=1,
+                           min=0, max=9, axis_points_hint=10, points=500)
+scan_info.set_channel_meta("frame", group="foo", axis_id=2,
+                           axis_kind="step",
+                           start=0, stop=4, axis_points=5,
+                           points=500)
+scan_info.set_channel_meta("diode1", group="foo")
 
 # Request a specific scatter to be displayed
-factory.add_scatter_plot(x="axis1", y="axis2", value="diode1")
+scan_info.add_scatter_plot(x="axis1", y="axis2", value="diode1")
 
 # Generate the data
 axis1 = numpy.random.rand(500) * 9

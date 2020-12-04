@@ -44,6 +44,7 @@ from louie import saferef
 from bliss.common.plot import get_plot
 from bliss import __version__ as publisher_version
 from bliss.common import logtools
+from bliss.scanning.scan_info import ScanInfo
 
 
 logger = logging.getLogger("bliss.scans")
@@ -118,14 +119,14 @@ class DataWatchCallback:
 
         :param dict data_events: a dict with Acq(Device/Master) as key and a set of signal as values
         :param dict nodes: a dict with Acq(Device/Master) as key and the associated data node as value
-        :param dict scan_info: dictionnary which contains the current scan state
+        :param dict scan_info: dictionary which contains the current scan state
         """
         raise NotImplementedError
 
     def on_scan_end(self, scan_info):
         """Called at the end of the scan.
         
-        :param dict scan_info: dictionnary which contains the current scan state
+        :param dict scan_info: dictionary which contains the current scan state
         """
         pass
 
@@ -364,91 +365,6 @@ class _WatchDogTask(gevent.Greenlet):
             self.__watchdog_timer = gevent.spawn(loop, self._callback.timeout)
 
 
-def _get_channels_dict(acq_object, channels_dict):
-    scalars = channels_dict.setdefault("scalars", [])
-    scalars_units = channels_dict.setdefault("scalars_units", {})
-    spectra = channels_dict.setdefault("spectra", [])
-    images = channels_dict.setdefault("images", [])
-    display_names = channels_dict.setdefault("display_names", {})
-
-    for acq_chan in acq_object.channels:
-        fullname = acq_chan.fullname
-        if fullname in display_names:
-            continue
-        try:
-            _, controller_chan_name, chan_name = fullname.split(":")
-        except ValueError:
-            controller_chan_name, _, chan_name = fullname.rpartition(":")
-        display_names[fullname] = (
-            controller_chan_name,
-            acq_chan.short_name,
-        )  # use .name to get alias, if any
-        scalars_units[fullname] = acq_chan.unit
-        shape = acq_chan.shape
-        if len(shape) == 0 and fullname not in scalars:
-            scalars.append(fullname)
-        elif len(shape) == 1 and fullname not in spectra:
-            spectra.append(fullname)
-        elif len(shape) == 2 and fullname not in images:
-            images.append(fullname)
-
-    return channels_dict
-
-
-def _get_masters_and_channels(acq_chain):
-    # go through acq chain, group acq channels by master and data shape
-    tree = acq_chain._tree
-
-    chain_dict = {}
-    display_names_list = []
-    for path in tree.paths_to_leaves():
-        master = None
-        # path[0] is root
-        for acq_object in path[1:]:
-            # it is mandatory to find an acq. master first
-            if isinstance(acq_object, AcquisitionMaster):
-                if master is None or acq_object.parent is None:
-                    master = acq_object.name
-                    channels = chain_dict.setdefault(master, {"master": {}})
-                    _get_channels_dict(acq_object, channels["master"])
-                    display_names_list.append(channels["master"]["display_names"])
-                    continue
-            _get_channels_dict(acq_object, channels)
-            display_names_list.append(channels["display_names"])
-
-    # find channel display labels
-    names_count = collections.Counter()
-    # eliminate duplicated display_names dict in list
-    display_names_list = [
-        d
-        for i, d in enumerate(display_names_list)
-        if d not in display_names_list[i + 1 :]
-    ]
-    for display_names in display_names_list:
-        for controller_chan_name, chan_name in display_names.values():
-            if controller_chan_name == chan_name:
-                # weird case, but it can happen
-                names_count.update([chan_name])
-            else:
-                names_count.update([controller_chan_name, chan_name])
-    for display_names in display_names_list:
-        for fullname, (controller_chan_name, chan_name) in display_names.items():
-
-            ## Replace the channel name by the controller name if not unique
-            # if names_count[chan_name] == 1:
-            #     # unique short name
-            #     display_names[fullname] = chan_name
-            # else:
-            #     if names_count[controller_chan_name] == 1:
-            #         display_names[fullname] = controller_chan_name
-            #     else:
-            #         display_names[fullname] = fullname
-
-            display_names[fullname] = chan_name
-
-    return chain_dict
-
-
 class ScanPreset:
     def __init__(self):
         self.__acq_chain = None
@@ -654,25 +570,28 @@ class Scan:
         name="scan",
         scan_info=None,
         save=True,
-        save_images=None,  # None means follows "save"
+        save_images=None,
         scan_saving=None,
         data_watch_callback=None,
         watchdog_callback=None,
     ):
         """
-        This class publish data and trig the writer if any.
+        Scan class to publish data and trigger the writer if any.
 
-        chain -- acquisition chain you want to use for this scan.
-        name -- scan name, if None set default name *scan*
-        parent -- the parent is the root node of the data tree.
-        usually the parent is a Container like to a session,sample,experiment...
-        i.e: parent = Container('eh3')
-        scan_info -- should be the scan parameters as a dict
-        writer -- is the final file writer (hdf5,cvs,spec file...)
-        data_watch_callback -- a callback inherited from DataWatchCallback
+        Arguments:
+            chain: Acquisition chain you want to use for this scan.
+            name: Scan name, if None set default name *scan*
+            scan_info: Scan parameters if some, as a dict (or as ScanInfo
+                       object)
+            save: True if this scan have to be saved
+            save_images: None means follows "save"
+            scan_saving: Object describing how to save the scan, if any
+            data_watch_callback: a callback inherited from `DataWatchCallback`
         """
         self.__name = name
         self.__scan_number = None
+        self._scan_info = ScanInfo()
+
         self.root_node = None
         self._cache_cnx = None
         self._shadow_scan_number = not save
@@ -754,20 +673,19 @@ class Scan:
     def _init_scan_info(self, scan_info=None, save=True):
         """Initialize `scan_info`"""
         with time_profile(self._stats_dict, "scan.init.scan_info", logger=logger):
-            self._scan_info = dict(scan_info) if scan_info is not None else dict()
+            if scan_info is not None:
+                self._scan_info.update(scan_info)
             scan_saving = self.__scan_saving
             self._scan_info.setdefault("title", self.__name)
             self._scan_info["session_name"] = scan_saving.session
             self._scan_info["user_name"] = scan_saving.user_name
-            self._scan_info["shadow_scan_number"] = self._shadow_scan_number
-            self._scan_info["save"] = save
             self._scan_info["data_writer"] = scan_saving.writer
             self._scan_info["data_policy"] = scan_saving.data_policy
+            self._scan_info["shadow_scan_number"] = self._shadow_scan_number
+            self._scan_info["save"] = save
             self._scan_info["publisher"] = "Bliss"
             self._scan_info["publisher_version"] = publisher_version
-            self._scan_info["acquisition_chain"] = _get_masters_and_channels(
-                self._acq_chain
-            )
+            self._scan_info.set_acquisition_chain_info(self._acq_chain)
 
     def _init_writer(self, save=True, save_images=None):
         """Initialize the data writer if needed"""

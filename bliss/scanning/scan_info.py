@@ -233,3 +233,30 @@ class ScanInfo(dict):
                         # If there is something to store
                         channels[fullname] = channel_dict
         self._scan_info["channels"] = channels
+
+        # Feed Lima ROIs into the scan_info
+        rois = {}
+        from bliss.controllers.lima.roi import RoiCounters
+        from bliss.controllers.lima.roi import RoiProfileController
+
+        for path in tree.paths_to_leaves():
+            for acq_object in path[1:]:
+                device = acq_object.device
+                already_processed = set()
+
+                if not isinstance(device, (RoiCounters, RoiProfileController)):
+                    continue
+                for roi_counter in device.counters:
+                    roi_name = roi_counter.roi_name
+
+                    # Only deal once with each ROIs
+                    if roi_name in already_processed:
+                        continue
+                    already_processed.add(roi_name)
+
+                    # Store ROI metadata
+                    basename = roi_counter.fullname.rsplit(":", 1)[0]
+                    fullname = f"{basename}:{roi_name}"
+                    roi = device.get(roi_name)
+                    rois[fullname] = roi.to_dict()
+        self._scan_info["rois"] = rois

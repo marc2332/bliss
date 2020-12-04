@@ -62,7 +62,7 @@ class TangoShutter(BaseShutter):
         self._init_type()
 
         self._state_channel = Channel(
-            f"{name}:state", default_value="UNKNOWN", callback=self.__state_changed
+            f"{name}:state", default_value="UNKNOWN", callback=self._state_changed
         )
 
     def _init_type(self):
@@ -126,7 +126,7 @@ class TangoShutter(BaseShutter):
         except DevFailed:
             raise RuntimeError(f"Communication error with {self.__control.dev_name()}")
 
-    def __state_changed(self, stat):
+    def _state_changed(self, stat):
         """Send a signal when state changes"""
         event.send(self, "state", stat)
 
@@ -244,7 +244,7 @@ class TangoShutter(BaseShutter):
         with Timeout(timeout, RuntimeError("Execution timeout")):
             while self.state != state:
                 sleep(1)
-            self.__state_changed(self.state)
+            self._state_changed(self.state)
 
     def _wait_mode(self, mode, timeout=3):
         with Timeout(timeout, RuntimeError(f"Cannot set {mode} opening")):

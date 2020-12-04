@@ -43,22 +43,15 @@ def test_scan_info_display_names_with_alias(alias_session):
     acq_chan = s.acq_chain.nodes_list[0].channels[0]
     assert acq_chan.name == "axis:robyy"
     assert (
-        "axis:"
-        + s.scan_info["acquisition_chain"]["axis"]["master"]["display_names"][
-            acq_chan.fullname
-        ]
+        "axis:" + s.scan_info["channels"][acq_chan.fullname]["display_name"]
         == acq_chan.name
     )
     dtime_chan = s.acq_chain.nodes_list[-2].channels[0]
     assert (
-        s.scan_info["acquisition_chain"]["axis"]["display_names"][dtime_chan.fullname]
-        == dtime_chan.name
+        s.scan_info["channels"][dtime_chan.fullname]["display_name"] == dtime_chan.name
     )
     toto_chan = s.acq_chain.nodes_list[-1].channels[0]
-    assert (
-        s.scan_info["acquisition_chain"]["axis"]["display_names"][toto_chan.fullname]
-        == toto_chan.name
-    )
+    assert s.scan_info["channels"][toto_chan.fullname]["display_name"] == toto_chan.name
 
 
 def test_alias_scan_title(alias_session):

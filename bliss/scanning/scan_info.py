@@ -172,24 +172,15 @@ class ScanInfo(dict):
 
     def _get_channels_dict(self, acq_object, channels_dict):
         scalars = channels_dict.setdefault("scalars", [])
-        scalars_units = channels_dict.setdefault("scalars_units", {})
         spectra = channels_dict.setdefault("spectra", [])
         images = channels_dict.setdefault("images", [])
-        display_names = channels_dict.setdefault("display_names", {})
+        already_read = set([])
 
         for acq_chan in acq_object.channels:
             fullname = acq_chan.fullname
-            if fullname in display_names:
+            if fullname in already_read:
                 continue
-            try:
-                _, controller_chan_name, chan_name = fullname.split(":")
-            except ValueError:
-                controller_chan_name, _, chan_name = fullname.rpartition(":")
-            display_names[fullname] = (
-                controller_chan_name,
-                acq_chan.short_name,
-            )  # use .name to get alias, if any
-            scalars_units[fullname] = acq_chan.unit
+            already_read.add(fullname)
             shape = acq_chan.shape
             if len(shape) == 0 and fullname not in scalars:
                 scalars.append(fullname)
@@ -210,7 +201,6 @@ class ScanInfo(dict):
         tree = acq_chain._tree
 
         chain_dict = {}
-        display_names_list = []
         for path in tree.paths_to_leaves():
             master = None
             # path[0] is root
@@ -221,41 +211,8 @@ class ScanInfo(dict):
                         master = acq_object.name
                         channels = chain_dict.setdefault(master, {"master": {}})
                         self._get_channels_dict(acq_object, channels["master"])
-                        display_names_list.append(channels["master"]["display_names"])
                         continue
                 self._get_channels_dict(acq_object, channels)
-                display_names_list.append(channels["display_names"])
-
-        # find channel display labels
-        names_count = collections.Counter()
-        # eliminate duplicated display_names dict in list
-        display_names_list = [
-            d
-            for i, d in enumerate(display_names_list)
-            if d not in display_names_list[i + 1 :]
-        ]
-        for display_names in display_names_list:
-            for controller_chan_name, chan_name in display_names.values():
-                if controller_chan_name == chan_name:
-                    # weird case, but it can happen
-                    names_count.update([chan_name])
-                else:
-                    names_count.update([controller_chan_name, chan_name])
-        for display_names in display_names_list:
-            for fullname, (controller_chan_name, chan_name) in display_names.items():
-
-                ## Replace the channel name by the controller name if not unique
-                # if names_count[chan_name] == 1:
-                #     # unique short name
-                #     display_names[fullname] = chan_name
-                # else:
-                #     if names_count[controller_chan_name] == 1:
-                #         display_names[fullname] = controller_chan_name
-                #     else:
-                #         display_names[fullname] = fullname
-
-                display_names[fullname] = chan_name
-
         self._scan_info["acquisition_chain"] = chain_dict
 
         # Feed channels key

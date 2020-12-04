@@ -12,7 +12,6 @@ Contains helper to manage the `scan_info` metadata provided inside each scans.
 import typing
 import typeguard
 import numbers
-import collections
 
 
 class ScanInfo(dict):

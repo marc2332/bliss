@@ -7,6 +7,7 @@
 
 import os, sys
 import io
+import gevent
 from . import connection
 from .connection import StolenLockException
 from functools import wraps
@@ -19,10 +20,6 @@ def get_default_connection():
     if _default_connection is None:
         _default_connection = connection.Connection()
     return _default_connection
-
-
-def has_default_connection():
-    return _default_connection is not None
 
 
 class _StringIO(io.StringIO):
@@ -111,6 +108,24 @@ def get_redis_connection(
     return connection.get_redis_connection(
         db=db, single_connection_client=single_connection_client, pool_name=pool_name
     )
+
+
+def get_existing_redis_connection(
+    db=0, single_connection_client=False, pool_name="default", timeout=None
+):
+    """Returns None when no global connection pool or when timed out
+    """
+    if _default_connection is None:
+        return None
+    try:
+        with gevent.Timeout(timeout, TimeoutError):
+            return _default_connection.get_redis_connection(
+                db=db,
+                single_connection_client=single_connection_client,
+                pool_name=pool_name,
+            )
+    except TimeoutError:
+        return None
 
 
 @check_connection

@@ -257,3 +257,23 @@ class ScanInfo(dict):
                 display_names[fullname] = chan_name
 
         self._scan_info["acquisition_chain"] = chain_dict
+
+        # Feed channels key
+        channels = {}
+        for path in tree.paths_to_leaves():
+            for acq_object in path[1:]:
+                for acq_chan in acq_object.channels:
+                    fullname = acq_chan.fullname
+                    if fullname in channels:
+                        continue
+                    channel_dict = {}
+                    units = acq_chan.unit
+                    if units is not None:
+                        channel_dict["unit"] = units
+                    display_name = acq_chan.short_name
+                    if display_name is not None:
+                        channel_dict["display_name"] = display_name
+                    if len(channel_dict) != 0:
+                        # If there is something to store
+                        channels[fullname] = channel_dict
+        self._scan_info["channels"] = channels

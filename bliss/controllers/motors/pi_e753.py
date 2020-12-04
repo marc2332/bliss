@@ -118,6 +118,9 @@ class PI_E753(Controller):
             # open-loop => always ready.
             return AxisState("READY")
 
+    def check_ready_to_move(self, axis, state):
+        return True  # Can always move
+
     """ MOVEMENTS """
 
     def prepare_move(self, motion):

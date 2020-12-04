@@ -454,8 +454,8 @@ class PM600(Controller):
             tstep = t1.mean()
             if tstep != t1[0]:
                 raise RuntimeError(
-                    f"PM600 controller only supports unique time value to complete each element"
-                    f"in a profile definition, so time scale in PVT array must be linear."
+                    "PM600 controller only supports unique time value to complete each element "
+                    "in a profile definition, so time scale in PVT array must be linear."
                 )
 
             if tstep * 1000 > 65635:

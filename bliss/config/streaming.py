@@ -415,7 +415,7 @@ class DataStreamReader:
             raise TypeError("All streams must have the same redis connection")
 
         # Create the synchronization stream
-        self.__synchro_stream = DataStream(str(uuid.uuid1()), maxlen=16, connection=cnx)
+        self.__synchro_stream = DataStream(str(uuid.uuid4()), maxlen=16, connection=cnx)
         return self.__synchro_stream
 
     @property

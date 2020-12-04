@@ -256,28 +256,22 @@ def create_scan_model(scan_info: Dict, is_group: bool = False) -> scan_model.Sca
 
 def read_units(scan_info: Dict) -> Dict[str, str]:
     """Merge all units together"""
-    units: Dict[str, str] = {}
-    if "acquisition_chain" not in scan_info:
-        return units
-    for _master, channel_dict in scan_info["acquisition_chain"].items():
-        u = channel_dict.get("scalars_units", {})
-        units.update(u)
-        u = channel_dict.get("master", {}).get("scalars_units", {})
-        units.update(u)
-    return units
+    if "channels" not in scan_info:
+        return {}
+    result = {k: v["unit"] for k, v in scan_info["channels"].items() if "unit" in v}
+    return result
 
 
 def read_display_names(scan_info: Dict) -> Dict[str, str]:
     """Merge all display names together"""
-    display_names: Dict[str, str] = {}
-    if "acquisition_chain" not in scan_info:
-        return display_names
-    for _master, channel_dict in scan_info["acquisition_chain"].items():
-        u = channel_dict.get("display_names", {})
-        display_names.update(u)
-        u = channel_dict.get("master", {}).get("display_names", {})
-        display_names.update(u)
-    return display_names
+    if "channels" not in scan_info:
+        return {}
+    result = {
+        k: v["display_name"]
+        for k, v in scan_info["channels"].items()
+        if "display_name" in v
+    }
+    return result
 
 
 def _pop_and_convert(meta, key, func):
@@ -658,17 +652,13 @@ def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
                 ]
                 if len(channels) > 0:
                     master_channel = channels[0]
-                    master_channel_unit = channels_dict.get("master", {}).get(
-                        "scalars_units", None
-                    )
+                    master_channel_unit = channel_units.get(master_channel, None)
                     is_motor_scan = master_channel_unit != "s"
                 else:
                     is_motor_scan = False
 
                 for channel_name in scalars:
-                    channel_unit = channels_dict.get("scalars_units", {}).get(
-                        channel_name, None
-                    )
+                    channel_unit = channel_units.get(channel_name, None)
                     if is_motor_scan and channel_unit == "s":
                         # Do not display base time for motor based scan
                         continue

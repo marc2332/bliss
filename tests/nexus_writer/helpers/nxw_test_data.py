@@ -382,6 +382,7 @@ def validate_measurement(
                 variable_length=variable_length,
                 save_images=save_images,
             )
+            assert_attributes(dset.name.split("/")[-1], dset, config=config)
 
 
 def validate_instrument(
@@ -1315,6 +1316,27 @@ def assert_dataset(
         # At least one valid value along the detector dimensions
         invalid = invalid.min(axis=detaxis)
         assert not invalid.all(), dset.name
+
+
+def assert_attributes(unique_name, dset, config=True):
+    """
+    Check whether dataset contains the expected attributes
+
+    :param str unique_name:
+    :param h5py.Dataset dset:
+    """
+    if unique_name in ["elapsed_time", "epoch"]:
+        assert dset.attrs.get("units") == "s", unique_name
+    elif "bpm_fwhm_y" in unique_name:
+        assert dset.attrs.get("units") == "px", unique_name
+    elif "thermo" in unique_name:
+        assert dset.attrs.get("units") == "deg", unique_name
+    if not config:
+        return
+    if "live_time" in unique_name:
+        assert dset.attrs.get("units") == "s", unique_name
+    elif "icr" in unique_name:
+        assert dset.attrs.get("units") == "hertz", unique_name
 
 
 def validate_detector_data_npoints(scan, subscan=1, npoints=None):

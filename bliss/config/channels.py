@@ -137,7 +137,7 @@ class Bus(AdvancedInstantiationInterface):
 
     def __new__(cls, redis=None):
         if redis is None:
-            redis = client.get_redis_connection()
+            redis = client.get_redis_proxy()
         if redis not in cls._CACHE:
             cls._CACHE[redis] = cls.instanciate(redis)
         return cls._CACHE[redis]

@@ -12,44 +12,16 @@ import gevent
 import gevent.lock
 from gevent import socket, select, event, queue
 from . import protocol
-import redis
 import netifaces
 from functools import wraps
 import warnings
 
 from bliss.common.greenlet_utils import protect_from_kill, AllowKill
+from bliss.config.conductor import redis_connection
 
 
 class StolenLockException(RuntimeError):
     """This exception is raise in case of a stolen lock"""
-
-
-class GreenletSafeConnectionPool(redis.ConnectionPool):
-    """Redis connection pool which is greenlet safe as opposed to thread safe.
-    """
-
-    def reset(self):
-        super().reset()
-        self._lock = gevent.lock.RLock()  # ensure gevent lock, not threading.RLock
-
-    def _checkpid(self):
-        # we do not care of being "fork-safe"
-        return
-
-    def release(self, connection):
-        with self._lock:
-            # As we register callback when greenlet disappear,
-            # Connection might been removed before the greenlet
-            try:
-                return super().release(connection)
-            except KeyError:
-                pass
-
-    def clean_pubsub(self, connection):
-        with self._lock:
-            connection.disconnect()
-            connection.clear_connect_callbacks()
-            self.release(connection)
 
 
 def ip4_broadcast_addresses(default_route_only=False):
@@ -113,7 +85,7 @@ class Connection:
     When either does not have a fallback, use UDP broadcasting to find Beacon.
 
     The Beacon connection also manages all Redis connections.
-    Use `get_redis_connection` to create a connection or use an existing one.
+    Use `get_redis_proxy` to create a connection or use an existing one.
     Use `close_all_redis_connections` to close all Redis connections.
     When the greenlet that created a Redis connection is garbage collected,
     the Redis connection will be closed.
@@ -124,6 +96,8 @@ class Connection:
     Beacon manages configuration files (YAML) and python modules. This class
     allows fetching and manipulating those.
     """
+
+    CLIENT_NAME = f"{socket.gethostname()}:{os.getpid()}"
 
     class WaitingLock:
         def __init__(self, cnt, priority, device_name):
@@ -218,15 +192,26 @@ class Connection:
 
         # Redis connections
         self._get_redis_lock = gevent.lock.Semaphore()
-        # Keep hard references to all Redis connections:
-        self._redis_connections = {}  # {str: {int: redis.Redis}}
-        # Keep weak references to all single connections
-        # (i.e. the connections that cannot be re-used):
-        self._single_redis_connections = weakref.WeakSet()  # set(redis.Redis)
+
+        # Keep hard references to all reusable Redis proxies
+        # (these proxies don't hold a `redis.Redis.Connection` instance)
+        self._reusable_redis_proxies = {}  # {str: {int: SafeRedisDbProxy}}
+
+        # Keep weak references to all non-reusable Redis connections
+        # (these proxies don't hold a `redis.Redis.Connection` instance)
+        self._non_reusable_redis_proxies = (
+            weakref.WeakSet()
+        )  # set(FixedConnectionRedisDbProxy)
+
         # Keep weak references to all Redis connection pools:
-        self._redis_connection_pools = {}  # {str: {int: weakref(GreenletSafeConnectionPool)}}
+        self._redis_connection_pools = {}  # {str: {int: weakref(RedisDbConnectionPool)}}
+
         # Hard references to the connection pools are held by the
-        # Redis connections themselves (redis.Redis)
+        # Redis proxies themselves. Connections of RedisDbConnectionPool
+        # are closed upon garbage collection of RedisDbConnectionPool. So
+        # when the proxies too a pool are the only ones having a hard
+        # reference too that pool, the connections are closed when all
+        # proxies are garbage collected.
 
     def close(self, timeout=None):
         """Disconnection from Beacon and Redis
@@ -278,11 +263,14 @@ class Connection:
             if self.uds is None:
                 self._uds_query()
 
-            # set the default beacon client name
-            conn_name = f"{socket.gethostname()}:{os.getpid()}"
-            self._set_get_clientname(name=conn_name, timeout=3)
+            self.on_connected()
 
             self._connected.set()
+
+    def on_connected(self):
+        """Executed whenever a new connection is made
+        """
+        self._set_get_clientname(name=self.CLIENT_NAME, timeout=3)
 
     def _discovery(self, host, timeout=3.0):
         # Manage timeout
@@ -429,7 +417,7 @@ class Connection:
         """Get a Redis connection pool (create when it does not exist yet)
         for the pool name and db.
 
-        :returns GreenletSafeConnectionPool:
+        :returns RedisDbConnectionPool:
         """
         redis_pools = self._redis_connection_pools.setdefault(
             pool_name, weakref.WeakValueDictionary()
@@ -448,79 +436,103 @@ class Connection:
                 redis_url = f"unix://{port}"
             else:
                 redis_url = f"redis://{host}:{port}"
-            pool = GreenletSafeConnectionPool.from_url(redis_url, db=db)
+            pool = redis_connection.create_connection_pool(
+                redis_url, db, client_name=self.CLIENT_NAME
+            )
             redis_pools[db] = pool
         return pool
 
-    def get_redis_connection(
+    def get_redis_connection(self, single_connection_client=False, **kw):
+        if single_connection_client:
+            warnings.warn("Use 'get_redis_proxy' instead", FutureWarning)
+            return self.get_redis_proxy(**kw)
+        else:
+            warnings.warn(
+                "Use 'get_fixed_connection_redis_proxy' instead", FutureWarning
+            )
+            return self.get_fixed_connection_redis_proxy(**kw)
+
+    def get_redis_proxy(
         self, db=0, single_connection_client=False, pool_name="default"
     ):
-        """A new connection is created when none exists for `pool_name` and `db`
-        or when single_connection_client=True.
+        """Get a proxy to a Redis database. When a proxy already exists
+        for `pool_name` and `db`, return that one. The proxy is greenlet-safe
+        as it gets a new `redis.connection.Connection` from its pool every
+        time it executes a Redis command.
 
-        A Redis connection (redis.Redis) is actually a pool of sockets.
-        The socket pool (GreenletSafeConnectionPool) is greenlet safe
-        and therefore the Redis connection is greenlet safe.
+        The proxy will be closed (return connection to pool) when the
+        instantiating greenlet is garbage collected.
 
-        A Redis connection is closed upon garbage collection of the greenlet
-        that created it or when `close_all_redis_connection` is called.
-
-        :returns redis.Redis:
+        :returns SafeRedisDbProxy:
         """
         with self._get_redis_lock:
-            # Try getting an existing Redis connection
-            if single_connection_client:
-                redis_connections = self._single_redis_connections
-                conn = None
-            else:
-                redis_connections = self._redis_connections.setdefault(pool_name, {})
-                conn = redis_connections.get(db)
-                if conn is not None:
-                    return conn
+            proxies = self._reusable_redis_proxies.setdefault(pool_name, {})
+            proxy = proxies.get(db)
+            if proxy is None:
+                pool = self._get_redis_conn_pool(db, pool_name=pool_name)
+                proxy = pool.create_proxy()
+                proxies[db] = proxy
+                weakref.finalize(
+                    gevent.getcurrent(), self._close_redis_proxy, pool_name, db
+                )
+            return proxy
 
-            # Create a new Redis connection instance with a new or
-            # existing connection pool
+    def get_fixed_connection_redis_proxy(self, db=0, pool_name="default"):
+        """Get a new proxy to a Redis database. The proxy is not greenlet-safe
+        as it holds a single redis `redis.connection.Connection` which is
+        used for all commands.
+
+        Warning: Pipelines created from such a proxy will create a new
+        `redis.connection.Connection`.
+
+        The proxy will be closed (return connection to pool) when the
+        instantiating greenlet is garbage collected.
+
+        :returns FixedConnectionRedisDbProxy:
+        """
+        with self._get_redis_lock:
+            proxies = self._non_reusable_redis_proxies
             pool = self._get_redis_conn_pool(db, pool_name=pool_name)
-            conn = redis.Redis(
-                connection_pool=pool, single_connection_client=single_connection_client
-            )
-            my_name = f"{socket.gethostname()}:{os.getpid()}"
-            conn.client_setname(my_name)
-
-            # Close the connection when the creating greenlet is closed
-            # or when `close_all_redis_connections` is called.
-            if single_connection_client:
-                redis_connections.add(conn)
-            else:
-                redis_connections[db] = conn
+            proxy = pool.create_fixed_connection_proxy()
+            proxies.add(proxy)
             weakref.finalize(
-                gevent.getcurrent(), self._close_redis_connection, pool_name, db
+                gevent.getcurrent(), self._close_redis_proxy, pool_name, db
             )
-            return conn
+            return proxy
 
     def close_all_redis_connections(self):
-        single_connection = self._single_redis_connections
-        lst = list(self._redis_connections.values())
-        self._redis_connections = dict()
-        self._single_redis_connections = weakref.WeakSet()
-        for connections in lst:
-            for conn in connections.values():
-                conn.connection_pool.disconnect()
-        for conn in single_connection:
-            conn.connection_pool.disconnect()
+        # To close `redis.connection.Connection` you need to call its
+        # `disconnect` method (also called on garbage collection).
+        #
+        # Connection pools have a `disconnect` method that disconnect
+        # all their connections, which means close and destroy their
+        # socket instances.
+        #
+        # Note: closing a proxy will not close any connections
+        #       (see _close_redis_proxy)
+        fixed_proxies = self._non_reusable_redis_proxies
+        lst = list(self._reusable_redis_proxies.values())
+        self._reusable_redis_proxies = dict()
+        self._non_reusable_redis_proxies = weakref.WeakSet()
+        for proxies in lst:
+            for proxy in proxies.values():
+                proxy.connection_pool.disconnect()
+        for proxy in fixed_proxies:
+            proxy.connection_pool.disconnect()
 
     def clean_all_redis_connection(self):
         warnings.warn("Use 'close_all_redis_connections' instead", FutureWarning)
         self.close_all_redis_connections()
 
-    def _close_redis_connection(self, name, db):
-        """Close a Redis connection upon garbage collection of the
-        greenlet that made the connection.
+    def _close_redis_proxy(self, name, db):
+        """Return the `redis.connection.Connection` instance the reusable
+        proxy associated to this name and database, back to its connection
+        pool. This is also called upon the proxy's garbage collected.
         """
-        connections = self._redis_connections.get(name, {})
-        cnx = connections.pop(db, None)
-        if cnx is not None:
-            cnx.close()
+        proxies = self._reusable_redis_proxies.get(name, {})
+        proxy = proxies.pop(db, None)
+        if proxy is not None:
+            proxy.close()
 
     @check_connect
     def get_config_file(self, file_path, timeout=3.0):
@@ -851,6 +863,8 @@ class Connection:
                 self.close_all_redis_connections()
 
     def _close_beacon_connection(self):
+        """Result of `close` of a socket error (perhaps closed)
+        """
         if self._socket:
             self._socket.close()
             self._socket = None

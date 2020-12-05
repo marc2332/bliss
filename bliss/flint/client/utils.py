@@ -41,7 +41,7 @@ def clean_up_user_data():
     key = flint_config.get_workspace_key(session_name)
 
     beacon = get_default_connection()
-    redis = beacon.get_redis_connection()
+    redis = beacon.get_redis_proxy()
 
     # get existing flint, if any
     pattern = f"{key}*"

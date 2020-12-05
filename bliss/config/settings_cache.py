@@ -28,7 +28,7 @@ def get_redis_client_cache(db=0):
     with _CONNECTION_LOCK:
         cnx = _CONNECTION_CACHE.get(db)
         if cnx is None:
-            base_connection = client.get_redis_connection(db=db)
+            base_connection = client.get_redis_proxy(db=db)
             cnx = CacheConnection(base_connection)
             _CONNECTION_CACHE[db] = cnx
         return cnx
@@ -243,14 +243,14 @@ class CacheConnection:
 
     def open(self):
         if self._cnx is None and self._able_to_cache is not False:
-            inv_client = client.get_redis_connection(
-                db=self._db, single_connection_client=True, pool_name="CLIENT_CACHE"
+            inv_client = client.get_fixed_connection_redis_proxy(
+                db=self._db, pool_name="CLIENT_CACHE"
             )
             # just need to create a connection to get the client_id
             # this connection will never use apart for this
             # this connection will be set in the pubsub.
-            cnx = client.get_redis_connection(
-                db=self._db, single_connection_client=True, pool_name="CLIENT_CACHE"
+            cnx = client.get_fixed_connection_redis_proxy(
+                db=self._db, pool_name="CLIENT_CACHE"
             )
             client_id = inv_client.client_id()
             try:

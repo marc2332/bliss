@@ -253,7 +253,7 @@ class FlintClient:
         pid = process.pid
         FLINT_LOGGER.debug("Attach flint PID: %d...", pid)
         beacon = get_default_connection()
-        redis = beacon.get_redis_connection()
+        redis = beacon.get_redis_proxy()
         try:
             session_name = current_session.name
         except AttributeError:
@@ -543,7 +543,7 @@ def _get_flint_pid_from_redis(session_name):
         The process object from psutil.
     """
     beacon = get_default_connection()
-    redis = beacon.get_redis_connection()
+    redis = beacon.get_redis_proxy()
 
     # get existing flint, if any
     pattern = config.get_flint_key(pid="*")

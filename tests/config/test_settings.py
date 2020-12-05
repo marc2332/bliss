@@ -905,7 +905,7 @@ def test_bad_name_for_beacon(session):
 def test_purge(beacon):
     purge_me = settings.ParametersWardrobe("purge_me")
     purge_me.switch("new_instance")
-    connection = beacon._connection.get_redis_connection(db=0)
+    connection = beacon._connection.get_redis_proxy(db=0)
     assert connection.exists("parameters:purge_me")
     assert connection.exists("parameters:purge_me:default")
     assert connection.exists("parameters:purge_me:new_instance")

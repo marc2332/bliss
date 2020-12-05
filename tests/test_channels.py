@@ -194,7 +194,7 @@ def test_with_another_process(channel_subprocess):
     del c
 
     # Check channel is really not there anymore
-    redis = channels.client.get_redis_connection()
+    redis = channels.client.get_redis_proxy()
     bus = channels.Bus._CACHE[redis]
     assert "test_chan" not in bus._channels
 

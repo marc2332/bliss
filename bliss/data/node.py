@@ -173,7 +173,7 @@ def create_node(name, node_type=None, parent=None, connection=None, **kwargs):
     :returns DataNode:
     """
     if connection is None:
-        connection = client.get_redis_connection(db=1)
+        connection = client.get_redis_proxy(db=1)
     return _get_node_object(node_type, name, parent, connection, create=True, **kwargs)
 
 
@@ -211,7 +211,7 @@ def get_nodes(*db_names, connection=None, state=None, **kwargs):
     """
     state = _default_datanode_state(state)
     if connection is None:
-        connection = client.get_redis_connection(db=1)
+        connection = client.get_redis_proxy(db=1)
 
     # Get attributes from the principal representations in 1 call (pipeline)
     pipeline = connection.pipeline()
@@ -259,7 +259,7 @@ def datanode_factory(
     :returns DataNode:
     """
     if connection is None:
-        connection = client.get_redis_connection(db=1)
+        connection = client.get_redis_proxy(db=1)
     db_name = DataNode._principal_db_name(name, parent=parent)
     node = get_node(db_name, connection=connection, state=state, **kwargs)
     if node is None:
@@ -285,7 +285,7 @@ def sessions_list():
     Session may or may not be running.
     """
     session_names = []
-    conn = client.get_redis_connection(db=1)
+    conn = client.get_redis_proxy(db=1)
     for node_name in settings.scan("*_children_list", connection=conn):
         if node_name.find(":") > -1:  # can't be a session node
             continue
@@ -339,7 +339,7 @@ def set_ttl(db_name):
     if DataNode._TIMETOLIVE is None:
         return
     # Do not create a Redis connection pool during garbage collection
-    connection = client.get_existing_redis_connection(db=1, timeout=10)
+    connection = client.get_existing_redis_proxy(db=1, timeout=10)
     if connection is None:
         return
     # New instance needs to be created because we are in garbage collection
@@ -402,7 +402,7 @@ class DataNode(metaclass=DataNodeMetaClass):
         """
         # The DataNode's Redis connection, used by all Redis queries
         if connection is None:
-            connection = client.get_redis_connection(db=1)
+            connection = client.get_redis_proxy(db=1)
         self.db_connection = connection
 
         # The DataNode's Redis key and type
@@ -535,7 +535,7 @@ class DataNode(metaclass=DataNodeMetaClass):
         """Principal Redis representation of a `DataNode`
         """
         if connection is None:
-            connection = client.get_redis_connection(db=1)
+            connection = client.get_redis_proxy(db=1)
         return settings.Struct(db_name, connection=connection)
 
     def _create_struct(self, db_name, name, node_type):

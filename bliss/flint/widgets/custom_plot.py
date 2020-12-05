@@ -42,9 +42,15 @@ class CustomPlot(qt.QWidget):
     def plotId(self):
         return self.__plotId
 
-    def getLogger(self):
+    def logger(self):
         global _logger
         return _logger
+
+    def widget(self):
+        return self.__plot
+
+    def data(self):
+        return self.__data
 
     def setPlot(self, plot: qt.QWidget):
         """
@@ -70,7 +76,7 @@ class CustomPlot(qt.QWidget):
             raise ValueError(
                 "Method '%s' on plot id '%s' is unknown", method_id, plot_id
             )
-        return method(self, self.__plot, self.__data, args, kwargs)
+        return method(self, *args, **kwargs)
 
     def getData(self, field=None):
         if field is None:

@@ -267,6 +267,8 @@ def device_info(
     """
     ret = OrderedDict()
     config = bool(devices)
+    channels_info = scan_info.get("channels", {})
+    channel_save_keys = (("unit", "units"),)
     for subscan, subscan_info in scan_info["acquisition_chain"].items():
         subscan_devices = ret[subscan] = {}
         for master in [True, False]:
@@ -275,6 +277,8 @@ def device_info(
                     devices,
                     subscan_devices,
                     subscan_info,
+                    channels_info,
+                    channel_save_keys,
                     channel_type,
                     ndim=ndim,
                     config=config,
@@ -292,23 +296,26 @@ def _extract_device_info(
     devices,
     subscan_devices,
     subscan_info,
+    channels_info,
+    channel_save_keys,
     channel_type,
     ndim=1,
     config=True,
     master=False,
 ):
     if master:
-        info = subscan_info["master"]
+        fullnames = subscan_info["master"].get(channel_type, [])
     else:
-        info = subscan_info
-    units = info.get(channel_type + "_units", {})
-    lst = info.get(channel_type, [])
-    for i, fullname in enumerate(lst):
+        fullnames = subscan_info.get(channel_type, [])
+    for i, fullname in enumerate(fullnames):
         subscan_devices[fullname] = devices.get(fullname, {})
-        data_info = {"units": units.get(fullname, None)}
+        channel_info = channels_info.get(fullname, {})
+        data_info = {
+            kset: channel_info.get(kget, None) for kget, kset in channel_save_keys
+        }
         device = update_device(subscan_devices, fullname, data_info=data_info)
         if channel_type == "scalars" and master:
-            if len(lst) > 1 and ndim <= 1 and ":" in fullname:
+            if len(fullnames) > 1 and ndim <= 1 and ":" in fullname:
                 device["device_type"] = "positionergroup"
                 device["master_index"] = 0
             else:

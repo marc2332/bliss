@@ -42,6 +42,10 @@ class CustomPlot(qt.QWidget):
     def plotId(self):
         return self.__plotId
 
+    def getLogger(self):
+        global _logger
+        return _logger
+
     def setPlot(self, plot: qt.QWidget):
         """
         Set a plot to this custom plot holder.

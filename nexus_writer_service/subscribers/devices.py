@@ -40,7 +40,8 @@ mcatypemap = {
 }
 
 mcaunitmap = {
-    "rate": "hertz",
+    "icr": "hertz",
+    "orc": "hertz",
     "livetime": "s",
     "trigger_livetime": "s",
     "realtime": "s",
@@ -176,7 +177,7 @@ def parse_devices(devices, short_names=True, multivalue_positioners=False):
             if datatype.startswith("roi"):
                 datatype = "roi"
             device["data_type"] = mcatypemap.get(datatype, datatype)
-            device["data_info"]["units"] = mcaunitmap.get(datatype, None)
+            device["data_info"]["units"] = mcaunitmap.get(device["data_type"], None)
         elif device["device_type"] == "mythen":
             # 'mythen1:spectrum'
             # 'mythen1:roi1'

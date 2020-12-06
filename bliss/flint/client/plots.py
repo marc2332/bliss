@@ -41,15 +41,21 @@ class BasePlot(object):
     # Data input number for a single representation
     DATA_INPUT_NUMBER = NotImplemented
 
-    def __init__(self, flint, plot_id):
+    def __init__(self, flint, plot_id, register=False):
         """Describe a custom plot handled by Flint.
         """
         self._plot_id = plot_id
         self._flint = flint
         self._xlabel = None
         self._ylabel = None
+        self._init()
         if flint is not None:
-            self._init_plot()
+            self._register(flint, plot_id, register)
+
+    def _init(self):
+        """Allow to initialize extra attributes in a derived class, without
+        redefining the constructor"""
+        pass
 
     class RemotePlot:
         """This class is serialized method by method and executed inside the Flint context"""
@@ -91,9 +97,14 @@ class BasePlot(object):
             data_dict.clear()
             widget.clear()
 
+    def _register(self, flint, plot_id, register):
+        """Register everything needed remotly"""
+        self.__remote = self._remotifyClass(self.RemotePlot, register=register)
+        if register:
+            self._init_plot()
+
     def _init_plot(self):
         """Inherits it to custom the plot initialization"""
-        self.__remote = self._remotifyClass(self.RemotePlot)
         if self._xlabel is not None:
             self.submit("setGraphXLabel", self._xlabel)
         if self._ylabel is not None:
@@ -288,26 +299,27 @@ class BasePlot(object):
         request_id = flint.request_select_shape(self._plot_id, shape)
         return self._wait_for_user_selection(request_id)
 
-    def _remotifyClass(self, remoteClass):
+    def _remotifyClass(self, remoteClass, register=True):
         class RemoteProxy:
             pass
 
         proxy = RemoteProxy()
         methods = inspect.getmembers(remoteClass, predicate=inspect.isfunction)
         for name, func in methods:
-            handle = self._remotifyFunc(func)
+            handle = self._remotifyFunc(func, register=register)
             setattr(proxy, name, handle)
 
         return proxy
 
-    def _remotifyFunc(self, func):
+    def _remotifyFunc(self, func, register=True):
         """Make a function callable remotely"""
         method_id = func.__qualname__
         plot_id = self._plot_id
-        if func.__closure__:
-            raise TypeError("Only function without closure are supported.")
-        serialized_func = marshal.dumps(func.__code__)
-        self._flint.register_custom_method(plot_id, method_id, serialized_func)
+        if register:
+            if func.__closure__:
+                raise TypeError("Only function without closure are supported.")
+            serialized_func = marshal.dumps(func.__code__)
+            self._flint.register_custom_method(plot_id, method_id, serialized_func)
 
         def handler(*args, **kwargs):
             return self._flint.run_custom_method(plot_id, method_id, args, kwargs)
@@ -476,8 +488,7 @@ class ScatterView(BasePlot):
     # Data input number for a single representation
     DATA_INPUT_NUMBER = 3
 
-    def __init__(self, flint, plot_id):
-        BasePlot.__init__(self, flint, plot_id)
+    def _init(self):
         # Make it public
         self.set_colormap = self._set_colormap
 
@@ -502,8 +513,7 @@ class Plot2D(BasePlot):
     # Data input number for a single representation
     DATA_INPUT_NUMBER = 1
 
-    def __init__(self, flint, plot_id):
-        BasePlot.__init__(self, flint, plot_id)
+    def _init(self):
         # Make it public
         self.set_colormap = self._set_colormap
 

@@ -410,7 +410,8 @@ class FlintApi:
                 return False
         else:
             window = self.__flintModel.mainWindow()
-            return window.customPlot(plot_id) is not None
+            custom_plot = window.customPlot(plot_id)
+            return custom_plot is not None
 
     def add_plot(
         self,
@@ -418,7 +419,8 @@ class FlintApi:
         name: str = None,
         selected: bool = False,
         closeable: bool = True,
-    ):
+        unique_name: str = None,
+    ) -> str:
         """Create a new custom plot based on the `silx` API.
 
         The plot will be created in a new tab on Flint.
@@ -433,13 +435,15 @@ class FlintApi:
             selected: If true (not the default) the plot became the current
                 displayed plot.
             closeable: If true (default), the tab can be closed manually
+            unique_name: Unique name for this new plot
 
         Returns:
             A plot_id
         """
-        plot_id = self.create_new_id()
+        if unique_name is None:
+            unique_name = "custom_plot:%d" % self.create_new_id()
         if not name:
-            name = "Plot %d" % plot_id
+            name = "%s" % unique_name
 
         def get_class(class_name):
             try:
@@ -457,9 +461,9 @@ class FlintApi:
         window = self.__flintModel.mainWindow()
         plot = class_obj(parent=window)
         window.createCustomPlot(
-            plot, name, plot_id, selected=selected, closeable=closeable
+            plot, name, unique_name, selected=selected, closeable=closeable
         )
-        return plot_id
+        return unique_name
 
     def get_plot_name(self, plot_id):
         widget = self._get_plot_widget(plot_id)
@@ -679,7 +683,7 @@ class FlintApi:
         widget = widgets[iwidget]
         return widget
 
-    def _get_plot_widget(self, plot_id, live_plot=None, custom_plot=None):
+    def _get_plot_widget(self, plot_id: str, live_plot=None, custom_plot=None):
         """Get a plot widget (widget while hold a plot) from this `plot_id`
 
         Arguments:

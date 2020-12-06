@@ -5,10 +5,10 @@ from bliss.common import plot
 
 
 def test_empty_plot(flint_session):
-    p = plot.plot()
+    p = plot.plot(name="Foo")
     pid = plot.get_flint()._pid
     assert "flint_pid={}".format(pid) in repr(p)
-    assert p.name == "Plot {}".format(p._plot_id)
+    assert p.name == "Foo"
 
     p = plot.plot(name="Some name")
     assert "flint_pid={}".format(pid) in repr(p)

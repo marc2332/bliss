@@ -59,10 +59,6 @@ class FlintClient:
         self._greenlets = None
         self._callbacks = None
 
-        self._plot_mapping = {}
-        """Store mapping from name to int id.
-        This should be part of flint_api at one point.
-        """
         self._init(process)
 
     def _init(self, process):
@@ -445,7 +441,7 @@ class FlintClient:
     def get_plot(
         self,
         plot_class: typing.Union[str, object],
-        name: str,
+        name: str = None,
         unique_name: str = None,
         selected: bool = False,
         closeable: bool = True,
@@ -467,23 +463,19 @@ class FlintClient:
         """
         plot_class = self.__normalize_plot_class(plot_class)
 
-        # FIXME: Hack for now, i would prefer to provide a get_live_plot for that
-        if isinstance(unique_name, str) and unique_name.startswith("live:"):
-            return plot_class(flint=self, plot_id=unique_name)
-
         if unique_name is not None:
-            flint_plot_id = self._plot_mapping.get(unique_name, None)
-            if flint_plot_id is not None:
-                if self.is_plot_exists(flint_plot_id):
-                    return plot_class(flint=self, plot_id=flint_plot_id)
+            if self.is_plot_exists(unique_name):
+                return plot_class(flint=self, plot_id=unique_name)
 
         silx_class_name = plot_class.WIDGET
         plot_id = self._proxy.add_plot(
-            silx_class_name, name=name, selected=selected, closeable=closeable
+            silx_class_name,
+            name=name,
+            selected=selected,
+            closeable=closeable,
+            unique_name=unique_name,
         )
-        if unique_name is not None:
-            self._plot_mapping[unique_name] = plot_id
-        return plot_class(plot_id=plot_id, flint=self)
+        return plot_class(plot_id=plot_id, flint=self, register=True)
 
     def add_plot(
         self,
@@ -512,7 +504,7 @@ class FlintClient:
         plot_id = self._proxy.add_plot(
             silx_class_name, name=name, selected=selected, closeable=closeable
         )
-        return plot_class(plot_id=plot_id, flint=self)
+        return plot_class(plot_id=plot_id, flint=self, register=True)
 
     def __normalize_plot_class(self, plot_class: typing.Union[str, object]):
         """Returns a BLISS side plot class.

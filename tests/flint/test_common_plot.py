@@ -1,4 +1,4 @@
-"""Testing Flint."""
+"""Testing the BLISS bliss.common.plot API."""
 
 import pytest
 from bliss.common import plot

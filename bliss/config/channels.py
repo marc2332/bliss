@@ -430,8 +430,7 @@ class Channel(AdvancedInstantiationInterface):
             self._default_value = default_value
 
         if value != _NotProvided:
-            self._set_raw_value(value)
-            self._bus.schedule_update(self)
+            self.value = value
         else:
             self._start_query()
 

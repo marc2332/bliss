@@ -40,6 +40,16 @@ def test_custom_plot_curveplot(flint_session):
     p.clear_data()
 
 
+def test_reuse_custom_plot(flint_session):
+    flint = plot.get_flint()
+    p = flint.get_plot(plot_class="curve", unique_name="foo-reuse")
+    cos_data = numpy.cos(numpy.linspace(0, 2 * numpy.pi, 10))
+    p.add_data({"cos": cos_data})
+    p2 = flint.get_plot(plot_class="curve", unique_name="foo-reuse")
+    data = p2.get_data("cos")
+    assert data == pytest.approx(cos_data)
+
+
 def test_select_points(flint_session):
     flint = plot.get_flint()
     p = plot.plot()

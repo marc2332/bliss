@@ -10,3 +10,7 @@ two:
   # comment5
   b: false
   c: null
+three:
+  - a
+  - b
+  - c

@@ -10,6 +10,7 @@ import sys
 import numpy
 import gevent
 import typing
+import warnings
 from bliss.common.counter import Counter
 from bliss.common.axis import Axis
 from bliss.data.nodes.scan import get_data_from_nodes
@@ -88,12 +89,22 @@ def watch_session_scans(
     ready_event=None,
     stop_handler=None,
     watch_scan_group: bool = False,
+    exclude_existing_scans: bool = False,
 ):
+    """Any scan node that is created before the `ready_event` will not be watched
+    when `exclude_existing_scans=True`.
+
+    :param str session_name:
+    :param callable scan_new_callback: called upon scan start
+    :param callable scan_new_child_callback: called upon scan child creation (e.g. channel node)
+    :param callable scan_data_callback: data processing callback
+    :param callable scan_end_callback: called upon scan end
+    :param Event ready_event: started listening to Redis
+    :param DataStreamReaderStopHandler stop_handler:
+    :param bool watch_scan_group: If True the scan groups are also listed like any other scans
+    :param bool exclude_existing_scans:
     """
-    Arguments:
-        watch_scan_group: If True the scan groups are also listed like any other
-            scans
-    """
+    warnings.warn("'exclude_existing_scans' will be True by default", FutureWarning)
     session_node = get_or_create_node(session_name, node_type="session")
     if session_node is None:
         return
@@ -105,10 +116,14 @@ def watch_session_scans(
                 return scan_dict["info"], key
         return None, None
 
-    if ready_event is not None:
-        ready_event.set()
+    if exclude_existing_scans:
+        exclude_existing_children = "scan", "scan_group"
+    else:
+        exclude_existing_children = None
     for event_type, node, event_data in session_node.walk_on_new_events(
-        stop_handler=stop_handler
+        stop_handler=stop_handler,
+        exclude_existing_children=exclude_existing_children,
+        started_event=ready_event,
     ):
         if event_type == event_type.NEW_NODE:
             node_type = node.type

@@ -44,7 +44,7 @@ def test_alias_data_channel(alias_session):
     )
 
     d = list()
-    for n in s.node.walk(filter="channel", wait=False):
+    for n in s.node.walk(include_filter="channel", wait=False):
         assert " ".join([n.db_name, n.short_name]) in dump1
 
 
@@ -90,7 +90,7 @@ def test_alias_default_lima_counters(alias_session):
     )
 
     d = list()
-    for n in s.node.walk(filter="channel image", wait=False):
+    for n in s.node.walk(include_filter="channel image", wait=False):
         assert " ".join([n.db_name, n.short_name]) in dump1
 
 
@@ -135,7 +135,7 @@ def test_lima_counter_aliased_and_lima_counters(alias_session):
 
     d = list()
     i = 0
-    for n in s.node.walk(filter="channel", wait=False):
+    for n in s.node.walk(include_filter="channel", wait=False):
         print(" ".join([n.db_name, n.short_name]))
         assert " ".join([n.db_name, n.short_name]) in dump1_str
         i += 1
@@ -156,7 +156,7 @@ def test_lima_counter_aliased_and_lima_counters(alias_session):
     dump1_str = dump1.format(a2scan=s2.node.db_name)
     d = list()
     i = 0
-    for n in s2.node.walk(filter="channel", wait=False):
+    for n in s2.node.walk(include_filter="channel", wait=False):
         assert " ".join([n.db_name, n.short_name]) in dump1_str
         i += 1
     assert i == len(dump1_str.split("\n"))

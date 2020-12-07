@@ -14,7 +14,7 @@ from bliss.common.scans import loopscan, DEFAULT_CHAIN
 def lima_data_view_test_helper(scan):
     scan.run()
 
-    for node in scan.node.walk(wait=False, filter="lima"):
+    for node in scan.node.walk(wait=False, include_filter="lima"):
         image_node = node
 
     lima_data_view = image_node.get(0)
@@ -40,7 +40,7 @@ def test_LimaNode_ref_data(default_session, lima_simulator):
     simulator = default_session.config.get("lima_simulator")
     scan = loopscan(5, 0.1, simulator, save=True)
 
-    for node in scan.node.walk(wait=False, filter="lima"):
+    for node in scan.node.walk(wait=False, include_filter="lima"):
         image_node = node
 
     ref_data = image_node.info.get_all()

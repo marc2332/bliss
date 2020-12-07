@@ -168,6 +168,7 @@ class ScanManager:
             self.end_scan,
             ready_event=ready_event,
             watch_scan_group=True,
+            exclude_existing_scans=True,
         )
 
         def exception_orrured(future_exception):

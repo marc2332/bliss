@@ -170,7 +170,10 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
         super().stop(**kwargs)
 
     def _walk_events(self, **kwargs):
-        yield from self.node.walk_on_new_events(filter=["scan_group", "scan"], **kwargs)
+        scan_types = "scan_group", "scan"
+        kwargs["include_filter"] = scan_types
+        kwargs["exclude_children"] = scan_types
+        yield from self.node.walk_on_new_events(**kwargs)
 
     def _event_loop_initialize(self, **kwargs):
         """

@@ -296,6 +296,8 @@ class LimaImageChannelDataNode(_ChannelDataNodeBase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # There is good reason for this name not to end with "*_data"
+        # (see DataNodeContainer._subscribe_all_streams)
         self._queue_ref = QueueObjSetting(
             f"{self.db_name}_data_ref", connection=self.db_connection
         )

@@ -24,25 +24,26 @@ class CustomLogger(logging.LoggerAdapter):
 
 
 class DataStream(BaseSetting):
-    """
-    This object is base on redis stream, it is similar to python set
-    with a dict for each entry.
+    """An ordered dictionary of dictionaries in Redis with optionally
+    a maximal number of items.
 
-    Redis stream ID (index): different formats
-        - "<millisecondsTime>-<sequenceNumber>"
-        - "<millisecondsTime>"
-        - millisecondsTime
-    millisecondsTime: time since the epoch
-    sequenceNumber: positive integer (in case the same time)
-    examples: '1575038143700-0', '1575038143700-3', 1575038143700, 0, '0'
+    The dictionary keys are Redis stream ID (index):
+            - "<millisecondsTime>-<sequenceNumber>"
+            - "<millisecondsTime>"
+            - millisecondsTime
+        millisecondsTime: time since the epoch
+        sequenceNumber: positive integer (in case the same time)
+        examples: '1575038143700-0', '1575038143700-3', 1575038143700, 0, '0'
+
+    The dictionary values are dictionaries which represent encoded StreamEvent's.
     """
 
     def __init__(self, name, connection=None, maxlen=None, approximate=True):
         """
         :param str name:
         :param connection:
-        :param int maxlen: maximumn len of the stream (None: unlimited)
-        :param bool approximate:
+        :param int maxlen: maximum len of the stream (None: unlimited)
+        :param bool approximate: maxlen is exact or approximate
         """
         super().__init__(name, connection, None, None)
         self._maxlen = maxlen
@@ -59,23 +60,21 @@ class DataStream(BaseSetting):
     def __len__(self):
         return self.connection.xlen(self.name)
 
-    def add(self, fields, id="*", maxlen=None, approximate=None, cnx=None):
+    def add(self, adict, id="*", maxlen=None, approximate=None, cnx=None):
+        """Add one event to the stream
+
+        :param dict adict:
+        :param str id: Redis stream id ("*" mean auto-generate)
+        :param int or None maxlen: maximum stream length
+                                   (None: used the maxlen passed in the constructor)
         """
-        Add one event to the stream
-        fields -- is a dictionary
-        id -- if equal to '*' means generate a id to append this stream
-              if id != '*' must be managed by external application to have it uniq.
-              (Read Redis Doc)
-        maxlen -- if left to None with use the maxlen passed in the constructor.
-                  if maxlen != None the stream will be truncated to this value.
-        approximate -- mean if the maxlen is accurate or not. accurate == slow.
-        """
-        connection = self.connection if cnx is None else cnx
-        maxlen = maxlen if maxlen is not None else self._maxlen
-        approximate = approximate if approximate is not None else self._approximate
-        return connection.xadd(
-            self.name, fields, id=id, maxlen=maxlen, approximate=approximate
-        )
+        if cnx is None:
+            cnx = self.connection
+        if maxlen is None:
+            maxlen = self._maxlen
+        if approximate is None:
+            approximate = self._approximate
+        return cnx.xadd(self.name, adict, id=id, maxlen=maxlen, approximate=approximate)
 
     def add_event(self, ev, **kw):
         """
@@ -85,20 +84,19 @@ class DataStream(BaseSetting):
         self.add(ev.encode(), **kw)
 
     def remove(self, *indexes):
-        """
-        Remove some events using their index.
+        """Remove some events using their index.
         """
         for index in indexes:
             self.connection.xdel(self.name, index)
 
     def range(self, from_index="-", to_index="+", count=None, cnx=None):
-        """
-        Read stream values.
-        from_index -- minimum index (default `-` first one)
-        to_index -- maximumn index (default '+' last one)
-        count -- maximum number of return values.
+        """Read stream values.
 
-        return a list tuple with (index,dict_values)
+        :param str from_index: minimum index (default `-` first one)
+        :param str to_index: maximumn index (default '+' last one)
+        :param str count: maximum number of return values.
+
+        :returns list(tuple): (index, dict)
         """
         if cnx is None:
             connection = self.connection
@@ -107,13 +105,13 @@ class DataStream(BaseSetting):
         return connection.xrange(self.name, min=from_index, max=to_index, count=count)
 
     def rev_range(self, from_index="+", to_index="-", count=None, cnx=None):
-        """
-        Read stream values.
-        from_index -- maximum index (default `+` last one)
-        to_index -- minimum index (default '-' first one)
-        count -- maximum number of return values.
+        """Read stream values in reversed order.
 
-        return a list tuple with (index,dict_values)
+        :param str from_index: maximumn index (default '+' last one)
+        :param str to_index: minimum index (default `-` first one)
+        :param str count: maximum number of return values.
+
+        :returns list(tuple): (index, dict)
         """
         if cnx is None:
             connection = self.connection
@@ -286,13 +284,21 @@ class DataStreamReader:
     SYNC_END = streaming_events.EndEvent().encode()
     SYNC_EVENT = streaming_events.StreamEvent().encode()
 
-    def __init__(self, wait=True, timeout=None, stop_handler=None, active_streams=None):
+    def __init__(
+        self,
+        wait=True,
+        timeout=None,
+        stop_handler=None,
+        active_streams=None,
+        excluded_stream_names=None,
+    ):
         """
         :param bool wait: stop reading when no new events (timeout ignored)
                           or keep waiting (with timeout)
         :param num timeout: in seconds (None: never timeout)
         :param DataStreamReaderStopHandler stop_handler: for gracefully stopping
         :param dict active_streams: active streams from another reader
+        :param excluded_stream_names: do not subscribe to these streams
         """
         self._has_consumer = False
         self._cnx = None
@@ -306,6 +312,11 @@ class DataStreamReader:
             self._active_streams = active_streams
         else:
             self._active_streams = {}
+        # Streams to ignore
+        if excluded_stream_names:
+            self.excluded_stream_names = set(excluded_stream_names)
+        else:
+            self.excluded_stream_names = set()
 
         # Synchronization mechanism (state, event and stream)
         # to ensure that all streams added by the consumer
@@ -461,7 +472,9 @@ class DataStreamReader:
         elif self.connection is not stream.connection:
             raise TypeError("All streams must have the same redis connection")
 
-    def add_streams(self, *streams, first_index=None, priority=0, **info):
+    def add_streams(
+        self, *streams, first_index=None, priority=0, ignore_excluded=False, **info
+    ):
         """Add data streams to the reader.
 
         :param `*streams`: DataStream objects
@@ -470,6 +483,7 @@ class DataStreamReader:
         :param int priority: data from streams with a lower priority is never
                              yielded as long as higher priority streams have
                              data. Lower number means higher priority.
+        :param bool ignore_excluded: ignore `excluded_stream_names`
         :param dict info: additional stream info
         """
         if priority < 0:
@@ -477,6 +491,8 @@ class DataStreamReader:
         with self._update_streams_context():
             for stream in streams:
                 if stream.name in self._streams:
+                    continue
+                if not ignore_excluded and stream.name in self.excluded_stream_names:
                     continue
                 self._logger.debug(f"ADD STREAM {stream.name}")
                 self.check_stream_connection(stream)

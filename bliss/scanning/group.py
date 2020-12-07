@@ -253,8 +253,10 @@ class Group(Sequence):
                     scan = s.node
                 elif type(s) == int:
                     node_found = False
+                    # TODO: walk on the current scan container node
+                    # Scan numbering restarts for each parent
                     for node in get_session_node(current_session.name).walk(
-                        filter="scan", wait=False
+                        include_filter="scan", wait=False
                     ):
                         if node.info["scan_nb"] == s:
                             scan = node

@@ -106,7 +106,9 @@ class BaseSubscriber(object):
         self.resource_profiling = resource_profiling
 
         self._greenlet = None
-        self._active_event = gevent.event.Event()
+        self._started_event = gevent.event.Event()
+        self._stopped_event = gevent.event.Event()
+        self._stopped_event.set()
         self._log_task_period = 5
         self._exception_is_fatal = False
         self._info_cache = {}
@@ -137,11 +139,12 @@ class BaseSubscriber(object):
         # Check whether we need a (re)start
         if self.active:
             return
+        self._started_event.clear()
         self._set_state(self.STATES.INIT, "Starting greenlet", force=True)
         self._greenlet = gevent.spawn(self._greenlet_main)
         if wait:
             with gevent.Timeout(timeout):
-                self._active_event.wait()
+                self._started_event.wait()
 
     def stop(self, successfull=False, kill=False, wait=False, timeout=1):
         """
@@ -220,13 +223,29 @@ class BaseSubscriber(object):
     def active(self):
         """Greenlet is running and listening
         """
-        return self.alive and self._active_event.is_set()
+        return (
+            self.alive
+            and self._started_event.is_set()
+            and not self._stopped_event.is_set()
+        )
 
     @property
     def alive(self):
         """Greenlet is running
         """
         return bool(self._greenlet)
+
+    def wait_started(self, **kw):
+        """Wait until the subscriber started listening to Redis.
+        It may have already stopped.
+        """
+        self._started_event.wait(**kw)
+
+    def wait_stopped(self, **kw):
+        """Wait until the subscriber stopped listening to Redis.
+        It may not have started.
+        """
+        self._stopped_event.wait(**kw)
 
     @property
     def _greenlet_id(self):
@@ -278,10 +297,8 @@ class BaseSubscriber(object):
         """
         with kill_on_exit():
             try:
-                self._active_event.set()
                 self.__greenlet_main()
             finally:
-                self._active_event.clear()
                 self._greenlet = None
         self.logger.info("Greenlet exits")
 
@@ -357,8 +374,9 @@ class BaseSubscriber(object):
         """
         try:
             self._event_loop_initialize(**kwargs)
+            self._stopped_event.clear()
             for event_type, node, event_data in self._walk_events(
-                stop_handler=self._stop_handler
+                stop_handler=self._stop_handler, started_event=self._started_event
             ):
                 if event_type == event_type.END_SCAN:
                     if self.node.type in ["scan", "scan_group"]:
@@ -386,6 +404,7 @@ class BaseSubscriber(object):
                     self._event_loop_tasks()
         finally:
             try:
+                self._stopped_event.set()
                 self._event_loop_finalize(**kwargs)
             except BaseException as e:
                 self._set_state(self.STATES.FAULT, e)

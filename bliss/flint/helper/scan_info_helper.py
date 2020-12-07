@@ -22,6 +22,7 @@ from ..model import scan_model
 from ..model import plot_model
 from ..model import plot_item_model
 from . import model_helper
+from bliss.controllers.lima import roi as lima_roi
 
 
 _logger = logging.getLogger(__name__)
@@ -175,6 +176,25 @@ def create_scan_model(scan_info: Dict, is_group: bool = False) -> scan_model.Sca
             devices[key] = device
         return device
 
+    def create_virtual_roi(roi_name, key, parent):
+        device = scan_model.Device(scan)
+        device.setName(roi_name)
+        device.setMaster(parent)
+        device.setType(scan_model.DeviceType.VIRTUAL_ROI)
+
+        # Read metadata
+        roi_dict = scan_info.get("rois", {}).get(key)
+        roi = None
+        if roi_dict is not None:
+            try:
+                roi = lima_roi.dict_to_roi(roi_dict)
+            except:
+                _logger.warning("Error while reading roi '%s'", key, exc_info=True)
+
+        metadata = scan_model.DeviceMetadata(roi)
+        device.setMetadata(metadata)
+        return device
+
     channelsDict = {}
     channels = iter_channels(scan_info)
     for channel_info in channels:
@@ -195,20 +215,19 @@ def create_scan_model(scan_info: Dict, is_group: bool = False) -> scan_model.Sca
         short_name = name.rsplit(":")[-1]
 
         # Some magic to create virtual device for each ROIs
-        if parent.name() == "roi_counters":
+        if parent.name() in ["roi_counters", "roi_profiles"]:
+            # guess the computation part do not contain _
+            # FIXME: It would be good to have a real ROI concept in BLISS
             if "_" in short_name:
-                # guess the computation part do not contain _
-                # FIXME: It would be good to have a real ROI concept in BLISS
                 roi_name, _ = short_name.rsplit("_", 1)
-                key = f"{channel_info.device}:{roi_name}"
-                device = devices.get(key, None)
-                if device is None:
-                    device = scan_model.Device(scan)
-                    device.setName(roi_name)
-                    device.setMaster(parent)
-                    device.setType(scan_model.DeviceType.VIRTUAL_ROI)
-                    devices[key] = device
-                parent = device
+            else:
+                roi_name = short_name
+            key = f"{channel_info.device}:{roi_name}"
+            device = devices.get(key, None)
+            if device is None:
+                device = create_virtual_roi(roi_name, key, parent)
+                devices[key] = device
+            parent = device
 
         channel = scan_model.Channel(parent)
         channelsDict[channel_info.name] = channel

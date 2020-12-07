@@ -43,9 +43,28 @@ SCAN_INFO_LIMA_ROIS = {
                 "beamviewer:roi_counters:roi1_avg",
                 "beamviewer:roi_counters:roi4_sum",
                 "beamviewer:roi_counters:roi4_avg",
+                "beamviewer:roi_counters:roi5_avg",
             ],
         }
-    }
+    },
+    "rois": {
+        "beamviewer:roi_counters:roi1": {
+            "kind": "rect",
+            "x": 190,
+            "y": 110,
+            "width": 600,
+            "height": 230,
+        },
+        "beamviewer:roi_counters:roi4": {
+            "kind": "arc",
+            "cx": 487.0,
+            "cy": 513.0,
+            "r1": 137.0,
+            "r2": 198.0,
+            "a1": -172.0,
+            "a2": -300.0,
+        },
+    },
 }
 
 
@@ -100,13 +119,25 @@ def test_create_scan_model_with_lima_rois():
     deviceCount = len(list(scan.devices()))
     for device in scan.devices():
         channelCount += len(list(device.channels()))
-    assert channelCount == 6
-    assert deviceCount == 6
+    assert channelCount == 7
+    assert deviceCount == 7
+
+    channel = scan.getChannelByName("beamviewer:roi_counters:roi1_avg")
+    device = channel.device()
+    assert device.metadata().roi is not None
+    assert device.metadata().roi.x == 190
 
     channel = scan.getChannelByName("beamviewer:roi_counters:roi4_avg")
     assert channel.name() == "beamviewer:roi_counters:roi4_avg"
-    assert channel.device().name() == "roi4"
-    assert channel.device().type() == scan_model.DeviceType.VIRTUAL_ROI
+    device = channel.device()
+    assert device.name() == "roi4"
+    assert device.type() == scan_model.DeviceType.VIRTUAL_ROI
+    assert device.metadata().roi is not None
+    assert device.metadata().roi.cx == 487.0
+
+    channel = scan.getChannelByName("beamviewer:roi_counters:roi5_avg")
+    device = channel.device()
+    assert device.metadata().roi is None
 
 
 def test_create_plot_model():

@@ -1,11 +1,11 @@
 from . import ACS
 
-class Device(ACS.Device):
 
-    def __init__ (self, address):
-    
+class Device(ACS.Device):
+    def __init__(self, address):
+
         super().__init__(address)
-        
+
         self.about = self.About(self)
         self.control = self.Control(self)
         self.description = self.Description(self)
@@ -18,13 +18,12 @@ class Device(ACS.Device):
         self.status = self.Status(self)
         self.system = self.System(self)
         self.update = self.Update(self)
-    
-    class About():
 
+    class About:
         def __init__(self, device):
             self.device = device
             self.interface_name = "com.attocube.system.about"
-            
+
         def getInstalledPackages(self):
             """
             Get list of packages installed on the device
@@ -33,12 +32,11 @@ class Device(ACS.Device):
             -------
             value_string0: string: Comma separated list of packages
             """
-            response = self.device.request(self.interface_name + ".getInstalledPackages")
-            return response['result'][0]
-    
+            response = self.device.request(
+                self.interface_name + ".getInstalledPackages"
+            )
+            return response["result"][0]
 
-
-    
         def getPackageLicense(self, pckg):
             """
             Get the license for a specific package
@@ -50,19 +48,16 @@ class Device(ACS.Device):
             -------
             value_string0: string: License for this package
             """
-            response = self.device.request(self.interface_name + ".getPackageLicense", [pckg])
-            return response['result'][0]
-    
+            response = self.device.request(
+                self.interface_name + ".getPackageLicense", [pckg]
+            )
+            return response["result"][0]
 
-
-    
-    
-    class Control():
-
+    class Control:
         def __init__(self, device):
             self.device = device
             self.interface_name = "com.attocube.amc.control"
-            
+
         def MultiAxisPositioning(self, set1, set2, set3, target1, target2, target3):
             """
             Simultaneously set 3 axes positions
@@ -89,13 +84,24 @@ class Device(ACS.Device):
             pos2: pos2
             pos3: pos3
             """
-            response = self.device.request(self.interface_name + ".MultiAxisPositioning", [set1, set2, set3, target1, target2, target3])
+            response = self.device.request(
+                self.interface_name + ".MultiAxisPositioning",
+                [set1, set2, set3, target1, target2, target3],
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1], response['result'][2], response['result'][3], response['result'][4], response['result'][5], response['result'][6], response['result'][7], response['result'][8], response['result'][9]
-    
+            return (
+                errNo,
+                response["result"][1],
+                response["result"][2],
+                response["result"][3],
+                response["result"][4],
+                response["result"][5],
+                response["result"][6],
+                response["result"][7],
+                response["result"][8],
+                response["result"][9],
+            )
 
-
-    
         def getActorName(self, axis):
             """
             Read the current actory name selected
@@ -108,13 +114,12 @@ class Device(ACS.Device):
             errNo: errNo
             actor_name: actor_name
             """
-            response = self.device.request(self.interface_name + ".getActorName", [axis])
+            response = self.device.request(
+                self.interface_name + ".getActorName", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getActorParameters(self, axis):
             """
             Retrieves the actual valid actors parameters
@@ -135,13 +140,23 @@ class Device(ACS.Device):
             sensitivity: sensitivity
             stepsize: stepsize
             """
-            response = self.device.request(self.interface_name + ".getActorParameters", [axis])
+            response = self.device.request(
+                self.interface_name + ".getActorParameters", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1], response['result'][2], response['result'][3], response['result'][4], response['result'][5], response['result'][6], response['result'][7], response['result'][8], response['result'][9]
-    
+            return (
+                errNo,
+                response["result"][1],
+                response["result"][2],
+                response["result"][3],
+                response["result"][4],
+                response["result"][5],
+                response["result"][6],
+                response["result"][7],
+                response["result"][8],
+                response["result"][9],
+            )
 
-
-    
         def getActorParametersActorName(self, axis):
             """
             Control the actors parameter: actor name
@@ -154,13 +169,12 @@ class Device(ACS.Device):
             errNo: errNo
             actorname: actorname
             """
-            response = self.device.request(self.interface_name + ".getActorParametersActorName", [axis])
+            response = self.device.request(
+                self.interface_name + ".getActorParametersActorName", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getActorParametersByParamName(self, axis, paramname):
             """
             Get the actors parameters from their name ( search through an internal parameter list)
@@ -175,13 +189,13 @@ class Device(ACS.Device):
             errNo: errNo
             value_string1: string of the value of the parameter selected
             """
-            response = self.device.request(self.interface_name + ".getActorParametersByParamName", [axis, paramname])
+            response = self.device.request(
+                self.interface_name + ".getActorParametersByParamName",
+                [axis, paramname],
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getActorType(self, axis):
             """
             Read the current actory type selected
@@ -194,13 +208,12 @@ class Device(ACS.Device):
             errNo: errNo
             actor_type: actor_type  -- 0 = linear , 1 = goniometer,	2 = rotator
             """
-            response = self.device.request(self.interface_name + ".getActorType", [axis])
+            response = self.device.request(
+                self.interface_name + ".getActorType", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getControlAmplitude(self, axis):
             """
             Retrieves  the amplitude of the actuator signal in mV.
@@ -213,13 +226,12 @@ class Device(ACS.Device):
             errNo: errNo
             amplitude: amplitude  define in mV
             """
-            response = self.device.request(self.interface_name + ".getControlAmplitude", [axis])
+            response = self.device.request(
+                self.interface_name + ".getControlAmplitude", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getControlAmplitudeInV(self, axis):
             """
             Retrieves  the amplitude of the actuator signal in V.
@@ -232,13 +244,12 @@ class Device(ACS.Device):
             errNo: errNo
             amplitude: amplitude  define in V
             """
-            response = self.device.request(self.interface_name + ".getControlAmplitudeInV", [axis])
+            response = self.device.request(
+                self.interface_name + ".getControlAmplitudeInV", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getControlAutoReset(self, axis):
             """
             Retrieves if Resets the position for every time the reference position is detected.
@@ -251,13 +262,12 @@ class Device(ACS.Device):
             errNo: errNo
             value_boolean1: boolean
             """
-            response = self.device.request(self.interface_name + ".getControlAutoReset", [axis])
+            response = self.device.request(
+                self.interface_name + ".getControlAutoReset", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getControlFixOutputVoltage(self, axis):
             """
             Get the DC level on the output positioner if DC level is enabled
@@ -270,13 +280,12 @@ class Device(ACS.Device):
             errNo: errNo
             amplitude_mv: amplitude_mv  define in mV
             """
-            response = self.device.request(self.interface_name + ".getControlFixOutputVoltage", [axis])
+            response = self.device.request(
+                self.interface_name + ".getControlFixOutputVoltage", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getControlFrequency(self, axis):
             """
             Get the frequency of the actuator signal in mHz
@@ -289,13 +298,12 @@ class Device(ACS.Device):
             errNo: errNo
             frequency: frequency define in mHz
             """
-            response = self.device.request(self.interface_name + ".getControlFrequency", [axis])
+            response = self.device.request(
+                self.interface_name + ".getControlFrequency", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getControlFrequencyInHz(self, axis):
             """
             Get the frequency of the actuator signal in Hz
@@ -308,13 +316,12 @@ class Device(ACS.Device):
             errNo: errNo
             frequency: frequency define in Hz
             """
-            response = self.device.request(self.interface_name + ".getControlFrequencyInHz", [axis])
+            response = self.device.request(
+                self.interface_name + ".getControlFrequencyInHz", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getControlMove(self, axis):
             """
             Retrieves the approach status of the actor to the target position
@@ -327,13 +334,12 @@ class Device(ACS.Device):
             errNo: errNo
             enable: enable boolean true: approach enabled , false: approach disabled
             """
-            response = self.device.request(self.interface_name + ".getControlMove", [axis])
+            response = self.device.request(
+                self.interface_name + ".getControlMove", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getControlOutput(self, axis):
             """
             Retrieves if output power is active on the drives
@@ -346,13 +352,12 @@ class Device(ACS.Device):
             errNo: errNo
             value_boolean1: boolean power status (true = VP100/VN100 enabled,false = VP100/VN100 disabled)
             """
-            response = self.device.request(self.interface_name + ".getControlOutput", [axis])
+            response = self.device.request(
+                self.interface_name + ".getControlOutput", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getControlReferenceAutoUpdate(self, axis):
             """
             When set, every time the reference marking is hit the reference position will be updated.
@@ -365,13 +370,12 @@ class Device(ACS.Device):
             errNo: errNo
             value: value
             """
-            response = self.device.request(self.interface_name + ".getControlReferenceAutoUpdate", [axis])
+            response = self.device.request(
+                self.interface_name + ".getControlReferenceAutoUpdate", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getControlTargetRange(self, axis):
             """
             Retrieves  the range around the target position in which the flag target status become active.
@@ -384,13 +388,12 @@ class Device(ACS.Device):
             errNo: errNo
             targetrange: targetrange define in nm
             """
-            response = self.device.request(self.interface_name + ".getControlTargetRange", [axis])
+            response = self.device.request(
+                self.interface_name + ".getControlTargetRange", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getControlValuesLTRTCC(self, axis):
             """
             Get  the amplitude and frequency values for both LT, RT and CC Modes
@@ -411,13 +414,23 @@ class Device(ACS.Device):
             rangeRT: rangeRT
             rangeCC: rangeCC
             """
-            response = self.device.request(self.interface_name + ".getControlValuesLTRTCC", [axis])
+            response = self.device.request(
+                self.interface_name + ".getControlValuesLTRTCC", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1], response['result'][2], response['result'][3], response['result'][4], response['result'][5], response['result'][6], response['result'][7], response['result'][8], response['result'][9]
-    
+            return (
+                errNo,
+                response["result"][1],
+                response["result"][2],
+                response["result"][3],
+                response["result"][4],
+                response["result"][5],
+                response["result"][6],
+                response["result"][7],
+                response["result"][8],
+                response["result"][9],
+            )
 
-
-    
         def getReferencePosition(self, axis):
             """
             Retrieves the reference position ( See getStatusReference for determining the validity)
@@ -430,13 +443,12 @@ class Device(ACS.Device):
             errNo: errNo
             referenceposition: referenceposition : For linear type actors the position is defined in nm for goniometer an rotator type actors it is µ°.
             """
-            response = self.device.request(self.interface_name + ".getReferencePosition", [axis])
+            response = self.device.request(
+                self.interface_name + ".getReferencePosition", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getReferencePositionInmm(self, axis):
             """
             Retrieves the reference position in mm( See getStatusReference for determining the validity)
@@ -449,13 +461,12 @@ class Device(ACS.Device):
             errNo: errNo
             referenceposition: referenceposition : For linear type actors the position is defined in mm for goniometer an rotator type actors it is °.
             """
-            response = self.device.request(self.interface_name + ".getReferencePositionInmm", [axis])
+            response = self.device.request(
+                self.interface_name + ".getReferencePositionInmm", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getSensorEnabled(self, axis):
             """
             Get sensot power supply status
@@ -468,13 +479,12 @@ class Device(ACS.Device):
             errNo: errNo
             value: value
             """
-            response = self.device.request(self.interface_name + ".getSensorEnabled", [axis])
+            response = self.device.request(
+                self.interface_name + ".getSensorEnabled", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getStatusMovingAllAxes(self):
             """
             Get Status of all axes
@@ -486,13 +496,17 @@ class Device(ACS.Device):
             moving2: moving2
             moving3: moving3
             """
-            response = self.device.request(self.interface_name + ".getStatusMovingAllAxes")
+            response = self.device.request(
+                self.interface_name + ".getStatusMovingAllAxes"
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1], response['result'][2], response['result'][3]
-    
+            return (
+                errNo,
+                response["result"][1],
+                response["result"][2],
+                response["result"][3],
+            )
 
-
-    
         def getTemperatureMode(self, axis):
             """
             Get the operational temperature mode of the device
@@ -505,14 +519,25 @@ class Device(ACS.Device):
             errNo: errNo
             the: the temperature mode of the positioner [0|1|2]
             """
-            response = self.device.request(self.interface_name + ".getTemperatureMode", [axis])
+            response = self.device.request(
+                self.interface_name + ".getTemperatureMode", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
-        def setActorParameters(self, axis, actorname, actortype, fmax, amax, sensor_dir, actor_dir, pitchofgrading, sensitivity, stepsize):
+        def setActorParameters(
+            self,
+            axis,
+            actorname,
+            actortype,
+            fmax,
+            amax,
+            sensor_dir,
+            actor_dir,
+            pitchofgrading,
+            sensitivity,
+            stepsize,
+        ):
             """
             Set all the actors parameters
             
@@ -532,13 +557,24 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setActorParameters", [axis, actorname, actortype, fmax, amax, sensor_dir, actor_dir, pitchofgrading, sensitivity, stepsize])
+            response = self.device.request(
+                self.interface_name + ".setActorParameters",
+                [
+                    axis,
+                    actorname,
+                    actortype,
+                    fmax,
+                    amax,
+                    sensor_dir,
+                    actor_dir,
+                    pitchofgrading,
+                    sensitivity,
+                    stepsize,
+                ],
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setActorParametersActorName(self, axis, actorname):
             """
             Control the actors parameter: actor name
@@ -551,13 +587,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setActorParametersActorName", [axis, actorname])
+            response = self.device.request(
+                self.interface_name + ".setActorParametersActorName", [axis, actorname]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setActorParametersByName(self, axis, actorname):
             """
             Control the actors parameters of an actor based on name ( search through an internal list)
@@ -570,13 +605,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setActorParametersByName", [axis, actorname])
+            response = self.device.request(
+                self.interface_name + ".setActorParametersByName", [axis, actorname]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setActorParametersByParamName(self, axis, paramname, paramvalue):
             """
             Control the actors parameters of an actor parameter  name ( search through an internal parameter list)  for integer paramaters
@@ -591,13 +625,13 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setActorParametersByParamName", [axis, paramname, paramvalue])
+            response = self.device.request(
+                self.interface_name + ".setActorParametersByParamName",
+                [axis, paramname, paramvalue],
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setActorParametersByParamNameBoolean(self, axis, paramname, paramvalue):
             """
             Control the actors parameters of an actor parameter  name ( search through an internal parameter list)  for boolean paramater
@@ -611,13 +645,13 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setActorParametersByParamNameBoolean", [axis, paramname, paramvalue])
+            response = self.device.request(
+                self.interface_name + ".setActorParametersByParamNameBoolean",
+                [axis, paramname, paramvalue],
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setActorParametersJson(self, axis, json_dict):
             """
             Select and override a positioner out of the Current default list only override given parameters set others default
@@ -630,13 +664,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo errorCode
             """
-            response = self.device.request(self.interface_name + ".setActorParametersJson", [axis, json_dict])
+            response = self.device.request(
+                self.interface_name + ".setActorParametersJson", [axis, json_dict]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setControlAmplitude(self, axis, amplitude):
             """
             Set  the amplitude of the actuator signal in mV
@@ -649,13 +682,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setControlAmplitude", [axis, amplitude])
+            response = self.device.request(
+                self.interface_name + ".setControlAmplitude", [axis, amplitude]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setControlAmplitudeInV(self, axis, amplitudeinV):
             """
             Set  the amplitude of the actuator signal in V
@@ -668,13 +700,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setControlAmplitudeInV", [axis, amplitudeinV])
+            response = self.device.request(
+                self.interface_name + ".setControlAmplitudeInV", [axis, amplitudeinV]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setControlAutoReset(self, axis, enable):
             """
             Set if Resets the position for every time the reference position is detected.
@@ -687,13 +718,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setControlAutoReset", [axis, enable])
+            response = self.device.request(
+                self.interface_name + ".setControlAutoReset", [axis, enable]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setControlFixOutputVoltage(self, axis, amplitude_mv):
             """
             Set the DC level on the output ( must perform  applyControlFixOutputVoltage to apply on the positioner)
@@ -706,13 +736,13 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setControlFixOutputVoltage", [axis, amplitude_mv])
+            response = self.device.request(
+                self.interface_name + ".setControlFixOutputVoltage",
+                [axis, amplitude_mv],
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setControlFrequency(self, axis, frequency):
             """
             Set  the frequency of the actuator signal in mHz
@@ -726,13 +756,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setControlFrequency", [axis, frequency])
+            response = self.device.request(
+                self.interface_name + ".setControlFrequency", [axis, frequency]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setControlFrequencyInHz(self, axis, frequencyinHz):
             """
             Set  the frequency of the actuator signal in Hz
@@ -745,13 +774,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setControlFrequencyInHz", [axis, frequencyinHz])
+            response = self.device.request(
+                self.interface_name + ".setControlFrequencyInHz", [axis, frequencyinHz]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setControlMove(self, axis, enable):
             """
             Controls the approach of the actor to the target position
@@ -764,13 +792,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setControlMove", [axis, enable])
+            response = self.device.request(
+                self.interface_name + ".setControlMove", [axis, enable]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setControlOutput(self, axis, enable):
             """
             Controls the output power (VPP/VNN) of the selected axis.
@@ -783,13 +810,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setControlOutput", [axis, enable])
+            response = self.device.request(
+                self.interface_name + ".setControlOutput", [axis, enable]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setControlReferenceAutoUpdate(self, axis, enable):
             """
             When set, every time the reference marking is hit the reference position will be updated.
@@ -802,13 +828,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setControlReferenceAutoUpdate", [axis, enable])
+            response = self.device.request(
+                self.interface_name + ".setControlReferenceAutoUpdate", [axis, enable]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setControlTargetRange(self, axis, range):
             """
             Set  the range around the target position in which the flag target status become active.
@@ -821,13 +846,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setControlTargetRange", [axis, range])
+            response = self.device.request(
+                self.interface_name + ".setControlTargetRange", [axis, range]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setControlValuesLTRTCC(self, axis, amplitude, frequency, targetRange, mode):
             """
             Set  the amplitude and frequency values for LT, RT and CC Modes
@@ -843,14 +867,16 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setControlValuesLTRTCC", [axis, amplitude, frequency, targetRange, mode])
+            response = self.device.request(
+                self.interface_name + ".setControlValuesLTRTCC",
+                [axis, amplitude, frequency, targetRange, mode],
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
-        def setEoTDetectBehaviour(self, axis, reso, distanceInEoT, distanceOutEoT, NbrofEoTtoTrigger):
+        def setEoTDetectBehaviour(
+            self, axis, reso, distanceInEoT, distanceOutEoT, NbrofEoTtoTrigger
+        ):
             """
             Change Eot Settings to detect EOT  on the Fly .
             
@@ -865,13 +891,13 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setEoTDetectBehaviour", [axis, reso, distanceInEoT, distanceOutEoT, NbrofEoTtoTrigger])
+            response = self.device.request(
+                self.interface_name + ".setEoTDetectBehaviour",
+                [axis, reso, distanceInEoT, distanceOutEoT, NbrofEoTtoTrigger],
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setReset(self, axis):
             """
             Resets the actual position to zero and marks the reference position as invalid.
@@ -886,10 +912,7 @@ class Device(ACS.Device):
             response = self.device.request(self.interface_name + ".setReset", [axis])
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setReturnBool(self):
             """
             Returns true, can be used for testing
@@ -901,11 +924,8 @@ class Device(ACS.Device):
             """
             response = self.device.request(self.interface_name + ".setReturnBool")
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def setSaveParams(self):
             """
             NOT Implemented
@@ -917,10 +937,7 @@ class Device(ACS.Device):
             response = self.device.request(self.interface_name + ".setSaveParams")
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setSensorEnabled(self, axis, value):
             """
             Set sensor power supply status
@@ -933,13 +950,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setSensorEnabled", [axis, value])
+            response = self.device.request(
+                self.interface_name + ".setSensorEnabled", [axis, value]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setTemperatureMode(self, axis, mode):
             """
             Set  the amplitude of the actuator signal using the LT, RT presets
@@ -955,20 +971,22 @@ class Device(ACS.Device):
             frequency: frequency
             targetrange: targetrange
             """
-            response = self.device.request(self.interface_name + ".setTemperatureMode", [axis, mode])
+            response = self.device.request(
+                self.interface_name + ".setTemperatureMode", [axis, mode]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1], response['result'][2], response['result'][3]
-    
+            return (
+                errNo,
+                response["result"][1],
+                response["result"][2],
+                response["result"][3],
+            )
 
-
-    
-    
-    class Description():
-
+    class Description:
         def __init__(self, device):
             self.device = device
             self.interface_name = "com.attocube.amc.description"
-            
+
         def checkChassisNbr(self):
             """
             Get Chassis and Slot Number, only works when AMC is within a Rack
@@ -981,11 +999,8 @@ class Device(ACS.Device):
             """
             response = self.device.request(self.interface_name + ".checkChassisNbr")
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1], response['result'][2]
-    
+            return errNo, response["result"][1], response["result"][2]
 
-
-    
         def getActorParamNamesList(self):
             """
             dynamically get all Parameter-Names used in PositionerConf
@@ -995,13 +1010,12 @@ class Device(ACS.Device):
             errNo: errNo errorCode
             PositionerParamsList: PositionerParamsList
             """
-            response = self.device.request(self.interface_name + ".getActorParamNamesList")
+            response = self.device.request(
+                self.interface_name + ".getActorParamNamesList"
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getDeviceType(self):
             """
             Get the Device type name as a string
@@ -1013,11 +1027,8 @@ class Device(ACS.Device):
             """
             response = self.device.request(self.interface_name + ".getDeviceType")
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getFeatures(self):
             """
             Return all features available, including descriptions
@@ -1029,11 +1040,8 @@ class Device(ACS.Device):
             """
             response = self.device.request(self.interface_name + ".getFeatures")
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getFeaturesActivated(self):
             """
             Get the activated features and return as a string
@@ -1043,13 +1051,12 @@ class Device(ACS.Device):
             errNo: errNo
             features: features activated on device [NUM, PRO]
             """
-            response = self.device.request(self.interface_name + ".getFeaturesActivated")
+            response = self.device.request(
+                self.interface_name + ".getFeaturesActivated"
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getPositionersList(self):
             """
             dynamically get all the Positioners available in the setofconfigurationlist.lua file
@@ -1061,11 +1068,8 @@ class Device(ACS.Device):
             """
             response = self.device.request(self.interface_name + ".getPositionersList")
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getSensorBoard(self, axis):
             """
             Return which board has been detected on the PCie express extension
@@ -1078,13 +1082,12 @@ class Device(ACS.Device):
             errNo: errNo
             boardinfo: boardinfo  0: OL, 1: NUM, 2: RES
             """
-            response = self.device.request(self.interface_name + ".getSensorBoard", [axis])
+            response = self.device.request(
+                self.interface_name + ".getSensorBoard", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getWebServices(self):
             """
             Return all features available, including descriptions
@@ -1096,18 +1099,13 @@ class Device(ACS.Device):
             """
             response = self.device.request(self.interface_name + ".getWebServices")
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
-    
-    class Move():
-
+    class Move:
         def __init__(self, device):
             self.device = device
             self.interface_name = "com.attocube.amc.move"
-            
+
         def getControlContinuousBkwd(self, axis):
             """
             Check continuous movement in backward direction.
@@ -1120,13 +1118,12 @@ class Device(ACS.Device):
             errNo: errNo
             value_boolean1: boolean true if movement backward is active , false otherwise
             """
-            response = self.device.request(self.interface_name + ".getControlContinuousBkwd", [axis])
+            response = self.device.request(
+                self.interface_name + ".getControlContinuousBkwd", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getControlContinuousFwd(self, axis):
             """
             Check continuous movement in forward direction
@@ -1139,13 +1136,12 @@ class Device(ACS.Device):
             errNo: errNo
             value_boolean1: boolean true if movement Fwd is active , false otherwise
             """
-            response = self.device.request(self.interface_name + ".getControlContinuousFwd", [axis])
+            response = self.device.request(
+                self.interface_name + ".getControlContinuousFwd", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getControlEotOutputDeactive(self, axis):
             """
             Get the actual  status action on  EOT (End Of Travel)
@@ -1158,13 +1154,12 @@ class Device(ACS.Device):
             errNo: errNo
             value_boolean1: boolean If true, the output of the axis will be deactivated on positive EOT detection.
             """
-            response = self.device.request(self.interface_name + ".getControlEotOutputDeactive", [axis])
+            response = self.device.request(
+                self.interface_name + ".getControlEotOutputDeactive", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getControlTargetPosition(self, axis):
             """
             Get the actual target position
@@ -1177,13 +1172,12 @@ class Device(ACS.Device):
             errNo: errNo
             position: position defined in nm for goniometer an rotator type actors it is µ°.
             """
-            response = self.device.request(self.interface_name + ".getControlTargetPosition", [axis])
+            response = self.device.request(
+                self.interface_name + ".getControlTargetPosition", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getGroundAxis(self, axis):
             """
             Pull axis piezo drive to GND actively
@@ -1197,13 +1191,12 @@ class Device(ACS.Device):
             errNo: errNo 0 or error
             grounded: grounded true or false
             """
-            response = self.device.request(self.interface_name + ".getGroundAxis", [axis])
+            response = self.device.request(
+                self.interface_name + ".getGroundAxis", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getGroundAxisAutoOnTarget(self, axis):
             """
             Pull axis piezo drive to GND if positioner is in ground target range
@@ -1218,13 +1211,12 @@ class Device(ACS.Device):
             errNo: errNo 0 or error
             value: value true or false
             """
-            response = self.device.request(self.interface_name + ".getGroundAxisAutoOnTarget", [axis])
+            response = self.device.request(
+                self.interface_name + ".getGroundAxisAutoOnTarget", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getGroundTargetRange(self, axis):
             """
             Retrieves the range around the target position in which the auto grounding becomes active.
@@ -1237,13 +1229,12 @@ class Device(ACS.Device):
             errNo: errNo
             targetrange: targetrange define in nm
             """
-            response = self.device.request(self.interface_name + ".getGroundTargetRange", [axis])
+            response = self.device.request(
+                self.interface_name + ".getGroundTargetRange", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getNSteps(self, axis):
             """
             Get the number of step that is applied for SetNsteps
@@ -1258,11 +1249,8 @@ class Device(ACS.Device):
             """
             response = self.device.request(self.interface_name + ".getNSteps", [axis])
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getPosition(self, axis):
             """
             Get the actual  position of the actor
@@ -1278,11 +1266,8 @@ class Device(ACS.Device):
             """
             response = self.device.request(self.interface_name + ".getPosition", [axis])
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getPositionInmm(self, axis):
             """
             Get the actual  position of the actor
@@ -1295,13 +1280,12 @@ class Device(ACS.Device):
             errNo: errNo
             position: position defined in mm
             """
-            response = self.device.request(self.interface_name + ".getPositionInmm", [axis])
+            response = self.device.request(
+                self.interface_name + ".getPositionInmm", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def performNSteps(self, axis, backward):
             """
             Perform the OL command for N steps
@@ -1314,13 +1298,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".performNSteps", [axis, backward])
+            response = self.device.request(
+                self.interface_name + ".performNSteps", [axis, backward]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setControlContinuousBkwd(self, axis, enable):
             """
             Controls continuous movement in backward direction
@@ -1333,13 +1316,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setControlContinuousBkwd", [axis, enable])
+            response = self.device.request(
+                self.interface_name + ".setControlContinuousBkwd", [axis, enable]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setControlContinuousFwd(self, axis, enable):
             """
             Controls continuous movement in forward direction
@@ -1352,13 +1334,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setControlContinuousFwd", [axis, enable])
+            response = self.device.request(
+                self.interface_name + ".setControlContinuousFwd", [axis, enable]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setControlEotOutputDeactive(self, axis, enable):
             """
             Defines the behavior of the output on EOT (End Of Travel)
@@ -1371,13 +1352,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setControlEotOutputDeactive", [axis, enable])
+            response = self.device.request(
+                self.interface_name + ".setControlEotOutputDeactive", [axis, enable]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setControlTargetPosition(self, axis, target):
             """
             Set the Target position
@@ -1391,13 +1371,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setControlTargetPosition", [axis, target])
+            response = self.device.request(
+                self.interface_name + ".setControlTargetPosition", [axis, target]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setGroundAxis(self, axis, enabled):
             """
             Pull axis piezo drive to GND actively
@@ -1412,13 +1391,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo 0 or error
             """
-            response = self.device.request(self.interface_name + ".setGroundAxis", [axis, enabled])
+            response = self.device.request(
+                self.interface_name + ".setGroundAxis", [axis, enabled]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setGroundAxisAutoOnTarget(self, axis, enabled):
             """
             Pull axis piezo drive to GND if positioner is in ground target range
@@ -1434,13 +1412,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo 0 or error
             """
-            response = self.device.request(self.interface_name + ".setGroundAxisAutoOnTarget", [axis, enabled])
+            response = self.device.request(
+                self.interface_name + ".setGroundAxisAutoOnTarget", [axis, enabled]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setGroundTargetRange(self, axis, range):
             """
             Set  the range around the target position in which the auto grounding becomes active.
@@ -1453,13 +1430,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setGroundTargetRange", [axis, range])
+            response = self.device.request(
+                self.interface_name + ".setGroundTargetRange", [axis, range]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setNSteps(self, axis, backward, step):
             """
             Set N steps and perform the OL command for N steps
@@ -1473,13 +1449,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setNSteps", [axis, backward, step])
+            response = self.device.request(
+                self.interface_name + ".setNSteps", [axis, backward, step]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def writeNSteps(self, axis, step):
             """
             set N steps
@@ -1492,20 +1467,17 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".writeNSteps", [axis, step])
+            response = self.device.request(
+                self.interface_name + ".writeNSteps", [axis, step]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
-    
-    class Network():
-
+    class Network:
         def __init__(self, device):
             self.device = device
             self.interface_name = "com.attocube.system.network"
-            
+
         def apply(self):
             """
             Apply temporary IP configuration and load it
@@ -1515,11 +1487,8 @@ class Device(ACS.Device):
             Error: Error code
             """
             response = self.device.request(self.interface_name + ".apply")
-            return response['result'][0]
-    
+            return response["result"][0]
 
-
-    
         def discard(self):
             """
             Discard temporary IP configuration
@@ -1529,11 +1498,8 @@ class Device(ACS.Device):
             Error: Error code
             """
             response = self.device.request(self.interface_name + ".discard")
-            return response['result'][0]
-    
+            return response["result"][0]
 
-
-    
         def getDefaultGateway(self):
             """
             Get the default gateway of the device
@@ -1543,11 +1509,8 @@ class Device(ACS.Device):
             Default: Default gateway
             """
             response = self.device.request(self.interface_name + ".getDefaultGateway")
-            return response['result'][0]
-    
+            return response["result"][0]
 
-
-    
         def getDnsResolver(self, priority):
             """
             Get the DNS resolver
@@ -1559,12 +1522,11 @@ class Device(ACS.Device):
             -------
             IP: IP address of DNS resolver
             """
-            response = self.device.request(self.interface_name + ".getDnsResolver", [priority])
-            return response['result'][0]
-    
+            response = self.device.request(
+                self.interface_name + ".getDnsResolver", [priority]
+            )
+            return response["result"][0]
 
-
-    
         def getEnableDhcpClient(self):
             """
             Get the state of DHCP client
@@ -1574,11 +1536,8 @@ class Device(ACS.Device):
             value_boolean0: boolean: true = DHCP client enable, false = DHCP client disable
             """
             response = self.device.request(self.interface_name + ".getEnableDhcpClient")
-            return response['result'][0]
-    
+            return response["result"][0]
 
-
-    
         def getEnableDhcpServer(self):
             """
             Get the state of DHCP server
@@ -1588,11 +1547,8 @@ class Device(ACS.Device):
             value_boolean0: boolean: true = DHCP server enable, false = DHCP server disable
             """
             response = self.device.request(self.interface_name + ".getEnableDhcpServer")
-            return response['result'][0]
-    
+            return response["result"][0]
 
-
-    
         def getIpAddress(self):
             """
             Get the IP address of the device
@@ -1602,11 +1558,8 @@ class Device(ACS.Device):
             IP: IP address as string
             """
             response = self.device.request(self.interface_name + ".getIpAddress")
-            return response['result'][0]
-    
+            return response["result"][0]
 
-
-    
         def getProxyServer(self):
             """
             Get the proxy settings of the devide
@@ -1616,11 +1569,8 @@ class Device(ACS.Device):
             Proxy: Proxy Server String, empty for no proxy
             """
             response = self.device.request(self.interface_name + ".getProxyServer")
-            return response['result'][0]
-    
+            return response["result"][0]
 
-
-    
         def getSubnetMask(self):
             """
             Get the subnet mask of the device
@@ -1630,11 +1580,8 @@ class Device(ACS.Device):
             Subnet: Subnet mask as string
             """
             response = self.device.request(self.interface_name + ".getSubnetMask")
-            return response['result'][0]
-    
+            return response["result"][0]
 
-
-    
         def setDefaultGateway(self, gateway):
             """
             Set the default gateway of the device
@@ -1646,12 +1593,11 @@ class Device(ACS.Device):
             -------
             error: error code
             """
-            response = self.device.request(self.interface_name + ".setDefaultGateway", [gateway])
-            return response['result'][0]
-    
+            response = self.device.request(
+                self.interface_name + ".setDefaultGateway", [gateway]
+            )
+            return response["result"][0]
 
-
-    
         def setDnsResolver(self, priority, resolver):
             """
             Set the DNS resolver
@@ -1664,12 +1610,11 @@ class Device(ACS.Device):
             -------
             error: error code
             """
-            response = self.device.request(self.interface_name + ".setDnsResolver", [priority, resolver])
-            return response['result'][0]
-    
+            response = self.device.request(
+                self.interface_name + ".setDnsResolver", [priority, resolver]
+            )
+            return response["result"][0]
 
-
-    
         def setEnableDhcpClient(self, enable):
             """
             Enable or disable DHCP client
@@ -1681,12 +1626,11 @@ class Device(ACS.Device):
             -------
             error: error code
             """
-            response = self.device.request(self.interface_name + ".setEnableDhcpClient", [enable])
-            return response['result'][0]
-    
+            response = self.device.request(
+                self.interface_name + ".setEnableDhcpClient", [enable]
+            )
+            return response["result"][0]
 
-
-    
         def setEnableDhcpServer(self, enable):
             """
             Enable or disable DHCP server
@@ -1698,12 +1642,11 @@ class Device(ACS.Device):
             -------
             error: error code
             """
-            response = self.device.request(self.interface_name + ".setEnableDhcpServer", [enable])
-            return response['result'][0]
-    
+            response = self.device.request(
+                self.interface_name + ".setEnableDhcpServer", [enable]
+            )
+            return response["result"][0]
 
-
-    
         def setIpAddress(self, address):
             """
             Set the IP address of the device
@@ -1715,12 +1658,11 @@ class Device(ACS.Device):
             -------
             error: error code
             """
-            response = self.device.request(self.interface_name + ".setIpAddress", [address])
-            return response['result'][0]
-    
+            response = self.device.request(
+                self.interface_name + ".setIpAddress", [address]
+            )
+            return response["result"][0]
 
-
-    
         def setProxyServer(self, proxyServer):
             """
             Set the proxy server of the device
@@ -1732,12 +1674,11 @@ class Device(ACS.Device):
             -------
             error: error code
             """
-            response = self.device.request(self.interface_name + ".setProxyServer", [proxyServer])
-            return response['result'][0]
-    
+            response = self.device.request(
+                self.interface_name + ".setProxyServer", [proxyServer]
+            )
+            return response["result"][0]
 
-
-    
         def setSubnetMask(self, netmask):
             """
             Set the subnet mask of the device
@@ -1749,12 +1690,11 @@ class Device(ACS.Device):
             -------
             error: error code
             """
-            response = self.device.request(self.interface_name + ".setSubnetMask", [netmask])
-            return response['result'][0]
-    
+            response = self.device.request(
+                self.interface_name + ".setSubnetMask", [netmask]
+            )
+            return response["result"][0]
 
-
-    
         def testInternetConnection(self):
             """
             Tests if the internet connection works (i.e.
@@ -1763,12 +1703,11 @@ class Device(ACS.Device):
             -------
             successfull: successfull
             """
-            response = self.device.request(self.interface_name + ".testInternetConnection")
-            return response['result'][0]
-    
+            response = self.device.request(
+                self.interface_name + ".testInternetConnection"
+            )
+            return response["result"][0]
 
-
-    
         def verify(self):
             """
             Verify that temporary IP configuration is correct
@@ -1778,18 +1717,13 @@ class Device(ACS.Device):
             Error: Error code
             """
             response = self.device.request(self.interface_name + ".verify")
-            return response['result'][0]
-    
+            return response["result"][0]
 
-
-    
-    
-    class Res():
-
+    class Res:
         def __init__(self, device):
             self.device = device
             self.interface_name = "com.attocube.amc.res"
-            
+
         def getChainGain(self, axis):
             """
             Get chain gain
@@ -1802,13 +1736,12 @@ class Device(ACS.Device):
             errNo: errNo
             gaincoeff: gaincoeff
             """
-            response = self.device.request(self.interface_name + ".getChainGain", [axis])
+            response = self.device.request(
+                self.interface_name + ".getChainGain", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getLutSn(self, axis):
             """
             get the identifier of the loaded lookuptable (will be empty if disabled)
@@ -1823,11 +1756,8 @@ class Device(ACS.Device):
             """
             response = self.device.request(self.interface_name + ".getLutSn", [axis])
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getMagnitudeAll(self, axis):
             """
             Get magnitude value at different states of the FPGA signal chain
@@ -1843,13 +1773,18 @@ class Device(ACS.Device):
             mag_norm: mag_norm magnitude normalized range 0 .. 2^23
             mag_cor: mag_cor magnitude corrected after linearization range 0 .. 2^23
             """
-            response = self.device.request(self.interface_name + ".getMagnitudeAll", [axis])
+            response = self.device.request(
+                self.interface_name + ".getMagnitudeAll", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1], response['result'][2], response['result'][3], response['result'][4]
-    
+            return (
+                errNo,
+                response["result"][1],
+                response["result"][2],
+                response["result"][3],
+                response["result"][4],
+            )
 
-
-    
         def getMagnitudePermille(self, axis):
             """
             Get normalized magnitude and corrected magnitude in %
@@ -1863,13 +1798,12 @@ class Device(ACS.Device):
             mag_norm: mag_norm magnitude normalized  range in % [0...100%]
             mag_cor: mag_cor magnitude after linearization  range in % [0...100%]
             """
-            response = self.device.request(self.interface_name + ".getMagnitudePermille", [axis])
+            response = self.device.request(
+                self.interface_name + ".getMagnitudePermille", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1], response['result'][2]
-    
+            return errNo, response["result"][1], response["result"][2]
 
-
-    
         def getMode(self):
             """
             Get mode of RES application
@@ -1881,11 +1815,8 @@ class Device(ACS.Device):
             """
             response = self.device.request(self.interface_name + ".getMode")
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getMuteOut(self, axis):
             """
             Get Codec output if it's muted or not
@@ -1900,11 +1831,8 @@ class Device(ACS.Device):
             """
             response = self.device.request(self.interface_name + ".getMuteOut", [axis])
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def setChainGain(self, axis, gainconfig):
             """
             Set signal chain gain to control overall power
@@ -1917,13 +1845,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setChainGain", [axis, gainconfig])
+            response = self.device.request(
+                self.interface_name + ".setChainGain", [axis, gainconfig]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setConfigurationFile(self, axis, content):
             """
             Load configuration file which either contains JSON parameters or the LUT file itself (as legacy support)
@@ -1936,13 +1863,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setConfigurationFile", [axis, content])
+            response = self.device.request(
+                self.interface_name + ".setConfigurationFile", [axis, content]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setCtrlDecimation(self, decim1, decim2, force):
             """
             for study change Configure the FPGA decimation factor of 1st and 2nd stage for TAP signal
@@ -1956,13 +1882,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setCtrlDecimation", [decim1, decim2, force])
+            response = self.device.request(
+                self.interface_name + ".setCtrlDecimation", [decim1, decim2, force]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setCtrlFilter(self, size1, size2, force):
             """
             for study change Configure the FPGA filter of 1st and 2nd stage for TAP signal
@@ -1976,13 +1901,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setCtrlFilter", [size1, size2, force])
+            response = self.device.request(
+                self.interface_name + ".setCtrlFilter", [size1, size2, force]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setGlobalEnable(self, enable):
             """
             control   Wave generator and decimation
@@ -1994,13 +1918,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setGlobalEnable", [enable])
+            response = self.device.request(
+                self.interface_name + ".setGlobalEnable", [enable]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setLinTable(self, axis, content):
             """
             Load linearization table in compatible ANC350v5 format to be interpolated to 1024 values
@@ -2013,13 +1936,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setLinTable", [axis, content])
+            response = self.device.request(
+                self.interface_name + ".setLinTable", [axis, content]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setLinearization(self, enable):
             """
             Control if linearization is enabled or not
@@ -2031,13 +1953,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setLinearization", [enable])
+            response = self.device.request(
+                self.interface_name + ".setLinearization", [enable]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setLoadFactor(self, value):
             """
             Control Load Factor behavior
@@ -2049,13 +1970,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setLoadFactor", [value])
+            response = self.device.request(
+                self.interface_name + ".setLoadFactor", [value]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setMode(self, mode):
             """
             Get mode of RES application
@@ -2070,10 +1990,7 @@ class Device(ACS.Device):
             response = self.device.request(self.interface_name + ".setMode", [mode])
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setMuteOut(self, axis, enable):
             """
             Set Codec output to mute it or enable it
@@ -2086,13 +2003,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setMuteOut", [axis, enable])
+            response = self.device.request(
+                self.interface_name + ".setMuteOut", [axis, enable]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setPositionRange(self, axis, range):
             """
             Set the range of the positioner
@@ -2105,13 +2021,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setPositionRange", [axis, range])
+            response = self.device.request(
+                self.interface_name + ".setPositionRange", [axis, range]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setRecordSignal(self, axis, timems):
             """
             Records all signals from register magnitude TAP and REF and COR and NORM   and position for verification purpose
@@ -2126,20 +2041,17 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setRecordSignal", [axis, timems])
+            response = self.device.request(
+                self.interface_name + ".setRecordSignal", [axis, timems]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
-    
-    class Rotcomp():
-
+    class Rotcomp:
         def __init__(self, device):
             self.device = device
             self.interface_name = "com.attocube.amc.rotcomp"
-            
+
         def getControlTargetRanges(self):
             """
             Checks if all three axis are in target range.
@@ -2151,13 +2063,12 @@ class Device(ACS.Device):
             in_target_range: boolean
             true all three axes are in target range, false at least one axis is not in target range
             """
-            response = self.device.request(self.interface_name + ".getControlTargetRanges")
+            response = self.device.request(
+                self.interface_name + ".getControlTargetRanges"
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getEnabled(self):
             """
             Gets the enabled status of the rotation compensation
@@ -2171,11 +2082,8 @@ class Device(ACS.Device):
             """
             response = self.device.request(self.interface_name + ".getEnabled")
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getLUT(self):
             """
             Gets the LUT file as JSON string
@@ -2189,11 +2097,8 @@ class Device(ACS.Device):
             """
             response = self.device.request(self.interface_name + ".getLUT")
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def setEnabled(self):
             """
             Enables and disables the rotation compensation
@@ -2206,10 +2111,7 @@ class Device(ACS.Device):
             response = self.device.request(self.interface_name + ".setEnabled")
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setLUT(self):
             """
             Sets the LUT file from a JSON string
@@ -2222,10 +2124,7 @@ class Device(ACS.Device):
             response = self.device.request(self.interface_name + ".setLUT")
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def updateOffsets(self):
             """
             Updates the start offsets of the axes
@@ -2238,17 +2137,12 @@ class Device(ACS.Device):
             response = self.device.request(self.interface_name + ".updateOffsets")
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
-    
-    class Rtin():
-
+    class Rtin:
         def __init__(self, device):
             self.device = device
             self.interface_name = "com.attocube.amc.rtin"
-            
+
         def apply(self):
             """
             Apply all realtime input function
@@ -2260,10 +2154,7 @@ class Device(ACS.Device):
             response = self.device.request(self.interface_name + ".apply")
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def applyRealTimeInChangePerPulse(self, axis):
             """
             Apply setRealTimeInChangePerPulse
@@ -2275,13 +2166,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".applyRealTimeInChangePerPulse", [axis])
+            response = self.device.request(
+                self.interface_name + ".applyRealTimeInChangePerPulse", [axis]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def applyRealTimeInFeedbackLoopMode(self, axis):
             """
             Apply setRealTimeInFeedbackLoopMode
@@ -2293,13 +2183,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".applyRealTimeInFeedbackLoopMode", [axis])
+            response = self.device.request(
+                self.interface_name + ".applyRealTimeInFeedbackLoopMode", [axis]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def applyRealTimeInHsslClk(self, axis):
             """
             Apply setRealTimeInHsslClk
@@ -2311,13 +2200,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".applyRealTimeInHsslClk", [axis])
+            response = self.device.request(
+                self.interface_name + ".applyRealTimeInHsslClk", [axis]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def applyRealTimeInHsslGap(self, axis):
             """
             Apply setRealTimeInHsslGap
@@ -2329,13 +2217,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".applyRealTimeInHsslGap", [axis])
+            response = self.device.request(
+                self.interface_name + ".applyRealTimeInHsslGap", [axis]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def applyRealTimeInHsslHigh(self, axis):
             """
             Apply setRealTimeInHsslHigh
@@ -2347,13 +2234,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".applyRealTimeInHsslHigh", [axis])
+            response = self.device.request(
+                self.interface_name + ".applyRealTimeInHsslHigh", [axis]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def applyRealTimeInHsslLow(self, axis):
             """
             Apply setRealTimeInHsslLow
@@ -2365,13 +2251,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".applyRealTimeInHsslLow", [axis])
+            response = self.device.request(
+                self.interface_name + ".applyRealTimeInHsslLow", [axis]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def applyRealTimeInMode(self, axis):
             """
             Apply setRealTimeInMode
@@ -2383,13 +2268,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".applyRealTimeInMode", [axis])
+            response = self.device.request(
+                self.interface_name + ".applyRealTimeInMode", [axis]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def applyRealTimeInStepsPerPulse(self, axis):
             """
             Apply setRealTimeInStepsPerPulse
@@ -2401,13 +2285,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".applyRealTimeInStepsPerPulse", [axis])
+            response = self.device.request(
+                self.interface_name + ".applyRealTimeInStepsPerPulse", [axis]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def discard(self):
             """
             Discard all values beting set and not yet applieds
@@ -2419,10 +2302,7 @@ class Device(ACS.Device):
             response = self.device.request(self.interface_name + ".discard")
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def getControlAQuadBIn(self, axis):
             """
             check if  AQuadB input is enabled.
@@ -2435,13 +2315,12 @@ class Device(ACS.Device):
             errNo: errNo
             value_boolean1: boolean
             """
-            response = self.device.request(self.interface_name + ".getControlAQuadBIn", [axis])
+            response = self.device.request(
+                self.interface_name + ".getControlAQuadBIn", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getControlAQuadBInResolution(self, axis, tempvalue):
             """
             Get the resolution of AquadB
@@ -2455,13 +2334,12 @@ class Device(ACS.Device):
             errNo: errNo
             resolution: resolution ion nm
             """
-            response = self.device.request(self.interface_name + ".getControlAQuadBInResolution", [axis, tempvalue])
+            response = self.device.request(
+                self.interface_name + ".getControlAQuadBInResolution", [axis, tempvalue]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getControlMoveGPIO(self, axis):
             """
             This function gets the status for real time input on the selected axis in closed-loop mode.
@@ -2474,13 +2352,12 @@ class Device(ACS.Device):
             errNo: errNo
             enable: enable boolean true: approach enabled , false: approach disabled
             """
-            response = self.device.request(self.interface_name + ".getControlMoveGPIO", [axis])
+            response = self.device.request(
+                self.interface_name + ".getControlMoveGPIO", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getRealTimeInChangePerPulse(self, axis, tempvalue):
             """
             Get the change in pm per pulse  of the realtime input when trigger and stepper mod is used
@@ -2494,13 +2371,12 @@ class Device(ACS.Device):
             errNo: errNo
             resolution: resolution to be added in current pos in nm
             """
-            response = self.device.request(self.interface_name + ".getRealTimeInChangePerPulse", [axis, tempvalue])
+            response = self.device.request(
+                self.interface_name + ".getRealTimeInChangePerPulse", [axis, tempvalue]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getRealTimeInFeedbackLoopMode(self, axis, tempvalue):
             """
             Get if the realtime function must operate in close loop operation or open loop operation
@@ -2514,13 +2390,13 @@ class Device(ACS.Device):
             errNo: errNo
             mode: mode 0: open loop, 1 : close-loop
             """
-            response = self.device.request(self.interface_name + ".getRealTimeInFeedbackLoopMode", [axis, tempvalue])
+            response = self.device.request(
+                self.interface_name + ".getRealTimeInFeedbackLoopMode",
+                [axis, tempvalue],
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getRealTimeInHsslClk(self, axis, tempvalue):
             """
             Get the HSSL clock
@@ -2534,13 +2410,12 @@ class Device(ACS.Device):
             errNo: errNo
             clk: clk  clock  is given in nanoseconds
             """
-            response = self.device.request(self.interface_name + ".getRealTimeInHsslClk", [axis, tempvalue])
+            response = self.device.request(
+                self.interface_name + ".getRealTimeInHsslClk", [axis, tempvalue]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getRealTimeInHsslGap(self, axis, tempvalue):
             """
             Get the HSSL Gap
@@ -2554,13 +2429,12 @@ class Device(ACS.Device):
             errNo: errNo
             gap: gap indicates the gap between the end of the HSSL word  and the beginning of the next HSSL word. The unit of G is HSSL clock cycles.
             """
-            response = self.device.request(self.interface_name + ".getRealTimeInHsslGap", [axis, tempvalue])
+            response = self.device.request(
+                self.interface_name + ".getRealTimeInHsslGap", [axis, tempvalue]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getRealTimeInHsslHigh(self, axis, tempvalue):
             """
             Get the higher part of the HSSL resolution
@@ -2574,13 +2448,12 @@ class Device(ACS.Device):
             errNo: errNo
             highresolution: highresolution
             """
-            response = self.device.request(self.interface_name + ".getRealTimeInHsslHigh", [axis, tempvalue])
+            response = self.device.request(
+                self.interface_name + ".getRealTimeInHsslHigh", [axis, tempvalue]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getRealTimeInHsslLow(self, axis, tempvalue):
             """
             Get the lower part of the HSSL resolution
@@ -2594,13 +2467,12 @@ class Device(ACS.Device):
             errNo: errNo
             lowresolution: lowresolution
             """
-            response = self.device.request(self.interface_name + ".getRealTimeInHsslLow", [axis, tempvalue])
+            response = self.device.request(
+                self.interface_name + ".getRealTimeInHsslLow", [axis, tempvalue]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getRealTimeInMode(self, axis, tempvalue):
             """
             Get the RealTime Input Mode
@@ -2614,13 +2486,12 @@ class Device(ACS.Device):
             errNo: errNo
             mode: mode see `RT_IN_MODES`
             """
-            response = self.device.request(self.interface_name + ".getRealTimeInMode", [axis, tempvalue])
+            response = self.device.request(
+                self.interface_name + ".getRealTimeInMode", [axis, tempvalue]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getRealTimeInStepsPerPulse(self, axis, tempvalue):
             """
             Get the change in step per pulse  of the realtime input when trigger and stepper mode is used
@@ -2634,13 +2505,12 @@ class Device(ACS.Device):
             errNo: errNo
             steps: steps number of steps to applied
             """
-            response = self.device.request(self.interface_name + ".getRealTimeInStepsPerPulse", [axis, tempvalue])
+            response = self.device.request(
+                self.interface_name + ".getRealTimeInStepsPerPulse", [axis, tempvalue]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def setControlAQuadBIn(self, axis, enable):
             """
             AQuadB input  enable.
@@ -2653,13 +2523,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setControlAQuadBIn", [axis, enable])
+            response = self.device.request(
+                self.interface_name + ".setControlAQuadBIn", [axis, enable]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setControlAQuadBInResolution(self, axis, resolution):
             """
             Set the resolution of AquadB
@@ -2672,13 +2541,13 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setControlAQuadBInResolution", [axis, resolution])
+            response = self.device.request(
+                self.interface_name + ".setControlAQuadBInResolution",
+                [axis, resolution],
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setControlMoveGPIO(self, axis, enable):
             """
             This function sets the status for real time input on the selected axis in closed-loop mode.
@@ -2691,13 +2560,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setControlMoveGPIO", [axis, enable])
+            response = self.device.request(
+                self.interface_name + ".setControlMoveGPIO", [axis, enable]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setRealTimeInChangePerPulse(self, axis, resolution):
             """
             Set the change in pm per pulse  of the realtime input when trigger and stepper mod is used
@@ -2711,13 +2579,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setRealTimeInChangePerPulse", [axis, resolution])
+            response = self.device.request(
+                self.interface_name + ".setRealTimeInChangePerPulse", [axis, resolution]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setRealTimeInFeedbackLoopMode(self, axis, mode):
             """
             Set if the realtime function must operate in close loop operation or open loop operation
@@ -2730,13 +2597,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setRealTimeInFeedbackLoopMode", [axis, mode])
+            response = self.device.request(
+                self.interface_name + ".setRealTimeInFeedbackLoopMode", [axis, mode]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setRealTimeInHsslClk(self, axis, hssl_clk):
             """
             Set the HSSL clock
@@ -2749,13 +2615,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setRealTimeInHsslClk", [axis, hssl_clk])
+            response = self.device.request(
+                self.interface_name + ".setRealTimeInHsslClk", [axis, hssl_clk]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setRealTimeInHsslGap(self, axis, hssl_gap):
             """
             Set the HSSL Gaps
@@ -2768,13 +2633,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setRealTimeInHsslGap", [axis, hssl_gap])
+            response = self.device.request(
+                self.interface_name + ".setRealTimeInHsslGap", [axis, hssl_gap]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setRealTimeInHsslHigh(self, axis, resohigh):
             """
             Set the higher part of the HSSL resolution
@@ -2787,13 +2651,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setRealTimeInHsslHigh", [axis, resohigh])
+            response = self.device.request(
+                self.interface_name + ".setRealTimeInHsslHigh", [axis, resohigh]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setRealTimeInHsslLow(self, axis, resolow):
             """
             Set the lower part of the HSSL resolution
@@ -2806,13 +2669,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setRealTimeInHsslLow", [axis, resolow])
+            response = self.device.request(
+                self.interface_name + ".setRealTimeInHsslLow", [axis, resolow]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setRealTimeInMode(self, axis, mode):
             """
             Set the setRealTime Input Mode
@@ -2825,13 +2687,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setRealTimeInMode", [axis, mode])
+            response = self.device.request(
+                self.interface_name + ".setRealTimeInMode", [axis, mode]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setRealTimeInStepsPerPulse(self, axis, steps):
             """
             Set the change in step per pulse  of the realtime input when trigger and stepper mode is used
@@ -2845,20 +2706,17 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setRealTimeInStepsPerPulse", [axis, steps])
+            response = self.device.request(
+                self.interface_name + ".setRealTimeInStepsPerPulse", [axis, steps]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
-    
-    class Rtout():
-
+    class Rtout:
         def __init__(self, device):
             self.device = device
             self.interface_name = "com.attocube.amc.rtout"
-            
+
         def apply(self):
             """
             Apply for all rtout function
@@ -2870,10 +2728,7 @@ class Device(ACS.Device):
             response = self.device.request(self.interface_name + ".apply")
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def applyAxis(self, axis):
             """
             Apply for rtout function of specific axis
@@ -2888,10 +2743,7 @@ class Device(ACS.Device):
             response = self.device.request(self.interface_name + ".applyAxis", [axis])
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def applySignalMode(self):
             """
             Apply value set by setSignalMode
@@ -2903,10 +2755,7 @@ class Device(ACS.Device):
             response = self.device.request(self.interface_name + ".applySignalMode")
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def discard(self):
             """
             Discard all rtout value set by the set function(not applied yet)
@@ -2918,10 +2767,7 @@ class Device(ACS.Device):
             response = self.device.request(self.interface_name + ".discard")
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def discardAxis(self, axis):
             """
             Discard rtout value of specific axis set by the set function(not applied yet)
@@ -2936,10 +2782,7 @@ class Device(ACS.Device):
             response = self.device.request(self.interface_name + ".discardAxis", [axis])
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def discardSignalMode(self):
             """
             Discard value set by setSignalMode
@@ -2951,10 +2794,7 @@ class Device(ACS.Device):
             response = self.device.request(self.interface_name + ".discardSignalMode")
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def getControlAQuadBOut(self, axis, tempvalue):
             """
             Retrieves the if AquadB is enbled on RT OUT
@@ -2968,13 +2808,12 @@ class Device(ACS.Device):
             errNo: errNo
             value_boolean1: boolean
             """
-            response = self.device.request(self.interface_name + ".getControlAQuadBOut", [axis, tempvalue])
+            response = self.device.request(
+                self.interface_name + ".getControlAQuadBOut", [axis, tempvalue]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getControlAQuadBOutClock(self, axis, tempvalue):
             """
             Get the AquadB clock
@@ -2988,13 +2827,12 @@ class Device(ACS.Device):
             errNo: errNo
             clock_in_ns: clock_in_ns Clock in multiples of 20ns. Minimum 2 (40ns), maximum 65535 (1,310700ms)
             """
-            response = self.device.request(self.interface_name + ".getControlAQuadBOutClock", [axis, tempvalue])
+            response = self.device.request(
+                self.interface_name + ".getControlAQuadBOutClock", [axis, tempvalue]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getControlAQuadBOutResolution(self, axis, tempvalue):
             """
             Reading the AquadB resolution
@@ -3008,13 +2846,13 @@ class Device(ACS.Device):
             errNo: errNo
             resolution: resolution Defines in nm
             """
-            response = self.device.request(self.interface_name + ".getControlAQuadBOutResolution", [axis, tempvalue])
+            response = self.device.request(
+                self.interface_name + ".getControlAQuadBOutResolution",
+                [axis, tempvalue],
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getSignalMode(self, tempvalue):
             """
             Control the real time output signal type
@@ -3026,13 +2864,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".getSignalMode", [tempvalue])
+            response = self.device.request(
+                self.interface_name + ".getSignalMode", [tempvalue]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def getTriggerConfig(self, axis, tempvalue):
             """
             Get the real time output trigger config
@@ -3049,13 +2886,18 @@ class Device(ACS.Device):
             eps: eps
             mode: mode
             """
-            response = self.device.request(self.interface_name + ".getTriggerConfig", [axis, tempvalue])
+            response = self.device.request(
+                self.interface_name + ".getTriggerConfig", [axis, tempvalue]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1], response['result'][2], response['result'][3], response['result'][4]
-    
+            return (
+                errNo,
+                response["result"][1],
+                response["result"][2],
+                response["result"][3],
+                response["result"][4],
+            )
 
-
-    
         def setControlAQuadBOut(self, axis, enable):
             """
             Set the if AquadB is enbled on RT OUT
@@ -3069,13 +2911,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setControlAQuadBOut", [axis, enable])
+            response = self.device.request(
+                self.interface_name + ".setControlAQuadBOut", [axis, enable]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setControlAQuadBOutClock(self, axis, clock):
             """
             Set the AquadB clock
@@ -3088,13 +2929,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setControlAQuadBOutClock", [axis, clock])
+            response = self.device.request(
+                self.interface_name + ".setControlAQuadBOutClock", [axis, clock]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setControlAQuadBOutResolution(self, axis, resolution):
             """
             Set the AquadB resolution
@@ -3107,13 +2947,13 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setControlAQuadBOutResolution", [axis, resolution])
+            response = self.device.request(
+                self.interface_name + ".setControlAQuadBOutResolution",
+                [axis, resolution],
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setSignalMode(self, mode):
             """
             Control the real time output signal type
@@ -3125,13 +2965,12 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setSignalMode", [mode])
+            response = self.device.request(
+                self.interface_name + ".setSignalMode", [mode]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
         def setTriggerConfig(self, axis, hig, low, eps, mode):
             """
             Control the real time output trigger config
@@ -3147,20 +2986,17 @@ class Device(ACS.Device):
             -------
             errNo: errNo
             """
-            response = self.device.request(self.interface_name + ".setTriggerConfig", [axis, hig, low, eps, mode])
+            response = self.device.request(
+                self.interface_name + ".setTriggerConfig", [axis, hig, low, eps, mode]
+            )
             errNo = self.device.handleError(response)
             return errNo
-    
 
-
-    
-    
-    class Status():
-
+    class Status:
         def __init__(self, device):
             self.device = device
             self.interface_name = "com.attocube.amc.status"
-            
+
         def getCombinedStatus(self, axis):
             """
             Get the combined status of a positioner axis and return the status as a string (to be used in the MOVE SW)
@@ -3173,13 +3009,12 @@ class Device(ACS.Device):
             errNo: errNo
             value_string1: string "MOVING","IN TARGET RANGE", "END OF TRAVEL", "READY", "PENDING", "UNKNOWN STATE"
             """
-            response = self.device.request(self.interface_name + ".getCombinedStatus", [axis])
+            response = self.device.request(
+                self.interface_name + ".getCombinedStatus", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getFullCombinedStatus(self, axis):
             """
             Get the full combined status of a positioner axis and return the status as a string (to be used in the Webapplication)
@@ -3192,13 +3027,12 @@ class Device(ACS.Device):
             errNo: errNo
             value_string1: string "MOVING","IN TARGET RANGE", "END OF TRAVEL", "READY", "PENDING", "UNKNOWN STATE"
             """
-            response = self.device.request(self.interface_name + ".getFullCombinedStatus", [axis])
+            response = self.device.request(
+                self.interface_name + ".getFullCombinedStatus", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getOlStatus(self, axis):
             """
             Get the Feedback status of the positioner
@@ -3213,11 +3047,8 @@ class Device(ACS.Device):
             """
             response = self.device.request(self.interface_name + ".getOlStatus", [axis])
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getOlStatusStr(self, axis):
             """
             Get the Feedback status of the positioner and return the status as a string
@@ -3230,13 +3061,12 @@ class Device(ACS.Device):
             errNo: errNo
             value_string1: string "NUM positioner connected","OL positioner connected", "No positioner connected"
             """
-            response = self.device.request(self.interface_name + ".getOlStatusStr", [axis])
+            response = self.device.request(
+                self.interface_name + ".getOlStatusStr", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getStatusConnected(self, axis):
             """
             Retrieves the connected status.
@@ -3249,13 +3079,12 @@ class Device(ACS.Device):
             errNo: errNo
             value_boolean1: boolean If true, the actor is connected
             """
-            response = self.device.request(self.interface_name + ".getStatusConnected", [axis])
+            response = self.device.request(
+                self.interface_name + ".getStatusConnected", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getStatusEot(self, axis):
             """
             Retrieves the status of the end of travel (EOT) detection in backward direction or in forward direction.
@@ -3268,13 +3097,12 @@ class Device(ACS.Device):
             errNo: errNo
             value_boolean1: boolean true= detected$
             """
-            response = self.device.request(self.interface_name + ".getStatusEot", [axis])
+            response = self.device.request(
+                self.interface_name + ".getStatusEot", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getStatusEotBkwd(self, axis):
             """
             Retrieves the status of the end of travel (EOT) detection in backward direction.
@@ -3287,13 +3115,12 @@ class Device(ACS.Device):
             errNo: errNo
             value_boolean1: boolean true= detected
             """
-            response = self.device.request(self.interface_name + ".getStatusEotBkwd", [axis])
+            response = self.device.request(
+                self.interface_name + ".getStatusEotBkwd", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getStatusEotFwd(self, axis):
             """
             Retrieves the status of the end of travel (EOT) detection in forward direction.
@@ -3306,13 +3133,12 @@ class Device(ACS.Device):
             errNo: errNo
             value_boolean1: boolean true= detected
             """
-            response = self.device.request(self.interface_name + ".getStatusEotFwd", [axis])
+            response = self.device.request(
+                self.interface_name + ".getStatusEotFwd", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getStatusError(self, axis):
             """
             NOT Implemented
@@ -3325,13 +3151,12 @@ class Device(ACS.Device):
             errNo: errNo
             FEATURE_NOT_AVAILABLE: FEATURE_NOT_AVAILABLE
             """
-            response = self.device.request(self.interface_name + ".getStatusError", [axis])
+            response = self.device.request(
+                self.interface_name + ".getStatusError", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getStatusFlash(self, axis):
             """
             NOT Implemented
@@ -3344,13 +3169,12 @@ class Device(ACS.Device):
             errNo: errNo
             FEATURE_NOT_AVAILABLE: FEATURE_NOT_AVAILABLE
             """
-            response = self.device.request(self.interface_name + ".getStatusFlash", [axis])
+            response = self.device.request(
+                self.interface_name + ".getStatusFlash", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getStatusMoving(self, axis):
             """
             Retrieves the status of the output stage.
@@ -3364,13 +3188,12 @@ class Device(ACS.Device):
             status: status 0: Idle ,1 : Moving means the actor is actively driven by the output stage either for approaching or continous/single stepping and the output is active.
               2 : Pending means the output stage is driving but the output is deactivated i.e. by EOT or ECC_controlOutput.
             """
-            response = self.device.request(self.interface_name + ".getStatusMoving", [axis])
+            response = self.device.request(
+                self.interface_name + ".getStatusMoving", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getStatusReference(self, axis):
             """
             Retrieves the status of the reference position.
@@ -3383,13 +3206,12 @@ class Device(ACS.Device):
             errNo: errNo
             value_boolean1: boolean true= valid, false = not valid
             """
-            response = self.device.request(self.interface_name + ".getStatusReference", [axis])
+            response = self.device.request(
+                self.interface_name + ".getStatusReference", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
         def getStatusTargetRange(self, axis):
             """
             Retrieves the target status.
@@ -3402,20 +3224,17 @@ class Device(ACS.Device):
             errNo: errNo
             value_boolean1: boolean (true = within the target range, false: not ion the target range)
             """
-            response = self.device.request(self.interface_name + ".getStatusTargetRange", [axis])
+            response = self.device.request(
+                self.interface_name + ".getStatusTargetRange", [axis]
+            )
             errNo = self.device.handleError(response)
-            return errNo, response['result'][1]
-    
+            return errNo, response["result"][1]
 
-
-    
-    
-    class System():
-
+    class System:
         def __init__(self, device):
             self.device = device
             self.interface_name = "com.attocube.system"
-            
+
         def apply(self):
             """
             Apply temporary system configuration
@@ -3425,11 +3244,8 @@ class Device(ACS.Device):
             Error: Error code
             """
             response = self.device.request(self.interface_name + ".apply")
-            return response['result'][0]
-    
+            return response["result"][0]
 
-
-    
         def errorNumberToRecommendation(self, language, errNbr):
             """
             Get a recommendation for the error code
@@ -3442,12 +3258,11 @@ class Device(ACS.Device):
             -------
             value_string0: string: Error recommendation (currently returning an int = 0 until we have recommendations)
             """
-            response = self.device.request(self.interface_name + ".errorNumberToRecommendation", [language, errNbr])
-            return response['result'][0]
-    
+            response = self.device.request(
+                self.interface_name + ".errorNumberToRecommendation", [language, errNbr]
+            )
+            return response["result"][0]
 
-
-    
         def errorNumberToString(self, language, errNbr):
             """
             Get a description of an error code
@@ -3460,12 +3275,11 @@ class Device(ACS.Device):
             -------
             value_string0: string: Error description
             """
-            response = self.device.request(self.interface_name + ".errorNumberToString", [language, errNbr])
-            return response['result'][0]
-    
+            response = self.device.request(
+                self.interface_name + ".errorNumberToString", [language, errNbr]
+            )
+            return response["result"][0]
 
-
-    
         def factoryReset(self):
             """
             Reset the device to factory configuration on next boot
@@ -3475,11 +3289,8 @@ class Device(ACS.Device):
             error: error code
             """
             response = self.device.request(self.interface_name + ".factoryReset")
-            return response['result'][0]
-    
+            return response["result"][0]
 
-
-    
         def getDeviceName(self):
             """
             Get the actual device name
@@ -3489,11 +3300,8 @@ class Device(ACS.Device):
             value_string0: string: actual device name
             """
             response = self.device.request(self.interface_name + ".getDeviceName")
-            return response['result'][0]
-    
+            return response["result"][0]
 
-
-    
         def getFirmwareVersion(self):
             """
             Get the firmware version of the system
@@ -3503,11 +3311,8 @@ class Device(ACS.Device):
             value_string0: string: The firmware version
             """
             response = self.device.request(self.interface_name + ".getFirmwareVersion")
-            return response['result'][0]
-    
+            return response["result"][0]
 
-
-    
         def getFluxCode(self):
             """
             Get the flux code of the system
@@ -3517,11 +3322,8 @@ class Device(ACS.Device):
             value_string0: string: flux code
             """
             response = self.device.request(self.interface_name + ".getFluxCode")
-            return response['result'][0]
-    
+            return response["result"][0]
 
-
-    
         def getHostname(self):
             """
             Return device hostname
@@ -3531,11 +3333,8 @@ class Device(ACS.Device):
             available: available
             """
             response = self.device.request(self.interface_name + ".getHostname")
-            return response['result'][0]
-    
+            return response["result"][0]
 
-
-    
         def getMacAddress(self):
             """
             Get the mac address of the system
@@ -3545,11 +3344,8 @@ class Device(ACS.Device):
             value_string0: string: Mac address of the system
             """
             response = self.device.request(self.interface_name + ".getMacAddress")
-            return response['result'][0]
-    
+            return response["result"][0]
 
-
-    
         def getSerialNumber(self):
             """
             Get the serial number of the system
@@ -3559,11 +3355,8 @@ class Device(ACS.Device):
             value_string0: string: Serial number
             """
             response = self.device.request(self.interface_name + ".getSerialNumber")
-            return response['result'][0]
-    
+            return response["result"][0]
 
-
-    
         def rebootSystem(self):
             """
             Reboot the system
@@ -3573,11 +3366,8 @@ class Device(ACS.Device):
             error: error code
             """
             response = self.device.request(self.interface_name + ".rebootSystem")
-            return response['result'][0]
-    
+            return response["result"][0]
 
-
-    
         def setDeviceName(self, name):
             """
             Set custom name for the device
@@ -3589,12 +3379,11 @@ class Device(ACS.Device):
             -------
             error: error code
             """
-            response = self.device.request(self.interface_name + ".setDeviceName", [name])
-            return response['result'][0]
-    
+            response = self.device.request(
+                self.interface_name + ".setDeviceName", [name]
+            )
+            return response["result"][0]
 
-
-    
         def setSecureAccess(self, privateKey, certificate):
             """
             Set custom keys for SSL access
@@ -3607,19 +3396,16 @@ class Device(ACS.Device):
             -------
             error: error code
             """
-            response = self.device.request(self.interface_name + ".setSecureAccess", [privateKey, certificate])
-            return response['result'][0]
-    
+            response = self.device.request(
+                self.interface_name + ".setSecureAccess", [privateKey, certificate]
+            )
+            return response["result"][0]
 
-
-    
-    
-    class Update():
-
+    class Update:
         def __init__(self, device):
             self.device = device
             self.interface_name = "com.attocube.system.update"
-            
+
         def getLicenseUpdateProgress(self):
             """
             Get the progress of running license update
@@ -3629,12 +3415,11 @@ class Device(ACS.Device):
             value_int0: int: error code
             value_int1: int: progress in percent
             """
-            response = self.device.request(self.interface_name + ".getLicenseUpdateProgress")
-            return response['result'][0], response['result'][1]
-    
+            response = self.device.request(
+                self.interface_name + ".getLicenseUpdateProgress"
+            )
+            return response["result"][0], response["result"][1]
 
-
-    
         def getSwUpdateProgress(self):
             """
             Get the progress of running update
@@ -3645,11 +3430,8 @@ class Device(ACS.Device):
             value_int1: int: progress in percent
             """
             response = self.device.request(self.interface_name + ".getSwUpdateProgress")
-            return response['result'][0], response['result'][1]
-    
+            return response["result"][0], response["result"][1]
 
-
-    
         def licenseUpdateBase64(self):
             """
             Execute the license update with base64 file uploaded
@@ -3659,11 +3441,8 @@ class Device(ACS.Device):
             value_int0: int: error code
             """
             response = self.device.request(self.interface_name + ".licenseUpdateBase64")
-            return response['result'][0]
-    
+            return response["result"][0]
 
-
-    
         def softwareUpdateBase64(self):
             """
             Execute the update with base64 file uploaded
@@ -3672,12 +3451,11 @@ class Device(ACS.Device):
             -------
             value_int0: int: error code
             """
-            response = self.device.request(self.interface_name + ".softwareUpdateBase64")
-            return response['result'][0]
-    
+            response = self.device.request(
+                self.interface_name + ".softwareUpdateBase64"
+            )
+            return response["result"][0]
 
-
-    
         def uploadLicenseBase64(self, offset, b64Data):
             """
             Upload new license file in format base 64
@@ -3690,12 +3468,11 @@ class Device(ACS.Device):
             -------
             value_int0: int: error code
             """
-            response = self.device.request(self.interface_name + ".uploadLicenseBase64", [offset, b64Data])
-            return response['result'][0]
-    
+            response = self.device.request(
+                self.interface_name + ".uploadLicenseBase64", [offset, b64Data]
+            )
+            return response["result"][0]
 
-
-    
         def uploadSoftwareImageBase64(self, offset, b64Data):
             """
             Upload new firmware image in format base 64
@@ -3708,9 +3485,7 @@ class Device(ACS.Device):
             -------
             value_int0: int: error code
             """
-            response = self.device.request(self.interface_name + ".uploadSoftwareImageBase64", [offset, b64Data])
-            return response['result'][0]
-    
-
-
-    
+            response = self.device.request(
+                self.interface_name + ".uploadSoftwareImageBase64", [offset, b64Data]
+            )
+            return response["result"][0]

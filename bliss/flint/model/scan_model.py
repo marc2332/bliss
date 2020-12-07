@@ -395,6 +395,11 @@ class DeviceType(enum.Enum):
     """
 
 
+class DeviceMetadata(NamedTuple):
+    roi: Optional[object]
+    """Define a ROI geometry, is one"""
+
+
 class Device(qt.QObject, _Sealable):
     """
     Description of a device.
@@ -403,10 +408,13 @@ class Device(qt.QObject, _Sealable):
     and channels. This could not exactly match the Bliss API.
     """
 
+    _noneMetadata = DeviceMetadata(None)
+
     def __init__(self, parent: Scan):
         qt.QObject.__init__(self, parent=parent)
         _Sealable.__init__(self)
         self.__name: str = ""
+        self.__metadata: DeviceMetadata = self._noneMetadata
         self.__type: DeviceType = DeviceType.NONE
         self.__channels: List[Channel] = []
         self.__master: Optional[Device] = None
@@ -428,6 +436,17 @@ class Device(qt.QObject, _Sealable):
 
     def name(self) -> str:
         return self.__name
+
+    def setMetadata(self, metadata: DeviceMetadata):
+        if self.isSealed():
+            raise SealedError()
+        self.__metadata = metadata
+
+    def metadata(self) -> DeviceMetadata:
+        """
+        Returns a bunch of metadata stored within the channel.
+        """
+        return self.__metadata
 
     def addChannel(self, channel: Channel):
         if self.isSealed():
@@ -645,7 +664,7 @@ class Channel(qt.QObject, _Sealable):
 
     def metadata(self) -> ChannelMetadata:
         """
-        Returns a bunch of metadata stored withing the channel.
+        Returns a bunch of metadata stored within the channel.
         """
         return self.__metadata
 

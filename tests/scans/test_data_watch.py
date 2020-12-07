@@ -87,20 +87,18 @@ def test_simple_continuous_scan_with_session_watcher(session, scan_saving):
     assert vars["new_scan_cb_called"]
     assert vars["scan_acq_chain"] == {
         master.name: {
-            "display_names": {"simulation_diode_sampling_controller:diode": "diode"},
-            "scalars_units": {"simulation_diode_sampling_controller:diode": None},
             "scalars": ["simulation_diode_sampling_controller:diode"],
             "images": [],
             "spectra": [],
-            "master": {
-                "scalars": ["%s:m1" % master.name],
-                "scalars_units": {"%s:m1" % master.name: None},
-                "images": [],
-                "spectra": [],
-                "display_names": {"%s:m1" % master.name: "m1"},
-            },
+            "master": {"scalars": ["%s:m1" % master.name], "images": [], "spectra": []},
         }
     }
+
+    assert scan_info["channels"] == {
+        "simulation_diode_sampling_controller:diode": {"display_name": "diode"},
+        "%s:m1" % master.name: {"display_name": "m1"},
+    }
+
     assert numpy.allclose(vars["scan_data_m1"], master._positions, atol=1e-1)
     assert pytest.approx(m1.position) == end_pos
     assert len(end_scan_args)

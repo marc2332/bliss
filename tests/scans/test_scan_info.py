@@ -15,50 +15,29 @@ from bliss.scanning.scan import Scan
 from tests.conftest import deep_compare
 
 
-def test_scan_info_scalars_units(session):
+def test_scan_info_units(session):
     heater = getattr(setup_globals, "heater")
     diode = getattr(setup_globals, "diode")
     roby = getattr(setup_globals, "roby")
     robz = getattr(setup_globals, "robz")
     s = scans.loopscan(1, .1, heater, diode, run=False)
+    assert s.scan_info["channels"]["heater:heater"]["unit"] == "deg"
     assert (
-        s.scan_info["acquisition_chain"]["timer"]["scalars_units"]["heater:heater"]
-        == "deg"
-    )
-    assert (
-        s.scan_info["acquisition_chain"]["timer"]["scalars_units"][
-            "simulation_diode_sampling_controller:diode"
-        ]
-        is None
+        "unit"
+        not in s.scan_info["channels"]["simulation_diode_sampling_controller:diode"]
     )
     s2 = scans.ascan(robz, 0, 1, 3, .1, heater, run=False)
-    assert (
-        s2.scan_info["acquisition_chain"]["axis"]["master"]["scalars_units"][
-            "axis:robz"
-        ]
-        == "mm"
-    )
+    assert s2.scan_info["channels"]["axis:robz"]["unit"] == "mm"
     s3 = scans.ascan(roby, 0, 1, 3, .1, heater, run=False)
-    assert (
-        s3.scan_info["acquisition_chain"]["axis"]["master"]["scalars_units"][
-            "axis:roby"
-        ]
-        is None
-    )
+    assert "unit" not in s3.scan_info["channels"]["axis:roby"]
 
 
 def test_scan_info_display_names(session):
     heater = getattr(setup_globals, "heater")
     roby = getattr(setup_globals, "roby")
     s = scans.ascan(roby, 0, 1, 3, .1, heater, run=False)
-    assert (
-        s.scan_info["acquisition_chain"]["axis"]["master"]["display_names"]["axis:roby"]
-        == "roby"
-    )
-    assert (
-        s.scan_info["acquisition_chain"]["axis"]["display_names"]["heater:heater"]
-        == "heater"
-    )
+    assert s.scan_info["channels"]["axis:roby"]["display_name"] == "roby"
+    assert s.scan_info["channels"]["heater:heater"]["display_name"] == "heater"
 
 
 def test_scan_meta_function(scan_meta):

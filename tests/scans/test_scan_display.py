@@ -509,13 +509,14 @@ def test_lima_sim_bpm_display_names(beacon, default_session, lima_simulator):
         1, 0.1, simulator.counter_groups.bpm, diode, save=False, run=False
     )
 
-    display_names_values = s.scan_info["acquisition_chain"]["timer"][
-        "display_names"
-    ].values()
-    for cnt_name in ("x", "y", "fwhm_x", "fwhm_y", "acq_time", "intensity"):
+    display_names_values = [
+        v["display_name"]
+        for _, v in s.scan_info["channels"].items()
+        if "display_name" in v
+    ]
+    for cnt_name in ("x", "y", "fwhm_x", "fwhm_y", "acq_time", "intensity", "diode"):
         # only 1 BPM from 1 camera => display names are short names
         assert f"{cnt_name}" in display_names_values
-    assert "diode" in display_names_values
 
 
 def test_lima_bpm_alias(beacon, default_session, lima_simulator):
@@ -526,7 +527,9 @@ def test_lima_bpm_alias(beacon, default_session, lima_simulator):
 
     s = scans.loopscan(1, 0.1, simulator.bpm.x, save=False, run=False)
 
-    display_names_values = s.scan_info["acquisition_chain"]["timer"][
-        "display_names"
-    ].values()
+    display_names_values = [
+        v["display_name"]
+        for _, v in s.scan_info["channels"].items()
+        if "display_name" in v
+    ]
     assert "toto" in display_names_values

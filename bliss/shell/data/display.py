@@ -16,6 +16,7 @@ import signal
 import atexit
 import contextlib
 import gevent
+import typing
 
 from bliss.data.scan import watch_session_scans
 from bliss.common.utils import nonblocking_print
@@ -88,6 +89,13 @@ def _find_unit(obj):
         return
 
 
+class ChannelMetadata(typing.NamedTuple):
+    """Store metadata about a channel"""
+
+    display_name: str
+    unit: typing.Optional[str]
+
+
 class _ScanPrinterBase:
     HEADER = (
         "\033[92m** Scan {scan_nb}: {title} **\033[0m\n\n"
@@ -123,8 +131,7 @@ class _ScanPrinterBase:
         self.displayable_channel_names = None
         self.master_channel_names = []
         self.sorted_channel_names = []
-        self.display_names = None
-        self.channel_units = None
+        self._channels_meta = {}
         self.other_channels = None
         self._possible_motors = None
 
@@ -176,27 +183,15 @@ class _ScanPrinterBase:
                 # master, channels = next(iter(scan_info["acquisition_chain"].items()))
                 # master = axis
                 # channels = {'master': {'scalars': ['axis:roby'], 
-                #                        'scalars_units': {'axis:roby': None}, 
                 #                        'spectra': [], 
                 #                        'images': [], 
-                #                        'display_names': {'axis:roby': 'roby'}
                 #                       }, 
-
                 #             'scalars': ['timer:elapsed_time', 
                 #                         'timer:epoch', 
                 #                         'lima_simulator2:bpm:x', 
                 #                         'simulation_diode_sampling_controller:diode'],
-                #  
-                #             'scalars_units': {'timer:elapsed_time': 's', 
-                #                               'timer:epoch': 's', 
-                #                               'lima_simulator2:bpm:x': 'px', 
-                #                               'simulation_diode_sampling_controller:diode': None}, 
                 #             'spectra': [], 
                 #             'images': [], 
-                #             'display_names': {'timer:elapsed_time': 'elapsed_time', 
-                #                               'timer:epoch': 'epoch', 
-                #                               'lima_simulator2:bpm:x': 'x', 
-                #                               'simulation_diode_sampling_controller:diode': 'diode'}}
         """
 
         # ONLY MANAGE THE FIRST ACQUISITION BRANCH (multi-top-masters scan are ignored)
@@ -219,10 +214,14 @@ class _ScanPrinterBase:
 
         # get all channels fullname, display names and units
         channel_names = master_scalar_channels + scalar_channels
-        self.display_names = channels["master"]["display_names"]
-        self.display_names.update(channels["display_names"])
-        self.channel_units = channels["master"]["scalars_units"]
-        self.channel_units.update(channels["scalars_units"])
+
+        channels_meta = {}
+        for channel_name, meta in scan_info["channels"].items():
+            display_name = meta["display_name"]
+            unit = meta.get("unit")
+            metadata = ChannelMetadata(display_name, unit)
+            channels_meta[channel_name] = metadata
+        self._channels_meta = channels_meta
 
         master_channel_names = master_scalar_channels.copy()
 
@@ -243,7 +242,8 @@ class _ScanPrinterBase:
         for cname in master_scalar_channels:
             if cname != timer_cname:
                 displayable_channels.append(cname)
-                self._possible_motors.append(self.display_names[cname])
+                channel_meta = self._channels_meta[cname]
+                self._possible_motors.append(channel_meta.display_name)
 
         # Finally the other scalars channels
         for cname in scalar_channels:
@@ -262,16 +262,17 @@ class _ScanPrinterBase:
         controller_labels = []
 
         for cname in self.sorted_channel_names:
+            channel_meta = self._channels_meta[cname]
 
             # build the channel label
             if cname == "timer:elapsed_time":
                 disp_name = "dt"
             else:
-                disp_name = self.display_names[cname]
+                disp_name = channel_meta.display_name
 
             # check if the unit must be added to channel label
             if channel_with_unit:
-                unit = self.channel_units[cname]
+                unit = channel_meta.unit
                 if unit:
                     disp_name += f"[{unit}]"
 
@@ -280,7 +281,7 @@ class _ScanPrinterBase:
             # try to get controller and counter names
             try:
                 ctrl, cnt = cname.split(":")[0:2]
-                if cnt == self.display_names[cname]:
+                if cnt == channel_meta.display_name:
                     cnt = self.NO_NAME
                 counter_labels.append(cnt)
                 controller_labels.append(ctrl)
@@ -396,16 +397,17 @@ class _ScanPrinterBase:
         info_dict = {}
         width = 20
         for i, cname in enumerate(self.sorted_channel_names):
+            channel_meta = self._channels_meta[cname]
 
             # display name
             if cname == "timer:elapsed_time":
                 # disp_name = "dt"
                 continue
             else:
-                disp_name = self.display_names[cname]
+                disp_name = channel_meta.display_name
 
             # unit
-            unit = self.channel_units[cname]
+            unit = channel_meta.unit
             if unit:
                 disp_name += f"[{unit}]"
 
@@ -753,7 +755,11 @@ def _local_pb(scan, repl, task):
         scan_info = scan.scan_info
         master, channels = next(iter(scan_info["acquisition_chain"].items()))
         for channel_fullname in channels["master"]["scalars"]:
-            channel_short_name = channels["master"]["display_names"][channel_fullname]
+            channel_short_name = (
+                scan_info["channels"]
+                .get(channel_fullname, {})
+                .get("display_name", None)
+            )
             motor = _find_obj(channel_short_name)
             if isinstance(motor, Axis):
                 real_motors.append(motor)

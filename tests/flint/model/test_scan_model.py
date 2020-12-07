@@ -9,18 +9,19 @@ from bliss.flint.helper import scan_info_helper
 SCATTER_SCAN_INFO = {
     "acquisition_chain": {
         "master_time1": {
-            "display_names": {},
             "master": {
-                "display_names": {},
                 "images": [],
                 "scalars": ["device1:channel1", "device2:channel1", "device2:channel2"],
-                "scalars_units": {"device2_channel1": "mm", "device3:channel1": "mm"},
                 "spectra": [],
             },
             "scalars": ["device3:channel1", "device4:channel1", "master_time1:index"],
             "images": ["lima:image"],
-            "scalars_units": {"master_time1:index": "s"},
         }
+    },
+    "channels": {
+        "device2_channel1": {"unit": "mm"},
+        "device3:channel1": {"unit": "mm"},
+        "master_time1:index": {"unit": "s"},
     },
     "data_dim": 2,
 }

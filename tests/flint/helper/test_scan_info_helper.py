@@ -9,21 +9,19 @@ from bliss.flint.model import plot_item_model
 SCAN_INFO = {
     "acquisition_chain": {
         "timer": {
-            "display_names": {"diode:diode": "diode", "images": []},
             "master": {
-                "display_names": {
-                    "timer:elapsed_time": "elapsed_time",
-                    "timer:epoch": "epoch",
-                },
                 "images": [],
                 "scalars": ["timer:elapsed_time", "timer:epoch"],
-                "scalars_units": {"timer:elapsed_time": "s", "timer:epoch": "s"},
                 "spectra": [],
             },
             "scalars": ["diode:diode"],
-            "scalars_units": {"diode:diode": None, "spectra": []},
         },
         "timer2": {"spectra": ["opium:mca1"], "images": ["lima:image1"]},
+    },
+    "channels": {
+        "diode:diode": {"display_name": "diode"},
+        "timer:elapsed_time": {"display_name": "elapsed_time", "unit": "s"},
+        "timer:epoch": {"display_name": "epoch", "unit": "s"},
     },
     "requests": {"timer:elapsed_time": {"points": 10}},
     "positioners": {
@@ -124,10 +122,8 @@ def test_create_scatter_plot_model():
             "axis": {
                 "master": {
                     "scalars": ["axis:roby", "axis:robz"],
-                    "scalars_units": {"axis:roby": None, "axis:robz": "mm"},
                     "spectra": [],
                     "images": [],
-                    "display_names": {"axis:roby": "roby", "axis:robz": "robz"},
                 },
                 "scalars": [
                     "timer:elapsed_time",
@@ -140,23 +136,18 @@ def test_create_scatter_plot_model():
                     "axis:roby",
                     "axis:robz",
                 ],
-                "scalars_units": {
-                    "timer:elapsed_time": "s",
-                    "timer:epoch": "s",
-                    "simulation_diode_sampling_controller:diode": None,
-                    "simulation_diode_sampling_controller:diode2": None,
-                    "simulation_diode_sampling_controller:diode3": None,
-                },
                 "spectra": [],
                 "images": [],
-                "display_names": {
-                    "timer:elapsed_time": "elapsed_time",
-                    "timer:epoch": "epoch",
-                    "simulation_diode_sampling_controller:diode": "diode",
-                    "simulation_diode_sampling_controller:diode2": "diode2",
-                    "simulation_diode_sampling_controller:diode3": "diode3",
-                },
             }
+        },
+        "channels": {
+            "axis:roby": {"display_name": "roby"},
+            "axis:robz": {"display_name": "robz", "unit": "mm"},
+            "timer:elapsed_time": {"display_name": "elapsed_time", "unit": "s"},
+            "timer:epoch": {"display_name": "epoch", "unit": "s"},
+            "simulation_diode_sampling_controller:diode": {"display_name": "diode"},
+            "simulation_diode_sampling_controller:diode2": {"display_name": "diode2"},
+            "simulation_diode_sampling_controller:diode3": {"display_name": "diode3"},
         },
         "npoints2": 6,
         "npoints1": 6,
@@ -192,35 +183,25 @@ def test_create_curve_plot_from_motor_scan():
     scan_info = {
         "acquisition_chain": {
             "axis": {
-                "master": {
-                    "scalars": ["axis:roby"],
-                    "scalars_units": {"axis:roby": None},
-                    "spectra": [],
-                    "images": [],
-                    "display_names": {"axis:roby": "roby"},
-                },
+                "master": {"scalars": ["axis:roby"], "spectra": [], "images": []},
                 "scalars": [
                     "timer:elapsed_time",
                     "timer:epoch",
                     "simulation_diode_sampling_controller:diode",
                     "simulation_diode_sampling_controller:diode2",
                 ],
-                "scalars_units": {
-                    "timer:elapsed_time": "s",
-                    "timer:epoch": "s",
-                    "simulation_diode_sampling_controller:diode": None,
-                    "simulation_diode_sampling_controller:diode2": None,
-                },
                 "spectra": [],
                 "images": [],
-                "display_names": {
-                    "timer:elapsed_time": "elapsed_time",
-                    "timer:epoch": "epoch",
-                    "simulation_diode_sampling_controller:diode": "diode",
-                    "simulation_diode_sampling_controller:diode2": "diode2",
-                },
             }
-        }
+        },
+        "channels": {
+            "axis:roby": {"display_name": "roby"},
+            "axis:robz": {"display_name": "robz", "unit": "mm"},
+            "timer:elapsed_time": {"display_name": "elapsed_time", "unit": "s"},
+            "timer:epoch": {"display_name": "epoch", "unit": "s"},
+            "simulation_diode_sampling_controller:diode": {"display_name": "diode"},
+            "simulation_diode_sampling_controller:diode2": {"display_name": "diode2"},
+        },
     }
 
     result_plots = scan_info_helper.create_plot_model(scan_info)

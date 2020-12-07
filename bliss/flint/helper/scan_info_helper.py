@@ -200,7 +200,7 @@ def create_scan_model(scan_info: Dict, is_group: bool = False) -> scan_model.Sca
                 # guess the computation part do not contain _
                 # FIXME: It would be good to have a real ROI concept in BLISS
                 roi_name, _ = short_name.rsplit("_", 1)
-                key = f"{channel_info.master}:{channel_info.device}:@@{roi_name}"
+                key = f"{channel_info.device}:{roi_name}"
                 device = devices.get(key, None)
                 if device is None:
                     device = scan_model.Device(scan)

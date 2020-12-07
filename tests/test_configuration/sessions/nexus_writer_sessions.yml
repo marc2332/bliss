@@ -40,6 +40,8 @@
   aliases:
   - original_name: m1
     alias_name: robx
+  - original_name: m1enc
+    alias_name: robxenc
   - original_name: simulation_diode_sampling_controller:diode2
     alias_name: diode2alias
   - original_name: simulation_diode_sampling_controller:diode9

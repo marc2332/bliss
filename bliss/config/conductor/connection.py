@@ -474,9 +474,6 @@ class Connection:
                 pool = self._get_redis_conn_pool(proxyid)
                 proxy = pool.create_proxy()
                 self._reusable_redis_proxies[proxyid] = proxy
-                weakref.finalize(
-                    gevent.getcurrent(), self._close_reuseable_redis_proxy, proxyid
-                )
             return proxy
 
     def get_fixed_connection_redis_proxy(self, db=0, pool_name="default"):
@@ -497,8 +494,10 @@ class Connection:
             pool = self._get_redis_conn_pool(proxyid)
             proxy = pool.create_fixed_connection_proxy()
             self._non_reusable_redis_proxies.add(proxy)
+            # A fixed connection cannot be shared between greenlets so
+            # close the proxy when the greenlet is destroyed:
             weakref.finalize(
-                gevent.getcurrent(), self._close_non_reuseable_redis_proxy, id(proxy)
+                gevent.getcurrent(), self._close_fixed_connection_redis_proxy, id(proxy)
             )
             return proxy
 
@@ -522,16 +521,7 @@ class Connection:
         warnings.warn("Use 'close_all_redis_connections' instead", FutureWarning)
         self.close_all_redis_connections()
 
-    def _close_reuseable_redis_proxy(self, proxyid):
-        """Return the `redis.connection.Connection` instance the reusable
-        proxy associated to this name and database, back to its connection
-        pool. This is also called upon the proxy's garbage collected.
-        """
-        proxy = self._reusable_redis_proxies.get(proxyid, None)
-        if proxy is not None:
-            proxy.close()
-
-    def _close_non_reuseable_redis_proxy(self, proxyid):
+    def _close_fixed_connection_redis_proxy(self, proxyid):
         """Return the `redis.connection.Connection` instance the reusable
         proxy associated to this name and database, back to its connection
         pool. This is also called upon the proxy's garbage collected.

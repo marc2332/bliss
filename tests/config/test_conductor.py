@@ -37,20 +37,27 @@ def test_redis_connections(new_beacon_connection):
     getproxy = new_beacon_connection.get_redis_proxy
     getfixedproxy = new_beacon_connection.get_fixed_connection_redis_proxy
 
+    def count_clients(proxy):
+        # Only the ones from the current process. For example the tango
+        # database could access Redis.
+        return len(
+            [client for client in proxy.client_list() if client["name"] == client_name]
+        )
+
     proxy1 = getproxy(db=0, pool_name="pool1")
     nconnections = 1
     assert proxy1.client_getname() == client_name
-    assert len(proxy1.client_list()) == nconnections
+    assert count_clients(proxy1) == nconnections
 
     new_beacon_connection.close_all_redis_connections()
     nconnections = 0
     assert proxy1.client_getname() == client_name
     nconnections += 1
-    assert len(proxy1.client_list()) == nconnections
+    assert count_clients(proxy1) == nconnections
 
     proxy2 = getproxy(db=0, pool_name="pool1")
     assert proxy2.client_getname() == client_name
-    assert len(proxy2.client_list()) == nconnections
+    assert count_clients(proxy2) == nconnections
     assert proxy1 is not proxy2
     assert proxy2 is getproxy(db=0, pool_name="pool1")
 
@@ -67,20 +74,20 @@ def test_redis_connections(new_beacon_connection):
     proxy3 = getfixedproxy(db=0, pool_name="pool1")
     nconnections += 1
     assert proxy3.client_getname() == client_name
-    assert len(proxy3.client_list()) == nconnections
-    assert proxy2 != proxy3
+    assert count_clients(proxy3) == nconnections
+    assert proxy2 is not proxy3
 
     proxy4 = getfixedproxy(db=0, pool_name="pool1")
     nconnections += 1
     assert proxy4.client_getname() == client_name
-    assert len(proxy4.client_list()) == nconnections
-    assert proxy3 != proxy4
+    assert count_clients(proxy4) == nconnections
+    assert proxy3 is not proxy4
 
     proxy5 = getproxy(db=0, pool_name="pool2")
     nconnections += 1
     assert proxy5.client_getname() == client_name
-    assert len(proxy5.client_list()) == nconnections
-    assert proxy2 != proxy5
+    assert count_clients(proxy5) == nconnections
+    assert proxy2 is not proxy5
 
 
 def test_redis_proxy_concurrancy(new_beacon_connection):

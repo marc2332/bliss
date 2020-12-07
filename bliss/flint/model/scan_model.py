@@ -485,6 +485,15 @@ class Device(qt.QObject, _Sealable):
         # FIXME: This have to be improved
         return self.__master is None
 
+    def isChildOf(self, master: Device) -> bool:
+        """Returns true if this device is the child of `master` device."""
+        parent = self.__master
+        while parent is not None:
+            if parent is master:
+                return True
+            parent = parent.__master
+        return False
+
     def setType(self, deviceType: DeviceType):
         if self.isSealed():
             raise SealedError()

@@ -418,9 +418,9 @@ class SingleRoiCounters:
 
 
 class RoiProfileCounter(IntegratingCounter):
-    def __init__(self, name, controller, conversion_function=None, unit=None):
-
-        super().__init__(name, controller, conversion_function, unit)
+    def __init__(self, roi_name, controller, conversion_function=None, unit=None):
+        self.roi_name = roi_name
+        super().__init__(roi_name, controller, conversion_function, unit)
 
     @property
     def dtype(self):

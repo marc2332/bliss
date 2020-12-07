@@ -241,7 +241,13 @@ class Roi(_BaseRoi):
         return [self.x, self.y, self.width, self.height]
 
     def to_dict(self):
-        return {"x": self.x, "y": self.y, "width": self.width, "height": self.height}
+        return {
+            "kind": "rect",
+            "x": self.x,
+            "y": self.y,
+            "width": self.width,
+            "height": self.height,
+        }
 
 
 class ArcRoi(_BaseRoi):
@@ -290,6 +296,7 @@ class ArcRoi(_BaseRoi):
 
     def to_dict(self):
         return {
+            "kind": "arc",
             "cx": self.cx,
             "cy": self.cy,
             "r1": self.r1,
@@ -337,6 +344,7 @@ class RoiProfile(Roi):
 
     def to_dict(self):
         return {
+            "kind": "profile",
             "x": self.x,
             "y": self.y,
             "width": self.width,

@@ -8,7 +8,6 @@
 import pytest
 import math
 import gevent
-from bliss.config.conductor.client import get_default_connection
 
 
 @pytest.fixture
@@ -110,9 +109,6 @@ def test_steps_per_unit_modified(robz, move_pos, factor, offset, user_sign):
 
 
 def test_1st_time_cfg_wrong_acc_vel(beacon, beacon_directory):
-    client_conn = get_default_connection()
-    redis_conn = client_conn.get_redis_connection()
-
     m = beacon.get("invalid_acc")
 
     with pytest.raises(RuntimeError):

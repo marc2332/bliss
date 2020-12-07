@@ -435,7 +435,7 @@ class beacon:
 
     @_info
     def get_class_attribute_list(self, class_name, wildcard):
-        redis = settings.get_redis_connection()
+        redis = settings.get_redis_proxy()
         attributes = list(
             _bytes2str_iter(
                 redis.scan_iter(match="tango.class.attribute.%s" % class_name)
@@ -535,7 +535,7 @@ class beacon:
             "properties", dict()
         )
         return [k for k, v in properties.items() if not isinstance(v, MutableMapping)]
-        # cache = settings.get_redis_connection()
+        # cache = settings.get_redis_proxy()
         # return list(_bytes2str_iter(cache.keys('tango.class.properties.%s*' % class_name)))
 
     @_info
@@ -633,7 +633,7 @@ class beacon:
 
     @_info
     def get_device_exported_list(self, wildcard):
-        cache = settings.get_redis_connection()
+        cache = settings.get_redis_proxy()
         return [
             x.replace("tango.info.", "")
             for x in _bytes2str_iter(cache.keys("tango.%s" % wildcard))
@@ -800,7 +800,7 @@ class beacon:
     @_info
     def get_exported_device_list_for_class(self, wildcard):
         result = []
-        cache = settings.get_redis_connection()
+        cache = settings.get_redis_proxy()
         exported_devices = _bytes2str_iter(cache.keys("tango.info.*"))
         m = re.compile(wildcard.replace("*", ".*"), re.IGNORECASE)
         for exp_dev in exported_devices:
@@ -814,7 +814,7 @@ class beacon:
 
     @_info
     def get_host_list(self, host_name):
-        cache = settings.get_redis_connection()
+        cache = settings.get_redis_proxy()
         host_list = {
             settings.HashSetting(key_name).get("host")
             for key_name in _bytes2str_iter(cache.keys("tango.info.*"))
@@ -826,7 +826,7 @@ class beacon:
         result = []
         wildcard = host_name.replace("*", ".*")
         m = re.compile(wildcard)
-        cache = settings.get_redis_connection()
+        cache = settings.get_redis_proxy()
         for key_name in _bytes2str_iter(cache.keys("tango.info.*")):
             host = settings.HashSetting(key_name).get("host")
             if not m.match(host):
@@ -1163,7 +1163,7 @@ class beacon:
 
     @_info
     def get_csdb_server_list(self):
-        cache = settings.get_redis_connection()
+        cache = settings.get_redis_proxy()
         exported_devices = _bytes2str_iter(cache.keys("tango.info.sys/database*"))
         result = []
         for key_name in exported_devices:

@@ -10,7 +10,7 @@ import gevent
 import gevent.event
 import random
 from bliss.config import streaming
-from bliss.config.settings import get_redis_connection
+from bliss.config.settings import get_redis_proxy
 
 
 @pytest.mark.parametrize("wait_all_created", [False, True])
@@ -72,7 +72,7 @@ def test_data_stream(wait_all_created, beacon):
         start_streaming.set()
 
         data = {}
-        connection = get_redis_connection()
+        connection = get_redis_proxy()
         while True:
             order = []
             # block=0: wait indefinitely for new events

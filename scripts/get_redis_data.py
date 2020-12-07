@@ -25,7 +25,7 @@ except:
     )
     exit()
 
-db_cnx = client.get_redis_connection(db=1)
+db_cnx = client.get_redis_proxy(db=1)
 
 print(f"reading Keys from {key_name}")
 keys_to_read = [

@@ -15,7 +15,7 @@ import tempfile
 import logging
 
 from bliss.comm import rpc
-from bliss.config.conductor.client import get_redis_connection
+from bliss.config.conductor.client import get_redis_proxy
 from bliss.flint import config
 
 
@@ -42,7 +42,7 @@ def safe_rpc_server(obj):
 
 @contextlib.contextmanager
 def maintain_value(key, value):
-    redis = get_redis_connection()
+    redis = get_redis_proxy()
     redis.lpush(key, value)
     yield
     redis.delete(key)

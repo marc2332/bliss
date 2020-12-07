@@ -16,7 +16,7 @@ from typing import ClassVar
 
 import tracemalloc
 import gevent.event
-from bliss.config.conductor.client import get_redis_connection
+from bliss.config.conductor.client import get_redis_proxy
 from bliss.flint import config
 
 import logging
@@ -157,7 +157,7 @@ class ManageMainBehaviours(qt.QObject):
         return flintModel
 
     def initRedis(self):
-        redis = get_redis_connection()
+        redis = get_redis_proxy()
         flintModel = self.flintModel()
         flintModel.setRedisConnection(redis)
         try:

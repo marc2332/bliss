@@ -39,7 +39,7 @@ import gevent.event
 
 from bliss.data.lima_image import ImageFormatNotSupported
 from bliss.data.scan import watch_session_scans
-from bliss.config.conductor.client import clean_all_redis_connection
+from bliss.config.conductor.client import close_all_redis_connections
 
 from .data_storage import DataStorage
 from bliss.flint.helper import scan_info_helper
@@ -152,7 +152,7 @@ class ScanManager:
         if clean_redis:
             # FIXME: There is maybe a problem here. As the redis connection
             # Is also stored in FlintState and is not updated
-            clean_all_redis_connection()
+            close_all_redis_connections()
 
         if session_name is None:
             return

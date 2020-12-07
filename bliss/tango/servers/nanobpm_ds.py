@@ -11,7 +11,6 @@ import time
 import numpy
 import struct
 import logging
-import threading
 
 # tango imports
 import tango

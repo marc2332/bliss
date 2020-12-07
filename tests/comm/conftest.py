@@ -5,23 +5,16 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from collections import defaultdict
-from socketserver import TCPServer
-import threading
 
+import os
+import sys
 import pytest
-
 import gevent
+import subprocess
 from gevent.server import StreamServer, DatagramServer
-
-from umodbus import conf
-from umodbus.server.tcp import RequestHandler, get_server
-from umodbus.utils import log_to_stream
-
-
 from bliss.comm import tcp, udp
 from bliss.common.utils import get_open_ports
-
+from ..conftest import wait_tcp_online, wait_terminate
 
 DELAY = 0.2
 
@@ -115,79 +108,12 @@ def udp_socket(udp_port):
 
 @pytest.fixture
 def modbus_tcp_server():
-    address = ("127.0.0.1", *get_open_ports(1))
-    ready_event = threading.Event()
-
-    t = threading.Thread(
-        target=modbus_server, args=(address,), kwargs={"ready_event": ready_event}
-    )
-    t.start()
-    ready_event.wait()
-    yield address
-    ready_event.clear()
-    t.join()
-
-
-def modbus_server(address, ready_event=None):
-    """
-    Creates a synchronous modbus server serving 2 different memory areas
-     * coils and inputs for boolean values
-     * registers and holding for non boolean values
-
-    Supported modbus functions are:
-      * 1,2,3,4,5,6,15,16
-    """
-    regs_boolean = defaultdict(bool)  # modbus coils and inputs share the same area
-    regs_boolean_size = 100
-    regs_word = defaultdict(
-        int
-    )  # modbus input registers and holding registers shares the same area
-    regs_word_size = 100
-
-    # Enable values to be signed (default is False).
-    conf.SIGNED_VALUES = True
-
-    TCPServer.allow_reuse_address = True
-    TCPServer.timeout = .1
-    app = get_server(TCPServer, address, RequestHandler)
-
-    # 1 read coil, 2 read discrete input
-    @app.route(
-        slave_ids=[1],
-        function_codes=[1, 2],
-        addresses=list(range(0, regs_boolean_size)),
-    )
-    def read_coils(slave_id, function_code, address):
-        return regs_boolean[address]
-
-    # 5 write coil, 15 write multiple coils
-    @app.route(
-        slave_ids=[1],
-        function_codes=[5, 15],
-        addresses=list(range(0, regs_boolean_size)),
-    )
-    def write_coils(slave_id, function_code, address, value):
-        regs_boolean[address] = value
-
-    # 3 read holding registers, 4 read input registers
-    @app.route(
-        slave_ids=[1], function_codes=[3, 4], addresses=list(range(0, regs_word_size))
-    )
-    def read_words(slave_id, function_code, address):
-        return regs_word[address]
-
-    @app.route(
-        slave_ids=[1], function_codes=[6, 16], addresses=list(range(0, regs_word_size))
-    )
-    def write_words(slave_id, function_code, address, value):
-        regs_word[address] = value
-
-    if ready_event is not None:
-        ready_event.set()
-
+    port = get_open_ports(1)[0]
+    path = os.path.dirname(__file__)
+    script_path = os.path.join(path, "..", "utils", "modbus_server.py")
+    p = subprocess.Popen([sys.executable, "-u", script_path, f"--port={port}"])
+    wait_tcp_online("127.0.0.1", port)
     try:
-        while ready_event.is_set():
-            app.handle_request()
+        yield ("127.0.0.1", port)
     finally:
-        app.server_close()
-        gevent.get_hub().destroy()
+        wait_terminate(p)

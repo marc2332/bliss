@@ -9,8 +9,6 @@ import time
 import tango
 import h5py
 
-from gevent import _threading
-
 from Lima import Core
 from Lima.Server.plugins.Utils import BasePostProcess
 from bliss.config import channels

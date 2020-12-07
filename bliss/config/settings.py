@@ -55,8 +55,8 @@ def pickle_loads(var):
         return InvalidValue()
 
 
-def get_redis_connection(db=0):
-    return client.get_redis_connection(db)
+def get_redis_proxy(db=0):
+    return client.get_redis_proxy(db)
 
 
 def ttl_func(cnx, name, value=-1):
@@ -146,7 +146,7 @@ def write_decorator(func):
 
 def scan(match="*", count=1000, connection=None):
     if connection is None:
-        connection = get_redis_connection()
+        connection = get_redis_proxy()
     cursor = 0
     while 1:
         cursor, values = connection.scan(cursor=cursor, match=match, count=count)
@@ -196,7 +196,7 @@ class BaseSetting:
     def __init__(self, name, connection, read_type_conversion, write_type_conversion):
         self._name = name
         if connection is None:
-            connection = get_redis_connection()
+            connection = get_redis_proxy()
         self.__cnx = weakref.ref(connection)
         self._read_type_conversion = read_type_conversion
         self._write_type_conversion = write_type_conversion

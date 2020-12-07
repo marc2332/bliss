@@ -111,4 +111,4 @@ if __name__ == "__main__":
                     finishevent.clear()
                 g.kill()
 
-        client.clean_all_redis_connection()
+        client.close_all_redis_connections()

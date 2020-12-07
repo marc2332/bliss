@@ -12,7 +12,7 @@ from bliss.config import settings, settings_cache
 
 
 def test_open_close(beacon):
-    db = client.get_redis_connection()
+    db = client.get_redis_proxy()
     cache = settings_cache.CacheConnection(db)
     cache.open()
     cache.close()

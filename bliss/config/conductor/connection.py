@@ -12,40 +12,16 @@ import gevent
 import gevent.lock
 from gevent import socket, select, event, queue
 from . import protocol
-import redis
 import netifaces
 from functools import wraps
+import warnings
 
 from bliss.common.greenlet_utils import protect_from_kill, AllowKill
+from bliss.config.conductor import redis_connection
 
 
 class StolenLockException(RuntimeError):
     """This exception is raise in case of a stolen lock"""
-
-
-class GreenletSafeConnectionPool(redis.ConnectionPool):
-    def reset(self):
-        super().reset()
-        self._lock = gevent.lock.RLock()  # ensure gevent lock, not threading.RLock
-
-    def _checkpid(self):
-        # we do not care of being "fork-safe"
-        return
-
-    def release(self, connection):
-        with self._lock:
-            # As we register callback when greenlet disappear,
-            # Connection might been removed before the greenlet
-            try:
-                return super().release(connection)
-            except KeyError:
-                pass
-
-    def clean_pubsub(self, connection):
-        with self._lock:
-            connection.disconnect()
-            connection.clear_connect_callbacks()
-            self.release(connection)
 
 
 def ip4_broadcast_addresses(default_route_only=False):
@@ -97,8 +73,33 @@ class ConnectionException(Exception):
         Exception.__init__(self, *args, **kwargs)
 
 
-class Connection(object):
-    class WaitingLock(object):
+class Connection:
+    """A Beacon connection is created and destroyed like this:
+
+        connection = Connection(host=..., port=...)
+        connection.connect()  # not required
+        connection.close()  # closes all Redis connections as well
+
+    When `host` is not provided, it falls back to environment variable BEACON_HOST.
+    When `port` is not provided, it falls back to environment variable BEACON_PORT.
+    When either does not have a fallback, use UDP broadcasting to find Beacon.
+
+    The Beacon connection also manages all Redis connections.
+    Use `get_redis_proxy` to create a connection or use an existing one.
+    Use `close_all_redis_connections` to close all Redis connections.
+    When the greenlet that created a Redis connection is garbage collected,
+    the Redis connection will be closed.
+
+    Beacon locks: the methods `lock`, `unlock` and  `who_locked` provide
+    a mechanism to acquire and release locks in the Beacon server.
+
+    Beacon manages configuration files (YAML) and python modules. This class
+    allows fetching and manipulating those.
+    """
+
+    CLIENT_NAME = f"{socket.gethostname()}:{os.getpid()}"
+
+    class WaitingLock:
         def __init__(self, cnt, priority, device_name):
             self._cnt = weakref.ref(cnt)
             raw_names = [name.encode() for name in device_name]
@@ -169,31 +170,63 @@ class Connection(object):
                 if not os.access(port, os.R_OK):
                     raise RuntimeError("port can be a tcp port (int) or unix socket")
 
+        # Beacon connection
         self._host = host
         self._port = port
-        self._pending_lock = {}
+        self._socket = None
+        self._connect_lock = gevent.lock.Semaphore()
+        self._connected = gevent.event.Event()
+        self._send_lock = gevent.lock.Semaphore()
         self._uds_query_event = event.Event()
         self._redis_query_event = event.Event()
         self._message_key = 0
         self._message_queue = {}
-        self._redis_pool_connection = {}
-        self._clean()
-        self._socket = None
-        self._connect_lock = gevent.lock.Semaphore()
-        self._get_redis_lock = gevent.lock.Semaphore()
-        self._send_lock = gevent.lock.Semaphore()
-        self._named_redis_pools = {}
-        self._connected = gevent.event.Event()
+        self._clean_beacon_cache()
         self._raw_read_task = None
-        self._greenlet_to_lockobjects = weakref.WeakKeyDictionary()
 
-    def close(self):
+        # Beacon locks
+        self._pending_lock = {}
+        # Count how many time an object has been locked in the
+        # current process per greenlet:
+        self._lock_counters = weakref.WeakKeyDictionary()  # {Greenlet -> {str: int}}
+
+        # Redis connections
+        self._get_redis_lock = gevent.lock.Semaphore()
+
+        # Keep hard references to all reusable Redis proxies
+        # (these proxies don't hold a `redis.Redis.Connection` instance)
+        self._reusable_redis_proxies = {}  # {str: {int: SafeRedisDbProxy}}
+
+        # Keep weak references to all non-reusable Redis connections
+        # (these proxies don't hold a `redis.Redis.Connection` instance)
+        self._non_reusable_redis_proxies = (
+            weakref.WeakSet()
+        )  # set(FixedConnectionRedisDbProxy)
+
+        # Keep weak references to all Redis connection pools:
+        self._redis_connection_pools = {}  # {str: {int: weakref(RedisDbConnectionPool)}}
+
+        # Hard references to the connection pools are held by the
+        # Redis proxies themselves. Connections of RedisDbConnectionPool
+        # are closed upon garbage collection of RedisDbConnectionPool. So
+        # when the proxies too a pool are the only ones having a hard
+        # reference too that pool, the connections are closed when all
+        # proxies are garbage collected.
+
+    def close(self, timeout=None):
+        """Disconnection from Beacon and Redis
+        """
         if self._raw_read_task is not None:
-            self._raw_read_task.kill()
+            self._raw_read_task.kill(timeout=timeout)
             self._raw_read_task = None
 
     @property
     def uds(self):
+        """
+        False: UDS not supported by this platform
+        None: Port not defined
+        str: Port number
+        """
         if sys.platform in ["win32", "cygwin"]:
             return False
         else:
@@ -205,6 +238,9 @@ class Connection(object):
                 return None
 
     def connect(self):
+        """Find the Beacon server (if not already known) and make the
+        TCP or UDS connection.
+        """
         with self._connect_lock:
             if self._connected.is_set():
                 return
@@ -221,25 +257,27 @@ class Connection(object):
 
             # Spawn read task
             self._raw_read_task = gevent.spawn(self._raw_read)
+            self._raw_read_task.name = "BeaconListenTask"
 
             # Run the UDS query
             if self.uds is None:
                 self._uds_query()
 
-            # set the default beacon client name
-            conn_name = f"{socket.gethostname()}:{os.getpid()}"
-            self._set_client_name(conn_name, timeout=3)
+            self.on_connected()
 
             self._connected.set()
+
+    def on_connected(self):
+        """Executed whenever a new connection is made
+        """
+        self._set_get_clientname(name=self.CLIENT_NAME, timeout=3)
 
     def _discovery(self, host, timeout=3.0):
         # Manage timeout
         if timeout < 0:
             if host is not None:
                 raise RuntimeError(
-                    "Conductor server on host `{}' does not reply (check beacon server)".format(
-                        host
-                    )
+                    f"Conductor server on host `{host}' does not reply (check beacon server)"
                 )
             raise RuntimeError(
                 "Could not find any conductor "
@@ -310,8 +348,8 @@ class Connection(object):
     def lock(self, *devices_name, **params):
         priority = params.get("priority", 50)
         timeout = params.get("timeout", 10)
-        if len(devices_name) == 0:
-            return  # don't need to ask ;)
+        if not devices_name:
+            return
         with self.WaitingLock(self, priority, devices_name) as wait_lock:
             with gevent.Timeout(
                 timeout, RuntimeError("lock timeout (%s)" % str(devices_name))
@@ -321,18 +359,13 @@ class Connection(object):
                     status = wait_lock.get()
                     if status == protocol.LOCK_OK_REPLY:
                         break
-        locked_objects = self._greenlet_to_lockobjects.setdefault(
-            gevent.getcurrent(), dict()
-        )
-        for device in devices_name:
-            nb_lock = locked_objects.get(device, 0)
-            locked_objects[device] = nb_lock + 1
+        self._increment_lock_counters(devices_name)
 
     @check_connect
     def unlock(self, *devices_name, **params):
         timeout = params.get("timeout", 1)
         priority = params.get("priority", 50)
-        if len(devices_name) == 0:
+        if not devices_name:
             return
         raw_names = [name.encode() for name in devices_name]
         msg = b"%d|%s" % (priority, b"|".join(raw_names))
@@ -340,9 +373,20 @@ class Connection(object):
             timeout, RuntimeError("unlock timeout (%s)" % str(devices_name))
         ):
             self._sendall(protocol.message(protocol.UNLOCK, msg))
-        locked_objects = self._greenlet_to_lockobjects.setdefault(
-            gevent.getcurrent(), dict()
-        )
+        self._decrement_lock_counters(devices_name)
+
+    def _increment_lock_counters(self, devices_name):
+        """Keep track of locking per greenlet
+        """
+        locked_objects = self._lock_counters.setdefault(gevent.getcurrent(), dict())
+        for device in devices_name:
+            nb_lock = locked_objects.get(device, 0)
+            locked_objects[device] = nb_lock + 1
+
+    def _decrement_lock_counters(self, devices_name):
+        """Keep track of locking per greenlet
+        """
+        locked_objects = self._lock_counters.setdefault(gevent.getcurrent(), dict())
         max_lock = 0
         for device in devices_name:
             nb_lock = locked_objects.get(device, 0)
@@ -351,10 +395,13 @@ class Connection(object):
                 max_lock = nb_lock
             locked_objects[device] = nb_lock
         if max_lock <= 0:
-            self._greenlet_to_lockobjects.pop(gevent.getcurrent(), None)
+            self._lock_counters.pop(gevent.getcurrent(), None)
 
     @check_connect
     def get_redis_connection_address(self, timeout=3.0):
+        """Get the Redis host and port from Beacon. Cached for the duration
+        of the Beacon connection.
+        """
         if self._redis_host is None:
             with gevent.Timeout(
                 timeout, RuntimeError("Can't get redis connection information")
@@ -367,7 +414,12 @@ class Connection(object):
         return self._redis_host, self._redis_port
 
     def _get_redis_conn_pool(self, db, pool_name="default"):
-        redis_pools = self._named_redis_pools.setdefault(
+        """Get a Redis connection pool (create when it does not exist yet)
+        for the pool name and db.
+
+        :returns RedisDbConnectionPool:
+        """
+        redis_pools = self._redis_connection_pools.setdefault(
             pool_name, weakref.WeakValueDictionary()
         )
         pool = redis_pools.get(db)
@@ -384,46 +436,103 @@ class Connection(object):
                 redis_url = f"unix://{port}"
             else:
                 redis_url = f"redis://{host}:{port}"
-            pool = GreenletSafeConnectionPool.from_url(redis_url, db=db)
+            pool = redis_connection.create_connection_pool(
+                redis_url, db, client_name=self.CLIENT_NAME
+            )
             redis_pools[db] = pool
         return pool
 
-    def get_redis_connection(
+    def get_redis_connection(self, single_connection_client=False, **kw):
+        if single_connection_client:
+            warnings.warn("Use 'get_redis_proxy' instead", FutureWarning)
+            return self.get_redis_proxy(**kw)
+        else:
+            warnings.warn(
+                "Use 'get_fixed_connection_redis_proxy' instead", FutureWarning
+            )
+            return self.get_fixed_connection_redis_proxy(**kw)
+
+    def get_redis_proxy(
         self, db=0, single_connection_client=False, pool_name="default"
     ):
-        with self._get_redis_lock:
-            redis_connection = self._redis_pool_connection.setdefault(pool_name, {})
-            if single_connection_client:
-                conn = None
-            else:
-                self._redis_port
-                conn = redis_connection.get(db)
+        """Get a proxy to a Redis database. When a proxy already exists
+        for `pool_name` and `db`, return that one. The proxy is greenlet-safe
+        as it gets a new `redis.connection.Connection` from its pool every
+        time it executes a Redis command.
 
-            if conn is None:
+        The proxy will be closed (return connection to pool) when the
+        instantiating greenlet is garbage collected.
+
+        :returns SafeRedisDbProxy:
+        """
+        with self._get_redis_lock:
+            proxies = self._reusable_redis_proxies.setdefault(pool_name, {})
+            proxy = proxies.get(db)
+            if proxy is None:
                 pool = self._get_redis_conn_pool(db, pool_name=pool_name)
-                conn = redis.Redis(
-                    connection_pool=pool,
-                    single_connection_client=single_connection_client,
-                )
-                my_name = f"{socket.gethostname()}:{os.getpid()}"
-                conn.client_setname(my_name)
-                redis_connection[db] = conn
+                proxy = pool.create_proxy()
+                proxies[db] = proxy
                 weakref.finalize(
-                    gevent.getcurrent(), self._close_redis_connection, pool_name, db
+                    gevent.getcurrent(), self._close_redis_proxy, pool_name, db
                 )
-            return conn
+            return proxy
+
+    def get_fixed_connection_redis_proxy(self, db=0, pool_name="default"):
+        """Get a new proxy to a Redis database. The proxy is not greenlet-safe
+        as it holds a single redis `redis.connection.Connection` which is
+        used for all commands.
+
+        Warning: Pipelines created from such a proxy will create a new
+        `redis.connection.Connection`.
+
+        The proxy will be closed (return connection to pool) when the
+        instantiating greenlet is garbage collected.
+
+        :returns FixedConnectionRedisDbProxy:
+        """
+        with self._get_redis_lock:
+            proxies = self._non_reusable_redis_proxies
+            pool = self._get_redis_conn_pool(db, pool_name=pool_name)
+            proxy = pool.create_fixed_connection_proxy()
+            proxies.add(proxy)
+            weakref.finalize(
+                gevent.getcurrent(), self._close_redis_proxy, pool_name, db
+            )
+            return proxy
+
+    def close_all_redis_connections(self):
+        # To close `redis.connection.Connection` you need to call its
+        # `disconnect` method (also called on garbage collection).
+        #
+        # Connection pools have a `disconnect` method that disconnect
+        # all their connections, which means close and destroy their
+        # socket instances.
+        #
+        # Note: closing a proxy will not close any connections
+        #       (see _close_redis_proxy)
+        fixed_proxies = self._non_reusable_redis_proxies
+        lst = list(self._reusable_redis_proxies.values())
+        self._reusable_redis_proxies = dict()
+        self._non_reusable_redis_proxies = weakref.WeakSet()
+        for proxies in lst:
+            for proxy in proxies.values():
+                proxy.connection_pool.disconnect()
+        for proxy in fixed_proxies:
+            proxy.connection_pool.disconnect()
 
     def clean_all_redis_connection(self):
-        for pool_name, redis_connection in self._redis_pool_connection.items():
-            for conn in redis_connection.values():
-                conn.connection_pool.disconnect()
-        self._redis_pool_connection = {}
+        warnings.warn("Use 'close_all_redis_connections' instead", FutureWarning)
+        self.close_all_redis_connections()
 
-    def _close_redis_connection(self, pool_name, db):
-        redis_connection = self._redis_pool_connection.get(pool_name, {})
-        cnx = redis_connection.pop(db, None)
-        if cnx is not None:
-            cnx.close()
+    def _close_redis_proxy(self, name, db):
+        """Return the `redis.connection.Connection` instance the reusable
+        proxy associated to this name and database, back to its connection
+        pool. This is also called upon the proxy's garbage collected.
+        """
+        proxies = self._reusable_redis_proxies.get(name, {})
+        proxy = proxies.pop(db, None)
+        if proxy is not None:
+            proxy.close()
 
     @check_connect
     def get_config_file(self, file_path, timeout=3.0):
@@ -519,41 +628,57 @@ class Connection(object):
 
     @check_connect
     def get_log_server_address(self, timeout=3.0):
-        with gevent.Timeout(timeout, RuntimeError("Can't retrieve log server port")):
-            with self.WaitingQueue(self) as wq:
-                msg = b"%s|" % wq.message_key()
-                self._socket.sendall(
-                    protocol.message(protocol.LOG_SERVER_ADDRESS_QUERY, msg)
-                )
-                for rx_msg in wq.queue():
-                    if isinstance(rx_msg, RuntimeError):
-                        raise rx_msg
-                    host, port = self._get_msg_key(rx_msg)
-                    return host, port
+        """Get the log host and port from Beacon. Cached for the duration
+        of the Beacon connection.
+        """
+        if self._log_server_host is None:
+            with gevent.Timeout(
+                timeout, RuntimeError("Can't retrieve log server port")
+            ):
+                with self.WaitingQueue(self) as wq:
+                    msg = b"%s|" % wq.message_key()
+                    self._socket.sendall(
+                        protocol.message(protocol.LOG_SERVER_ADDRESS_QUERY, msg)
+                    )
+                    for rx_msg in wq.queue():
+                        if isinstance(rx_msg, RuntimeError):
+                            raise rx_msg
+                        host, port = self._get_msg_key(rx_msg)
+                        self._log_server_host = host.decode()
+                        self._log_server_port = port.decode()
+                        break
+        return self._log_server_host, self._log_server_port
 
     @check_connect
     def get_redis_data_server_connection_address(self, timeout=3.):
-        with gevent.Timeout(
-            timeout, RuntimeError("Can't retrieve redis " "data server connection")
-        ):
-            with self.WaitingQueue(self) as wq:
-                msg = b"%s|" % wq.message_key()
-                self._socket.sendall(
-                    protocol.message(protocol.REDIS_DATA_SERVER_QUERY, msg)
-                )
-                for rx_msg in wq.queue():
-                    if isinstance(rx_msg, RuntimeError):
-                        raise rx_msg
-                    host, port = rx_msg.split(b"|")
-                    return host.decode(), port.decode()
+        """Get the Redis data host and port from Beacon. Cached for the duration
+        of the Beacon connection.
+        """
+        if self._redis_data_host is None:
+            with gevent.Timeout(
+                timeout, RuntimeError("Can't get redis data server information")
+            ):
+                with self.WaitingQueue(self) as wq:
+                    msg = b"%s|" % wq.message_key()
+                    self._socket.sendall(
+                        protocol.message(protocol.REDIS_DATA_SERVER_QUERY, msg)
+                    )
+                    for rx_msg in wq.queue():
+                        if isinstance(rx_msg, RuntimeError):
+                            raise rx_msg
+                        host, port = rx_msg.split(b"|")
+                        self._redis_data_host = host.decode()
+                        self._redis_data_port = port.decode()
+                        break
+        return self._redis_data_host, self._redis_data_port
 
     @check_connect
     def set_client_name(self, name, timeout=3.0):
-        self._set_client_name(name, timeout)
+        self._set_get_clientname(name=name, timeout=timeout)
 
     @check_connect
     def get_client_name(self, timeout=3.0):
-        return self.__client_name("", protocol.CLIENT_GET_NAME, timeout)
+        return self._set_get_clientname(timeout=timeout)
 
     def who_locked(self, *names, timeout=3.0):
         name2client = dict()
@@ -569,13 +694,21 @@ class Connection(object):
                     name2client[name.decode()] = client_info.decode()
         return name2client
 
-    def _set_client_name(self, name, timeout):
-        return self.__client_name(name, protocol.CLIENT_SET_NAME, timeout)
-
-    def __client_name(self, name, msg_type, timeout):
-        with gevent.Timeout(timeout, RuntimeError("Can't get/set client name")):
+    def _set_get_clientname(self, name=None, timeout=3.):
+        """Give a name for this client to the Beacon server (optional)
+        and return the name under which this client is know by Beacon.
+        """
+        if name:
+            timeout_msg = "Can't set client name"
+            msg_type = protocol.CLIENT_SET_NAME
+            name = name.encode()
+        else:
+            timeout_msg = "Can't get client name"
+            msg_type = protocol.CLIENT_GET_NAME
+            name = b""
+        with gevent.Timeout(timeout, RuntimeError(timeout_msg)):
             with self.WaitingQueue(self) as wq:
-                msg = b"%s|%s" % (wq.message_key(), name.encode())
+                msg = b"%s|%s" % (wq.message_key(), name)
                 self._sendall(protocol.message(msg_type, msg))
                 rx_msg = wq.get()
                 if isinstance(rx_msg, RuntimeError):
@@ -598,7 +731,7 @@ class Connection(object):
             return True
         elif messageType == protocol.LOCK_STOLEN:
             stolen_object_lock = set(message.split(b"|"))
-            greenlet_to_objects = self._greenlet_to_lockobjects.copy()
+            greenlet_to_objects = self._lock_counters.copy()
             for greenlet, locked_objects in greenlet_to_objects.items():
                 locked_object_name = set(
                     (name for name, nb_lock in locked_objects.items() if nb_lock > 0)
@@ -627,6 +760,9 @@ class Connection(object):
 
     @protect_from_kill
     def __raw_read(self):
+        """This listens to Beacon indefinitely (until killed or socket error).
+        Closes Beacon and Redis connections when finished.
+        """
         try:
             data = b""
             while True:
@@ -723,16 +859,27 @@ class Connection(object):
             sys.excepthook(*sys.exc_info())
         finally:
             with self._connect_lock:
-                if self._socket:
-                    self._socket.close()
-                    self._socket = None
-                self._connected.clear()
-                self._clean()
+                self._close_beacon_connection()
+                self.close_all_redis_connections()
 
-    def _clean(self):
+    def _close_beacon_connection(self):
+        """Result of `close` of a socket error (perhaps closed)
+        """
+        if self._socket:
+            self._socket.close()
+            self._socket = None
+        self._connected.clear()
+        self._clean_beacon_cache()
+
+    def _clean_beacon_cache(self):
+        """Clean all cached results from Beacon queries
+        """
         self._redis_host = None
         self._redis_port = None
-        self.clean_all_redis_connection()
+        self._redis_data_host = None
+        self._redis_data_port = None
+        self._log_server_host = None
+        self._log_server_port = None
 
     @check_connect
     def __str__(self):

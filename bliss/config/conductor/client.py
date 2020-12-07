@@ -7,6 +7,7 @@
 
 import os, sys
 import io
+import warnings
 import gevent
 from . import connection
 from .connection import StolenLockException
@@ -101,36 +102,60 @@ def get_cache_address(connection=None):
     return connection.get_redis_connection_address()
 
 
+def get_redis_connection(single_connection_client=False, **kw):
+    """This doesn't return a connection but a proxy which may hold
+    a connection.
+    """
+    if single_connection_client:
+        warnings.warn("Use 'get_redis_proxy' instead", FutureWarning)
+        return get_redis_proxy(**kw)
+    else:
+        warnings.warn("Use 'get_fixed_connection_redis_proxy' instead", FutureWarning)
+        return get_fixed_connection_redis_proxy(**kw)
+
+
 @check_connection
-def get_redis_connection(
-    db=0, connection=None, single_connection_client=False, pool_name="default"
-):
-    return connection.get_redis_connection(
-        db=db, single_connection_client=single_connection_client, pool_name=pool_name
-    )
+def get_redis_proxy(db=0, connection=None, pool_name="default"):
+    """Greenlet-safe proxy.
+
+    :returns SafeRedisDbProxy:
+    """
+    return connection.get_redis_proxy(db=db, pool_name=pool_name)
 
 
-def get_existing_redis_connection(
+@check_connection
+def get_fixed_connection_redis_proxy(db=0, connection=None, pool_name="default"):
+    """NOT greenlet-safe.
+
+    :returns FixedConnectionRedisDbProxy:
+    """
+    return connection.get_fixed_connection_redis_proxy(db=db, pool_name=pool_name)
+
+
+def get_existing_redis_proxy(
     db=0, single_connection_client=False, pool_name="default", timeout=None
 ):
-    """Returns None when no global connection pool or when timed out
+    """Greenlet-safe proxy.
+
+    :returns None or SafeRedisDbProxy:
     """
     if _default_connection is None:
         return None
     try:
         with gevent.Timeout(timeout, TimeoutError):
-            return _default_connection.get_redis_connection(
-                db=db,
-                single_connection_client=single_connection_client,
-                pool_name=pool_name,
-            )
+            return _default_connection.get_redis_proxy(db=db, pool_name=pool_name)
     except TimeoutError:
         return None
 
 
 @check_connection
+def close_all_redis_connections(connection=None):
+    return connection.close_all_redis_connections()
+
+
 def clean_all_redis_connection(connection=None):
-    return connection.clean_all_redis_connection()
+    warnings.warn("Use 'close_all_redis_connections' instead", FutureWarning)
+    return close_all_redis_connections(connection=connection)
 
 
 @check_connection
@@ -139,7 +164,7 @@ def get_config_file(file_path, connection=None):
 
 
 def get_text_file(file_path, connection=None):
-    return get_config_file(file_path).decode()
+    return get_config_file(file_path, connection=connection).decode()
 
 
 def get_file(

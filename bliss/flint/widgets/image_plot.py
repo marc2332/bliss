@@ -19,6 +19,11 @@ from silx.gui import icons
 from silx.gui import colors
 from silx.gui.plot.actions import histogram
 from silx.gui.plot.items.marker import Marker
+from silx.gui.plot.tools.roi import RegionOfInterestManager
+from silx.gui.plot.items import roi as silx_rois
+from bliss.controllers.lima import roi as lima_rois
+from bliss.flint.widgets.utils import rois as flint_rois
+
 
 from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
@@ -138,6 +143,8 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         self.__plot.setKeepDataAspectRatio(True)
         self.__plot.setDataMargins(0.05, 0.05, 0.05, 0.05)
         self.__plot.getYAxis().setInverted(True)
+
+        self.__roiManager = RegionOfInterestManager(self.__plot)
 
         self.__title = _Title(self.__plot)
 
@@ -538,6 +545,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
 
     def __scanStarted(self):
         self.__imageReceived = 0
+        self.__updateRois()
         self.__refreshManager.scanStarted()
         self.__view.scanStarted()
         self.__title.scanStarted(self.__scan)
@@ -547,6 +555,65 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         if self.__imageReceived == 0:
             self.__cleanAll()
         self.__title.scanFinished(self.__scan)
+
+    def __updateRois(self):
+        self.__roiManager.clear()
+        if self.__scan is None:
+            return
+
+        master = None
+        for device in self.__scan.devices():
+            if device.name() != self.deviceName():
+                continue
+            if device.master() and device.master().isMaster():
+                master = device
+                break
+
+        if master is None:
+            return
+
+        for device in self.__scan.devices():
+            if not device.isChildOf(master):
+                continue
+
+            roi = device.metadata().roi
+            if roi is None:
+                continue
+
+            if isinstance(roi, lima_rois.RoiProfile):
+                # Must be checked first as a RoiProfile is a RectRoi
+                if roi.mode == "vertical":
+                    item = flint_rois.LimaVProfileRoi()
+                elif roi.mode == "horizontal":
+                    item = flint_rois.LimaHProfileRoi()
+                else:
+                    item = silx_rois.RectangleROI()
+                origin = roi.x, roi.y
+                size = roi.width, roi.height
+                item.setGeometry(origin=origin, size=size)
+            elif isinstance(roi, lima_rois.Roi):
+                item = silx_rois.RectangleROI()
+                origin = roi.x, roi.y
+                size = roi.width, roi.height
+                item.setGeometry(origin=origin, size=size)
+            elif isinstance(roi, lima_rois.ArcRoi):
+                item = silx_rois.ArcROI()
+                center = roi.cx, roi.cy
+                item.setGeometry(
+                    center=center,
+                    innerRadius=roi.r1,
+                    outerRadius=roi.r2,
+                    startAngle=numpy.deg2rad(roi.a1),
+                    endAngle=numpy.deg2rad(roi.a2),
+                )
+            else:
+                item = None
+            if item is not None:
+                item.setName(device.name())
+                item.setEditable(False)
+                item.setSelectable(False)
+                self.__roiManager.addRoi(item)
+                item.setColor(qt.QColor(0xA0, 0xA0, 0xA0))
 
     def __scanDataUpdated(self, event: scan_model.ScanDataUpdateEvent):
         plotModel = self.__plotModel

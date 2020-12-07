@@ -2,9 +2,7 @@
 - plugin: bliss
   name: bkg_actuator
   class: actuator
-  controller:
-        - module: simulation_actuator
-          class: SimulationActuator
+  controller: $_simulation_actuator_controller
   actuator_cmd: set_in
 
 # Simulated counter GAUSSAIN distribution

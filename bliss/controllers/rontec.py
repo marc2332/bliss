@@ -515,8 +515,8 @@ class Rontec(object):
         """
         # the input is energy and the calibration is done
         if chmax < 30 and self.calib_done:
-            chmin = _calib_getch(chmin)
-            chmax = _calib_getch(chmax)
+            chmin = self._calib_getch(chmin)
+            chmax = self._calib_getch(chmax)
         y = self.read_raw_data(chmin, chmax, save_data)
         x = numpy.linspace(chmin, chmax, len(y), endpoint=False)
         if calib:

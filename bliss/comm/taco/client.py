@@ -9,7 +9,6 @@ import enum
 import socket
 import numpy
 import xdrlib
-import struct
 from collections import namedtuple
 from ..sunrpc import Packer, Unpacker, UDPClient, TCPClient
 

@@ -6,13 +6,12 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import time
-import gevent
 
 from warnings import warn
 from bliss.controllers.motor import Controller
 from bliss.config.settings import QueueSetting
 from bliss.common.utils import object_method
-from bliss.common.axis import AxisState, CyclicTrajectory, Motion
+from bliss.common.axis import AxisState, CyclicTrajectory
 from bliss.common.logtools import log_error, log_debug
 from bliss.comm.util import get_comm
 from bliss.comm.exceptions import CommunicationError
@@ -57,8 +56,8 @@ class PM600(Controller):
         try:
             self.sock = get_comm(self.config.config_dict)
         except ValueError:
-            host = config.get("host")
-            port = int(config.get("port"))
+            host = self.config.get("host")
+            port = int(self.config.get("port"))
             warn(
                 "'host' and 'port' keywords are deprecated. " "Use 'tcp' instead",
                 DeprecationWarning,
@@ -216,7 +215,7 @@ class PM600(Controller):
             log_error(self, "PM600 Error: Unexpected response to set_velocity" + reply)
 
     def set_firstvelocity(self, axis, creep_speed):
-        if creep_speed > MAX_CREEP_SPEED or velocity < MIN_CREEP_SPEED:
+        if creep_speed > MAX_CREEP_SPEED or creep_speed < MIN_CREEP_SPEED:
             log_error(self, "PM600 Error: creep_speed out of range")
         reply = self.io_command("SC", axis.channel, creep_speed)
         if reply != "OK":
@@ -250,7 +249,7 @@ class PM600(Controller):
 
     def state(self, axis):
         """
-        Return interpretation of status 
+        Return interpretation of status
         """
         status = self.status(axis)
         if status[1:2] == "1" or (status[2:3] == "1" and status[3:4] == "1"):
@@ -364,8 +363,8 @@ class PM600(Controller):
 
     @object_method(types_info=("None", "str"))
     def status(self, axis):
-        """ 
-        Return raw status string 
+        """
+        Return raw status string
 
         status = "abcdefgh" where:
         a is 0 = Busy or 1 = Idle
@@ -397,7 +396,7 @@ class PM600(Controller):
 
     @object_method(types_info=("None", "None"))
     def reset(self, axis):
-        """ 
+        """
         This command will reset the tracking abort, stall abort,
         time out abort or user(command) abort conditions and
         re-enable the servo control loop. It will also set the
@@ -455,7 +454,8 @@ class PM600(Controller):
             tstep = t1.mean()
             if tstep != t1[0]:
                 raise RuntimeError(
-                    "PM600 controller only supports unique time value to complete each element in a profile definition, so time scale in PVT array must be linear."
+                    "PM600 controller only supports unique time value to complete each element "
+                    "in a profile definition, so time scale in PVT array must be linear."
                 )
 
             if tstep * 1000 > 65635:

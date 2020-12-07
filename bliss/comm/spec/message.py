@@ -13,7 +13,7 @@ It handles the different message versions (headers 2, 3 and 4).
 """
 import struct
 import time
-import types
+from SpecClient_gevent import SpecArray
 
 from .reply import SpecReply
 
@@ -220,7 +220,7 @@ class SpecMessage:
             return data
         elif datatype == ASSOC:
             return rawtodictonary(rawstring)
-        elif SpecArray.isArrayType(datatype):
+        elif SpecArray.isArrayType(datatype):  # from SpecClient_gevent
             raise TypeError("Unsupported type: array")
         else:
             raise TypeError

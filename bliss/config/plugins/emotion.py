@@ -11,13 +11,15 @@ import sys
 import pkgutil
 import enum
 
+import flask.json
+
 from bliss.common import axis as axis_module
 from bliss.common import encoder as encoder_module
 from bliss.common.axis import Axis
 from bliss.common.utils import auto_coerce
 from bliss.common.encoder import Encoder
 from bliss.config.static import ConfigNode, ConfigReference
-from bliss.common.tango import DeviceProxy, _DeviceProxy
+from bliss.common.tango import DeviceProxy, _DeviceProxy, DevFailed
 from bliss.config.plugins.utils import find_class
 import bliss.controllers.motors
 from bliss.controllers.motor import CalcController
@@ -169,7 +171,7 @@ def __tango_apply_config(name):
         device.command_inout("ApplyConfig", True)
         msg = "'%s' configuration saved and applied to server!" % name
         msg_type = "success"
-    except PyTango.DevFailed as df:
+    except DevFailed as df:
         msg = "'%s' configuration saved but <b>NOT</b> applied to " " server:\n%s" % (
             name,
             df[0].desc,
@@ -187,7 +189,6 @@ def __tango_apply_config(name):
 
 
 def controller_edit(cfg, request):
-    import flask.json
 
     if request.method == "POST":
         form = dict([(k, v) for k, v in request.form.items() if v])
@@ -202,7 +203,6 @@ def controller_edit(cfg, request):
 
         ctrl_cfg = cfg.get_config(orig_name)
 
-        axes_data = {}
         objs = set()
         for param_name, param_value in form.items():
             if " " in param_name:  # axis param
@@ -247,7 +247,6 @@ def controller_edit(cfg, request):
 
 
 def axis_edit(cfg, request):
-    import flask.json
 
     if request.method == "POST":
         form = dict([(k, v) for k, v in request.form.items() if v])

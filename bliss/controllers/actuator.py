@@ -28,7 +28,7 @@ class Actuator(AbstractActuator):
         self.key_cmd = config.get("actuator_cmd")
         self.inout = dict(config.get("actuator_inout", {"in": 1, "out": 0}))
         check = False
-        if any((self.key_in, self.key_out)):
+        if any((self.key_in, self.key_out, self.key_cmd)):
             check = True
         AbstractActuator.__init__(self, check=check)
 
@@ -51,6 +51,8 @@ class Actuator(AbstractActuator):
             return self.controller.get(self.key_in)
         if self.key_out:
             return not self.controller.get(self.key_out)
+        if self.key_cmd:
+            return self.controller.get(self.key_cmd)
 
     def _is_out(self):
         """ Check if the actuator is in position OUT
@@ -61,3 +63,5 @@ class Actuator(AbstractActuator):
             return self.controller.get(self.key_out)
         if self.key_in:
             return not self.controller.get(self.key_in)
+        if self.key_cmd:
+            return not self.controller.get(self.key_cmd)

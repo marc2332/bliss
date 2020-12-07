@@ -7,7 +7,7 @@
 
 import pytest
 import gevent
-from bliss.common.actuator import AbstractActuator, ActuatorState
+from bliss.common.actuator import AbstractActuator
 
 
 @pytest.fixture
@@ -67,6 +67,29 @@ def test_actuator(beacon):
     simulation_actuator = beacon.get("actuator")
 
     assert simulation_actuator.state == "UNKNOWN"
+    simulation_actuator.set_in()
+    assert simulation_actuator.is_in()
+    assert simulation_actuator.state == "IN"
+    simulation_actuator.set_out()
+    assert simulation_actuator.is_out()
+    assert simulation_actuator.state == "OUT"
+    with simulation_actuator:
+        assert simulation_actuator.is_in()
+    assert simulation_actuator.is_out()
+    simulation_actuator.open()
+    assert simulation_actuator.is_in()
+    simulation_actuator.close()
+    assert simulation_actuator.is_out()
+    simulation_actuator.toggle()
+    assert simulation_actuator.is_in()
+    simulation_actuator.toggle()
+    assert simulation_actuator.is_out()
+
+
+def test_actuator_cmd(beacon):
+    simulation_actuator = beacon.get("actuator_cmd")
+
+    assert simulation_actuator.state == "OUT"
     simulation_actuator.set_in()
     assert simulation_actuator.is_in()
     assert simulation_actuator.state == "IN"

@@ -7,7 +7,9 @@
 
 
 class SimulationActuator:
-    def __init__(self):
+    def __init__(self, name, config):
+        self.name = name
+        self._config = config
         self.__in = False
         self.__out = False
 

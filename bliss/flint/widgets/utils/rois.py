@@ -49,7 +49,7 @@ class LimaArcRoi(silx_rois.ArcROI):
     """
 
 
-class LimaProfileRoi(silx_rois.RectangleROI):
+class LimaProfileRoi(LimaRectRoi):
     """Rectangle ROI used to configure Lima detector.
 
     It is used to compute a vertical or horizontal profile.

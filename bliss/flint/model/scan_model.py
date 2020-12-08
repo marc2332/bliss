@@ -446,6 +446,18 @@ class Device(qt.QObject, _Sealable):
     def name(self) -> str:
         return self.__name
 
+    def fullName(self):
+        """Path name from top master to this device.
+
+        Each short name is separated by ":".
+        """
+        elements = [self.name()]
+        parent = self.__master
+        while parent is not None:
+            elements.append(parent.name())
+            parent = parent.__master
+        return ":".join(reversed(elements))
+
     def setMetadata(self, metadata: DeviceMetadata):
         if self.isSealed():
             raise SealedError()

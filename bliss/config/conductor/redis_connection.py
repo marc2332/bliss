@@ -131,7 +131,6 @@ class RedisDbProxy(redis.Redis):
 
     def __init__(self, pool: RedisDbConnectionPool, **kw):
         super().__init__(connection_pool=pool, **kw)
-        self.client_setname(pool.CLIENT_NAME)
 
 
 class SafeRedisDbProxy(RedisDbProxy):

@@ -21,13 +21,14 @@ from bliss.controllers.counter import counter_namespace
 from bliss.scanning.scan_meta import get_user_scan_meta
 from bliss.scanning.chain import ChainPreset, ChainIterationPreset
 from bliss.common import tango
+from bliss.common.protocols import IcatPublisher
 from bliss.controllers.tango_attr_as_counter import (
     TangoCounterController,
     TangoAttrCounter,
 )
 
 
-class MachInfo(BeaconObject):
+class MachInfo(BeaconObject, IcatPublisher):
     """ Access to accelerator information.
     - SR_Current
     - SR_Lifetime

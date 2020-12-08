@@ -3,9 +3,10 @@ from bliss.comm.util import get_comm
 from bliss.common.greenlet_utils import protect_from_kill
 from bliss.common.counter import SamplingCounter, SamplingMode
 from bliss.controllers.counter import SamplingCounterController
+from bliss.common.protocols import CounterContainer
 
 
-class Moco(object):
+class Moco(CounterContainer):
     def __init__(self, name, config_tree):
 
         self.values = {

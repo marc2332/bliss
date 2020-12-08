@@ -8,6 +8,7 @@
 from bliss.controllers.motor import CalcController
 from bliss.common.logtools import user_warning, log_debug
 from bliss.scanning.scan_meta import get_user_scan_meta
+from bliss.common.protocols import IcatPublisher
 
 """
 example for single VERTICAL slits:
@@ -85,7 +86,7 @@ example for single HORIZONTAL slits:
 """
 
 
-class Slits(CalcController):
+class Slits(CalcController, IcatPublisher):
     def __init__(self, *args, **kwargs):
         CalcController.__init__(self, *args, **kwargs)
         self.slit_type = self.config.get("slit_type", default="both")
@@ -102,7 +103,6 @@ class Slits(CalcController):
         scan_meta_obj = get_user_scan_meta()
         scan_meta_obj.instrument.set(self, lambda _: {self.name: self.metadata()})
 
-    # used by the IcatPublisher protocol
     def metadata(self):
         """ 
         this is about metadata publishing to the h5 file AND ICAT

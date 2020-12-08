@@ -251,9 +251,18 @@ class Scan(qt.QObject, _Sealable):
         self.__devices.append(device)
 
     def getDeviceByName(self, name: str) -> Device:
+        elements = name.split(":")
         for device in self.__devices:
-            if device.name() == name:
-                return device
+            current = device
+            for e in reversed(elements):
+                if current is None or current.name() != e:
+                    break
+                current = current.master()
+            else:
+                # The item was found
+                if current is None:
+                    return device
+
         raise ValueError("Device %s not found." % name)
 
     def _fireScanDataUpdated(

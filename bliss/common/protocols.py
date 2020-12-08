@@ -8,8 +8,8 @@
 """
 This file groups all protocols managed by bliss
 """
+from abc import ABC
 from collections import namedtuple
-from typing_extensions import Protocol, runtime_checkable
 from types import SimpleNamespace
 from typing import Mapping
 
@@ -59,8 +59,7 @@ def counter_namespace(counters):
     # return namedtuple("namespace", dct)(**dct)
 
 
-@runtime_checkable
-class CounterContainer(Protocol):
+class CounterContainer(ABC):
     """
     Device that contains counters.
     """
@@ -74,8 +73,7 @@ class CounterContainer(Protocol):
         raise NotImplementedError
 
 
-@runtime_checkable
-class Scannable(Protocol):
+class Scannable(ABC):
     """
     Any device that has this interface can be used
     in a step by step scan.
@@ -106,8 +104,7 @@ class Scannable(Protocol):
         raise NotImplementedError
 
 
-@runtime_checkable
-class IcatPublisher(Protocol):
+class IcatPublisher(ABC):
     """
     Any controller that has this interface can be used
     for metadata collection based on the `icat-mapping`

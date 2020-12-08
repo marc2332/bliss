@@ -147,14 +147,25 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
         # read one single value
         self._SINGLE_COUNT = False
 
+        self.__count_time_list = count_time
+        if isinstance(count_time, list):
+            self.__count_time_index = 0
+            self.__count_time_point = 1
+        else:
+            self.__count_time_point = count_time
+
         super().__init__(
             *counters,
-            count_time=count_time,
+            count_time=self.__count_time_point,
             npoints=npoints,
             prepare_once=True,
             start_once=start_once,
             ctrl_params=ctrl_params,
         )
+
+    @property
+    def count_time(self):
+        return self.__count_time_point
 
     def _do_add_counter(self, counter):
         super()._do_add_counter(counter)  # add the 'default' counter (mean)
@@ -234,6 +245,9 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
         self._event.set()
 
     def trigger(self):
+        if isinstance(self.__count_time_list, list):
+            self.__count_time_point = self.__count_time_list[self.__count_time_index]
+            self.__count_time_index = self.__count_time_index + 1
         self._trig_time = time.time()
         self._event.set()
 
@@ -359,7 +373,6 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
                     channel_list[1].shape = data[samp_chan_index].shape
 
             self._emit_new_data(data)
-
             self._ready_event.set()
 
     @staticmethod

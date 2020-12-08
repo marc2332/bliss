@@ -164,8 +164,7 @@ class BaseProxy(abc.ABC):
                 yield None
 
     def add(self, newdata):
-        """
-        Add data
+        """Add data
 
         :param sequence newdata:
         """
@@ -180,8 +179,7 @@ class BaseProxy(abc.ABC):
 
     @abc.abstractmethod
     def _insert_data(self, destination, newdata):
-        """
-        Insert new data in dataset
+        """Insert new data in dataset
 
         :param h5py.Dataset or h5py.Group dset:
         :param sequence newdata:
@@ -195,8 +193,7 @@ class BaseProxy(abc.ABC):
 
     @property
     def complete(self):
-        """
-        Variable length scans are marked complete when we have some data
+        """Variable length scans are marked complete when we have some data
         """
         n, nall = self.npoints, self.npoints_expected
         return n and n >= nall
@@ -253,3 +250,8 @@ class BaseProxy(abc.ABC):
             )
             self.logger.debug(msg)
         return complete
+
+    def flush(self):
+        """Skipped when it already exists. It may not exist after creation.
+        """
+        self.create()

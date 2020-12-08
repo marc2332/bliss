@@ -313,10 +313,10 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         #    with self._capture_finalize_exceptions():
         #        self._ensure_same_length(subscan)
 
-        self.logger.info("Link external data (VDS or raw)")
+        self.logger.info("Save the last data")
         for node in self._nodes:
             with self._capture_finalize_exceptions():
-                self._create_dataset(node)
+                self._flush_dataset(node)
 
         self.logger.info("Save detector metadata")
         skip = set()
@@ -1522,7 +1522,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             external = True
         return external, file_format
 
-    def _create_dataset(self, node):
+    def _flush_dataset(self, node):
         """
         Make sure the dataset associated with this node is created (if not already done).
 
@@ -1530,7 +1530,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         """
         nproxy = self._node_proxy(node, full_init=False)
         if nproxy is not None and nproxy.npoints:
-            nproxy.create()
+            nproxy.flush()
 
     def _fetch_node_metadata(self, node, skip):
         """

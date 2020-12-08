@@ -80,6 +80,7 @@ class LimaProfileRoi(LimaRectRoi):
     def _updated(self, event=None, checkVisibility=True):
         if event in [items.ItemChangedType.VISIBLE]:
             self._updateItemProperty(event, self, self.__line)
+            self._updateItemProperty(event, self, self.__symbol)
         super(LimaProfileRoi, self)._updated(event, checkVisibility)
 
     def _updatedStyle(self, event, style):

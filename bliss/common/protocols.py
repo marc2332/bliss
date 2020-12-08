@@ -99,7 +99,7 @@ class Scannable(ABC):
 
     def move(self, target_position):
         """
-        This should 
+        This should move to target_position
         """
         raise NotImplementedError
 

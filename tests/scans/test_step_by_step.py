@@ -605,7 +605,7 @@ def test_typeguardTypeError_to_hint():
         scans.ascan(1, 2, 3, 4, 5)
     assert (
         str(e.value)
-        == 'Intended Usage: ascan(motor, start, stop, intervals, count_time, counter_args)  Hint: type of argument "motor" must be one of (Axis, Scannable); got int instead'
+        == 'Intended Usage: ascan(motor, start, stop, intervals, count_time, counter_args)  Hint: type of argument "motor" must be bliss.common.protocols.Scannable; got int instead'
     )
 
     import typeguard

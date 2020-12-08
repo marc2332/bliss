@@ -613,7 +613,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
                 item.setEditable(False)
                 item.setSelectable(False)
                 self.__roiManager.addRoi(item)
-                item.setColor(qt.QColor(0xA0, 0xA0, 0xA0))
+                item.setColor(qt.QColor(0x80, 0x80, 0x80))
                 item.setVisible(False)
 
     def __scanDataUpdated(self, event: scan_model.ScanDataUpdateEvent):

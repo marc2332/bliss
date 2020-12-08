@@ -360,9 +360,20 @@ class RoiItem(plot_model.Item):
         super(RoiItem, self).__setstate__(state)
         self.__deviceName = state.pop("deviceName")
 
+    def name(self) -> str:
+        """Returns the name displayed for this item"""
+        return self.roiName()
+
     def roiName(self) -> str:
         """Returns the name of the ROI"""
         return self.__deviceName.split(":")[-1]
+
+    def deviceName(self):
+        """Returns the device name defining this ROI.
+
+        The device name is the full device name prefixed by the top master name
+        """
+        return self.__deviceName
 
     def setDeviceName(self, name: str):
         """Set the device name containing the ROI.

@@ -58,7 +58,11 @@ class CT2CounterTimer(CT2Counter):
         return ticks / self.timer_freq
 
 
-class CT2Controller(Proxy, CounterController):
+class CT2ControllerMeta(type(Proxy), type(CounterController)):
+    pass
+
+
+class CT2Controller(Proxy, CounterController, metaclass=CT2ControllerMeta):
     def __init__(self, device_config, name="ct2_cc", **kwargs):
 
         server_address = device_config["address"]

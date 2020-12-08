@@ -8,6 +8,7 @@
 from collections import namedtuple
 import numpy
 from bliss import global_map
+from bliss.common.protocols import CounterContainer
 from bliss.common.counter import Counter, CalcCounter
 from bliss.scanning.chain import ChainNode
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
@@ -19,7 +20,7 @@ from bliss.scanning.acquisition.calc import (
 from bliss.common.protocols import counter_namespace
 
 
-class CounterController:
+class CounterController(CounterContainer):
     def __init__(self, name, master_controller=None, register_counters=True):
 
         self.__name = name

@@ -803,7 +803,7 @@ def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
 
     image_plots_per_device: Dict[str, List[plot_model.Plot]] = {}
 
-    for _master, channels in acquisition_chain.items():
+    for master, channels in acquisition_chain.items():
         images: List[str] = []
         images += channels.get("images", [])
         # merge master which are image
@@ -826,6 +826,16 @@ def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
             item = plot_item_model.ImageItem(plot)
             item.setImageChannel(image_channel)
             plot.addItem(item)
+
+            if "rois" in scan_info:
+                for roi_name, _roi_dict in scan_info["rois"].items():
+                    if not roi_name.startswith(
+                        f"{device_name}:roi_counters:"
+                    ) and not roi_name.startswith(f"{device_name}:roi_profiles:"):
+                        pass
+                    item = plot_item_model.RoiItem(plot)
+                    item.setDeviceName(f"{master}:{roi_name}")
+                    plot.addItem(item)
 
     result.extend(image_plots_per_device.values())
 

@@ -545,7 +545,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
 
     def __scanStarted(self):
         self.__imageReceived = 0
-        self.__updateRois()
+        self.__createScanRois()
         self.__refreshManager.scanStarted()
         self.__view.scanStarted()
         self.__title.scanStarted(self.__scan)
@@ -556,7 +556,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
             self.__cleanAll()
         self.__title.scanFinished(self.__scan)
 
-    def __updateRois(self):
+    def __createScanRois(self):
         self.__roiManager.clear()
         if self.__scan is None:
             return
@@ -614,6 +614,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
                 item.setSelectable(False)
                 self.__roiManager.addRoi(item)
                 item.setColor(qt.QColor(0xA0, 0xA0, 0xA0))
+                item.setVisible(False)
 
     def __scanDataUpdated(self, event: scan_model.ScanDataUpdateEvent):
         plotModel = self.__plotModel
@@ -625,6 +626,8 @@ class ImagePlotWidget(plot_helper.PlotWidget):
                 channelName = item.imageChannel().name()
                 if event.isUpdatedChannelName(channelName):
                     self.__updateItem(item)
+            elif isinstance(item, plot_item_model.RoiItem):
+                self.__updateItem(item)
 
     def __cleanAll(self):
         for _item, itemKeys in self.__items.items():
@@ -672,9 +675,16 @@ class ImagePlotWidget(plot_helper.PlotWidget):
             return
         if not item.isValid():
             return
-        if not isinstance(item, plot_item_model.ImageItem):
-            return
+        if isinstance(item, plot_item_model.ImageItem):
+            self.__updateImageItem(item)
+        elif isinstance(item, plot_item_model.RoiItem):
+            roi_name = item.roiName()
+            roi = [r for r in self.__roiManager.getRois() if r.getName() == roi_name]
+            roi = roi[0] if len(roi) > 0 else None
+            if roi is not None:
+                roi.setVisible(item.isVisible())
 
+    def __updateImageItem(self, item: plot_model.Item):
         scan = self.__scan
         plot = self.__plot
         plotItems: List[_ItemDescription] = []

@@ -590,15 +590,18 @@ class ImagePlotWidget(plot_helper.PlotWidget):
                     item = silx_rois.RectangleROI()
                 origin = roi.x, roi.y
                 size = roi.width, roi.height
+                self.__roiManager.addRoi(item)
                 item.setGeometry(origin=origin, size=size)
             elif isinstance(roi, lima_rois.Roi):
                 item = silx_rois.RectangleROI()
                 origin = roi.x, roi.y
                 size = roi.width, roi.height
+                self.__roiManager.addRoi(item)
                 item.setGeometry(origin=origin, size=size)
             elif isinstance(roi, lima_rois.ArcRoi):
                 item = silx_rois.ArcROI()
                 center = roi.cx, roi.cy
+                self.__roiManager.addRoi(item)
                 item.setGeometry(
                     center=center,
                     innerRadius=roi.r1,
@@ -612,7 +615,6 @@ class ImagePlotWidget(plot_helper.PlotWidget):
                 item.setName(device.name())
                 item.setEditable(False)
                 item.setSelectable(False)
-                self.__roiManager.addRoi(item)
                 item.setColor(qt.QColor(0x80, 0x80, 0x80))
                 item.setVisible(False)
 

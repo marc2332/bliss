@@ -695,8 +695,11 @@ class RoiCounters(IntegratingCounterController):
 
     # Counter access
 
-    def get_single_roi_counters(self, name):
-        roi_data = self._save_rois.get(name)
+    def get_single_roi_counters(self, name, rois_dict=None):
+        if rois_dict is None:
+            roi_data = self._save_rois.get(name)
+        else:
+            roi_data = rois_dict.get(name)
         if roi_data is None:
             raise AttributeError(
                 "Can't find a roi_counter with name: {!r}".format(name)
@@ -709,8 +712,9 @@ class RoiCounters(IntegratingCounterController):
         return counters
 
     def iter_single_roi_counters(self):
-        for roi in self.get_rois():
-            yield self.get_single_roi_counters(roi.name)
+        rois_dict = self._save_rois.get_all()
+        for roi in (rois_dict[k] for k in sorted(rois_dict)):
+            yield self.get_single_roi_counters(roi.name, rois_dict)
 
     @property
     def counters(self):

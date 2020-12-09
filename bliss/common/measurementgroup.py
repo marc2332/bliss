@@ -122,28 +122,50 @@ def counter_or_aliased_counter(cnt):
     return cnt
 
 
-def _get_counters_from_names(names_list, container_default_counters_only=False):
+def _get_all_counters():
+    return {cnt.fullname: cnt for cnt in global_map.get_counters_iter()}
+
+
+def _get_counter_containers(all_counters_dict):
+    counter_containers_dict = {}
+    for container in set(global_map.instance_iter("counters")) - set(
+        all_counters_dict.values()
+    ):
+        if hasattr(container, "fullname"):
+            counter_containers_dict[container.fullname] = container
+        else:
+            counter_containers_dict[container.name] = container
+    return counter_containers_dict
+
+
+def _get_default_counters(counter_containers_dict):
+    default_counters = []
+    for container in counter_containers_dict.values():
+        try:
+            default_counters.extend(container.counter_groups.default)
+        except AttributeError:
+            # no default group ?
+            pass
+    return map(counter_or_aliased_counter, default_counters)
+
+
+def _get_counters_from_names(names_list):
     """Get the counters from a names list"""
     counters, missing = [], []
     counters_by_name = collections.defaultdict(set)
-    all_counters_dict = dict()
 
-    all_counters = set(global_map.get_counters_iter())
-    for cnt in all_counters:
-        all_counters_dict[cnt.fullname] = cnt
+    all_counters_dict = _get_all_counters()
+    counter_containers_dict = _get_counter_containers(all_counters_dict)
+    keys = SortedKeyList(all_counters_dict)
+
+    for cnt in all_counters_dict.values():
         counters_by_name[cnt.name].add(cnt)
         counters_by_name[cnt.fullname].add(cnt)
         alias_obj = global_map.aliases.get(cnt.name)
         if alias_obj:
             counters_by_name[alias_obj.original_name].add(cnt)
             counters_by_name[alias_obj.original_fullname].add(cnt)
-    counter_containers_dict = {}
-    for container in set(global_map.instance_iter("counters")) - all_counters:
-        if hasattr(container, "fullname"):
-            counter_containers_dict[container.fullname] = container
-        else:
-            counter_containers_dict[container.name] = container
-    keys = SortedKeyList(all_counters_dict)
+
     for name in set(names_list):
         # try to get counter by name
         cnts = counters_by_name.get(name)
@@ -159,21 +181,6 @@ def _get_counters_from_names(names_list, container_default_counters_only=False):
             continue
 
         if name in counter_containers_dict:
-            if container_default_counters_only:
-                try:
-                    default_counters = counter_containers_dict[
-                        name
-                    ].counter_groups.default
-                except AttributeError:
-                    # no default group ?
-                    # fallback to all counters below this container
-                    pass
-                except Exception:
-                    pass
-                else:
-                    # add default counters
-                    counters += map(counter_or_aliased_counter, default_counters)
-                    continue
             # look for all counters below this container
             name += ":"
 
@@ -207,14 +214,19 @@ def _get_counters_from_names(names_list, container_default_counters_only=False):
 
 
 def _get_counters_from_measurement_group(mg):
-    try:
-        counters, missing = _get_counters_from_names(mg.enabled)
-    except RuntimeError as e:
-        raise RuntimeError(f"{mg.name}: {e}")
+    available_counters = mg._available_counters
+    enabled_counter_names = mg._get_enabled_counters_names(available_counters)
+    counters = {
+        cnt for cnt in available_counters if cnt.fullname in enabled_counter_names
+    }
+    missing = enabled_counter_names - mg._get_counters_names(counters)
+
     if missing:
-        raise AttributeError(*missing)
+        raise RuntimeError(
+            f"Missing counters in measurement group {mg.name}: {', '.join(missing)}"
+        )
     else:
-        return counters
+        return list(counters)
 
 
 def _get_counters_from_object(arg):
@@ -291,23 +303,14 @@ class MeasurementGroup:
         s_list = self._all_states.get()
         return s_list
 
-    @functools.lru_cache(maxsize=1)
-    def _get_available_counters(self):
-        """Return available counters from static config
-
-        Thanks to the lru cache, if the method is called with same args
-        it returns a memorized value.
-        This allows to be more efficient to get enabled or disabled
-        counters, without repeating costly calls.
-        """
-        return set(cnt.fullname for cnt in self._available_counters)
+    def _get_counters_names(self, counters):
+        return set(cnt.fullname for cnt in counters)
 
     @property
     def available(self):
         """available counters from the static config
         """
-        self._get_available_counters.cache_clear()
-        return self._get_available_counters()
+        return self._get_counters_names(self._available_counters)
 
     @property
     def _available_counters(self):
@@ -316,12 +319,12 @@ class MeasurementGroup:
         )
         return set(counters)
 
-    def _get_disabled_counters(self):
+    def _get_disabled_counters_names(self, available_counters):
         """Return list of disabled counters
 
         Remove counters from redis that are not in config, if any
         """
-        available_counters = self._get_available_counters()
+        available_counters = self._get_counters_names(available_counters)
         disabled_counters = set(self._disabled_setting.get())
         not_present_counters = set()
         for cnt_fullname in disabled_counters:
@@ -336,8 +339,7 @@ class MeasurementGroup:
     def disabled(self):
         """ Disabled counter names
         """
-        self._get_available_counters.cache_clear()
-        return self._get_disabled_counters()
+        return self._get_disabled_counters_names(self._available_counters)
 
     @property
     def _disabled_setting(self):
@@ -347,17 +349,16 @@ class MeasurementGroup:
 
     @_check_counter_name
     def disable(self, *counter_patterns):
-        counters, _ = _get_counters_from_names(
-            self._config_counters, container_default_counters_only=True
-        )
-        counter_names = self._find_counter_names(counters, counter_patterns)
+        available_counters = self._available_counters
+        counter_names = self._find_counter_names(counter_patterns, available_counters)
 
         to_disable = set(counter_names)
         if not to_disable:
             raise ValueError(
                 f"No match, could not disable any counter with patterns: {','.join(counter_patterns)}"
             )
-        disabled = set(self.disabled)
+
+        disabled = set(self._get_disabled_counters_names(available_counters))
 
         new_disabled = disabled.union(to_disable)
 
@@ -366,18 +367,22 @@ class MeasurementGroup:
         else:
             self._disabled_setting.set(list(new_disabled))
 
-    def _get_enabled_counters(self):
-        return set(self._get_available_counters()) - set(self._get_disabled_counters())
+    def _get_enabled_counters_names(self, available_counters):
+        return set(self._get_counters_names(available_counters)) - set(
+            self._get_disabled_counters_names(available_counters)
+        )
 
     @property
     def enabled(self):
         """returns Enabled counter names list
         """
-        self._get_available_counters.cache_clear()
-        return self._get_enabled_counters()
+        return self._get_enabled_counters_names(self._available_counters)
 
-    def _find_counter_names(self, counters, counter_patterns):
-        default_group_counters = set(cnt.fullname for cnt in counters)
+    def _find_counter_names(self, counter_patterns, available_counters):
+        default_group_counters = self._get_counters_names(
+            _get_default_counters(_get_counter_containers(_get_all_counters()))
+        )
+
         counter_names = []
         for counter_pattern in counter_patterns:
             if counter_pattern in (
@@ -393,7 +398,7 @@ class MeasurementGroup:
             else:
                 counter_names.extend(
                     cnt.fullname
-                    for cnt in self._available_counters
+                    for cnt in available_counters
                     if fnmatch.fnmatch(cnt.fullname, counter_pattern)
                     or fnmatch.fnmatch(cnt.name, counter_pattern)
                 )
@@ -401,10 +406,8 @@ class MeasurementGroup:
 
     @_check_counter_name
     def enable(self, *counter_patterns):
-        counters, _ = _get_counters_from_names(
-            self._config_counters, container_default_counters_only=True
-        )
-        counter_names = self._find_counter_names(counters, counter_patterns)
+        available_counters = self._available_counters
+        counter_names = self._find_counter_names(counter_patterns, available_counters)
 
         to_enable = set(counter_names)
         if not to_enable:
@@ -412,7 +415,7 @@ class MeasurementGroup:
                 f"No match, could not enable any counter with patterns: {','.join(counter_patterns)}"
             )
 
-        disabled = set(self.disabled)
+        disabled = set(self._get_disabled_counters_names(available_counters))
         new_disabled = disabled.difference(to_enable)
 
         if new_disabled == set():
@@ -474,9 +477,9 @@ class MeasurementGroup:
     def __info__(self):
         """ function used when printing a measurement group.
         """
-        self._get_available_counters.cache_clear()
-        enabled_counters = self._get_enabled_counters()
-        disabled_counters = self._get_disabled_counters()
+        available_counters = self._available_counters
+        enabled_counters = self._get_enabled_counters_names(available_counters)
+        disabled_counters = self._get_disabled_counters_names(available_counters)
 
         info_str = "MeasurementGroup: %s (state='%s')\n" % (
             self.name,
@@ -507,9 +510,8 @@ class MeasurementGroup:
         """
         Add counter(s) in measurement group, and enable them
         """
-        counter_names = [cnt.fullname for cnt in counters]
+        to_enable = self._get_counters_names(counters)
 
-        to_enable = set(counter_names)
         new_cnt = to_enable.difference(set(self.available))
 
         self._extra_counters.extend(new_cnt)
@@ -522,17 +524,16 @@ class MeasurementGroup:
         """
         Remove counters from measurement group
         """
-        counter_names = [cnt.fullname for cnt in counters]
+        counter_names = self._get_counters_names(counters)
         all_config_counters, _ = _get_counters_from_names(self._config_counters)
-        all_config_counters = (cnt.fullname for cnt in all_config_counters)
+        all_config_counters_names = self._get_counters_names(all_config_counters)
 
-        for cnt in counter_names:
-            if cnt in all_config_counters:
+        for cnt_name in counter_names:
+            if cnt_name in all_config_counters_names:
                 raise ValueError(
                     f"{self.name}: cannot remove counter defined in configuration"
                 )
-            self.enable(cnt)
             try:
-                self._extra_counters.remove(cnt)
+                self._extra_counters.remove(cnt_name)
             except ValueError:
                 pass

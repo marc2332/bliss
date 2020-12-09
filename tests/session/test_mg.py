@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
+from unittest import mock
 from bliss import global_map
 from bliss.common import measurementgroup
 from bliss.common.session import DefaultSession
@@ -524,3 +525,41 @@ def test_mg_restart_with_lima_disabled_counters(beacon, lima_simulator):
         assert lima1_mg.enabled == {"lima_simulator:image"}
     finally:
         session.close()
+
+
+def test_calls_to_get_counters_from_names(test_mg):
+    orig = measurementgroup._get_counters_from_names
+
+    def wrapped_get_counters_from_names(*args, **kw):
+        return orig(*args, **kw)
+
+    with mock.patch(
+        "bliss.common.measurementgroup._get_counters_from_names",
+        wraps=wrapped_get_counters_from_names,
+    ):
+        test_mg.enabled
+        measurementgroup._get_counters_from_names.assert_called_once()
+    with mock.patch(
+        "bliss.common.measurementgroup._get_counters_from_names",
+        wraps=wrapped_get_counters_from_names,
+    ):
+        test_mg.enable("*")
+        measurementgroup._get_counters_from_names.assert_called_once()
+    with mock.patch(
+        "bliss.common.measurementgroup._get_counters_from_names",
+        wraps=wrapped_get_counters_from_names,
+    ):
+        test_mg.disabled
+        measurementgroup._get_counters_from_names.assert_called_once()
+    with mock.patch(
+        "bliss.common.measurementgroup._get_counters_from_names",
+        wraps=wrapped_get_counters_from_names,
+    ):
+        test_mg.disable("*")
+        measurementgroup._get_counters_from_names.assert_called_once()
+    with mock.patch(
+        "bliss.common.measurementgroup._get_counters_from_names",
+        wraps=wrapped_get_counters_from_names,
+    ):
+        test_mg.__info__()
+        measurementgroup._get_counters_from_names.assert_called_once()

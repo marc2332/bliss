@@ -30,6 +30,7 @@ Thu 13 Feb 2014 15:51:41
 class PI_E517(PI_E51X):
     def __init__(self, *args, **kwargs):
         PI_E51X.__init__(self, *args, **kwargs)
+        self.model = "E517"
 
     def _get_cto(self, axis):
         # 24 also for 518 ????

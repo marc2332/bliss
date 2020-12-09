@@ -5,6 +5,13 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+"""
+Bliss controller for ethernet PI E51X piezo controller.
+Base controller for E517 and E518
+Cyril Guilloud ESRF BLISS
+Thu 13 Feb 2014 15:51:41
+"""
+
 import time
 import weakref
 
@@ -16,20 +23,18 @@ from bliss.common.axis import AxisState
 from bliss.common.logtools import log_info, log_debug
 from bliss import global_map
 
-from . import pi_gcs
 from bliss.comm.util import TCP
 from bliss.common import event
-
-"""
-Bliss controller for ethernet PI E51X piezo controller.
-Base controller for E517 and E518
-Cyril Guilloud ESRF BLISS
-Thu 13 Feb 2014 15:51:41
-"""
+from . import pi_gcs
 
 
 class PI_E51X(Controller):
+    """ Base class for E517 and E518
+    """
+
     CHAN_LETTER = {1: "A", 2: "B", 3: "C"}
+
+    model = None  # defined in inherited classes.
 
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
@@ -40,7 +45,9 @@ class PI_E51X(Controller):
         self._axis_high_limit = weakref.WeakKeyDictionary()
 
     def move_done_event_received(self, state, sender=None):
-        # <sender> is the axis.
+        """
+        <sender> is the axis.
+        """
         log_info(
             self,
             "move_done_event_received(state=%s axis.sender=%s)",
@@ -253,22 +260,30 @@ class PI_E51X(Controller):
 
         # self.comm.write(b"STP\n")
 
-    """
-    Raw communication commands
-    """
+    def _get_cto(self, axis):
+        _ans = [bs.decode() for bs in self.comm.write_readlines(b"CTO?\n", 24)]
+        return _ans
 
-    def raw_write(self, cmd):
-        """
-        - <cmd> must be 'str'
-        """
-        self.comm.write(cmd.encode())
+    # Raw communication commands
 
-    def raw_write_read(self, cmd):
+    def raw_write(self, com):
         """
-        - <cmd> must be 'str'
-        - Returns 'str'
+        <com> must be 'str'
         """
-        return self.comm.write_readline(cmd.encode()).decode()
+        self.comm.write(com.encode())
+
+    def raw_read(self):
+        """
+        Read one line from device.
+        """
+        self.comm.readline()
+
+    def raw_write_read(self, com):
+        """
+        * <com> must be 'str'
+        * Return 'str'
+        """
+        return self.comm.write_readline(com.encode()).decode()
 
     def raw_write_readlines(self, cmd: str, lines: int):
         """
@@ -497,52 +512,9 @@ class PI_E51X(Controller):
     @object_method(types_info=("bool", "None"))
     def set_gate(self, axis, state):
         """
-        CTO  [<TrigOutID> <CTOPam> <Value>]+
-         - <TrigOutID> : {1, 2, 3}
-         - <CTOPam> :
-             - 3: trigger mode
-                      - <Value> : {0, 2, 3, 4}
-                      - 0 : position distance
-                      - 2 : OnTarget
-                      - 3 : MinMaxThreshold   <----
-                      - 4 : Wave Generator
-             - 5: min threshold   <--- must be greater than low limit
-             - 6: max threshold   <--- must be lower than high limit
-             - 7: polarity : 0 / 1
-
-
-        ex :      ID trigmod min/max       ID min       ID max       ID pol +
-              CTO 1  3       3             1  5   0     1  6   100   1  7   1
-
-        Args:
-            - <state> : True / False
-        Returns:
-            -
-        Raises:
-            ?
+        De/Activate digital output on controller.
         """
-        _ch = axis.channel
-        if state:
-            _cmd = "CTO %d 3 3 %d 5 %g %d 6 %g %d 7 1" % (
-                _ch,
-                _ch,
-                self._axis_low_limit[axis],
-                _ch,
-                self._axis_high_limit[axis],
-                _ch,
-            )
-        else:
-            _cmd = "CTO %d 3 3 %d 5 %g %d 6 %g %d 7 0" % (
-                _ch,
-                _ch,
-                self._axis_low_limit[axis],
-                _ch,
-                self._axis_high_limit[axis],
-                _ch,
-            )
-
-        log_debug(self, "set_gate :  _cmd = %s" % _cmd)
-        self.send_no_ans(axis, _cmd)
+        raise NotImplementedError
 
     def _get_error(self):
         """
@@ -640,10 +612,38 @@ class PI_E51X(Controller):
 
         _txt = "     PI_E51X STATUS:\n"
 
-        # Reads pre-defined infos (1 line answers)
+        # Read pre-defined infos (1 line answers)
         for i in _infos:
             _txt = _txt + "        %s %s\n" % (i[0], self.send(axis, (i[1])))
 
+        if self.model == "E517":
+            # Communication parameters.
+            _txt = _txt + "    %s  \n%s\n" % (
+                "Communication parameters",
+                "\n".join(self.sock.write_readlines("IFC?\n", 6)),
+            )
+
+            # Firmware version
+            _txt = _txt + "    %s  \n%s\n" % (
+                "Firmware version",
+                "\n".join(self.sock.write_readlines("VER?\n", 3)),
+            )
+
+        if self.model == "E518":
+            # Communication parameters.
+            _txt = _txt + "    %s  \n%s\n" % (
+                "Communication parameters",
+                "\n".join(self.sock.write_readlines("IFC?\n", 5)),
+            )
+
+            # Firmware version
+            _txt = _txt + "    %s  \n%s\n" % (
+                "Firmware version",
+                "\n".join(self.sock.write_readlines("VER?\n", 5)),
+            )
+
+        # error ?
         (error_nb, err_str) = self._get_error()
         _txt += "        Last error code             %d= %s" % (error_nb, err_str)
+
         return _txt

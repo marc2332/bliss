@@ -1,6 +1,7 @@
 """Testing the BLISS bliss.common.plot API."""
 
 import pytest
+import numpy
 from bliss.common import plot
 
 
@@ -13,6 +14,26 @@ def test_empty_plot(flint_session):
     p = plot.plot(name="Some name")
     assert "flint_pid={}".format(pid) in repr(p)
     assert p.name == "Some name"
+
+
+def test_reuse_custom_plot__api_1_0(flint_session):
+    """Test reuse of custom plot from an ID"""
+    widget = plot.plot_curve(name="foo")
+    cos_data = numpy.cos(numpy.linspace(0, 2 * numpy.pi, 10))
+    widget.add_data({"cos": cos_data, "foo": cos_data})
+    widget2 = plot.plot_curve(name="foo", existing_id=widget.plot_id)
+    cos = widget2.get_data()["cos"]
+    numpy.testing.assert_allclose(cos, cos_data)
+
+
+def test_reuse_custom_plot__api_1_6(flint_session):
+    """Test reuse of custom plot from a name"""
+    widget = plot.plot_curve(name="foo", existing_id="myplot")
+    cos_data = numpy.cos(numpy.linspace(0, 2 * numpy.pi, 10))
+    widget.add_data({"cos": cos_data, "foo": cos_data})
+    widget2 = plot.plot_curve(name="foo", existing_id="myplot")
+    cos = widget2.get_data()["cos"]
+    numpy.testing.assert_allclose(cos, cos_data)
 
 
 def test_simple_plot(flint_session):

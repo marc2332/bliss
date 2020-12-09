@@ -9,6 +9,7 @@
 import logging
 import contextlib
 import time
+import math
 import inspect
 import itertools
 import linecache
@@ -512,6 +513,8 @@ def wa(**kwargs):
             axis_label += "[{0}]".format(axis_unit)
 
         header.append(axis_label)
+        if math.isnan(position) and math.isnan(dial_position):
+            position = dial_position = "*DIS*"
         pos.append(position)
         dial.append(dial_position)
 

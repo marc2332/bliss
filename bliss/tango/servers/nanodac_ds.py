@@ -10,7 +10,7 @@ import sys
 import tango
 
 from bliss.tango.servers import TgGevent
-from bliss.controllers.temperature.eurotherm import nanodac
+from bliss.controllers.regulation.temperature.eurotherm import nanodac
 
 
 class _CallableRead:

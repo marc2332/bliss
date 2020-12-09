@@ -117,7 +117,7 @@ def deal_with_job(req, args, kwargs):
 
 
 def read_from_queue(queue):
-    req, args, kwargs = queue.get()
+    req, args, kwargs = queue.get(None)
     gevent.spawn(deal_with_job, req, args, kwargs)
 
 

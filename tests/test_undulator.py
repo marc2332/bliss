@@ -31,7 +31,7 @@ def test_undulator_disabled(default_session, dummy_tango_server, capsys):
 
     wa_output = capsys.readouterr().out
 
-    assert "*DIS*" in wa_output
+    assert "nan" in wa_output
 
     wm(u23a)
 

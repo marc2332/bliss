@@ -7,25 +7,39 @@ During a BLISS session users may create data (other than scan data) that needs t
 
 The **bliss.common.plot** module offers several types of plot:
 
-### curve plot
+### Curve plot
 
 `class CurvePlot(BasePlot)`
 
-  * used for `ascan`, `a2scan`, etc.
   * plotting of one or several 1D data as curves
   * Optional x-axis data can be provided
   * the plot is created using `plot_curve`
 
-### scatter plot
+```python
+import numpy
+from bliss.common import plot as plot_mdl
+
+# Function
+t = numpy.linspace(0, 10 * numpy.pi, 100)
+y = numpy.sin(t)
+plot_mdl.plot_curve(data=y, name="My sin")
+
+# Parametric function
+t = numpy.linspace(-3, 3, 50)
+x = 16 * numpy.sin(t)**3
+y = 13 * numpy.cos(t) - 5 * numpy.cos(2*t) - 2 * numpy.cos(3*t) - numpy.cos(4*t)
+plot_mdl.plot_curve(data=y, x=x, name="My heart")
+```
+
+### Scatter plot
 
 `class ScatterPlot(BasePlot)`
 
-  * used for `amesh` scan etc.	
   * plotting one or several scattered data
   * each scatter is a group of three 1D data of same length
   * the plot is created using `plot_scatter`
 
-### image plot
+### Image plot
 
 `class ImagePlot(BasePlot)`
 
@@ -34,7 +48,7 @@ The **bliss.common.plot** module offers several types of plot:
   * the plot is created using `plot_image`
 
 
-### image + histogram plot
+### Image + histogram plot
 
 `class HistogramImagePlot(BasePlot)`
 
@@ -42,16 +56,7 @@ The **bliss.common.plot** module offers several types of plot:
   * two histograms along the X and Y dimensions are displayed
   * the plot is created using `plot_image_with_histogram`
 
-### curve list plot
-
-`CurveListPlot(BasePlot)`
-
-  * plot a single list of 1D data as curves
-  * a slider and an envelop view are provided
-  * the plot is created using `plot_curve_list`
-  * this widget is not integrated yet!
-
-### image stack plot
+### Image stack plot
 
 `class ImageStackPlot(BasePlot)`
 
@@ -69,12 +74,8 @@ All the above plot types provide the same interface. They take the data
 as an argument and return a plot. Here's an example on how to display a cosine wave in a curve plot.
 
 ```python
-from bliss.common.plot import *
-import numpy
-
 xx = numpy.linspace(0, 4*3.14, 50)
 yy = numpy.cos(xx)
-
 plot(yy, name="Plot 0")
 ```
 
@@ -152,11 +153,11 @@ p.clear_data()
 To sum up, here's how to achieve the same cosine chart of the previous section in a different way:
 
 ```python
-from bliss.common.plot import *
+from bliss.common import plot as plot_mdl
 import numpy
 
 # create plot object
-p = bliss.common.plot.CurvePlot()
+p = plot_mdl.plot_curve()
 
 # create data : x and y values
 xx = numpy.linspace(0, 4*3.14, 50)

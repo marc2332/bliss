@@ -17,16 +17,15 @@ from typing import NamedTuple
 from typing import Optional
 
 import sys
+import types
 import logging
+import importlib
 import itertools
 import functools
-import collections
 import numpy
-
-import gevent.event
+import marshal
 
 from silx.gui import qt
-from silx.gui import plot as silx_plot
 import bliss
 from bliss.flint.helper import plot_interaction, scan_info_helper
 from bliss.controllers.lima import roi as lima_roi
@@ -38,16 +37,9 @@ from bliss.flint.model import plot_state_model
 from bliss.flint.model import flint_model
 from bliss.common import event
 from bliss.flint import config
+from bliss.flint.widgets.custom_plot import CustomPlot
 
 _logger = logging.getLogger(__name__)
-
-
-class CustomPlot(NamedTuple):
-    """Store information to a plot created remotly and providing silx API."""
-
-    plot: qt.QWidget
-    tab: qt.QWidget
-    title: str
 
 
 class Request(NamedTuple):
@@ -108,10 +100,6 @@ class FlintApi:
         """Store the current requests"""
 
         self.__flintModel = flintModel
-        # FIXME: _custom_plots should be owned by flint model or window
-        self._custom_plots: Dict[object, CustomPlot] = {}
-        self.data_event = collections.defaultdict(dict)
-        self.data_dict = collections.defaultdict(dict)
 
         self.stdout = MultiplexStreamToCallback(sys.stdout)
         sys.stdout = self.stdout
@@ -156,14 +144,6 @@ class FlintApi:
     def get_session_name(self):
         model = self.__flintModel
         return model.blissSessionName()
-
-    def wait_data(self, master, plot_type, index):
-        ev = (
-            self.data_event[master]
-            .setdefault(plot_type, {})
-            .setdefault(index, gevent.event.Event())
-        )
-        ev.wait(timeout=3)
 
     def get_live_scan_data(self, channel_name):
         scan = self.__flintModel.currentScan()
@@ -314,9 +294,24 @@ class FlintApi:
         manager.waitFlintStarted()
 
     def run_method(self, plot_id, method, args, kwargs):
-        plot = self._get_plot_widget(plot_id, expect_silx_api=True)
-        method = getattr(plot, method)
+        plot = self._get_plot_widget(plot_id)
+        silxPlot = plot._silxPlot()
+        method = getattr(silxPlot, method)
         return method(*args, **kwargs)
+
+    def run_custom_method(self, plot_id, method_id, args, kwargs):
+        """Run a registered method from a custom plot.
+        """
+        plot = self._get_plot_widget(plot_id, live_plot=False)
+        return plot.runMethod(method_id, args, kwargs)
+
+    def register_custom_method(self, plot_id, method_id, serialized_method):
+        """Register a method to a custom plot.
+        """
+        plot = self._get_plot_widget(plot_id, live_plot=False)
+        code = marshal.loads(serialized_method)
+        method = types.FunctionType(code, globals(), "deserialized_function")
+        plot.registerMethod(method_id, method)
 
     def ping(self, msg=None, stderr=False):
         """Debug function to check writing on stdout/stderr remotely."""
@@ -332,7 +327,7 @@ class FlintApi:
     def test_count_displayed_items(self, plot_id):
         """Debug purpose function to count number of displayed items in a plot
         widget."""
-        widget = self._get_plot_widget(plot_id, expect_silx_api=False, custom_plot=True)
+        widget = self._get_plot_widget(plot_id)
         if widget is None:
             raise Exception("Widget %s not found" % plot_id)
         count = 0
@@ -344,7 +339,7 @@ class FlintApi:
 
     def test_displayed_channel_names(self, plot_id):
         """Debug purpose function to returns displayed channels from a live plot widget."""
-        widget = self._get_plot_widget(plot_id, expect_silx_api=False, custom_plot=True)
+        widget = self._get_plot_widget(plot_id, custom_plot=False)
         if widget is None:
             raise Exception("Widget %s not found" % plot_id)
         plot = widget.plotModel()
@@ -360,7 +355,7 @@ class FlintApi:
             qaction: The action which will be processed. It have to be a
                 children of the plot and referenced as it's object name.
         """
-        plot = self._get_plot_widget(plot_id, expect_silx_api=True)
+        plot = self._get_plot_widget(plot_id)
         action: qt.QAction = plot.findChild(qt.QAction, qaction)
         action.trigger()
 
@@ -380,10 +375,11 @@ class FlintApi:
             position: Expected position of the mouse
             relative_to_center: If try the position is relative to center
         """
-        plot = self._get_plot_widget(plot_id, expect_silx_api=True)
+        plot = self._get_plot_widget(plot_id)
+        silxPlot = plot._silxPlot()
         from silx.gui.utils.testutils import QTest
 
-        widget = plot.getWidgetHandle()
+        widget = silxPlot.getWidgetHandle()
         assert relative_to_center is True
         rect = qt.QRect(qt.QPoint(0, 0), widget.size())
         base = rect.center()
@@ -413,63 +409,77 @@ class FlintApi:
             except ValueError:
                 return False
         else:
-            return plot_id in self._custom_plots
+            window = self.__flintModel.mainWindow()
+            custom_plot = window.customPlot(plot_id)
+            return custom_plot is not None
 
     def add_plot(
         self,
-        cls_name: str,
+        class_name: str,
         name: str = None,
         selected: bool = False,
         closeable: bool = True,
-    ):
+        unique_name: str = None,
+    ) -> str:
         """Create a new custom plot based on the `silx` API.
 
         The plot will be created in a new tab on Flint.
 
         Arguments:
-            cls_name: A class name defined by silx. Can be one of "PlotWidget",
-                "PlotWindow", "Plot1D", "Plot2D", "ImageView", "StackView",
-                "ScatterView".
+            class_name: A class to display a plot. Can be one of:
+                "silx.gui.plot.Plot1D", "silx.gui.plot.Plot2D",
+                "silx.gui.plot.ImageView", "silx.gui.plot.StackView",
+                "silx.gui.plot.ScatterView".
             name: Name of the plot as displayed in the tab header. It is not a
                 unique name.
             selected: If true (not the default) the plot became the current
                 displayed plot.
             closeable: If true (default), the tab can be closed manually
+            unique_name: Unique name for this new plot
 
         Returns:
             A plot_id
         """
-        plot_id = self.create_new_id()
+        if unique_name is None:
+            unique_name = "custom_plot:%d" % self.create_new_id()
         if not name:
-            name = "Plot %d" % plot_id
-        new_tab_widget = self.__flintModel.mainWindow().createTab(
-            name, selected=selected, closeable=closeable
+            name = "%s" % unique_name
+
+        def get_class(class_name):
+            try:
+                module_name, class_name = class_name.rsplit(".", 1)
+                module = importlib.import_module(module_name)
+                class_obj = getattr(module, class_name)
+                return class_obj
+            except Exception:
+                _logger.debug(
+                    "Error while reaching class name '%s'", class_name, exc_info=True
+                )
+                raise ValueError("Unknown class name %s" % class_name)
+
+        class_obj = get_class(class_name)
+        window = self.__flintModel.mainWindow()
+        plot = class_obj(parent=window)
+        window.createCustomPlot(
+            plot, name, unique_name, selected=selected, closeable=closeable
         )
-        # FIXME: Hack to know how to close the widget
-        new_tab_widget._plot_id = plot_id
-        qt.QVBoxLayout(new_tab_widget)
-        cls = getattr(silx_plot, cls_name)
-        plot = cls(new_tab_widget)
-        self._custom_plots[plot_id] = CustomPlot(plot, new_tab_widget, name)
-        new_tab_widget.layout().addWidget(plot)
-        plot.show()
-        return plot_id
+        return unique_name
 
     def get_plot_name(self, plot_id):
-        if isinstance(plot_id, str) and plot_id.startswith("live:"):
-            widget = self._get_live_plot_widget(plot_id)
+        widget = self._get_plot_widget(plot_id)
+        if isinstance(widget, CustomPlot):
+            return widget.name()
+        else:
             return widget.windowTitle()
-        return self._custom_plots[plot_id].title
 
     def remove_plot(self, plot_id):
-        custom_plot = self._custom_plots.pop(plot_id)
         window = self.__flintModel.mainWindow()
-        window.removeTab(custom_plot.tab)
-        custom_plot.plot.close()
+        return window.removeCustomPlot(plot_id)
 
     def get_interface(self, plot_id):
         plot = self._get_plot_widget(plot_id)
-        names = dir(plot)
+        silxPlot = plot._silxPlot()
+        names = dir(silxPlot)
         # Deprecated attrs
         removes = ["DEFAULT_BACKEND"]
         for r in removes:
@@ -498,7 +508,7 @@ class FlintApi:
                 finite, the marker is removed (or not created)
             text: A text label  for the marker
         """
-        plot = self._get_plot_widget(plot_id, expect_silx_api=False)
+        plot = self._get_plot_widget(plot_id, custom_plot=False)
         model = plot.plotModel()
         if model is None:
             raise Exception("No model linked to this plot")
@@ -538,7 +548,7 @@ class FlintApi:
                 it is removed from the plot
         """
         ydata = _aswritablearray(ydata)
-        plot = self._get_plot_widget(plot_id, expect_silx_api=False)
+        plot = self._get_plot_widget(plot_id, custom_plot=False)
         model = plot.plotModel()
         if model is None:
             raise Exception("No model linked to this plot")
@@ -602,39 +612,6 @@ class FlintApi:
                 else:
                     # Nothing to do
                     pass
-
-    def update_data(self, plot_id, field, data):
-        self.data_dict[plot_id][field] = data
-
-    def remove_data(self, plot_id, field):
-        del self.data_dict[plot_id][field]
-
-    def get_data(self, plot_id, field=None):
-        if field is None:
-            return self.data_dict[plot_id]
-        else:
-            return self.data_dict[plot_id].get(field, [])
-
-    def select_data(self, plot_id, method, names, kwargs):
-        plot = self._get_plot_widget(plot_id)
-        # Hackish legend handling
-        if "legend" not in kwargs and method.startswith("add"):
-            kwargs["legend"] = " -> ".join(names)
-        # Get the data to plot
-        args = tuple(self.data_dict[plot_id][name] for name in names)
-        method = getattr(plot, method)
-        # Plot
-        method(*args, **kwargs)
-
-    def deselect_data(self, plot_id, names):
-        plot = self._get_plot_widget(plot_id)
-        legend = " -> ".join(names)
-        plot.remove(legend)
-
-    def clear_data(self, plot_id):
-        self.data_dict[plot_id].clear()
-        plot = self._get_plot_widget(plot_id)
-        plot.clear()
 
     def start_image_monitoring(self, channel_name, tango_address):
         """Start monitoring of an image from a Tango detector.
@@ -706,33 +683,26 @@ class FlintApi:
         widget = widgets[iwidget]
         return widget
 
-    def _get_widget(self, plot_id):
-        # FIXME: Refactor it, it starts to be ugly
-        if isinstance(plot_id, str) and plot_id.startswith("live:"):
-            widget = self._get_live_plot_widget(plot_id)
-            return widget
-        return self._custom_plots[plot_id].tab
+    def _get_plot_widget(self, plot_id: str, live_plot=None, custom_plot=None):
+        """Get a plot widget (widget while hold a plot) from this `plot_id`
 
-    def _get_plot_widget(self, plot_id, expect_silx_api=True, custom_plot=False):
-        # FIXME: Refactor it, it starts to be ugly
-        if isinstance(plot_id, str) and plot_id.startswith("live:"):
-            widget = self._get_live_plot_widget(plot_id)
-            if not expect_silx_api:
+        Arguments:
+            plot_id: Id of a plot
+            live_plot: If this filter is set, a live plot is returned only if
+                       it's set to True
+            custom_plot: If this filter is set, a custom plot is returned only
+                         if it's set to True
+        """
+        if live_plot in [None, True]:
+            if isinstance(plot_id, str) and plot_id.startswith("live:"):
+                widget = self._get_live_plot_widget(plot_id)
                 return widget
-            if not hasattr(widget, "_silxPlot"):
-                raise ValueError(
-                    f"The widget associated to '{plot_id}' do not provide a silx API"
-                )
-            return widget._silxPlot()
-
-        if not expect_silx_api:
-            raise ValueError(
-                f"The widget associated to '{plot_id}' only provides a silx API"
-            )
-
-        if custom_plot:
-            return self._custom_plots[plot_id]
-        return self._custom_plots[plot_id].plot
+        if custom_plot in [None, True]:
+            window = self.__flintModel.mainWindow()
+            customPlot = window.customPlot(plot_id)
+            if customPlot is not None:
+                return customPlot
+        return None
 
     # API to custom default live plots
 
@@ -743,7 +713,7 @@ class FlintApi:
         - If a channel was hidden, it become visible
         - If a channel is in the plot but not part of this list, it is removed
         """
-        widget = self._get_plot_widget(plot_id, expect_silx_api=False, custom_plot=True)
+        widget = self._get_plot_widget(plot_id)
         if widget is None:
             raise ValueError("Widget %s not found" % plot_id)
 
@@ -786,8 +756,9 @@ class FlintApi:
             reach the result. The event result is list of shapes describing the
             selection.
         """
-        plot = self._get_plot_widget(plot_id, expect_silx_api=True)
-        selector = plot_interaction.ShapesSelector(plot)
+        plot = self._get_plot_widget(plot_id)
+        silxPlot = plot._silxPlot()
+        selector = plot_interaction.ShapesSelector(silxPlot)
         if isinstance(kinds, str):
             kinds = [kinds]
         selector.setKinds(kinds)
@@ -811,8 +782,9 @@ class FlintApi:
             is defined by a tuple of 2 floats (x, y). If nothing is selected an
             empty sequence is returned.
         """
-        plot = self._get_plot_widget(plot_id, expect_silx_api=True)
-        selector = plot_interaction.PointsSelector(plot)
+        plot = self._get_plot_widget(plot_id)
+        silxPlot = plot._silxPlot()
+        selector = plot_interaction.PointsSelector(silxPlot)
         selector.setNbPoints(nb)
         return self.__request_selector(plot_id, selector)
 
@@ -833,8 +805,9 @@ class FlintApi:
             A point is defined by a tuple of 2 floats (x, y). If nothing is
             selected an empty sequence is returned.
         """
-        plot = self._get_plot_widget(plot_id, expect_silx_api=True)
-        selector = plot_interaction.ShapeSelector(plot)
+        plot = self._get_plot_widget(plot_id)
+        silxPlot = plot._silxPlot()
+        selector = plot_interaction.ShapeSelector(silxPlot)
         selector.setShapeSelection(shape)
         return self.__request_selector(plot_id, selector)
 
@@ -857,8 +830,9 @@ class FlintApi:
 
             The event is a numpy.array describing the selection
         """
-        plot = self._get_plot_widget(plot_id, expect_silx_api=True)
-        selector = plot_interaction.MaskImageSelector(plot)
+        plot = self._get_plot_widget(plot_id)
+        silxPlot = plot._silxPlot()
+        selector = plot_interaction.MaskImageSelector(silxPlot)
         initial_mask = _aswritablearray(initial_mask)
         if initial_mask is not None:
             selector.setInitialMask(initial_mask, copy=False)
@@ -866,18 +840,16 @@ class FlintApi:
         return self.__request_selector(plot_id, selector)
 
     def __request_selector(self, plot_id, selector: plot_interaction.Selector) -> str:
-        custom_plot = self._get_plot_widget(plot_id, custom_plot=True)
+        plot = self._get_plot_widget(plot_id)
 
         # Set the focus as an user input is requested
-        if isinstance(custom_plot, CustomPlot):
-            plot = custom_plot.plot
+        window = self.__flintModel.mainWindow()
+        if isinstance(plot, CustomPlot):
             # Set the focus as an user input is requested
-            window = self.__flintModel.mainWindow()
-            window.setFocusOnPlot(custom_plot.tab)
+            window.setFocusOnPlot(plot)
         else:
             window = self.__flintModel.mainWindow()
             window.setFocusOnLiveScan()
-            plot = custom_plot
 
         request_id = self.__create_request_id()
         request = Request(plot, request_id, selector)
@@ -932,18 +904,18 @@ class FlintApi:
 
     def set_plot_focus(self, plot_id):
         """Set the focus on a plot"""
-        widget = self._get_widget(plot_id)
+        widget = self._get_plot_widget(plot_id)
         if widget is None:
             raise ValueError("Widget %s not found" % plot_id)
         model = self.__flintModel
         window = model.mainWindow()
-        if isinstance(plot_id, str) and plot_id.startswith("live:"):
+        if isinstance(widget, CustomPlot):
+            window.setFocusOnPlot(widget)
+        else:
             window.setFocusOnLiveScan()
             widget.show()
             widget.raise_()
             widget.setFocus(qt.Qt.OtherFocusReason)
-        else:
-            window.setFocusOnPlot(widget)
 
     def set_plot_colormap(
         self,
@@ -959,7 +931,7 @@ class FlintApi:
         """
         Allows to setup the default colormap of a widget.
         """
-        widget = self._get_widget(plot_id)
+        widget = self._get_plot_widget(plot_id)
         if not hasattr(widget, "defaultColormap"):
             raise TypeError("Widget %s does not expose a colormap" % plot_id)
 
@@ -987,7 +959,7 @@ class FlintApi:
 
     def export_to_logbook(self, plot_id):
         """Export a plot to the logbook if available"""
-        widget = self._get_widget(plot_id)
+        widget = self._get_plot_widget(plot_id, custom_plot=False)
         if widget is None:
             raise ValueError("Widget %s not found" % plot_id)
         if not hasattr(widget, "logbookAction"):

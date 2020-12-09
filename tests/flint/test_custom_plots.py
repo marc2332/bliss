@@ -1,8 +1,53 @@
 """Testing custom plots provided by Flint."""
 
+import pytest
 import gevent
+import numpy
 from bliss.common import plot
 from bliss.controllers.lima import roi as lima_roi
+
+
+def test_empty_plot(flint_session):
+    flint = plot.get_flint()
+    p = flint.get_plot(plot_class="curve", name="foo-empty")
+    assert flint.is_plot_exists("foo-empty") is False
+    assert p is not None
+
+
+def test_remove_custom_plot(flint_session):
+    flint = plot.get_flint()
+    p = flint.get_plot(plot_class="curve", name="foo-rm")
+    flint.remove_plot(p.plot_id)
+    assert flint.is_plot_exists("foo-rm") is False
+
+
+def test_custom_plot_curveplot(flint_session):
+    flint = plot.get_flint()
+    p = flint.get_plot(plot_class="curve", name="foo-cp")
+
+    cos_data = numpy.cos(numpy.linspace(0, 2 * numpy.pi, 10))
+    sin_data = numpy.sin(numpy.linspace(0, 2 * numpy.pi, 10))
+
+    p.add_data({"cos": cos_data, "sin": sin_data})
+    p.select_data("sin", "cos")
+    p.select_data("sin", "cos", color="green", symbol="x")
+    p.deselect_data("sin", "cos")
+    p.remove_data("sin")
+
+    data = p.get_data("cos")
+    assert data == pytest.approx(cos_data)
+
+    p.clear_data()
+
+
+def test_reuse_custom_plot(flint_session):
+    flint = plot.get_flint()
+    p = flint.get_plot(plot_class="curve", unique_name="foo-reuse")
+    cos_data = numpy.cos(numpy.linspace(0, 2 * numpy.pi, 10))
+    p.add_data({"cos": cos_data})
+    p2 = flint.get_plot(plot_class="curve", unique_name="foo-reuse")
+    data = p2.get_data("cos")
+    assert data == pytest.approx(cos_data)
 
 
 def test_select_points(flint_session):

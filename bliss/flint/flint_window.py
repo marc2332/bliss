@@ -6,6 +6,10 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 """Module containing the description of the main window provided by Flint"""
 
+from __future__ import annotations
+from typing import Dict
+from typing import NamedTuple
+
 import logging
 import os
 
@@ -13,6 +17,7 @@ from silx.gui import qt
 
 from bliss.flint.widgets.log_widget import LogWidget
 from bliss.flint.widgets.live_window import LiveWindow
+from bliss.flint.widgets.custom_plot import CustomPlot
 from bliss.flint.widgets.state_indicator import StateIndicator
 from bliss.flint.model import flint_model
 
@@ -28,6 +33,7 @@ class FlintWindow(qt.QMainWindow):
 
         self.__flintState: flint_model.FlintState = None
         self.__stateIndicator: StateIndicator = None
+        self.__customPlots: Dict[object, CustomPlot] = {}
 
         central_widget = qt.QWidget(self)
 
@@ -58,12 +64,10 @@ class FlintWindow(qt.QMainWindow):
         return self.__tabs
 
     def __tabCloseRequested(self, tabIndex):
-        new_tab_widget = self.__tabs.widget(tabIndex)
-        # FIXME: CustomPlot should not be a flint_api concept
-        # FIXME: There should not be a link to flint_api
-        plot_id = new_tab_widget._plot_id
-        flintApi = self.__flintState.flintApi()
-        flintApi.remove_plot(plot_id)
+        widget = self.__tabs.widget(tabIndex)
+        if isinstance(widget, CustomPlot):
+            plotId = widget.plotId()
+            self.removeCustomPlot(plotId)
 
     def __initLogWindow(self):
         logWindow = qt.QDialog(self)
@@ -293,3 +297,24 @@ class FlintWindow(qt.QMainWindow):
         settings.setValue("size", self.__logWindow.size())
         settings.setValue("pos", self.__logWindow.pos())
         settings.endGroup()
+
+    def createCustomPlot(self, plotWidget, name, plot_id, selected, closeable):
+        """Create a custom plot"""
+        customPlot = self.createTab(
+            name, widgetClass=CustomPlot, selected=selected, closeable=closeable
+        )
+        customPlot.setPlotId(plot_id)
+        customPlot.setName(name)
+        customPlot.setPlot(plotWidget)
+        self.__customPlots[plot_id] = customPlot
+        plotWidget.show()
+
+    def removeCustomPlot(self, plot_id):
+        """Remove a custom plot by its id"""
+        customPlot = self.__customPlots.pop(plot_id)
+        self.removeTab(customPlot)
+
+    def customPlot(self, plot_id) -> CustomPlot:
+        """If the plot does not exist, returns None"""
+        plot = self.__customPlots.get(plot_id)
+        return plot

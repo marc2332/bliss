@@ -14,6 +14,8 @@ from typing import Optional
 
 import numpy
 import gevent
+import marshal
+import inspect
 
 from . import proxy
 from bliss.common import event
@@ -23,6 +25,9 @@ class BasePlot(object):
 
     # Name of the corresponding silx widget
     WIDGET = NotImplemented
+
+    # Available name to identify this plot
+    ALIASES = []
 
     # Name of the method to add data to the plot
     METHOD = NotImplemented
@@ -36,14 +41,66 @@ class BasePlot(object):
     # Data input number for a single representation
     DATA_INPUT_NUMBER = NotImplemented
 
-    def __init__(self, flint, plot_id):
+    def __init__(self, flint, plot_id, register=False):
         """Describe a custom plot handled by Flint.
         """
         self._plot_id = plot_id
         self._flint = flint
         self._xlabel = None
         self._ylabel = None
+        self._init()
         if flint is not None:
+            self._register(flint, plot_id, register)
+
+    def _init(self):
+        """Allow to initialize extra attributes in a derived class, without
+        redefining the constructor"""
+        pass
+
+    class RemotePlot:
+        """This class is serialized method by method and executed inside the Flint context"""
+
+        def select_data(self, method, *names, **kwargs):
+            if "legend" not in kwargs and method.startswith("add"):
+                kwargs["legend"] = " -> ".join(names)
+            # Get the data to plot
+            data_dict = self.data()
+            widget = self.widget()
+            args = tuple(data_dict[name] for name in names)
+            widget_method = getattr(widget, method)
+            # Plot
+            widget_method(*args, **kwargs)
+
+        def update_data(self, field, data):
+            data_dict = self.data()
+            data_dict[field] = data
+
+        def remove_data(self, field):
+            data_dict = self.data()
+            data_dict[field]
+
+        def get_data(self, field=None):
+            data_dict = self.data()
+            if field is None:
+                return data_dict
+            else:
+                return data_dict.get(field, [])
+
+        def deselect_data(self, *names):
+            widget = self.widget()
+            legend = " -> ".join(names)
+            widget.remove(legend)
+
+        def clear_data(self):
+            data_dict = self.data()
+            widget = self.widget()
+            data_dict.clear()
+            widget.clear()
+
+    def _register(self, flint, plot_id, register):
+        """Register everything needed remotly"""
+        self.__remote = self._remotifyClass(self.RemotePlot, register=register)
+        if register:
             self._init_plot()
 
     def _init_plot(self):
@@ -116,7 +173,7 @@ class BasePlot(object):
                     self.DATA_DIMENSIONS, data.ndim
                 )
             )
-        return self._flint.update_data(self._plot_id, field, data)
+        return self.__remote.update_data(field, data)
 
     def add_data(self, data, field="default"):
         # Get fields
@@ -137,19 +194,19 @@ class BasePlot(object):
         return data_dict
 
     def remove_data(self, field):
-        return self._flint.remove_data(self._plot_id, field)
+        self.__remote.remove_data(field)
 
     def select_data(self, *names, **kwargs):
-        return self._flint.select_data(self._plot_id, self.METHOD, names, kwargs)
+        self.__remote.select_data(self.METHOD, *names, **kwargs)
 
     def deselect_data(self, *names):
-        return self._flint.deselect_data(self._plot_id, names)
+        self.__remote.deselect_data(*names)
 
     def clear_data(self):
-        return self._flint.clear_data(self._plot_id)
+        self.__remote.clear_data()
 
-    def get_data(self):
-        return self._flint.get_data(self._plot_id)
+    def get_data(self, field=None):
+        return self.__remote.get_data(field=field)
 
     # Plotting
 
@@ -242,6 +299,33 @@ class BasePlot(object):
         request_id = flint.request_select_shape(self._plot_id, shape)
         return self._wait_for_user_selection(request_id)
 
+    def _remotifyClass(self, remoteClass, register=True):
+        class RemoteProxy:
+            pass
+
+        proxy = RemoteProxy()
+        methods = inspect.getmembers(remoteClass, predicate=inspect.isfunction)
+        for name, func in methods:
+            handle = self._remotifyFunc(func, register=register)
+            setattr(proxy, name, handle)
+
+        return proxy
+
+    def _remotifyFunc(self, func, register=True):
+        """Make a function callable remotely"""
+        method_id = func.__qualname__
+        plot_id = self._plot_id
+        if register:
+            if func.__closure__:
+                raise TypeError("Only function without closure are supported.")
+            serialized_func = marshal.dumps(func.__code__)
+            self._flint.register_custom_method(plot_id, method_id, serialized_func)
+
+        def handler(*args, **kwargs):
+            return self._flint.run_custom_method(plot_id, method_id, args, kwargs)
+
+        return handler
+
     def _set_colormap(
         self,
         lut: Optional[str] = None,
@@ -286,10 +370,13 @@ class BasePlot(object):
 # Plot classes
 
 
-class CurvePlot(BasePlot):
+class Plot1D(BasePlot):
 
     # Name of the corresponding silx widget
-    WIDGET = "Plot1D"
+    WIDGET = "silx.gui.plot.Plot1D"
+
+    # Available name to identify this plot
+    ALIASES = ["curve", "plot1d"]
 
     # Name of the method to add data to the plot
     METHOD = "addCurve"
@@ -381,10 +468,13 @@ class CurvePlot(BasePlot):
         flint.run_method(self._plot_id, "setYAxisLogarithmic", [value == "log"], {})
 
 
-class ScatterPlot(BasePlot):
+class ScatterView(BasePlot):
 
     # Name of the corresponding silx widget
-    WIDGET = "Plot1D"
+    WIDGET = "silx.gui.plot.ScatterView"
+
+    # Available name to identify this plot
+    ALIASES = ["scatter"]
 
     # Name of the method to add data to the plot
     METHOD = "addScatter"
@@ -398,38 +488,18 @@ class ScatterPlot(BasePlot):
     # Data input number for a single representation
     DATA_INPUT_NUMBER = 3
 
-    def __init__(self, flint, plot_id):
-        BasePlot.__init__(self, flint, plot_id)
+    def _init(self):
         # Make it public
         self.set_colormap = self._set_colormap
 
 
-class McaPlot(CurvePlot):
-    pass
-
-
-class CurveListPlot(BasePlot):
+class Plot2D(BasePlot):
 
     # Name of the corresponding silx widget
-    WIDGET = "CurvesView"
+    WIDGET = "silx.gui.plot.Plot2D"
 
-    # Name of the method to add data to the plot
-    METHOD = None
-
-    # The dimension of the data to plot
-    DATA_DIMENSIONS = (2,)
-
-    # Single / Multiple data handling
-    MULTIPLE = False
-
-    # Data input number for a single representation
-    DATA_INPUT_NUMBER = 1
-
-
-class ImagePlot(BasePlot):
-
-    # Name of the corresponding silx widget
-    WIDGET = "Plot2D"
+    # Available name to identify this plot
+    ALIASES = ["image", "plot2d"]
 
     # Name of the method to add data to the plot
     METHOD = "addImage"
@@ -443,8 +513,7 @@ class ImagePlot(BasePlot):
     # Data input number for a single representation
     DATA_INPUT_NUMBER = 1
 
-    def __init__(self, flint, plot_id):
-        BasePlot.__init__(self, flint, plot_id)
+    def _init(self):
         # Make it public
         self.set_colormap = self._set_colormap
 
@@ -466,10 +535,13 @@ class ImagePlot(BasePlot):
         return self._wait_for_user_selection(request_id)
 
 
-class HistogramImagePlot(BasePlot):
+class ImageView(BasePlot):
 
     # Name of the corresponding silx widget
-    WIDGET = "ImageView"
+    WIDGET = "silx.gui.plot.ImageView"
+
+    # Available name to identify this plot
+    ALIASES = ["imageview", "histogramimage"]
 
     # Name of the method to add data to the plot
     METHOD = "setImage"
@@ -484,10 +556,13 @@ class HistogramImagePlot(BasePlot):
     DATA_INPUT_NUMBER = 1
 
 
-class ImageStackPlot(BasePlot):
+class StackView(BasePlot):
 
     # Name of the corresponding silx widget
-    WIDGET = "StackView"
+    WIDGET = "silx.gui.plot.StackView"
+
+    # Available name to identify this plot
+    ALIASES = ["stack", "imagestack"]
 
     # Name of the method to add data to the plot
     METHOD = "setStack"
@@ -500,3 +575,43 @@ class ImageStackPlot(BasePlot):
 
     # Data input number for a single representation
     DATA_INPUT_NUMBER = 1
+
+
+class LiveCurvePlot(Plot1D):
+
+    WIDGET = None
+
+    ALIASES = ["curve"]
+
+
+class LiveImagePlot(Plot2D):
+
+    WIDGET = None
+
+    ALIASES = ["image"]
+
+
+class LiveScatterPlot(Plot1D):
+
+    WIDGET = None
+
+    ALIASES = ["scatter"]
+
+
+class LiveMcaPlot(Plot1D):
+
+    WIDGET = None
+
+    ALIASES = ["mca"]
+
+
+CUSTOM_CLASSES = [Plot1D, Plot2D, ScatterView, ImageView, StackView]
+
+LIVE_CLASSES = [LiveCurvePlot, LiveImagePlot, LiveScatterPlot, LiveMcaPlot]
+
+# For compatibility
+CurvePlot = Plot1D
+ImagePlot = Plot2D
+ScatterPlot = ScatterView
+HistogramImagePlot = ImageView
+ImageStackPlot = StackView

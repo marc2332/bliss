@@ -59,11 +59,9 @@ class FlintClient:
         self._greenlets = None
         self._callbacks = None
 
-        self._plot_mapping = {}
-        """Store mapping from name to int id.
-        This should be part of flint_api at one point.
-        """
+        self._init(process)
 
+    def _init(self, process):
         if process is None:
             self.__start_flint()
         else:
@@ -414,10 +412,10 @@ class FlintClient:
         """
         if kind is not None:
             if kind == "default-curve":
-                plot_class = plots.CurvePlot
+                plot_class = plots.LiveCurvePlot
                 plot_type = "curve"
             elif kind == "default-scatter":
-                plot_class = plots.ScatterPlot
+                plot_class = plots.LiveScatterPlot
                 plot_type = "scatter"
             else:
                 raise ValueError(f"Unexpected plot kind '{kind}'.")
@@ -429,12 +427,12 @@ class FlintClient:
             return plot_class(plot_id=plot_id, flint=self)
 
         elif image_detector is not None:
-            plot_class = plots.ImagePlot
+            plot_class = plots.LiveImagePlot
             plot_id = self.get_live_plot_detector(image_detector, plot_type="image")
             return plot_class(plot_id=plot_id, flint=self)
 
         elif mca_detector is not None:
-            plot_class = plots.McaPlot
+            plot_class = plots.LiveMcaPlot
             plot_id = self.get_live_plot_detector(mca_detector, plot_type="mca")
             return plot_class(plot_id=plot_id, flint=self)
 
@@ -443,7 +441,7 @@ class FlintClient:
     def get_plot(
         self,
         plot_class: typing.Union[str, object],
-        name: str,
+        name: str = None,
         unique_name: str = None,
         selected: bool = False,
         closeable: bool = True,
@@ -454,9 +452,8 @@ class FlintClient:
 
         Arguments:
             plot_class: A class defined in `bliss.flint.client.plot`, or a
-                silx class name. Can be one of "PlotWidget",
-                "PlotWindow", "Plot1D", "Plot2D", "ImageView", "StackView",
-                "ScatterView".
+                silx class name. Can be one of "Plot1D", "Plot2D", "ImageView",
+                "StackView", "ScatterView".
             name: Name of the plot as displayed in the tab header. It is not a
                 unique name.
             unique_name: If defined the plot can be retrieved from flint.
@@ -464,24 +461,21 @@ class FlintClient:
                 displayed plot.
             closeable: If true (default), the tab can be closed manually
         """
-        silx_class_name, plot_class = self.__get_plot_info(plot_class)
-
-        # FIXME: Hack for now, i would prefer to provide a get_live_plot for that
-        if isinstance(unique_name, str) and unique_name.startswith("live:"):
-            return plot_class(flint=self, plot_id=unique_name)
+        plot_class = self.__normalize_plot_class(plot_class)
 
         if unique_name is not None:
-            flint_plot_id = self._plot_mapping.get(unique_name, None)
-            if flint_plot_id is not None:
-                if self.is_plot_exists(flint_plot_id):
-                    return plot_class(flint=self, plot_id=flint_plot_id)
+            if self.is_plot_exists(unique_name):
+                return plot_class(flint=self, plot_id=unique_name)
 
+        silx_class_name = plot_class.WIDGET
         plot_id = self._proxy.add_plot(
-            silx_class_name, name=name, selected=selected, closeable=closeable
+            silx_class_name,
+            name=name,
+            selected=selected,
+            closeable=closeable,
+            unique_name=unique_name,
         )
-        if unique_name is not None:
-            self._plot_mapping[unique_name] = plot_id
-        return plot_class(plot_id=plot_id, flint=self)
+        return plot_class(plot_id=plot_id, flint=self, register=True)
 
     def add_plot(
         self,
@@ -505,30 +499,28 @@ class FlintClient:
                 displayed plot.
             closeable: If true (default), the tab can be closed manually
         """
-        silx_class_name, plot_class = self.__get_plot_info(plot_class)
+        plot_class = self.__normalize_plot_class(plot_class)
+        silx_class_name = plot_class.WIDGET
         plot_id = self._proxy.add_plot(
             silx_class_name, name=name, selected=selected, closeable=closeable
         )
-        return plot_class(plot_id=plot_id, flint=self)
+        return plot_class(plot_id=plot_id, flint=self, register=True)
 
-    def __get_plot_info(self, plot_class):
+    def __normalize_plot_class(self, plot_class: typing.Union[str, object]):
+        """Returns a BLISS side plot class.
+
+        Arguments:
+            plot_class: A BLISS side plot class, or one of its alias
+        """
         if isinstance(plot_class, str):
-            classes = [
-                plots.CurvePlot,
-                plots.CurveListPlot,
-                plots.HistogramImagePlot,
-                plots.ImagePlot,
-                plots.ImageStackPlot,
-                plots.ScatterPlot,
-            ]
             plot_class = plot_class.lower()
-            for cls in classes:
-                if cls.WIDGET.lower() == plot_class:
+            for cls in plots.CUSTOM_CLASSES:
+                if plot_class in cls.ALIASES:
                     plot_class = cls
                     break
             else:
                 raise ValueError(f"Name '{plot_class}' does not refer to a plot class")
-        return plot_class.WIDGET, plot_class
+        return plot_class
 
 
 def _get_beacon_config():

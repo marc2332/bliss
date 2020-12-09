@@ -74,7 +74,7 @@ class ConnectionException(Exception):
         Exception.__init__(self, *args, **kwargs)
 
 
-RedisProxyId = namedtuple("RedisProxyId", ["name", "db", "type"])
+RedisProxyId = namedtuple("RedisProxyId", ["db", "type"])
 
 
 class Connection:
@@ -201,16 +201,16 @@ class Connection:
         # (these proxies don't hold a `redis.Redis.Connection` instance)
         self._reusable_redis_proxies = {}  # {RedisProxyId: SafeRedisDbProxy}
 
-        # Keep weak references to all non-reusable Redis connections
-        # (these proxies don't hold a `redis.Redis.Connection` instance)
-        self._non_reusable_redis_proxies = (
-            weakref.WeakSet()
-        )  # set(FixedConnectionRedisDbProxy)
-
-        # Keep weak references to all Redis connection pools:
+        # Keep weak references to all reusable Redis connection pools:
         self._redis_connection_pools = (
             weakref.WeakValueDictionary()
         )  # {RedisProxyId: RedisDbConnectionPool}
+
+        # Keep weak references to all cached Redis proxies which are not
+        # reused (although they could be but their cache with kep growing)
+        self._non_reusable_redis_proxies = (
+            weakref.WeakValueDictionary()
+        )  # {id: RedisDbProxy}
 
         # Hard references to the connection pools are held by the
         # Redis proxies themselves. Connections of RedisDbConnectionPool
@@ -421,54 +421,45 @@ class Connection:
 
     def _get_redis_conn_pool(self, proxyid: RedisProxyId):
         """Get a Redis connection pool (create when it does not exist yet)
-        for the pool name and db.
+        for the db.
 
         :param RedisProxyId proxyid:
         :returns RedisDbConnectionPool:
         """
         pool = self._redis_connection_pools.get(proxyid)
         if pool is None:
-            address = self.get_redis_connection_address()
-            if proxyid.db == 1:
-                try:
-                    address = self.get_redis_data_server_connection_address()
-                except RuntimeError:  # Service not running on beacon server
-                    pass
-
-            host, port = address
-            if host == "localhost":
-                redis_url = f"unix://{port}"
-            else:
-                redis_url = f"redis://{host}:{port}"
-            pool = redis_connection.create_connection_pool(
-                redis_url, proxyid.db, client_name=self.CLIENT_NAME
-            )
+            pool = self._create_redis_conn_pool(proxyid)
             self._redis_connection_pools[proxyid] = pool
         return pool
 
-    def get_redis_connection(self, single_connection_client=False, **kw):
-        if single_connection_client:
-            warnings.warn("Use 'get_redis_proxy' instead", FutureWarning)
-            return self.get_redis_proxy(**kw)
+    def _create_redis_conn_pool(self, proxyid: RedisProxyId):
+        """
+        :param RedisProxyId proxyid:
+        :returns RedisDbConnectionPool:
+        """
+        address = self.get_redis_connection_address()
+        if proxyid.db == 1:
+            try:
+                address = self.get_redis_data_server_connection_address()
+            except RuntimeError:  # Service not running on beacon server
+                pass
+
+        host, port = address
+        if host == "localhost":
+            redis_url = f"unix://{port}"
         else:
-            warnings.warn(
-                "Use 'get_fixed_connection_redis_proxy' instead", FutureWarning
-            )
-            return self.get_fixed_connection_redis_proxy(**kw)
+            redis_url = f"redis://{host}:{port}"
+        return redis_connection.create_connection_pool(
+            redis_url,
+            proxyid.db,
+            caching=proxyid.type == "caching",
+            client_name=self.CLIENT_NAME,
+        )
 
-    def get_redis_proxy(self, db=0, pool_name="default"):
-        """Get a proxy to a Redis database. When a proxy already exists
-        for `pool_name` and `db`, return that one. The proxy is greenlet-safe
-        as it gets a new `redis.connection.Connection` from its pool every
-        time it executes a Redis command.
-
-        The proxy will be closed (return connection to pool) when the
-        instantiating greenlet is garbage collected.
-
-        :returns SafeRedisDbProxy:
+    def _get_reusable_redis_proxy(self, proxyid: RedisProxyId):
+        """Get a reusabed proxy and create it when it doesn't exist.
         """
         with self._get_redis_lock:
-            proxyid = RedisProxyId(name=pool_name, db=db, type="safe")
             proxy = self._reusable_redis_proxies.get(proxyid)
             if proxy is None:
                 pool = self._get_redis_conn_pool(proxyid)
@@ -476,30 +467,45 @@ class Connection:
                 self._reusable_redis_proxies[proxyid] = proxy
             return proxy
 
-    def get_fixed_connection_redis_proxy(self, db=0, pool_name="default"):
-        """Get a new proxy to a Redis database. The proxy is not greenlet-safe
-        as it holds a single redis `redis.connection.Connection` which is
-        used for all commands.
-
-        Warning: Pipelines created from such a proxy will create a new
-        `redis.connection.Connection`.
-
-        The proxy will be closed (return connection to pool) when the
-        instantiating greenlet is garbage collected.
-
-        :returns FixedConnectionRedisDbProxy:
+    def _get_non_reusable_redis_proxy(self, proxyid: RedisProxyId):
+        """Get a reusabed proxy and create it when it doesn't exist.
         """
         with self._get_redis_lock:
-            proxyid = RedisProxyId(name=pool_name, db=db, type="fixed")
-            pool = self._get_redis_conn_pool(proxyid)
-            proxy = pool.create_fixed_connection_proxy()
-            self._non_reusable_redis_proxies.add(proxy)
-            # A fixed connection cannot be shared between greenlets so
-            # close the proxy when the greenlet is destroyed:
-            weakref.finalize(
-                gevent.getcurrent(), self._close_fixed_connection_redis_proxy, id(proxy)
-            )
+            pool = self._create_redis_conn_pool(proxyid)
+            proxy = pool.create_proxy()
+            # We need something unique for this instance,
+            # proxyid is not unique
+            self._non_reusable_redis_proxies[id(proxy)] = proxy
             return proxy
+
+    def get_redis_connection(self, **kw):
+        warnings.warn("Use 'get_redis_proxy' instead", FutureWarning)
+        return self.get_redis_proxy(**kw)
+
+    def get_redis_proxy(self, db=0):
+        """Get a proxy to a Redis database. When a proxy already exists
+        for the `db`, return that one. The proxy is greenlet-safe
+        as it gets a new `redis.connection.Connection` from its pool every
+        time it executes a Redis command.
+
+        :returns SafeRedisDbProxy:
+        """
+        proxyid = RedisProxyId(db=db, type="safe")
+        return self._get_reusable_redis_proxy(proxyid)
+
+    def get_caching_redis_proxy(self, db=0, shared_cache=True):
+        """This returns a proxy with Redis client side caching. When
+        `shared_cache=True` we will use an existing proxy so that all
+        proxies you get this way share the same cache.
+
+        :param bool shared_cache:
+        :returns CachingRedisDbProxy:
+        """
+        proxyid = RedisProxyId(db=db, type="caching")
+        if shared_cache:
+            return self._get_reusable_redis_proxy(proxyid)
+        else:
+            return self._get_non_reusable_redis_proxy(proxyid)
 
     def close_all_redis_connections(self):
         # To close `redis.connection.Connection` you need to call its
@@ -510,26 +516,16 @@ class Connection:
         # socket instances.
         #
         # Note: closing a proxy will not close any connections
-        proxies = list(self._non_reusable_redis_proxies)
+        proxies = list(self._non_reusable_redis_proxies.values())
         proxies += list(self._reusable_redis_proxies.values())
         self._reusable_redis_proxies = dict()
-        self._non_reusable_redis_proxies = weakref.WeakSet()
+        self._non_reusable_redis_proxies = weakref.WeakValueDictionary()
         for proxy in proxies:
             proxy.connection_pool.disconnect()
 
     def clean_all_redis_connection(self):
         warnings.warn("Use 'close_all_redis_connections' instead", FutureWarning)
         self.close_all_redis_connections()
-
-    def _close_fixed_connection_redis_proxy(self, proxyid):
-        """Return the `redis.connection.Connection` instance the reusable
-        proxy associated to this name and database, back to its connection
-        pool. This is also called upon the proxy's garbage collected.
-        """
-        for proxy in self._non_reusable_redis_proxies:
-            if id(proxy) == proxyid:
-                proxy.close()
-                break
 
     @check_connect
     def get_config_file(self, file_path, timeout=3.0):

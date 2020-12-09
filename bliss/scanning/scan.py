@@ -33,7 +33,7 @@ from bliss.common.utils import Null, update_node_info, round
 from bliss.common.profiling import SimpleTimeStatistics
 from bliss.common.profiling import simple_time_profile as time_profile
 from bliss.controllers.motor import Controller
-from bliss.config.settings_cache import CacheConnection
+from bliss.config.conductor.client import get_caching_redis_proxy
 from bliss.data.node import get_or_create_node, create_node
 from bliss.data.scan import get_data
 from bliss.scanning.chain import AcquisitionSlave, AcquisitionMaster, StopChain
@@ -562,7 +562,12 @@ class _ScanIterationsRunner:
 
 
 class Scan:
+    _NODE_TYPE = "scan"
     SCAN_NUMBER_LOCK = gevent.lock.Semaphore()
+
+    # When enabled, only the scan/channel node's info and struct are
+    # cached, not the channel data.
+    _REDIS_CACHING = True
 
     def __init__(
         self,
@@ -593,7 +598,7 @@ class Scan:
         self._scan_info = ScanInfo()
 
         self.root_node = None
-        self._cache_cnx = None
+        self._scan_connection = None
         self._shadow_scan_number = not save
         self._add_to_scans_queue = not (name == "ct" and self._shadow_scan_number)
 
@@ -734,53 +739,81 @@ class Scan:
 
     def _create_data_node(self, node_name):
         """Create the data node in Redis
-        
-        Important: has to be a method, since it can be overwritten in Scan subclasses (like Sequence)
         """
         self.__node = create_node(
             node_name,
-            node_type="scan",
+            node_type=self._NODE_TYPE,
             parent=self.root_node,
             info=self._scan_info,
-            connection=self._cache_cnx,
+            connection=self._scan_connection,
         )
-        self._cache_cnx.add_prefetch(self.__node)
+        if self._REDIS_CACHING:
+            self.__node.add_prefetch()
+
+    @property
+    def root_connection(self):
+        """Redis connection of the root node (parent of the scan).
+
+        :returns SafeRedisDbProxy:
+        """
+        return self.root_node.db_connection
+
+    @property
+    def scan_connection(self):
+        """Redis connection of the scan node and its children.
+
+        :returns SafeRedisDbProxy or CachingRedisDbProxy:
+        """
+        return self._scan_connection
+
+    def _disable_caching(self):
+        """After this, the `scan_connection` behaves like a normal
+        SafeRedisDbProxy without caching
+        """
+        if self._REDIS_CACHING and self.scan_connection is not None:
+            self.scan_connection.disable_caching()
 
     def _prepare_node(self):
-        if self.__node is None:
-            self.root_node = self.__scan_saving.get_parent_node()
-            self._cache_cnx = CacheConnection(self.root_node.db_connection)
+        if self.__node is not None:
+            return
+        # The root nodes will not have caching
+        self.root_node = self.__scan_saving.get_parent_node()
+        # The scan node and its children will have caching
+        if self._REDIS_CACHING:
+            self._scan_connection = get_caching_redis_proxy(db=1, shared_cache=False)
+        else:
+            self._scan_connection = self.root_node.db_connection
 
-            ### order is important in the next lines...
-            self.writer.template.update(
-                {
-                    "scan_name": self.name,
-                    "session": self.__scan_saving.session,
-                    "scan_number": "{scan_number}",
-                }
-            )
+        ### order is important in the next lines...
+        self.writer.template.update(
+            {
+                "scan_name": self.name,
+                "session": self.__scan_saving.session,
+                "scan_number": "{scan_number}",
+            }
+        )
 
-            self.__scan_number = self._next_scan_number()
+        self.__scan_number = self._next_scan_number()
 
-            self.writer.template["scan_number"] = self.scan_number
-            self._scan_info["scan_nb"] = self.__scan_number
+        self.writer.template["scan_number"] = self.scan_number
+        self._scan_info["scan_nb"] = self.__scan_number
 
-            # this has to be done when the writer is ready
-            self._prepare_scan_meta()
+        # this has to be done when the writer is ready
+        self._prepare_scan_meta()
 
-            start_timestamp = time.time()
-            start_time = datetime.datetime.fromtimestamp(start_timestamp)
-            self._scan_info["start_time"] = start_time
-            start_time_str = start_time.strftime("%a %b %d %H:%M:%S %Y")
-            self._scan_info["start_time_str"] = start_time_str
-            self._scan_info["start_timestamp"] = start_timestamp
+        start_timestamp = time.time()
+        start_time = datetime.datetime.fromtimestamp(start_timestamp)
+        self._scan_info["start_time"] = start_time
+        start_time_str = start_time.strftime("%a %b %d %H:%M:%S %Y")
+        self._scan_info["start_time_str"] = start_time_str
+        self._scan_info["start_timestamp"] = start_timestamp
 
-            node_name = str(self.__scan_number) + "_" + self.name
-            if self._shadow_scan_number:
-                node_name = "_" + node_name
-            self._create_data_node(node_name)
-            self._current_pipeline_stream = self.root_node.db_connection.pipeline()
-            self._pending_watch_callback = weakref.WeakKeyDictionary()
+        node_name = str(self.__scan_number) + "_" + self.name
+        if self._shadow_scan_number:
+            node_name = "_" + node_name
+        self._create_data_node(node_name)
+        self._current_pipeline_stream = self.root_connection.pipeline()
+        self._pending_watch_callback = weakref.WeakKeyDictionary()
 
     def _end_node(self):
         self._current_pipeline_stream = None
@@ -1119,7 +1152,7 @@ class Scan:
             else:
                 if not len(self._current_pipeline_stream):
                     break
-                new_pipeline = self.root_node.db_connection.pipeline()
+                new_pipeline = self.root_connection.pipeline()
                 pipeline = self._current_pipeline_stream
                 self._current_pipeline_stream = new_pipeline
 
@@ -1137,7 +1170,7 @@ class Scan:
                 )
 
                 self._stream_pipeline_task = task
-                self._current_pipeline_stream = self.root_node.db_connection.pipeline()
+                self._current_pipeline_stream = self.root_connection.pipeline()
             return self._stream_pipeline_task
 
     def set_ttl(self):
@@ -1170,11 +1203,12 @@ class Scan:
                 dtype=channel.dtype,
                 unit=channel.unit,
                 fullname=channel.fullname,
-                connection=self._cache_cnx,
+                connection=self.scan_connection,
             )
             channel.data_node = channel_node
             connect(channel, "new_data", self._channel_event)
-            self._cache_cnx.add_prefetch(channel_node)
+            if self._REDIS_CACHING:
+                channel_node.add_prefetch()
             self.nodes[channel] = channel_node
 
     def prepare(self, scan_info, devices_tree):
@@ -1195,9 +1229,10 @@ class Scan:
                 parent_node = self.nodes[dev_node.bpointer]
             if isinstance(dev, (AcquisitionSlave, AcquisitionMaster)):
                 data_container_node = create_node(
-                    dev.name, parent=parent_node, connection=self._cache_cnx
+                    dev.name, parent=parent_node, connection=self.scan_connection
                 )
-                self._cache_cnx.add_prefetch(data_container_node)
+                if self._REDIS_CACHING:
+                    data_container_node.add_prefetch()
                 self.nodes[dev] = data_container_node
                 self._prepare_channels(dev.channels, data_container_node)
 
@@ -1318,7 +1353,8 @@ class Scan:
                         self._end_node()
                         self._set_state(ScanState.KILLED)
                         # disable connection caching
-                        self._cache_cnx.disable_caching()
+                        if self._REDIS_CACHING:
+                            self._disable_caching()
                         return
                     self._data_watch_running = False
                     self._data_watch_task = gevent.spawn(
@@ -1491,7 +1527,7 @@ class Scan:
                         self.writer.close()
 
             # disable connection caching
-            self._cache_cnx.disable_caching()
+            self._disable_caching()
 
     def add_comment(self, comment):
         """

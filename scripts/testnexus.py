@@ -249,6 +249,7 @@ def prepare_saving(test_session, root=None):
     :param str root:
     :returns str: file name
     """
+    test_session.disable_esrf_data_policy()
     scan_saving = test_session.scan_saving
     scan_saving.writer = "nexus"
     scan_saving.data_filename = "stresstest_0"
@@ -480,12 +481,16 @@ if __name__ == "__main__":
 
     # Select stress test
     if args.type == "many":
+        timeout = 60
         test_func = stress_many_parallel
     elif args.type == "big":
+        timeout = None
         test_func = stress_bigdata
     elif args.type == "fast":
+        timeout = None
         test_func = stress_fastdata
     else:
+        timeout = None
         test_func = stress_fastdata
 
     # Prepare session
@@ -507,10 +512,11 @@ if __name__ == "__main__":
                 titles = []
                 n = 1
                 while len(titles) < args.nscans_per_file:
-                    if test_func(test_session, filename, titles):
-                        keeprunning = False
-                        break
-                    if args.niter and n == args.niter:
-                        keeprunning = False
-                        break
-                    n += 1
+                    with gevent.Timeout(timeout):
+                        if test_func(test_session, filename, titles):
+                            keeprunning = False
+                            break
+                        if args.niter and n == args.niter:
+                            keeprunning = False
+                            break
+                        n += 1

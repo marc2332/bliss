@@ -25,23 +25,23 @@ the pool (also called on garbage collection):
 
     pool.disconnect()
 
-If you need a proxy which holds a fixed connection during its lifetime:
+To create proxies with client-side Redis caching, you can use:
 
-   unsafe_proxy = pool.create_fixed_connection_proxy()
+    pool = create_connection_pool("redis://localhost:25002", db=1, caching=True)
+    proxy = pool.create_proxy()
 
-The connection is fetched from the pool during instantiation and will
-be returned when closing the proxy (also called on garbage collection)
-
-    unsafe_proxy.close()
-
-These fixed-connection proxies are not greenlet-safe.
+These proxies are also greenlet-safe. You will have one cache per pool.
 """
 
 
 import os
-import socket
 import gevent
+import weakref
+import socket
 import redis
+
+from bliss.config.conductor import redis_proxy
+from bliss.config.conductor import redis_caching
 
 
 class RedisDbConnectionPool(redis.ConnectionPool):
@@ -64,8 +64,7 @@ class RedisDbConnectionPool(redis.ConnectionPool):
     A `redis.connection.Connection` instance is not greenlet-safe but it
     can be reused in different greenlets.
 
-    Database proxies can be instantiated with `create_proxy` or
-    `create_fixed_connection_proxy`.
+    Redis database proxies can be instantiated with `create_proxy`.
     """
 
     CLIENT_NAME = f"{socket.gethostname()}:{os.getpid()}"
@@ -100,58 +99,71 @@ class RedisDbConnectionPool(redis.ConnectionPool):
     def create_proxy(self):
         """The pool itself does not keep a reference to this proxy
         """
-        return SafeRedisDbProxy(self)
+        return redis_proxy.SafeRedisDbProxy(self)
 
-    def create_fixed_connection_proxy(self):
+    def create_single_connection_proxy(self):
         """The pool itself does not keep a reference to this proxy
         """
-        return FixedConnectionRedisDbProxy(self)
+        return redis_proxy.SingleRedisConnectionProxy(self)
 
 
-def create_connection_pool(redis_url: str, db: int, **kw) -> RedisDbConnectionPool:
-    return RedisDbConnectionPool.from_url(redis_url, db=db, **kw)
-
-
-class RedisDbProxy(redis.Redis):
-    """A proxy to a particular Redis server and database as determined
-    by the connection pool.
-
-    The `close` method, called upon garbage collection, will return any
-    `redis.connection.Connection` instance this proxy may have back to
-    its connection pool. This does not close the connection.
-
-    The method `pipeline` returns a `redis.client.Pipeline` instance which
-    behaves like a proxy, except that all `execute_command` calls are buffered
-    until `execute` is called. It also works as a context manager: calls
-    `execute` on finalization.
-
-    The `redis.client.Pipeline` instance uses the same connection pool.
-    The `redis.client.Pipeline` instance is NOT greenlet-safe.
+class CachingRedisDbConnectionPool(RedisDbConnectionPool):
+    """Like `RedisDbConnectionPool` but it implements Redis client side
+    caching. Currently the caching is done on the proxy level. In the
+    future it needs to be done on the connection level and this calls
+    will use a custom connection class which handles the caching.
     """
 
-    def __init__(self, pool: RedisDbConnectionPool, **kw):
-        super().__init__(connection_pool=pool, **kw)
+    def __init__(self, *args, **kw):
+        super().__init__(*args, **kw)
+        self._enable_lock = gevent.lock.RLock()
+        self._caching_enabled = False
+        self.db_cache = redis_caching.RedisCache(weakref.proxy(self))
+        self.enable_caching()
+
+    def enable_caching(self, timeout=None):
+        self.disconnect()
+        self.db_cache.enable(timeout=timeout)
+        self._caching_enabled = True
+
+    def disable_caching(self, timeout=5):
+        """Behaves like `RedisDbConnectionPool` after calling this
+        """
+        self.db_cache.disable(timeout=timeout)
+        self._caching_enabled = False
+
+    def make_connection(self, *args, **kw):
+        """The new connection needs to send the tracking redirect command
+        upon connecting to Redis.
+        """
+        connection = super().make_connection(*args, **kw)
+        if self._caching_enabled:
+            connection.register_connect_callback(self.db_cache.track_connection)
+        return connection
+
+    def disconnect(self):
+        self.db_cache.disable(timeout=5)
+        super().disconnect()
+
+    def create_proxy(self):
+        return redis_proxy.CachingRedisDbProxy(self)
+
+    def create_single_connection_proxy(self):
+        raise NotImplementedError
+
+    def create_uncached_proxy(self):
+        return super().create_proxy()
+
+    def create_uncached_single_connection_proxy(self):
+        return super().create_single_connection_proxy()
 
 
-class SafeRedisDbProxy(RedisDbProxy):
-    """It gets a Connection from the pool every time it executes a command.
-    Therefore it is greenlet-safe: each concurrent command is executed using
-    a different connection.
+def create_connection_pool(
+    redis_url: str, db: int, caching=False, **kw
+) -> RedisDbConnectionPool:
+    """This is the starting point to create Redis connections.
     """
-
-    def __init__(self, pool: RedisDbConnectionPool):
-        super().__init__(pool, single_connection_client=False)
-
-
-class FixedConnectionRedisDbProxy(RedisDbProxy):
-    """It gets a connection from the pool during instantiation and holds that
-    connection until `close` is called (called upon garbage collection).
-    Since `redis.connection.Connection` is NOT greenlet-safe, neither is
-    `FixedConnectionRedisDbProxy`.
-
-    Warning: the `redis.client.Pipeline` instance gets a new connection
-    from the connection pool.
-    """
-
-    def __init__(self, pool: RedisDbConnectionPool):
-        super().__init__(pool, single_connection_client=True)
+    if caching:
+        return CachingRedisDbConnectionPool.from_url(redis_url, db=db, **kw)
+    else:
+        return RedisDbConnectionPool.from_url(redis_url, db=db, **kw)

@@ -31,7 +31,6 @@ from bliss.common.session import DefaultSession
 from bliss.common.utils import get_open_ports
 from bliss.common import logtools
 from bliss.config import static
-from bliss.config import settings_cache
 from bliss.config.conductor import client
 from bliss.config.conductor import connection
 from bliss.config.conductor.client import get_default_connection
@@ -394,7 +393,6 @@ def beacon(ports, disable_ttl):
     client._default_connection.close()
     # Ensure no connections are created due to garbage collection:
     client._default_connection = None
-    settings_cache.close_all_client_cache()
 
 
 @pytest.fixture

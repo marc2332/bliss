@@ -364,7 +364,7 @@ class MapWithAliases(Map):
             except TypeError:
                 disabled_state = False
             if disabled_state:
-                position = dial = float("nan")
+                position = dial = "*DIS*"
             else:
                 position = safe_get(axis, "position", on_error)
                 dial = safe_get(axis, "dial", on_error)

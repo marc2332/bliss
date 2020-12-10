@@ -13,12 +13,14 @@ from typing import NamedTuple
 import logging
 import os
 
+import silx
 from silx.gui import qt
 
 from bliss.flint.widgets.log_widget import LogWidget
 from bliss.flint.widgets.live_window import LiveWindow
 from bliss.flint.widgets.custom_plot import CustomPlot
 from bliss.flint.widgets.state_indicator import StateIndicator
+from bliss.flint.widgets.utils import app_actions
 from bliss.flint.model import flint_model
 
 _logger = logging.getLogger(__name__)
@@ -107,6 +109,11 @@ class FlintWindow(qt.QMainWindow):
         action.setStatusTip("Show a IPython console (for debug purpose)")
         action.triggered.connect(self.openDebugConsole)
         windowMenu.addAction(action)
+
+        displayMenu: qt.QMenu = menubar.addMenu("Display")
+        action = app_actions.OpenGLAction(self)
+        displayMenu.addAction(action)
+        displayMenu.aboutToShow.connect(action.updateState)
 
         menubar = self.menuBar()
         layoutMenu = menubar.addMenu("&Layout")

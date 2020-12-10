@@ -1033,7 +1033,7 @@ def timescan(
 
     Keyword Args:
         name (str): scan name in data nodes tree and directories [default: 'scan']
-        title (str): scan title [default: 'timescan <count_time>']
+        title (str): scan title [default: 'timescan <count_time> <npoints>]
         save (bool): save scan data to file [default: True]
         save_images (bool or None): save image files [default: None, means it follows 'save']
         sleep_time (float): sleep time between 2 points [default: None]
@@ -1047,11 +1047,12 @@ def timescan(
     scan_info.update({"type": scan_type, "save": save, "sleep_time": sleep_time})
 
     if title is None:
-        args = scan_type, count_time
-        template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
-        scan_info["title"] = template.format(*args)
+        if npoints == 0:
+            title = f"{scan_type} {count_time}"
+        else:
+            title = f"{scan_type} {count_time} {npoints}"
 
-    scan_info.update({"npoints": npoints, "count_time": count_time})
+    scan_info.update({"npoints": npoints, "count_time": count_time, "title": title})
 
     _log.info("Doing %s", scan_type)
 
@@ -1106,7 +1107,7 @@ def loopscan(
 
     Keyword Args:
         name (str): scan name in data nodes tree and directories [default: 'scan']
-        title (str): scan title [default: 'timescan <count_time>']
+        title (str): scan title [default: 'timescan <npoints> <count_time>']
         save (bool): save scan data to file [default: True]
         sleep_time (float): sleep time between 2 points [default: None]
         run (bool): if True (default), run the scan. False means just create

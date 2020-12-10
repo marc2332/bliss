@@ -42,6 +42,7 @@ def test_tolerance(m1enc):
     assert m1enc.tolerance == 0.001
 
 
+@pytest.mark.flaky(reruns=3, reason="issue2353")
 def test_maxee(m1):
     # m1enc.read() #make sure encoder is initialized
     try:

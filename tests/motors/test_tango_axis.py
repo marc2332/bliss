@@ -71,6 +71,7 @@ def test_remote_stop(bliss_tango_server, robz, ports):
     assert tango_robz.position == robz.position
 
 
+@pytest.mark.flaky(reruns=3, reason="issue2353")
 def test_remote_jog(bliss_tango_server, robz, ports):
     tango_robz = DeviceProxy(
         "tango://localhost:{}/id00/bliss_test/robz".format(ports.tango_port)

@@ -279,6 +279,7 @@ def test_stop(robz):
     assert robz.state.READY
 
 
+@pytest.mark.flaky(reruns=3, reason="issue2353")
 def test_asynchronous_stop(robz):
     robz.velocity = 1
 
@@ -816,6 +817,7 @@ def test_apply_config(beacon, motor_name):
     assert mot.limits == cfg_limits
 
 
+@pytest.mark.flaky(reruns=3, reason="issue2353")
 def test_jog(robz):
     robz.velocity = 10
     robz.jog_velocity = 300

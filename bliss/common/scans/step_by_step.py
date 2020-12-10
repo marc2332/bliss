@@ -1119,9 +1119,7 @@ def loopscan(
     """
 
     if title is None:
-        args = scan_type, npoints, count_time
-        template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
-        title = template.format(*args)
+        title = f"{scan_type} {npoints} {count_time}"
 
     return timescan(
         count_time,

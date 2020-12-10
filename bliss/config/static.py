@@ -988,6 +988,15 @@ class Config(metaclass=Singleton):
                 raise RuntimeError("Object '%s' doesn't exist in config" % name)
 
             if not direct_access and config_node.is_service:
+                # need to load locally the module in case the package is defined (local to beamline)
+                klass_name, klass_node = config_node.get_inherited_value_and_node(
+                    "class"
+                )
+                module_name = klass_node.get("package")
+                if module_name is not None:
+                    # load the module to init service plugin if needed
+                    module = __import__(module_name, fromlist=[""])
+
                 # This is through a service, so just return the Client proxy
                 service_client = service.Client(name, config_node)
                 self._name2instance[name] = service_client

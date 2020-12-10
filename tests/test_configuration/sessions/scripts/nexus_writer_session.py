@@ -1,5 +1,7 @@
 import gevent
 from bliss.controllers.lima.roi import Roi as LimaRoi
+from bliss.controllers.lima.roi import ArcRoi as LimaArcRoi
+from bliss.controllers.lima.roi import RoiProfile as LimaLineRoi
 from bliss.controllers.lima.lima_base import Lima
 from bliss.controllers.mca.base import BaseMCA
 from bliss.scanning.toolbox import ChainBuilder
@@ -33,11 +35,14 @@ def objects_of_type(*classes):
 rois = {
     "roi1": LimaRoi(0, 0, 100, 200),
     "roi2": LimaRoi(10, 20, 200, 500),
-    "roi3": LimaRoi(20, 60, 500, 500),
-    "roi4": LimaRoi(60, 20, 50, 10),
+    "roi3": LimaArcRoi(500, 500, 10, 100, 0, 135),
 }
 for lima in objects_of_type(Lima).values():
     lima.roi_counters.update(rois)
+
+rois = {"roi4": LimaLineRoi(100, 200, 100, 300)}
+for lima in objects_of_type(Lima).values():
+    lima.roi_profiles.update(rois)
 
 
 # Add mca ROI's

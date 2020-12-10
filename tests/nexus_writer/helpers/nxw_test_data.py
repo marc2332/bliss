@@ -721,12 +721,16 @@ def expected_plots(
         softtimer=softtimer,
     )
 
-    def ismca(name):
-        return "simu" in name or "spectrum" in name
+    def ismca1d(name):
+        return ("simu" in name or "spectrum" in name) and "lima" not in name
 
-    mca_signals = [name for name in channels[1] if ismca(name)]
-    non_mca_signals = [name for name in channels[1] if not ismca(name)]
-    single1Dtype = bool(mca_signals) ^ bool(non_mca_signals)
+    def islima1d(name):
+        return "lima" in name or "roi4" in name
+
+    lima_1d_signals = {name for name in channels[1] if islima1d(name)}
+    mca_1d_signals = {name for name in channels[1] if ismca1d(name)}
+    other_1d_signals = set(channels[1]) - mca_1d_signals - lima_1d_signals
+    n_1d_types = bool(mca_1d_signals) + bool(other_1d_signals) + bool(lima_1d_signals)
     if config:
         if technique != "none":
             # All 0D detectors
@@ -737,9 +741,10 @@ def expected_plots(
                 "signals": channels[0],
             }
             # All 1D detectors
-            if single1Dtype:
+            if n_1d_types == 1:
                 signals = {f"simu{i}_det{j}" for i in range(1, 3) for j in range(4)}
                 signals |= {"diode9alias_samples"}
+                signals |= {"lima_simulator2_roi4", "lima_simulator_roi4"}
                 signals &= channels[1]
                 plots["all_spectra"] = {"ndim": 1, "type": "flat", "signals": signals}
                 plots["all_spectra_grid"] = {
@@ -768,6 +773,18 @@ def expected_plots(
                     "signals": signals,
                 }
                 plots["all_spectra_grid_mca"] = {
+                    "ndim": 1,
+                    "type": "grid",
+                    "signals": signals,
+                }
+                signals = {"lima_simulator2_roi4", "lima_simulator_roi4"}
+                signals &= channels[1]
+                plots["all_spectra_lima"] = {
+                    "ndim": 1,
+                    "type": "flat",
+                    "signals": signals,
+                }
+                plots["all_spectra_grid_lima"] = {
                     "ndim": 1,
                     "type": "grid",
                     "signals": signals,
@@ -814,19 +831,18 @@ def expected_plots(
         # All 0D detectors
         plots["plot0D"] = {"ndim": 0, "type": "flat", "signals": channels[0]}
         # All 1D detectors
-        if single1Dtype:
+        if n_1d_types == 1:
             plots["plot1D"] = {"ndim": 1, "type": "flat", "signals": channels[1]}
         else:
-            plots["plot1D_unknown1D1"] = {
-                "ndim": 1,
-                "type": "flat",
-                "signals": non_mca_signals,
-            }
-            plots["plot1D_unknown1D2"] = {
-                "ndim": 1,
-                "type": "flat",
-                "signals": mca_signals,
-            }
+            i = 1
+            for signals in [other_1d_signals, lima_1d_signals, mca_1d_signals]:
+                if signals:
+                    plots["plot1D_unknown1D" + str(i)] = {
+                        "ndim": 1,
+                        "type": "flat",
+                        "signals": signals,
+                    }
+                    i += 1
         # All 2D detectors
         plots["plot2D"] = {"ndim": 2, "type": "flat", "signals": channels[2]}
     return plots
@@ -976,7 +992,7 @@ def detectors_filter(expected, detectors, removeprefix=False):
             result,
             ["^lima_simulator_", "^lima_simulator2_"],
             ["lima_simulator", "lima_simulator2"],
-            ["{}_roi_counters_", "{}_bpm_", "{}_"],
+            ["{}_roi_counters_", "{}_roi_profiles_", "{}_bpm_", "{}_"],
         )
         result = remove_controller_prefix(
             result, ["^simu1_", "^simu2_"], ["simu1", "simu2"], ["{}_"]
@@ -1051,7 +1067,10 @@ def expected_detector_content(name, config=True):
                 }
         elif name.startswith("lima"):
             if "roi" in name:
-                datasets = {"data", "type", "avg", "min", "max", "std", "selection"}
+                if "roi4" in name:
+                    datasets = {"data", "type", "selection"}
+                else:
+                    datasets = {"data", "type", "avg", "min", "max", "std", "selection"}
             elif "bpm" in name:
                 datasets = {
                     "type",
@@ -1068,16 +1087,20 @@ def expected_detector_content(name, config=True):
             datasets = {"data"}
     else:
         if name.startswith("lima"):
-            if "roi" in name:
-                datasets = {"data", "roi1", "roi2", "roi3", "roi4"}
+            if "roi_counter" in name:
+                datasets = {"data", "roi1", "roi2", "roi3"}
+            elif "roi_profile" in name:
+                datasets = {"data", "roi4"}
             elif "bpm" in name:
                 datasets = {"data"}
             else:
                 datasets = {"data", "acq_parameters", "ctrl_parameters"}
         elif name == "image":
             datasets = {"data", "acq_parameters", "ctrl_parameters"}
-        elif re.match("roi[0-9]_(sum|avg|std|min|max)", name):
-            datasets = {"data", "roi1", "roi2", "roi3", "roi4"}
+        elif re.match("roi[1-3]_(sum|avg|std|min|max)", name):
+            datasets = {"data", "roi1", "roi2", "roi3"}
+        elif name == "roi4":
+            datasets = {"data", "roi4"}
         else:
             datasets = {"data"}
     return datasets
@@ -1174,27 +1197,23 @@ def expected_channels(
         if config:
             for conname in names:
                 datasets[2] |= {conname}
+                datasets[1] |= {conname + "_roi4"}
                 datasets[0] |= {
+                    conname + "_roi1",
                     conname + "_roi1_min",
                     conname + "_roi1_max",
-                    conname + "_roi1",
                     conname + "_roi1_avg",
                     conname + "_roi1_std",
+                    conname + "_roi2",
                     conname + "_roi2_min",
                     conname + "_roi2_max",
-                    conname + "_roi2",
                     conname + "_roi2_avg",
                     conname + "_roi2_std",
+                    conname + "_roi3",
                     conname + "_roi3_min",
                     conname + "_roi3_max",
-                    conname + "_roi3",
                     conname + "_roi3_avg",
                     conname + "_roi3_std",
-                    conname + "_roi4_min",
-                    conname + "_roi4_max",
-                    conname + "_roi4",
-                    conname + "_roi4_avg",
-                    conname + "_roi4_std",
                     conname + "_bpm_x",
                     conname + "_bpm_y",
                     conname + "_bpm_fwhm_x",
@@ -1206,8 +1225,10 @@ def expected_channels(
             for conname in names:
                 prefix = conname + "_"
                 prefix_roi = conname + "_roi_counters_"
+                prefix_roi_profile = conname + "_roi_profiles_"
                 prefix_bpm = conname + "_bpm_"
                 datasets[2] |= {prefix + "image"}
+                datasets[1] |= {prefix_roi_profile + "roi4"}
                 datasets[0] |= {
                     prefix_roi + "roi1_min",
                     prefix_roi + "roi1_max",
@@ -1224,11 +1245,6 @@ def expected_channels(
                     prefix_roi + "roi3_sum",
                     prefix_roi + "roi3_avg",
                     prefix_roi + "roi3_std",
-                    prefix_roi + "roi4_min",
-                    prefix_roi + "roi4_max",
-                    prefix_roi + "roi4_sum",
-                    prefix_roi + "roi4_avg",
-                    prefix_roi + "roi4_std",
                     prefix_bpm + "x",
                     prefix_bpm + "y",
                     prefix_bpm + "fwhm_x",

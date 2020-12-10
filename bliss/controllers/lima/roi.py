@@ -465,6 +465,9 @@ class RoiProfileCounter(IntegratingCounter):
         self.roi_name = roi_name
         super().__init__(roi_name, controller, conversion_function, unit)
 
+    def get_metadata(self):
+        return {self.roi_name: self._counter_controller.get(self.roi_name).to_dict()}
+
     @property
     def dtype(self):
         """The data type as used by numpy."""

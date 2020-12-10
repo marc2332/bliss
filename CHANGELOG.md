@@ -9,11 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Flint:
+    - Display ROI geometries with the detector image widget
 - Custom scan description (`scan_info`)
     - `bliss.scanning.scan_info.ScanInfo` was created in order to replace
       scan_info dictionary and ScanInfoFactory
     - A `set_sequence_info` helper was added to define the amount of excepted
       scans from a sequence
+    - Creates a `channels` structure for metadata like `display_name` and `unit`
+    - Provides ROI geometry
 
 ### Changed
 

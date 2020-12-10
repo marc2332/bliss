@@ -251,9 +251,18 @@ class Scan(qt.QObject, _Sealable):
         self.__devices.append(device)
 
     def getDeviceByName(self, name: str) -> Device:
+        elements = name.split(":")
         for device in self.__devices:
-            if device.name() == name:
-                return device
+            current = device
+            for e in reversed(elements):
+                if current is None or current.name() != e:
+                    break
+                current = current.master()
+            else:
+                # The item was found
+                if current is None:
+                    return device
+
         raise ValueError("Device %s not found." % name)
 
     def _fireScanDataUpdated(
@@ -395,6 +404,11 @@ class DeviceType(enum.Enum):
     """
 
 
+class DeviceMetadata(NamedTuple):
+    roi: Optional[object]
+    """Define a ROI geometry, is one"""
+
+
 class Device(qt.QObject, _Sealable):
     """
     Description of a device.
@@ -403,10 +417,13 @@ class Device(qt.QObject, _Sealable):
     and channels. This could not exactly match the Bliss API.
     """
 
+    _noneMetadata = DeviceMetadata(None)
+
     def __init__(self, parent: Scan):
         qt.QObject.__init__(self, parent=parent)
         _Sealable.__init__(self)
         self.__name: str = ""
+        self.__metadata: DeviceMetadata = self._noneMetadata
         self.__type: DeviceType = DeviceType.NONE
         self.__channels: List[Channel] = []
         self.__master: Optional[Device] = None
@@ -428,6 +445,29 @@ class Device(qt.QObject, _Sealable):
 
     def name(self) -> str:
         return self.__name
+
+    def fullName(self):
+        """Path name from top master to this device.
+
+        Each short name is separated by ":".
+        """
+        elements = [self.name()]
+        parent = self.__master
+        while parent is not None:
+            elements.append(parent.name())
+            parent = parent.__master
+        return ":".join(reversed(elements))
+
+    def setMetadata(self, metadata: DeviceMetadata):
+        if self.isSealed():
+            raise SealedError()
+        self.__metadata = metadata
+
+    def metadata(self) -> DeviceMetadata:
+        """
+        Returns a bunch of metadata stored within the channel.
+        """
+        return self.__metadata
 
     def addChannel(self, channel: Channel):
         if self.isSealed():
@@ -465,6 +505,15 @@ class Device(qt.QObject, _Sealable):
         """
         # FIXME: This have to be improved
         return self.__master is None
+
+    def isChildOf(self, master: Device) -> bool:
+        """Returns true if this device is the child of `master` device."""
+        parent = self.__master
+        while parent is not None:
+            if parent is master:
+                return True
+            parent = parent.__master
+        return False
 
     def setType(self, deviceType: DeviceType):
         if self.isSealed():
@@ -645,7 +694,7 @@ class Channel(qt.QObject, _Sealable):
 
     def metadata(self) -> ChannelMetadata:
         """
-        Returns a bunch of metadata stored withing the channel.
+        Returns a bunch of metadata stored within the channel.
         """
         return self.__metadata
 

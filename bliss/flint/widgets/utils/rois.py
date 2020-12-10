@@ -49,7 +49,7 @@ class LimaArcRoi(silx_rois.ArcROI):
     """
 
 
-class LimaProfileRoi(silx_rois.RectangleROI):
+class LimaProfileRoi(LimaRectRoi):
     """Rectangle ROI used to configure Lima detector.
 
     It is used to compute a vertical or horizontal profile.
@@ -80,6 +80,7 @@ class LimaProfileRoi(silx_rois.RectangleROI):
     def _updated(self, event=None, checkVisibility=True):
         if event in [items.ItemChangedType.VISIBLE]:
             self._updateItemProperty(event, self, self.__line)
+            self._updateItemProperty(event, self, self.__symbol)
         super(LimaProfileRoi, self)._updated(event, checkVisibility)
 
     def _updatedStyle(self, event, style):
@@ -101,6 +102,19 @@ class LimaProfileRoi(silx_rois.RectangleROI):
     def getLimaKind(self):
         return self.__limaKind
 
+    def _getPlot(self):
+        manager = self.parent()
+        if manager is None:
+            return None
+        plot = manager.parent()
+        return plot
+
+    def _isYAxisInverted(self):
+        plot = self._getPlot()
+        if plot is not None:
+            return plot.isYAxisInverted()
+        return False
+
     def __updateOverlay(self):
         x, y = self.getCenter()
         w, h = self.getSize()
@@ -109,8 +123,11 @@ class LimaProfileRoi(silx_rois.RectangleROI):
             points = [[x - w, y], [x + w, y]]
             symbol = "caretright"
         elif self.__limaKind == self.Directions.VERTICAL_REDUCTION:
-            points = [[x, y - h], [x, y + h]]
             symbol = "caretdown"
+            if self._isYAxisInverted():
+                points = [[x, y - h], [x, y + h]]
+            else:
+                points = [[x, y + h], [x, y - h]]
         else:
             assert False
         self.__line.setPoints(points)

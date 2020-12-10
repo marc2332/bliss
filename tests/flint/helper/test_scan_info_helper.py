@@ -43,9 +43,29 @@ SCAN_INFO_LIMA_ROIS = {
                 "beamviewer:roi_counters:roi1_avg",
                 "beamviewer:roi_counters:roi4_sum",
                 "beamviewer:roi_counters:roi4_avg",
+                "beamviewer:roi_counters:roi5_avg",
             ],
+            "images": ["beamviewer:image"],
         }
-    }
+    },
+    "rois": {
+        "beamviewer:roi_counters:roi1": {
+            "kind": "rect",
+            "x": 190,
+            "y": 110,
+            "width": 600,
+            "height": 230,
+        },
+        "beamviewer:roi_counters:roi4": {
+            "kind": "arc",
+            "cx": 487.0,
+            "cy": 513.0,
+            "r1": 137.0,
+            "r2": 198.0,
+            "a1": -172.0,
+            "a2": -300.0,
+        },
+    },
 }
 
 
@@ -100,13 +120,25 @@ def test_create_scan_model_with_lima_rois():
     deviceCount = len(list(scan.devices()))
     for device in scan.devices():
         channelCount += len(list(device.channels()))
-    assert channelCount == 6
-    assert deviceCount == 6
+    assert channelCount == 8
+    assert deviceCount == 7
+
+    channel = scan.getChannelByName("beamviewer:roi_counters:roi1_avg")
+    device = channel.device()
+    assert device.metadata().roi is not None
+    assert device.metadata().roi.x == 190
 
     channel = scan.getChannelByName("beamviewer:roi_counters:roi4_avg")
     assert channel.name() == "beamviewer:roi_counters:roi4_avg"
-    assert channel.device().name() == "roi4"
-    assert channel.device().type() == scan_model.DeviceType.VIRTUAL_ROI
+    device = channel.device()
+    assert device.name() == "roi4"
+    assert device.type() == scan_model.DeviceType.VIRTUAL_ROI
+    assert device.metadata().roi is not None
+    assert device.metadata().roi.cx == 487.0
+
+    channel = scan.getChannelByName("beamviewer:roi_counters:roi5_avg")
+    device = channel.device()
+    assert device.metadata().roi is None
 
 
 def test_create_plot_model():
@@ -308,6 +340,18 @@ def test_amesh_scan_with_image_and_mca():
     assert result_kinds[0] == plot_item_model.ScatterPlot
     assert result_kinds[1] == plot_item_model.ScatterPlot
     assert result_plots[1].name() == "foo"
+
+
+def test_create_plot_model_with_rois():
+    scan = scan_info_helper.create_scan_model(SCAN_INFO_LIMA_ROIS)
+    plots = scan_info_helper.infer_plot_models(SCAN_INFO_LIMA_ROIS)
+    image_plots = [p for p in plots if isinstance(p, plot_item_model.ImagePlot)]
+    plot = image_plots[0]
+    roi_items = [i for i in plot.items() if isinstance(i, plot_item_model.RoiItem)]
+    assert len(roi_items) == 2
+    for item in roi_items:
+        roi = item.roi(scan)
+        assert roi is not None
 
 
 def test_progress_percent_curve():

@@ -339,6 +339,54 @@ class ImageItem(plot_model.Item):
         self.__colormap = colormap
 
 
+class RoiItem(plot_model.Item):
+    """Define a ROI as part of a plot.
+    """
+
+    def __init__(self, parent: plot_model.Plot = None):
+        super(RoiItem, self).__init__(parent=parent)
+        self.__deviceName: Optional[str] = None
+
+    def __reduce__(self):
+        return (self.__class__, (), self.__getstate__())
+
+    def __getstate__(self):
+        state = super(RoiItem, self).__getstate__()
+        assert "deviceName" not in state
+        state["deviceName"] = self.__deviceName
+        return state
+
+    def __setstate__(self, state):
+        super(RoiItem, self).__setstate__(state)
+        self.__deviceName = state.pop("deviceName")
+
+    def name(self) -> str:
+        """Returns the name displayed for this item"""
+        return self.roiName()
+
+    def roiName(self) -> str:
+        """Returns the name of the ROI"""
+        return self.__deviceName.split(":")[-1]
+
+    def deviceName(self):
+        """Returns the device name defining this ROI.
+
+        The device name is the full device name prefixed by the top master name
+        """
+        return self.__deviceName
+
+    def setDeviceName(self, name: str):
+        """Set the device name containing the ROI.
+
+        The device name is the full device name prefixed by the top master name
+        """
+        self.__deviceName = name
+
+    def roi(self, scan):
+        device = scan.getDeviceByName(self.__deviceName)
+        return device.metadata().roi
+
+
 class ScatterPlot(plot_model.Plot):
     """Define a plot which displays scatters."""
 

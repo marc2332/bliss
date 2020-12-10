@@ -39,6 +39,7 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         self.__plotModel: Optional[plot_model.Plot] = None
         self.__plotItem: Optional[plot_model.Item] = None
         self.__channel: Optional[scan_model.Channel] = None
+        self.__device: Optional[scan_model.Device] = None
         self.__treeView: Optional[qt.QTreeView] = None
         self.__flintModel: Optional[flint_model.FlintState] = None
 
@@ -85,8 +86,12 @@ class _DataItem(_property_tree_helper.ScanRowItem):
             self.__plotItem.setVisible(state == qt.Qt.Checked)
 
     def setDevice(self, device: scan_model.Device):
+        self.__device = device
         self.setDeviceLookAndFeel(device)
         self.__used.setCheckable(False)
+
+    def device(self):
+        return self.__device
 
     def setChannel(self, channel: scan_model.Channel):
         self.__channel = channel
@@ -98,14 +103,17 @@ class _DataItem(_property_tree_helper.ScanRowItem):
     def setPlotItem(self, plotItem):
         self.__plotItem = plotItem
 
-        self.__used.modelUpdated = None
-        self.__used.setData(plotItem, role=delegates.PlotItemRole)
-        self.__used.setCheckState(qt.Qt.Checked)
-        self.__used.modelUpdated = weakref.WeakMethod(self.__usedChanged)
+        isRoiItem = isinstance(plotItem, plot_item_model.RoiItem)
 
-        self.__style.setData(plotItem, role=delegates.PlotItemRole)
-        self.__style.setData(self.__flintModel, role=delegates.FlintModelRole)
-        self.__remove.setData(plotItem, role=delegates.PlotItemRole)
+        if not isRoiItem:
+            self.__used.modelUpdated = None
+            self.__used.setData(plotItem, role=delegates.PlotItemRole)
+            self.__used.setCheckState(qt.Qt.Checked)
+            self.__used.modelUpdated = weakref.WeakMethod(self.__usedChanged)
+
+            self.__style.setData(plotItem, role=delegates.PlotItemRole)
+            self.__style.setData(self.__flintModel, role=delegates.FlintModelRole)
+            self.__remove.setData(plotItem, role=delegates.PlotItemRole)
 
         if plotItem is not None:
             isVisible = plotItem.isVisible()
@@ -122,10 +130,11 @@ class _DataItem(_property_tree_helper.ScanRowItem):
             self.setPlotItemLookAndFeel(plotItem)
 
         self.__treeView.openPersistentEditor(self.__displayed.index())
-        self.__treeView.openPersistentEditor(self.__remove.index())
-        if self.__treeView.isPersistentEditorOpen(self.__style.index()):
-            self.__treeView.closePersistentEditor(self.__style.index())
-        self.__treeView.openPersistentEditor(self.__style.index())
+        if not isRoiItem:
+            self.__treeView.openPersistentEditor(self.__remove.index())
+            if self.__treeView.isPersistentEditorOpen(self.__style.index()):
+                self.__treeView.closePersistentEditor(self.__style.index())
+            self.__treeView.openPersistentEditor(self.__style.index())
         # FIXME: why do we have to do that?
         self.__treeView.resizeColumnToContents(self.__style.column())
 
@@ -226,6 +235,7 @@ class ImagePlotPropertyWidget(qt.QWidget):
         assert self.__plotModel is not None
         scanTree = {}
         channelItems: Dict[str, _DataItem] = {}
+        deviceItems: Dict[str, _DataItem] = {}
 
         devices: List[qt.QStandardItem] = []
         channelsPerDevices: Dict[qt.QStandardItem, int] = {}
@@ -250,6 +260,7 @@ class ImagePlotPropertyWidget(qt.QWidget):
             parent.appendRow(item.rowItems())
             # It have to be done when model index are initialized
             item.setDevice(device)
+            deviceItems[device.fullName()] = item
             devices.append(item)
 
             channels = []
@@ -278,17 +289,22 @@ class ImagePlotPropertyWidget(qt.QWidget):
                     break
 
         # Clean up unused devices
-        for device in reversed(devices):
-            if device not in channelsPerDevices:
+        for deviceItem in reversed(devices):
+            device = deviceItem.device()
+            if device.type() == scan_model.DeviceType.VIRTUAL_ROI:
                 continue
-            if channelsPerDevices[device] > 0:
+            if device.name() in ["roi_counters", "roi_profiles"]:
                 continue
-            parent = device.parent()
+            if deviceItem not in channelsPerDevices:
+                continue
+            if channelsPerDevices[deviceItem] > 0:
+                continue
+            parent = deviceItem.parent()
             if parent is None:
                 parent = model
-            parent.removeRows(device.row(), 1)
+            parent.removeRows(deviceItem.row(), 1)
 
-        return channelItems
+        return deviceItems, channelItems
 
     def __updateTree(self):
         # FIXME: expanded/collapsed items have to be restored
@@ -321,23 +337,24 @@ class ImagePlotPropertyWidget(qt.QWidget):
 
         scan = self.__scan
         if scan is not None:
-            channelItems = self.__genScanTree(model, scan, scan_model.ChannelType.IMAGE)
+            deviceItems, channelItems = self.__genScanTree(
+                model, scan, scan_model.ChannelType.IMAGE
+            )
         else:
-            channelItems = {}
+            deviceItems, channelItems = {}, {}
 
         itemWithoutLocation = qt.QStandardItem("Not linked to this scan")
         model.appendRow(itemWithoutLocation)
 
-        plotImageItems = [
-            i
-            for i in self.__plotModel.items()
-            if isinstance(i, plot_item_model.ImageItem) and i.imageChannel() is not None
-        ]
+        plotImageItems = []
 
-        if len(plotImageItems) >= 1:
-            plotItem = plotImageItems[0]
-            dataChannel = plotItem.imageChannel()
-            if dataChannel is not None:
+        for plotItem in self.__plotModel.items():
+            if isinstance(plotItem, plot_item_model.ImageItem):
+                plotImageItems.append(plotItem)
+                dataChannel = plotItem.imageChannel()
+                if dataChannel is None:
+                    continue
+
                 dataChannelName = dataChannel.name()
                 if dataChannelName in channelItems:
                     channelItem = channelItems[dataChannelName]
@@ -348,6 +365,11 @@ class ImagePlotPropertyWidget(qt.QWidget):
                     itemWithoutLocation.appendRow(item.rowItems())
                     # It have to be done when model index are initialized
                     item.setPlotItem(plotItem)
+
+            elif isinstance(plotItem, plot_item_model.RoiItem):
+                deviceItem = deviceItems.get(plotItem.deviceName())
+                if deviceItem is not None:
+                    deviceItem.setPlotItem(plotItem)
 
         if len(plotImageItems) >= 2:
             _logger.warning(

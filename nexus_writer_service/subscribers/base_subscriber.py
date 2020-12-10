@@ -55,7 +55,7 @@ def get_node(node_type, db_name):
     )
 
 
-class BaseSubscriber(object):
+class BaseSubscriber:
     """
     Listen to events of a particular Redis node
 
@@ -84,14 +84,70 @@ class BaseSubscriber(object):
         STATES.FAULT: [],
     }
 
+    @enum.unique
+    class PROFILE_PARAMETERS(enum.IntEnum):
+        OFF = enum.auto()
+        CPU30 = enum.auto()
+        CPU50 = enum.auto()
+        CPU100 = enum.auto()
+        WALL30 = enum.auto()
+        WALL50 = enum.auto()
+        WALL100 = enum.auto()
+        MEM30 = enum.auto()
+        MEM50 = enum.auto()
+        MEM100 = enum.auto()
+
+    _profile_arguments = {
+        PROFILE_PARAMETERS.OFF: {},
+        PROFILE_PARAMETERS.CPU30: {
+            "memory": False,
+            "time": True,
+            "clock": "cpu",
+            "timelimit": 30,
+        },
+        PROFILE_PARAMETERS.CPU50: {
+            "memory": False,
+            "time": True,
+            "clock": "cpu",
+            "timelimit": 50,
+        },
+        PROFILE_PARAMETERS.CPU100: {
+            "memory": False,
+            "time": True,
+            "clock": "cpu",
+            "timelimit": 100,
+        },
+        PROFILE_PARAMETERS.WALL30: {
+            "memory": False,
+            "time": True,
+            "clock": "wall",
+            "timelimit": 30,
+        },
+        PROFILE_PARAMETERS.WALL50: {
+            "memory": False,
+            "time": True,
+            "clock": "wall",
+            "timelimit": 50,
+        },
+        PROFILE_PARAMETERS.WALL100: {
+            "memory": False,
+            "time": True,
+            "clock": "wall",
+            "timelimit": 100,
+        },
+        PROFILE_PARAMETERS.MEM30: {"memory": True, "time": False, "memlimit": 30},
+        PROFILE_PARAMETERS.MEM50: {"memory": True, "time": False, "memlimit": 50},
+        PROFILE_PARAMETERS.MEM100: {"memory": True, "time": False, "memlimit": 100},
+    }
+
     def __init__(
-        self, db_name, node_type=None, parentlogger=None, resource_profiling=False
+        self, db_name, node_type=None, parentlogger=None, resource_profiling=None
     ):
         """
         :param str db_name:
         :param str node_type:
         :param parentlogger:
-        :param bool resource_profiling:
+        :param PROFILE_PARAMETERS resource_profiling:
         """
         self.state = self.STATES.INIT
         self.state_reason = "instantiation"
@@ -331,19 +387,9 @@ class BaseSubscriber(object):
         Greenlet main function without the resource (de)allocation
         """
         try:
-            if self.resource_profiling:
-                with profiling.profile(
-                    memory=False,
-                    time=True,
-                    memlimit=30,
-                    timelimit=30,
-                    sortby="tottime",
-                    clock="cpu",
-                    color=False,
-                    filename=True,
-                    units="MB",
-                    logger=logger,
-                ):
+            kw = self._get_profile_arguments()
+            if kw:
+                with profiling.profile(**kw):
                     self._listen_event_loop()
             else:
                 self._listen_event_loop()
@@ -367,6 +413,33 @@ class BaseSubscriber(object):
             self._set_state(self.STATES.OFF, "Finished succesfully")
             if self.end_time is None:
                 self.end_time = datetime.datetime.now()
+
+    @property
+    def resource_profiling(self):
+        return self._resource_profiling
+
+    @resource_profiling.setter
+    def resource_profiling(self, value):
+        if value is None:
+            value = self.PROFILE_PARAMETERS.OFF
+        self._resource_profiling = value
+
+    def _get_profile_arguments(self):
+        """
+        :returns dict or None:
+        """
+        kwargs = self._profile_arguments.get(self.resource_profiling, None)
+        if kwargs:
+            kwargs.update(
+                {
+                    "sortby": "tottime",
+                    "color": False,
+                    "filename": True,
+                    "units": "MB",
+                    "logger": logger,
+                }
+            )
+        return kwargs
 
     def _listen_event_loop(self, **kwargs):
         """

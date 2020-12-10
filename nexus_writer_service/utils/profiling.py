@@ -17,6 +17,7 @@ import os
 from io import StringIO
 import logging
 from contextlib import contextmanager, ExitStack
+from time import time
 from .logging_utils import log
 from ..io import io_utils
 
@@ -57,9 +58,22 @@ def durationfmt(x):
         return "%8.3f" % x
 
 
-def print_malloc_snapshot(
-    snapshot, logger=None, key_type="lineno", limit=10, units="KB"
-):
+@contextmanager
+def execute_min_duration(func, min_duration=None):
+    """Execute function when the time >= min_duration.
+
+    :param callable func:
+    :param num min_duration:
+    """
+    t0 = time()
+    try:
+        yield
+    finally:
+        if not min_duration or (time() - t0) >= min_duration:
+            func()
+
+
+def log_malloc_snapshot(snapshot, logger=None, key_type="lineno", limit=10, units="KB"):
     """
     :param tracemalloc.Snapshot snapshot:
     :param str key_type:
@@ -111,7 +125,7 @@ DEFAULT_SORTBY = "tottime"
 DEFAULT_CLOCK = "cpu"
 
 
-def print_pstats_snapshot(
+def log_pstats_snapshot(
     snapshot, logger=None, timelimit=None, sortby=None, color=False
 ):
     """
@@ -153,7 +167,7 @@ pstats_to_yappi_sort = {
 }
 
 
-def print_yappi_snapshot(snapshot, logger=None, sortby=None):
+def log_yappi_snapshot(snapshot, logger=None, sortby=None):
     """
     :param YFuncStat snapshot:
     :param logger:
@@ -175,25 +189,37 @@ def print_yappi_snapshot(snapshot, logger=None, sortby=None):
 
 
 @contextmanager
-def memory_context(logger=None, **kwargs):
+def memory_context(logger=None, min_duration=None, **kwargs):
     """
     :param logger:
-    :param **kwargs: see print_malloc_snapshot
+    :param **kwargs: see log_malloc_snapshot
     """
     if tracemalloc is None:
         log(logger, "tracemalloc required")
         return
+    tracemalloc.clear_traces()
     tracemalloc.start()
-    try:
-        yield
-    finally:
+
+    def func():
         snapshot = tracemalloc.take_snapshot()
-        print_malloc_snapshot(snapshot, logger=logger, **kwargs)
+        log_malloc_snapshot(snapshot, logger=logger, **kwargs)
+
+    try:
+        with execute_min_duration(func, min_duration=min_duration):
+            yield
+    finally:
+        tracemalloc.stop()
 
 
 @contextmanager
 def time_context_cprofile(
-    logger=None, timelimit=None, clock=None, sortby=None, color=False, filename=None
+    logger=None,
+    timelimit=None,
+    clock=None,
+    sortby=None,
+    color=False,
+    filename=None,
+    min_duration=None,
 ):
     """
     :param logger:
@@ -202,15 +228,15 @@ def time_context_cprofile(
     :param str sortby: sort time profile
     :param bool color:
     :param str or bool filename:
+    :param num min_duration: no output when time < min_duration
     """
     pr = cProfile.Profile()
     pr.enable()
-    try:
-        yield
-    finally:
-        pr.disable()
+
+    def func():
+        nonlocal filename
         snapshot = pstats.Stats(pr)
-        print_pstats_snapshot(
+        log_pstats_snapshot(
             snapshot, logger=logger, timelimit=timelimit, sortby=sortby, color=color
         )
         if filename:
@@ -221,10 +247,23 @@ def time_context_cprofile(
             snapshot.dump_stats(filename)
             log(logger, f"Statistics saved as {repr(filename)}")
 
+    with execute_min_duration(func, min_duration=min_duration):
+        try:
+            yield
+        finally:
+            pr.disable()
+
 
 @contextmanager
 def time_context_yappi(
-    logger=None, timelimit=None, clock=None, sortby=None, color=False, filename=None
+    logger=None,
+    timelimit=None,
+    clock=None,
+    sortby=None,
+    color=False,
+    filename=None,
+    min_duration=None,
+    yappi_output=False,
 ):
     """
     :param logger:
@@ -233,23 +272,26 @@ def time_context_yappi(
     :param str sortby: sort time profile
     :param bool color:
     :param str or bool filename:
+    :param num min_duration: no output when time < min_duration
+    :param bool yappi_output: output formatted by yappi
     """
     if clock not in ("cpu", "wall"):
         clock = DEFAULT_CLOCK
     yappi.set_clock_type(clock)
     yappi.clear_stats()
     yappi.start(builtins=False)
-    try:
-        yield
-    finally:
-        yappi.stop()
+
+    def func():
+        nonlocal filename
         stats = yappi.get_func_stats()
         yappi.clear_stats()
-        # print_yappi_snapshot(stats)
-        snapshot = yappi.convert2pstats(stats)
-        print_pstats_snapshot(
-            snapshot, logger=logger, timelimit=timelimit, sortby=sortby, color=color
-        )
+        if yappi_output:
+            log_yappi_snapshot(stats)
+        else:
+            snapshot = yappi.convert2pstats(stats)
+            log_pstats_snapshot(
+                snapshot, logger=logger, timelimit=timelimit, sortby=sortby, color=color
+            )
         if filename:
             if not isinstance(filename, str):
                 filename = DEFAULT_FILENAME
@@ -260,6 +302,12 @@ def time_context_yappi(
             # snapshot.save(filename)
             log(logger, f"Statistics saved as {repr(filename)}")
 
+    with execute_min_duration(func, min_duration=min_duration):
+        try:
+            yield
+        finally:
+            yappi.stop()
+
 
 if yappi is None:
     time_context = time_context_cprofile
@@ -269,7 +317,7 @@ else:
 
 @contextmanager
 def profile_context(
-    memory=True,
+    memory=False,
     time=True,
     memlimit=10,
     timelimit=None,
@@ -279,6 +327,7 @@ def profile_context(
     filename=None,
     units="KB",
     logger=None,
+    min_duration=None,
 ):
     """
     :param bool memory: profile memory usage
@@ -291,6 +340,7 @@ def profile_context(
     :param str or bool filename: dump for visual tools
     :param str units: memory units
     :param logger:
+    :param num min_duration: no output when time < min_duration
     """
     with ExitStack() as stack:
         if time:
@@ -301,10 +351,13 @@ def profile_context(
                 color=color,
                 filename=filename,
                 logger=logger,
+                min_duration=min_duration,
             )
             stack.enter_context(ctx)
         if memory:
-            ctx = memory_context(limit=memlimit, units=units, logger=logger)
+            ctx = memory_context(
+                limit=memlimit, units=units, logger=logger, min_duration=min_duration
+            )
             stack.enter_context(ctx)
         yield
 

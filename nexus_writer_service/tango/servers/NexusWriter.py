@@ -19,7 +19,7 @@
 import tango
 from tango import DebugIt
 from tango.server import run
-from tango.server import Device, DeviceMeta
+from tango.server import Device
 from tango.server import attribute, command
 from tango.server import device_property
 from tango import AttrQuality, DispLevel, DevState
@@ -34,6 +34,7 @@ import re
 import os
 import sys
 import itertools
+from tango import Attribute
 
 from nexus_writer_service.patching import freeze_subprocess
 import nexus_writer_service
@@ -117,9 +118,30 @@ read_log_level = {
 write_log_level = {v: k for k, v in read_log_level.items()}
 
 
+read_resource_profiling = {
+    p: i for i, p in enumerate(NexusScanWriterBase.PROFILE_PARAMETERS)
+}
+write_resource_profiling = {i: p for p, i in read_resource_profiling.items()}
+
+
 # PROTECTED REGION END #    //  NexusWriter.additionnal_import
 
 __all__ = ["NexusWriter", "main"]
+
+
+class Resource_profiling(enum.IntEnum):
+    """Python enumerated type for Resource_profiling attribute."""
+
+    OFF = 0
+    CPU30 = 1
+    CPU50 = 2
+    CPU100 = 3
+    WALL30 = 4
+    WALL50 = 5
+    WALL100 = 6
+    MEM30 = 7
+    MEM50 = 8
+    MEM100 = 9
 
 
 class Writer_log_level(enum.IntEnum):
@@ -176,19 +198,38 @@ class NexusWriter(Device):
             - Type:'DevBoolean'
     """
 
-    __metaclass__ = DeviceMeta
     # PROTECTED REGION ID(NexusWriter.class_variable) ENABLED START #
+
+    def getfromself(self, name):
+        """Get python attribute
+        """
+        v = getattr(self, name)
+        if isinstance(v, Attribute):
+            # Tango attribute
+            return getattr(self.proxy, name)
+        else:
+            # Tango property or python attribute
+            return v
 
     @property
     def saveoptions(self):
         saveoptions = session_writer.default_saveoptions()
-        for attr, attrinfo in session_writer.all_cli_saveoptions().items():
-            option = attrinfo["dest"]
-            store_true = attrinfo["action"] == "store_true"
-            try:
-                saveoptions[option] = getattr(self, attr) == store_true
-            except AttributeError:
-                continue
+        for name, info in session_writer.all_cli_saveoptions().items():
+            if "action" in info:
+                store_true = info["action"] == "store_true"
+                try:
+                    v = self.getfromself(name) == store_true
+                except AttributeError:
+                    continue
+            else:
+                try:
+                    v = self.getfromself(name)
+                except AttributeError:
+                    continue
+            if name == "resource_profiling":
+                # isinstance(v, Resource_profiling) is not True ???
+                v = write_resource_profiling[v]
+            saveoptions[info["dest"]] = v
         return saveoptions
 
     # PROTECTED REGION END #    //  NexusWriter.class_variable
@@ -217,7 +258,9 @@ class NexusWriter(Device):
     # Attributes
     # ----------
 
-    resource_profiling = attribute(dtype="DevBoolean", access=AttrWriteType.READ_WRITE)
+    resource_profiling = attribute(
+        dtype=Resource_profiling, access=AttrWriteType.READ_WRITE
+    )
 
     writer_log_level = attribute(
         dtype=Writer_log_level, access=AttrWriteType.READ_WRITE
@@ -251,6 +294,7 @@ class NexusWriter(Device):
         """Initialises the attributes and properties of the NexusWriter."""
         Device.init_device(self)
         # PROTECTED REGION ID(NexusWriter.init_device) ENABLED START #
+        self.proxy = tango.DeviceProxy(self.get_name())
         self.session_writer = getattr(self, "session_writer", None)
         if self.session_writer is None:
             log_levels.init_tango_log_level(device=self)
@@ -283,13 +327,13 @@ class NexusWriter(Device):
     def read_resource_profiling(self):
         # PROTECTED REGION ID(NexusWriter.resource_profiling_read) ENABLED START #
         """Return the resource_profiling attribute."""
-        return self.session_writer.resource_profiling
+        return read_resource_profiling[self.session_writer.resource_profiling]
         # PROTECTED REGION END #    //  NexusWriter.resource_profiling_read
 
     def write_resource_profiling(self, value):
         # PROTECTED REGION ID(NexusWriter.resource_profiling_write) ENABLED START #
         """Set the resource_profiling attribute."""
-        self.session_writer.resource_profiling = value
+        self.session_writer.resource_profiling = write_resource_profiling[value]
         # PROTECTED REGION END #    //  NexusWriter.resource_profiling_write
 
     def read_writer_log_level(self):

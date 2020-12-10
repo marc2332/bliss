@@ -36,10 +36,14 @@ cli_saveoptions["stackmca"] = {
 
 
 def default_saveoptions():
-    return {
-        options["dest"]: options["action"] == "store_false"
-        for options in cli_saveoptions.values()
-    }
+    saveoptions = {}
+    for name, options in cli_saveoptions.items():
+        if "default" in options:
+            v = options["default"]
+        else:
+            v = options["action"] == "store_false"
+        saveoptions[options["dest"]] = v
+    return saveoptions
 
 
 class NexusScanWriterConfigurable(scan_writer_base.NexusScanWriterBase):
@@ -172,7 +176,7 @@ class NexusScanWriterConfigurable(scan_writer_base.NexusScanWriterBase):
         :param Subscan subscan:
         :returns str, DatasetProxy: fullname and dataset handle
         """
-        for fullname, dproxy in subscan.datasets.items():
+        for fullname, dproxy in list(subscan.datasets.items()):
             if dproxy.device_type == "mca" and dproxy.data_type == "principal":
                 yield fullname, dproxy
 

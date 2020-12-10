@@ -259,12 +259,11 @@ def writer_process(session=None, tmpdir=None, config=True, alt=False, **kwargs):
         yield greenlet
 
 
-def writer_options(tango=True, config=True, alt=False, resource_profiling=False):
+def writer_options(tango=True, config=True, alt=False):
     """
     :param bool tango: launch writer as process/tango server
     :param bool config: writer uses/ignores extra Redis info
     :param bool alt: anable all options (all disabled by default)
-    :param bool resource_profiling:
     """
     fixed = (
         "copy_non_external",
@@ -273,18 +272,18 @@ def writer_options(tango=True, config=True, alt=False, resource_profiling=False)
         "disable_external_hdf5",
     )
     options = all_cli_saveoptions(configurable=config)
+    resource_profiling = options.pop("resource_profiling")["default"]
     if tango:
         properties = {"copy_non_external": True}
         attributes = {}
         properties["noconfig"] = not config
-        attributes["resource_profiling"] = resource_profiling
+        attributes["resource_profiling"] = int(resource_profiling) - 1  # to tango enum
         properties.update({k: alt for k in options if k not in fixed})
     else:
         cliargs = ["--copy_non_external"]
         if not config:
             cliargs.append("--noconfig")
-        if resource_profiling:
-            cliargs.append("--resource_profiling")
+        cliargs.append("--resource_profiling " + resource_profiling.name)
         if alt:
             cliargs += ["--" + k for k in options if k not in fixed]
     if tango:

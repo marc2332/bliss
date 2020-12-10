@@ -1,6 +1,17 @@
 - class: Session
   name: nexus_writer_session
   setup-file: ./nexus_writer_session_setup.py
+  scan_saving:
+    class: ESRFScanSaving
+    beamline: id00
+    tmp_data_root:
+        fs1: /tmp/scans/fs1/{beamline}/tmp
+        fs2: /tmp/scans/fs2/{beamline}/tmp
+    icat_tmp_data_root: /tmp/scans/fsi/{beamline}/tmp_icat
+    visitor_data_root:
+        fs1: /tmp/scans/fs1/visitor
+        fs3: /tmp/scans/fs3/visitor
+    inhouse_data_root: /tmp/scans/fsi/{beamline}/inhouse
   config-objects:
   - m1
   - roby

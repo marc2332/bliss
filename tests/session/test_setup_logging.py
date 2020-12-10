@@ -7,6 +7,7 @@
 
 import os
 import pytest
+import gevent
 from bliss.scanning.scan_saving import set_scan_saving_class
 
 
@@ -92,11 +93,21 @@ def check_user_logging(capsys, elog_offline=False):
 
 
 def check_beacon_logging(caplog, logfile):
+    # Get lines from logging capture
     records = caplog.get_records("setup")
-    with open(logfile, "r") as f:
-        lines = [l.rstrip() for l in f]
     assert len(records) == 3, records
-    assert len(lines) == 3, lines
+
+    # Get lines from the log server file
+    try:
+        lines = []
+        with gevent.Timeout(10):
+            while len(lines) != 3:
+                with open(logfile, "r") as f:
+                    lines = [l.rstrip() for l in f]
+                gevent.sleep(0.5)
+    except gevent.Timeout:
+        assert len(lines) == 3, lines
+
     expected = "LogInitController: Beacon error"
     assert records[0].levelname == "ERROR"
     assert records[0].message == expected

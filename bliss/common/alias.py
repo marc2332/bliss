@@ -363,13 +363,12 @@ class MapWithAliases(Map):
                 disabled_state = "DISABLED" in state
             except TypeError:
                 disabled_state = False
-
-            return (
-                axis.name,
-                safe_get(axis, "position", on_error) if not disabled_state else "*DIS*",
-                safe_get(axis, "dial", on_error) if not disabled_state else "*DIS*",
-                axis.config.get("unit", default=None),
-            )
+            if disabled_state:
+                position = dial = "*DIS*"
+            else:
+                position = safe_get(axis, "position", on_error)
+                dial = safe_get(axis, "dial", on_error)
+            return (axis.name, position, dial, axis.config.get("unit", default=None))
 
         tasks = list()
         for axis in self.get_axes_iter():

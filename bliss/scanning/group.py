@@ -20,16 +20,13 @@ from bliss.data.nodes.scan import ScanNode
 from bliss.data.node import get_session_node
 from bliss.scanning.scan import ScanState, ScanPreset
 from bliss.scanning.scan_info import ScanInfo
-from bliss.data.node import create_node
 from bliss import current_session
 from bliss.common.logtools import user_warning
 
 
 class ScanGroup(Scan):
-    def _create_data_node(self, node_name):
-        self._Scan__node = create_node(
-            node_name, "scan_group", parent=self.root_node, info=self._scan_info
-        )
+    _NODE_TYPE = "scan_group"
+    _REDIS_CACHING = False
 
     def is_flint_recommended(self):
         """Return true if flint is recommended for this scan
@@ -158,6 +155,7 @@ class Sequence:
                 # waiting for the last point to be published before killing the scan greenlet
                 while self.group_acq_master.queue.qsize() > 0:
                     self.group_acq_master.publish_event.wait()
+                    err |= not self.group_acq_master.publish_success
                     gevent.sleep(0)
                 self.group_acq_master.publish_event.wait()
 
@@ -165,7 +163,7 @@ class Sequence:
 
             if err:
                 raise RuntimeError(
-                    f'Some scans of the sequence "{self.title}" have not been excecuted! \n The dataset will be incomplete!'
+                    f'Some scans of the sequence "{self.title}" have not finished! \n The dataset will be incomplete!'
                 )
 
     def _build_scan(self):
@@ -295,6 +293,7 @@ class GroupingMaster(AcquisitionMaster):
         self._number_channel = AcquisitionChannel("scan_numbers", numpy.int, ())
         self.channels.append(self._number_channel)
 
+        self.publish_success = True
         self.publish_event = gevent.event.Event()
         self.publish_event.set()
 
@@ -309,20 +308,25 @@ class GroupingMaster(AcquisitionMaster):
 
     def _new_subscan(self, scan):
         self.publish_event.clear()
+        try:
+            if isinstance(scan, Scan):
+                scan = scan.node
 
-        if isinstance(scan, Scan):
-            scan = scan.node
+            self._number_channel.emit(int(scan.info["scan_nb"]))
+            self._node_channel.emit(scan.db_name)
 
-        self._number_channel.emit(int(scan.info["scan_nb"]))
-        self._node_channel.emit(scan.db_name)
-
-        # handling of ttl of subscan
-        if scan.connection.ttl(scan.db_name) > 0:
-            for n in scan.walk(wait=False):
-                if n.connection.ttl(n.db_name) > 0:
-                    n.set_ttl()
-
-        self.publish_event.set()
+            # handling of ttl of subscan
+            if scan.connection.ttl(scan.db_name) > 0:
+                for n in scan.walk(wait=False):
+                    if n.connection.ttl(n.db_name) > 0:
+                        n.set_ttl()
+        except BaseException:
+            self.publish_success = False
+            raise
+        else:
+            self.publish_success = True
+        finally:
+            self.publish_event.set()
 
     def new_subscan(self, scan):
         self.queue.put(scan)

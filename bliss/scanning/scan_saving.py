@@ -23,7 +23,7 @@ import enum
 
 from bliss import current_session
 from bliss.config.settings import ParametersWardrobe
-from bliss.config.settings_cache import get_redis_client_cache
+from bliss.config.conductor.client import get_caching_redis_proxy
 from bliss.data.node import datanode_factory
 from bliss.scanning.writer.null import Writer as NullWriter
 from bliss.scanning import writer as writer_module
@@ -419,7 +419,7 @@ class BasicScanSaving(EvalParametersWardrobe):
             default_values=self.DEFAULT_VALUES,
             property_attributes=self.PROPERTY_ATTRIBUTES,
             not_removable=self.DEFAULT_VALUES.keys(),
-            connection=get_redis_client_cache(),
+            connection=get_caching_redis_proxy(),
         )
 
     def __dir__(self):

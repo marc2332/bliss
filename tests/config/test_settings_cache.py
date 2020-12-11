@@ -4,18 +4,12 @@
 #
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
+
 import itertools
 import pytest
 import gevent
 from bliss.config.conductor import client
-from bliss.config import settings, settings_cache
-
-
-def test_open_close(beacon):
-    db = client.get_redis_proxy()
-    cache = settings_cache.CacheConnection(db)
-    cache.open()
-    cache.close()
+from bliss.config import settings
 
 
 @pytest.mark.parametrize("redis_version", [5, 6])
@@ -26,9 +20,9 @@ def test_hash_command(beacon, redis_version):
     values = {"".join(k): i for i, k in enumerate(itertools.permutations(l, 2))}
     h.update(values)
 
-    cache = settings_cache.CacheConnection(h.connection)
+    cache = client.get_caching_redis_proxy()
     if redis_version < 6:
-        cache._able_to_cache = False
+        cache.disable_caching()
 
     assert 24 == int(cache.hget(hash_name, "az"))
     assert values == {k.decode(): int(v) for k, v in cache.hgetall(hash_name).items()}
@@ -89,8 +83,6 @@ def test_hash_command(beacon, redis_version):
         k: v for k, v in values.items() if k.startswith("a")
     }
 
-    cache.close()
-
 
 @pytest.mark.parametrize("redis_version", [5, 6])
 def test_simple_key(beacon, redis_version):
@@ -98,13 +90,11 @@ def test_simple_key(beacon, redis_version):
     k = settings.SimpleSetting(key_name)
     k.set("hello")
 
-    cache = settings_cache.CacheConnection(k.connection)
+    cache = client.get_caching_redis_proxy()
     if redis_version < 6:
-        cache._able_to_cache = False
+        cache.disable_caching()
 
     assert cache.get(key_name).decode() == "hello"
-
-    cache.close()
 
 
 def test_simple_key_synchronisation(beacon):
@@ -112,7 +102,7 @@ def test_simple_key_synchronisation(beacon):
     k = settings.SimpleSetting(key_name)
     k.set("hello")
 
-    cache = settings_cache.CacheConnection(k.connection)
+    cache = client.get_caching_redis_proxy()
     k2 = settings.SimpleSetting(key_name, connection=cache)
     assert k.get() == k2.get()
 
@@ -124,8 +114,6 @@ def test_simple_key_synchronisation(beacon):
     k2.set("mario")
     assert k.get() == k2.get()
 
-    cache.close()
-
 
 def test_hash_synchronisation(beacon):
     key_name = "what_ever"
@@ -135,7 +123,7 @@ def test_hash_synchronisation(beacon):
     s = "super mario"
     h.update({"l": l, "d": d, "s": s})
 
-    cache = settings_cache.CacheConnection(h.connection)
+    cache = client.get_caching_redis_proxy()
     h2 = settings.HashObjSetting(key_name, connection=cache)
     assert h2["l"] == l
     assert h2["d"] == d
@@ -149,14 +137,12 @@ def test_hash_synchronisation(beacon):
     h2["set2"] = a_set
     assert h["set2"] == h2["set2"]
 
-    cache.close()
-
 
 def test_empty_hash_object(beacon):
     key_name = "what_ever2"
     h = settings.HashSetting(key_name)
 
-    cache = settings_cache.CacheConnection(h.connection)
+    cache = client.get_caching_redis_proxy()
     h2 = settings.HashSetting(key_name, connection=cache)
 
     # force synchronisation
@@ -166,14 +152,12 @@ def test_empty_hash_object(beacon):
     gevent.sleep(0.1)  # let the time to synchronize
     assert h["hello"] == h2["hello"]
 
-    cache.close()
-
 
 def test_empty_key_object(beacon):
     key_name = "super_mario"
     k = settings.SimpleSetting(key_name)
 
-    cache = settings_cache.CacheConnection(k.connection)
+    cache = client.get_caching_redis_proxy()
     k2 = settings.SimpleSetting(key_name, connection=cache)
 
     # force synchronisation
@@ -183,28 +167,25 @@ def test_empty_key_object(beacon):
     gevent.sleep(0.1)  # let the time to synchronize
     assert k.get() == k2.get()
 
-    cache.close()
-
 
 def test_prefetch_key(beacon):
     keys = [f"val_{i}" for i in range(4)]
     k = [settings.SimpleSetting(name) for name in keys]
 
-    cache = settings_cache.CacheConnection(k[0].connection)
+    cache = client.get_caching_redis_proxy()
     k2 = [settings.SimpleSetting(name, connection=cache) for name in keys]
     cache.add_prefetch(*k2)
 
     # init value
-    [k.set(i) for i, k in enumerate(k)]
+    for i, k in enumerate(k):
+        k.set(i)
 
     # generate first cache failed
     assert k2[0].get() == 0
     # check cache
-    assert not set(keys) - cache._cache_values.keys()
+    assert not set(keys) - cache.connection_pool.db_cache.keys()
 
     # remove prefetch
     # should remove cached values
     cache.remove_prefetch(*k2)
-    assert not cache._cache_values
-
-    cache.close()
+    assert not cache.connection_pool.db_cache

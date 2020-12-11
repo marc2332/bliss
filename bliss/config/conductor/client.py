@@ -8,10 +8,10 @@
 import os, sys
 import io
 import warnings
-import gevent
-from . import connection
-from .connection import StolenLockException
 from functools import wraps
+import gevent
+from bliss.config.conductor import connection
+
 
 _default_connection = None
 
@@ -102,39 +102,34 @@ def get_cache_address(connection=None):
     return connection.get_redis_connection_address()
 
 
-def get_redis_connection(single_connection_client=False, **kw):
+def get_redis_connection(**kw):
     """This doesn't return a connection but a proxy which may hold
     a connection.
     """
-    if single_connection_client:
-        warnings.warn("Use 'get_redis_proxy' instead", FutureWarning)
-        return get_redis_proxy(**kw)
-    else:
-        warnings.warn("Use 'get_fixed_connection_redis_proxy' instead", FutureWarning)
-        return get_fixed_connection_redis_proxy(**kw)
+    warnings.warn("Use 'get_redis_proxy' instead", FutureWarning)
+    return get_redis_proxy(**kw)
 
 
 @check_connection
-def get_redis_proxy(db=0, connection=None, pool_name="default"):
+def get_redis_proxy(db=0, connection=None):
     """Greenlet-safe proxy.
 
     :returns SafeRedisDbProxy:
     """
-    return connection.get_redis_proxy(db=db, pool_name=pool_name)
+    return connection.get_redis_proxy(db=db)
 
 
 @check_connection
-def get_fixed_connection_redis_proxy(db=0, connection=None, pool_name="default"):
-    """NOT greenlet-safe.
+def get_caching_redis_proxy(db=0, connection=None, shared_cache=True):
+    """Greenlet-safe proxy.
 
-    :returns FixedConnectionRedisDbProxy:
+    :param bool shared_cache:
+    :returns CachingRedisDbProxy:
     """
-    return connection.get_fixed_connection_redis_proxy(db=db, pool_name=pool_name)
+    return connection.get_caching_redis_proxy(db=db, shared_cache=shared_cache)
 
 
-def get_existing_redis_proxy(
-    db=0, single_connection_client=False, pool_name="default", timeout=None
-):
+def get_existing_redis_proxy(db=0, timeout=None):
     """Greenlet-safe proxy.
 
     :returns None or SafeRedisDbProxy:
@@ -143,7 +138,7 @@ def get_existing_redis_proxy(
         return None
     try:
         with gevent.Timeout(timeout, TimeoutError):
-            return _default_connection.get_redis_proxy(db=db, pool_name=pool_name)
+            return _default_connection.get_redis_proxy(db=db)
     except TimeoutError:
         return None
 

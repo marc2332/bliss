@@ -601,6 +601,17 @@ class DataNode(metaclass=DataNodeMetaClass):
             self._ttl_setter = None
             self._struct = self._get_struct(db_name, connection=self.db_connection)
 
+    def add_prefetch(self):
+        """As long as caching on the proxy level exists in CachingRedisDbProxy,
+        we need to prefetch settings.
+        """
+        self.db_connection.add_prefetch(self._struct, self._info)
+
+    def remove_prefetch(self):
+        """Undo `add_prefetch`.
+        """
+        self.db_connection.remove_prefetch(self._struct, self._info)
+
     def _init_info(self, **kwargs):
         return kwargs.pop("info", {})
 

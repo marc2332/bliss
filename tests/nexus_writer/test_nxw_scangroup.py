@@ -57,7 +57,7 @@ def _test_nxw_scangroup(session=None, tmpdir=None, writer=None, **kwargs):
             seq.custom_channels["customdata"].emit(numpy.arange(npoints // 2))
             g2 = nxw_test_utils.run_scan(scan2, runasync=True)
             seq.custom_channels["customdata"].emit(numpy.arange(npoints // 2, npoints))
-            gevent.joinall([g1, g2])
+            gevent.joinall([g1, g2], raise_error=True)
             diode34 = scan1.get_data()["diode3"] + scan2.get_data()["diode4"]
             seq.custom_channels["diode34"].emit(diode34)
             scan_seq.add(scan1)

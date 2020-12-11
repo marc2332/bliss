@@ -20,19 +20,25 @@ import functools
 
 def get_scan_entries(filename, timeout=3):
     try:
+        # Bypass file locking:
         f = open(filename, mode="rb")
     except IOError:
         # File does not exist or no read permissions
         return []
     try:
-        with gevent.Timeout(timeout):
-            while True:
-                try:
-                    with h5py.File(f, mode="r") as h5f:
-                        return list(h5f.keys())
-                except Exception:
-                    # Scans are being added
-                    gevent.sleep(0.1)
+        try:
+            with gevent.Timeout(timeout):
+                while True:
+                    try:
+                        with h5py.File(f, mode="r") as h5f:
+                            return list(h5f["/"])
+                    except Exception:
+                        # Scans are being added
+                        gevent.sleep(0.1)
+        except gevent.Timeout:
+            raise RuntimeError(
+                "HDF5 file cannot be accessed to get the scan names"
+            ) from None
     finally:
         f.close()
 

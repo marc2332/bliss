@@ -178,7 +178,7 @@ def main():
         "msgpack >= 0.6.1",
         "msgpack_numpy >= 0.4.4.2",
         'blessings; platform_machine == "x86_64"',
-        "h5py",
+        "h5py == 2.10",
         "gevent >= 1.4",
         "pygments",
         "numpy >= 1.13",

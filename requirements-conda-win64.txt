@@ -7,7 +7,7 @@ flask
 gevent >= 1.4, <= 20.6.2
 greenlet <= 0.4.16
 gitpython
-h5py >= 2.9
+h5py == 2.10
 hiredis
 jedi >= 0.17.1
 jinja2 >= 2.7

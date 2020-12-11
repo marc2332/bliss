@@ -186,3 +186,33 @@ def test_select_shapes__rect_profile(flint_session):
     roi = result[0]
     assert isinstance(roi, lima_roi.RoiProfile)
     assert roi.mode == "vertical"
+
+
+def test_select_shapes__initial_selection(flint_session):
+    flint = plot.get_flint()
+    p = plot.plot()
+    context = []
+    roi_dict = dict(origin=(1, 2), size=(3, 4), kind="Rectangle", label="roi_dict")
+    roi_rect = lima_roi.Roi(0, 1, 2, 3, name="roi_rect")
+    roi_arc = lima_roi.ArcRoi(0, 1, 2, 3, 4, 5, name="roi_arc")
+    roi_profile = lima_roi.RoiProfile(0, 1, 2, 3, mode="vertical", name="roi_profile")
+
+    def active_gui():
+        result = p.select_shapes(
+            initial_selection=[roi_dict, roi_rect, roi_arc, roi_profile]
+        )
+        context.append(result)
+
+    def do_actions():
+        gevent.sleep(1)
+        flint.test_active(p.plot_id, qaction="roi-apply-selection")
+
+    gevent.joinall([gevent.spawn(f) for f in [active_gui, do_actions]])
+    assert len(context) == 1
+
+    rois = context[0]
+    assert len(rois) == 4
+    assert rois[0]["label"] == roi_dict["label"]
+    assert rois[1].name == roi_rect.name
+    assert rois[2].name == roi_arc.name
+    assert rois[3].name == roi_profile.name

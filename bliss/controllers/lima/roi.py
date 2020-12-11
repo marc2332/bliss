@@ -1028,7 +1028,7 @@ class RoiProfileController(IntegratingCounterController):
             cid = self._roi_ids[cnt.name]
             spec = self._proxy.readImage([int(cid), int(from_index)])
 
-            if spec != []:
+            if len(spec):
                 num_of_spec = len(spec) // size
 
                 if last_num_of_spec and num_of_spec != last_num_of_spec:

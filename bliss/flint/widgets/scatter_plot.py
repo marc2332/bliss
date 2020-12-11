@@ -281,26 +281,23 @@ class ScatterNormalization:
                     scatter.VisualizationParameter.BINNED_STATISTIC_SHAPE,
                     (height, width),
                 )
-            # FIXME: Clean up in few time: part of silx 0.14 and 0.13.bugfix
-            if hasattr(scatter.VisualizationParameter, "DATA_BOUNDS_HINT"):
-                if (
-                    xmeta.start is not None
-                    and xmeta.stop is not None
-                    and ymeta.start is not None
-                    and ymeta.stop is not None
-                ):
-                    xrange = min(xmeta.start, xmeta.stop), max(xmeta.start, xmeta.stop)
-                    yrange = min(ymeta.start, ymeta.stop), max(ymeta.start, ymeta.stop)
-                    if width > 1 and height > 1:
-                        x_half_px = abs(xmeta.start - xmeta.stop) / (width - 1) * 0.5
-                        y_half_px = abs(ymeta.start - ymeta.stop) / (height - 1) * 0.5
-                        xrange = xrange[0] - x_half_px, xrange[1] + x_half_px
-                        yrange = yrange[0] - y_half_px, yrange[1] + y_half_px
+            if (
+                xmeta.start is not None
+                and xmeta.stop is not None
+                and ymeta.start is not None
+                and ymeta.stop is not None
+            ):
+                xrange = min(xmeta.start, xmeta.stop), max(xmeta.start, xmeta.stop)
+                yrange = min(ymeta.start, ymeta.stop), max(ymeta.start, ymeta.stop)
+                if width > 1 and height > 1:
+                    x_half_px = abs(xmeta.start - xmeta.stop) / (width - 1) * 0.5
+                    y_half_px = abs(ymeta.start - ymeta.stop) / (height - 1) * 0.5
+                    xrange = xrange[0] - x_half_px, xrange[1] + x_half_px
+                    yrange = yrange[0] - y_half_px, yrange[1] + y_half_px
 
-                    scatter.setVisualizationParameter(
-                        scatter.VisualizationParameter.DATA_BOUNDS_HINT,
-                        (yrange, xrange),
-                    )
+                scatter.setVisualizationParameter(
+                    scatter.VisualizationParameter.DATA_BOUNDS_HINT, (yrange, xrange)
+                )
 
     def isImageRenderingSupported(
         self, xChannel: scan_model.Channel, yChannel: scan_model.Channel

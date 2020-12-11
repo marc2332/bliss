@@ -266,10 +266,8 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         toolBar.addAction(action)
 
         action = fit.FitAction(self.__plot, self)
-        if hasattr(action, "setFittedItemUpdatedFromActiveCurve"):
-            # FIXME: This have to be removed for the silx 0.13 release
-            action.setFittedItemUpdatedFromActiveCurve(True)
-            action.setXRangeUpdatedOnZoom(True)
+        action.setFittedItemUpdatedFromActiveCurve(True)
+        action.setXRangeUpdatedOnZoom(True)
         toolBar.addAction(action)
 
         toolBar.addSeparator()

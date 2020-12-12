@@ -42,6 +42,12 @@ class _ChannelDataNodeBase(DataNode):
         return super()._streamid_to_idx(streamID) - 1
 
     def _init_info(self, **kwargs):
+        # This is a hack, just for self._create_struct. The name of this
+        # DataNode (which is used to create the db_name) will replaced
+        # by the channel name after composing the db_name.
+        self.__channel_name = kwargs.get("channel_name", None)
+
+        # Take specific arguments to populate `info`
         shape = kwargs.get("shape", None)
         dtype = kwargs.get("dtype", None)
         unit = kwargs.get("unit", None)
@@ -55,17 +61,6 @@ class _ChannelDataNodeBase(DataNode):
             info["fullname"] = fullname
             info["unit"] = unit
         return info
-
-    def _create_struct(self, db_name, name, node_type):
-        # fix the channel name
-        fullname = self._info["fullname"]
-        if fullname:
-            if fullname.endswith(f":{name}"):
-                # no alias, name must be fullname
-                name = fullname
-            elif fullname.startswith("axis:"):
-                name = f"axis:{name}"
-        return super()._create_struct(db_name, name, node_type)
 
     def _subscribe_stream(self, stream_suffix, reader, first_index=None, **kw):
         """Subscribe to a particular stream associated with this node.
@@ -154,12 +149,24 @@ class _ChannelDataNodeBase(DataNode):
 
     @property
     def fullname(self):
+        """Same as AcquisitionChannel.fullname
+        """
         return self.info.get("fullname")
 
     @property
     def short_name(self):
-        _, _, short_name = self.name.rpartition(":")
-        return short_name
+        """Same as AcquisitionChannel.short_name
+        """
+        _, _, last_part = self.name.rpartition(":")
+        return last_part
+
+    def _create_struct(self, db_name, short_name, node_type):
+        # AcquisitionChannel.short_name is used for `self.db_name`.
+        # AcquisitionChannel.fullname is used for `node.name`.
+        name = self.__channel_name
+        if not name:
+            name = short_name
+        return super()._create_struct(db_name, name, node_type)
 
     @property
     def unit(self):
@@ -169,6 +176,9 @@ class _ChannelDataNodeBase(DataNode):
         db_names = super().get_db_names()
         db_names.append(self.db_name + "_data")
         return db_names
+
+    def get_settings(self):
+        return super().get_settings() + [self._queue]
 
     def store(self, event_dict, cnx=None):
         """Publish channel data in Redis

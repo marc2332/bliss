@@ -372,13 +372,18 @@ class AcquisitionObject:
         from bliss.common.motor_group import is_motor_group
         from bliss.common.axis import Axis
 
+        if self.device is None:
+            return None
         if is_motor_group(self.device) or isinstance(self.device, Axis):
             return "axis"
         return self.device.name
 
     @property
     def name(self):
-        return self.__name if self.__name is not None else self._device_name
+        if self.__name:
+            return self.__name
+        else:
+            return self._device_name
 
     @property
     def channels(self):

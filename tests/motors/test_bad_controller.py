@@ -15,6 +15,17 @@ from bliss.common import event
 from bliss.common.axis import AxisFaultError
 
 
+def test_position_reading_delay(bad_motor):
+    with gevent.Timeout(0.5):
+        # read "hardware"
+        bad_motor._hw_position
+    bad_motor.controller.position_reading_delay = 1
+    with pytest.raises(gevent.Timeout):
+        with gevent.Timeout(0.5):
+            # read "hardware"
+            bad_motor._hw_position
+
+
 def test_bad_start(bad_motor):
     bad_motor.controller.bad_start = True
 

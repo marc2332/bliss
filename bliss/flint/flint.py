@@ -35,6 +35,7 @@ import sys
 import logging
 import signal
 import warnings
+import functools
 
 import gevent
 from argparse import ArgumentParser
@@ -168,6 +169,8 @@ def set_global_settings(settings: qt.QSettings, options):
     This function also update the local user settings from the command line
     options.
     """
+    ROOT_LOGGER.debug("Set global settings...")
+
     if options.clear_settings:
         # Clear all the stored keys
         settings.clear()
@@ -207,6 +210,22 @@ def set_global_settings(settings: qt.QSettings, options):
         else:
             ROOT_LOGGER.warning("OpenGL is not available: %s", result.error)
             ROOT_LOGGER.warning("Switch back to matplotlib backend")
+def save_global_settings(flintModel, options):
+    """Save the global settings into the config file"""
+    ROOT_LOGGER.debug("Save global settings...")
+
+    settings = flintModel.settings()
+    flintWindow = flintModel.mainWindow()
+    flintWindow.saveToSettings()
+
+    manager = flintModel.mainManager()
+    try:
+        manager.saveBeforeClosing()
+    except Exception:
+        ROOT_LOGGER.error("Error while saving the workspace", exc_info=True)
+
+    settings.sync()
+    ROOT_LOGGER.debug("Global settings saved")
 
 
 def process_gevent():
@@ -332,13 +351,15 @@ def main():
     splash = create_spash_screen()
 
     flintModel = create_flint_model(settings)
-    flintWindow = flintModel.mainWindow()
-    qapp.aboutToQuit.connect(flintWindow.saveToSettings)
+    qapp.aboutToQuit.connect(
+        functools.partial(save_global_settings, flintModel, options)
+    )
 
     if options.simulator:
         from bliss.flint.simulator.acquisition import AcquisitionSimulator
         from bliss.flint.simulator.simulator_widget import SimulatorWidget
 
+        flintWindow = flintModel.mainWindow()
         display = SimulatorWidget(flintWindow)
         display.setFlintModel(flintModel)
         simulator = AcquisitionSimulator(display)
@@ -387,6 +408,8 @@ def main():
         sys.exit(qapp.exec_())
     finally:
         server.join()
+
+    ROOT_LOGGER.debug("End")
 
 
 if __name__ == "__main__":

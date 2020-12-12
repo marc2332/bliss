@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 from typing import Dict
-from typing import NamedTuple
 
 import logging
 import os
@@ -279,14 +278,6 @@ class FlintWindow(qt.QMainWindow):
         settings.setValue("size", self.size())
         settings.setValue("pos", self.pos())
         settings.endGroup()
-
-        manager = self.__flintState.mainManager()
-        try:
-            manager.saveBeforeClosing()
-        except Exception:
-            _logger.error("Error while saving the workspace", exc_info=True)
-
-        settings.sync()
 
     def __initLogWindowFromSettings(self):
         settings = self.__flintState.settings()

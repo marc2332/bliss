@@ -35,11 +35,25 @@ stages:
 check_style:
   stage: style
   image: continuumio/miniconda3:latest
+  except:
+    - master
   script:
     - pip install -r requirements-dev.txt
     # run black
     - LC_ALL=C.UTF-8 black --check --safe $(git diff origin/master... --diff-filter=ACMR --name-only | grep \\.py$)
 
+check_style_master:
+  stage: style
+  image: continuumio/miniconda3:latest
+  only:
+    - master
+  tags:
+    - bliss_master
+  script:
+    - pip install -r requirements-dev.txt
+    # run black
+    - LC_ALL=C.UTF-8 black --check --safe $(git diff origin/master... --diff-filter=ACMR --name-only | grep \\.py$)
+  
 check_lint:
   stage: style
   image: continuumio/miniconda3:latest

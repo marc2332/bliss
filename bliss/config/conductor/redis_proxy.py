@@ -317,7 +317,9 @@ class CachingRedisDbProxy(SafeRedisDbProxy):
 
     def add_prefetch(self, *objects):
         """Adds object to be pre-fetched in block in case of any cache failed.
-        Objects will be always kept in memory even if it is not accessed.
+        Objects will be always kept in memory even if they are not accessed.
+        Redis communication happens in the method so not not execute in
+        a pipeline.
 
         Any setting can be added to be pre-fetched.
         """
@@ -325,6 +327,10 @@ class CachingRedisDbProxy(SafeRedisDbProxy):
 
         for obj in objects:
             name = obj.name
+            if not isinstance(name, (str, bytes)):
+                raise TypeError(
+                    f"Cannot prefetch {obj} inside an asynchronous Redis pipeline"
+                )
             if isinstance(obj, settings.SimpleSetting):
                 self._cached_settings[obj] = (name, self.TYPE.KEY)
             elif isinstance(obj, settings.BaseHashSetting):

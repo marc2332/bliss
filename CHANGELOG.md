@@ -10,8 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Flint:
-    - Display ROI geometries with the detector image widget
-- Custom scan description (`scan_info`)
+    - Display ROI geometries with the detector image widget during a scan
+    - Allow to switch OpenGL/matplotlib from "Display" menu
+		- This setting is saved in user config file
+	    - Added `--disable-opengl`
+	- Autoscale +/-3stddev on colormap is now clamped with the input data range
+	- Arc ROI is provided with 2 interactive modes: 3 points (default) or polar mode
+- Scan description (`scan_info`)
     - `bliss.scanning.scan_info.ScanInfo` was created in order to replace
       scan_info dictionary and ScanInfoFactory
     - A `set_sequence_info` helper was added to define the amount of excepted
@@ -26,9 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flint:
     - Data from Lima detectors and MCAs are not anymore hidden on a `amesh` scan
     - Data from MCAs are again displayed inside an MCA widget
-    - Fix vmax on set_plot_colormap remote API
     - Data from Lima detectors and MCAs from a sub scan of a sequence are not
       anymore hidden
+    - Fixed vmax on set_plot_colormap remote API
+    - Fixed initial ROIs provided as a dict
 
 ### Removed
 

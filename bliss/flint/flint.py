@@ -61,6 +61,8 @@ from bliss.flint.model import flint_model
 ROOT_LOGGER = logging.getLogger()
 """Application logger"""
 
+SAVE_OPENGL_CONFIG = True
+
 
 def patch_qt():
     """Patch Qt bindings in order simplify the integration.
@@ -201,15 +203,48 @@ def set_global_settings(settings: qt.QSettings, options):
             matplotlib.rcParams["figure.dpi"] = float(value)
         settings.endGroup()
 
-    if options.opengl:
-        from silx.gui.utils import glutils
+    if options.opengl is not None:
+        if options.opengl:
+            from silx.gui.utils import glutils
 
-        result = glutils.isOpenGLAvailable()
-        if result:
-            silx.config.DEFAULT_PLOT_BACKEND = "opengl"
+            result = glutils.isOpenGLAvailable()
+            if result:
+                silx.config.DEFAULT_PLOT_BACKEND = "opengl"
+            else:
+                ROOT_LOGGER.warning("OpenGL is not available: %s", result.error)
+                ROOT_LOGGER.warning(
+                    "Switch back to matplotlib backend for this execusion"
+                )
+                silx.config.DEFAULT_PLOT_BACKEND = "matplotlib"
         else:
-            ROOT_LOGGER.warning("OpenGL is not available: %s", result.error)
-            ROOT_LOGGER.warning("Switch back to matplotlib backend")
+            silx.config.DEFAULT_PLOT_BACKEND = "matplotlib"
+            ROOT_LOGGER.warning("Enforce matplotlib backend for this execusion")
+        # This setting is only used for this execusion
+        SAVE_OPENGL_CONFIG = False
+    else:
+        settings.beginGroup("silx")
+        useOpengl = settings.value("use-opengl", False, type=bool)
+        settings.endGroup()
+
+        if useOpengl:
+            from silx.gui.utils import glutils
+
+            result = glutils.isOpenGLAvailable()
+            if result:
+                silx.config.DEFAULT_PLOT_BACKEND = "opengl"
+            else:
+                ROOT_LOGGER.warning("OpenGL is not available: %s", result.error)
+                ROOT_LOGGER.warning("Switch back to matplotlib backend")
+                silx.config.DEFAULT_PLOT_BACKEND = "matplotlib"
+                # This can be the case when connecting through SSH
+                # So try to not overwrite the default config
+                SAVE_OPENGL_CONFIG = False
+        else:
+            silx.config.DEFAULT_PLOT_BACKEND = "matplotlib"
+
+    ROOT_LOGGER.debug("Global settings set")
+
+
 def save_global_settings(flintModel, options):
     """Save the global settings into the config file"""
     ROOT_LOGGER.debug("Save global settings...")
@@ -217,6 +252,13 @@ def save_global_settings(flintModel, options):
     settings = flintModel.settings()
     flintWindow = flintModel.mainWindow()
     flintWindow.saveToSettings()
+
+    settings.beginGroup("silx")
+    if SAVE_OPENGL_CONFIG:
+        # If there was no config for this execusion we can save the current state
+        backend = silx.config.DEFAULT_PLOT_BACKEND
+        settings.setValue("use-opengl", backend == "opengl")
+    settings.endGroup()
 
     manager = flintModel.mainManager()
     try:

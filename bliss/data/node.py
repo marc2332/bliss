@@ -276,7 +276,7 @@ def get_filtered_nodes(
         )
     else:
         if kw.get("connection") is None:
-            kw["connection"] = client.get_redis_connection(db=1)
+            kw["connection"] = client.get_redis_proxy(db=1)
         db_names = filter_node_names(
             *db_names,
             include_types=include_filter,
@@ -372,7 +372,7 @@ def filter_node_names(
         recursive_exclude_types = (recursive_exclude_types,)
 
     if connection is None:
-        connection = client.get_redis_connection(db=1)
+        connection = client.get_redis_proxy(db=1)
 
     # Get attributes from the principal representations in 1 call (pipeline)
     pipeline = connection.pipeline()

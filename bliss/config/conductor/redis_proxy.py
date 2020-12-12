@@ -574,15 +574,19 @@ class CachingRedisDbProxy(SafeRedisDbProxy):
         :param TYPE object_type: Redis value type
         :returns: the value of the Redis key
         """
-        cached_setting = {name: object_type}
-        cached_setting.update(
+        cached_settings = {name: object_type}
+        fetch_names = {name}
+
+        # Add prefetch objects that are currently not cached
+        cached_settings.update(
             {name: obj_type for name, obj_type in self._cached_settings.values()}
         )
-        needed_prefetch_name = {name}
-        needed_prefetch_name.update(cached_setting.keys() - self._db_cache.keys())
-        pipeline = super().pipeline()
-        for obj_name in needed_prefetch_name:
-            obj_type = cached_setting[obj_name]
+        fetch_names.update(cached_settings.keys() - self._db_cache.keys())
+
+        # Fetch all values from Redis
+        pipeline = self.pipeline()
+        for obj_name in fetch_names:
+            obj_type = cached_settings[obj_name]
             if obj_type == self.TYPE.HASH:
                 pipeline.hgetall(obj_name)
             elif obj_type == self.TYPE.KEY:
@@ -591,15 +595,11 @@ class CachingRedisDbProxy(SafeRedisDbProxy):
                 pipeline.lrange(obj_name, 0, -1)
             elif obj_type == self.TYPE.ZSET:
                 pipeline.zrange(obj_name, 0, -1, withscores=True)
-        ### next lines are copied from redis-py
-        conn = pipeline.connection
-        if not conn:
-            conn = pipeline.connection_pool.get_connection("MULTI", pipeline.shard_hint)
-            pipeline.connection = conn
-        ###
-        pipeline_result = pipeline._execute_transaction(
-            conn, pipeline.command_stack, True
-        )
-        for obj_name, result in zip(needed_prefetch_name, pipeline_result):
+        pipeline_result = pipeline.execute()
+
+        # Fill the cache with those values
+        for obj_name, result in zip(fetch_names, pipeline_result):
             self._db_cache[obj_name] = result
+
+        # Return the value of the key we actually asked for
         return self._db_cache[name]

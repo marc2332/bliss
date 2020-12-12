@@ -629,6 +629,7 @@ class FaultyMockup(Mockup):
         self.bad_position = False
         self.bad_position_only_once = False
         self.nan_position = False
+        self.position_reading_delay = 0
         self.state_recovery_delay = 1
         self.state_msg_index = 0
 
@@ -677,6 +678,8 @@ class FaultyMockup(Mockup):
             return Mockup.stop(self, axis, **kw)
 
     def read_position(self, axis, t=None):
+        if self.position_reading_delay > 0:
+            gevent.sleep(self.position_reading_delay)
         if self.bad_position:
             raise RuntimeError("BAD POSITION")
         elif self.bad_position_only_once:

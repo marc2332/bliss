@@ -374,7 +374,16 @@ class MapWithAliases(Map):
         for axis in self.get_axes_iter():
             tasks.append(gevent.spawn(request, axis))
 
-        gevent.joinall(tasks)
+        try:
+            gevent.joinall(tasks)
+        finally:
+            # ensure greenlets are done, or terminate them
+            # (avoid dangling greenlet, see #2410)
+            # 'joinall' can be interrupted if it takes too
+            # much time and we have a timeout wrapping this call,
+            # for example
+            if not all(task.ready() for task in tasks):
+                gevent.killall(tasks)
 
         yield from (task.get() for task in tasks)
 

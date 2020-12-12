@@ -321,10 +321,10 @@ class GroupingMaster(AcquisitionMaster):
                     if n.connection.ttl(n.db_name) > 0:
                         n.set_ttl()
         except BaseException:
-            self.publish_success = False
+            self.publish_success &= False
             raise
         else:
-            self.publish_success = True
+            self.publish_success &= True
         finally:
             self.publish_event.set()
 

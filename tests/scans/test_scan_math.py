@@ -8,6 +8,15 @@
 import pytest
 import numpy
 from bliss.scanning import scan_math
+from silx.utils import testutils
+
+
+def test_cen_1_point():
+    y = numpy.array([0])
+    x = numpy.array([0])
+    listener = testutils.TestLogging(scan_math.logger.name, error=0, warning=0, info=0)
+    with listener:
+        scan_math.cen(x, y)
 
 
 def test_cen_4_points():

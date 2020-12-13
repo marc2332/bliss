@@ -403,6 +403,9 @@ def _calc_cen(x, y):
     Returns:
         Cen:
     """
+    if len(x) == 1:
+        return Cen(x[0], 0)
+
     # Indices of y values above the half value
     y_min = y.min()
     y_max = y.max()

@@ -267,13 +267,13 @@ class DataStreamReader:
     class ConsumerState(enum.IntEnum):
         """Writer states:
         * WAITING: consumer is waiting for a new event
-        * YIELDING: consumer is processing an event
-        * IDLE: consumer stopped or stop was requested
+        * PROCESSING: consumer is processing an event
+        * FINISHED: consumer stopped or stop was requested
         """
 
         WAITING = enum.auto()
-        YIELDING = enum.auto()
-        IDLE = enum.auto()
+        PROCESSING = enum.auto()
+        FINISHED = enum.auto()
 
     # Raw events for the synchronization stream
     SYNC_END = streaming_events.EndEvent().encode()
@@ -319,7 +319,7 @@ class DataStreamReader:
         # and stream priorities are being respected
         self.__synchro_stream = None
         self._consumer_state_changed = gevent.event.Event()
-        self._consumer_state = self.ConsumerState.YIELDING
+        self._consumer_state = self.ConsumerState.PROCESSING
         # State as if we are consuming events
 
         # For the reader greenlet
@@ -395,7 +395,7 @@ class DataStreamReader:
         if not self._read_task:
             return
         self._publish_synchro_event(end=True)
-        self._consumer_state = self.ConsumerState.IDLE
+        self._consumer_state = self.ConsumerState.FINISHED
         # State as if we the consumer already finished
         try:
             self._read_task.get()
@@ -568,7 +568,7 @@ class DataStreamReader:
         """
         if self._has_consumer:
             raise RuntimeError("Cannot reset the index while consuming events")
-        self._consumer_state = self.ConsumerState.YIELDING
+        self._consumer_state = self.ConsumerState.PROCESSING
         # State as if we are consuming events
         if first_index is None:
             first_index = "$"
@@ -700,7 +700,7 @@ class DataStreamReader:
         If you yield to the gevent loop, you'll need to call
         this again if you want to ensure streams are fixed.
         """
-        while self._consumer_state == self.ConsumerState.YIELDING:
+        while self._consumer_state == self.ConsumerState.PROCESSING:
             self._consumer_state_changed.clear()
             self._consumer_state_changed.wait()
 
@@ -773,9 +773,9 @@ class DataStreamReader:
                 if isinstance(item, Exception):
                     raise item
                 self._log_events("QUEUE", item[0], item[1])
-                self._consumer_state = self.ConsumerState.YIELDING
+                self._consumer_state = self.ConsumerState.PROCESSING
                 yield item
                 self._consumer_state = self.ConsumerState.WAITING
         finally:
-            self._consumer_state = self.ConsumerState.IDLE
+            self._consumer_state = self.ConsumerState.FINISHED
             self._has_consumer = False

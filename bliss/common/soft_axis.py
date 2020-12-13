@@ -19,7 +19,7 @@ def SoftAxis(
     low_limit=float("-inf"),
     high_limit=float("+inf"),
     tolerance=None,
-    export_to_session=True,
+    export_to_session=False,
     unit=None,
 ):
 

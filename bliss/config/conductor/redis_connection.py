@@ -117,32 +117,36 @@ class CachingRedisDbConnectionPool(RedisDbConnectionPool):
     def __init__(self, *args, **kw):
         super().__init__(*args, **kw)
         self._enable_lock = gevent.lock.RLock()
-        self._caching_enabled = False
         self.db_cache = redis_caching.RedisCache(weakref.proxy(self))
-        self.enable_caching()
+        self.enable_caching(timeout=10)
 
     def enable_caching(self, timeout=None):
+        """Connections in use will raise an exception.
+        """
+        # Existing connections might not have client tracking on. So first
+        # disable caching and remove all connections from the pool.
         self.disconnect()
         self.db_cache.enable(timeout=timeout)
-        self._caching_enabled = True
 
-    def disable_caching(self, timeout=5):
-        """Behaves like `RedisDbConnectionPool` after calling this
+    def disable_caching(self):
+        """Behaves like `RedisDbConnectionPool` during/after calling this.
+
+        Existing connections will be preserved.
         """
-        self.db_cache.disable(timeout=timeout)
-        self._caching_enabled = False
+        self.db_cache.disable()
 
     def make_connection(self, *args, **kw):
         """The new connection needs to send the tracking redirect command
         upon connecting to Redis.
         """
         connection = super().make_connection(*args, **kw)
-        if self._caching_enabled:
-            connection.register_connect_callback(self.db_cache.track_connection)
+        connection.register_connect_callback(self.db_cache.track_connection)
         return connection
 
     def disconnect(self):
-        self.db_cache.disable(timeout=5)
+        """Behaves like `RedisDbConnectionPool` during/after calling this
+        """
+        self.db_cache.disable()
         super().disconnect()
 
     def create_proxy(self):

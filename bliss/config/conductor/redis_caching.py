@@ -27,36 +27,34 @@ class CacheInvalidationGreenlet(gevent.Greenlet):
 
     _REDIS_INVALIDATION_KEY = b"__redis__:invalidate"
 
-    def __init__(self, connection_pool, db_cache, running_event):
+    def __init__(self, connection_pool, db_cache, started_event):
         self._connection_pool = connection_pool
         self._db_cache = db_cache
-        self._running_event = running_event
+        self._started_event = started_event
         self._tracking_redirect_id = None
         self._close_pipe_read = None
         self._close_pipe_write = None
         super().__init__()
 
-    def kill(self, blocking=True, timeout=None):
-        """Try to close through the pipe first, then kill the greenlet.
+    def kill(self):
+        """Try to close through the pipe first. Kill the greenlet if that
+        doesn't work.
         """
         self._close_fd(self._close_pipe_write)
-        if blocking:
-            with gevent.Timeout(timeout):
-                try:
-                    self.join(timeout=3)
-                except gevent.Timeout:
-                    super().kill()
-        else:
-            super().kill(blocking=blocking, timeout=timeout)
+        try:
+            self.join(timeout=1)
+        except gevent.Timeout:
+            super().kill()
 
     def _run(self):
         try:
             pubsub = self._setup_invalidation_connection()
             self._db_cache._cache = dict()
-            self._running_event.set()
+            self._db_cache._enabled = True
+            self._started_event.set()
             self._invalidation_loop(pubsub)
         finally:
-            self._running_event.clear()
+            self._db_cache._enabled = False
             self._db_cache._cache = None
             self._tracking_redirect_id = None
             self._close_fd(self._close_pipe_write)
@@ -192,7 +190,7 @@ class RedisCache(MutableMapping):
 
     def __init__(self, connection_pool):
         self._connection_pool = connection_pool
-        self._running_event = gevent.event.Event()
+        self._enabled = False
         # Until caching is done on the connection level:
         self.cache_lock = gevent.lock.RLock()
         self._cache = None
@@ -200,26 +198,30 @@ class RedisCache(MutableMapping):
         super().__init__()
 
     def __del__(self):
-        self.disable(blocking=False)
+        self.disable()
 
     @property
     def enabled(self):
-        return self._running_event.is_set()
+        return self._enabled
 
     @property
     def disabled(self):
         return not self.enabled
 
     def enable(self, timeout=None):
+        """Start the invalidation greenlet and enable client tracking
+        (see `track_connection`), in that order.
+        """
         if self.enabled:
             return
         with gevent.Timeout(timeout):
+            started_event = gevent.event.Event()
             glt = CacheInvalidationGreenlet(
-                self._connection_pool, weakref.proxy(self), self._running_event
+                self._connection_pool, weakref.proxy(self), started_event
             )
             glt.start()
             try:
-                self._running_event.wait()
+                started_event.wait()
             except gevent.Timeout:
                 # Show why the greenlet did not start
                 try:
@@ -230,13 +232,14 @@ class RedisCache(MutableMapping):
                 raise
             self._invalidation_greenlet = glt
 
-    def disable(self, blocking=True, timeout=None):
-        if self.disabled:
-            return
+    def disable(self):
+        """Disable client tracking (see `track_connection`) and kill
+        the invalidation greenlet, in that order.
+        """
+        self._enabled = False
         if self._invalidation_greenlet:
-            self._invalidation_greenlet.kill(blocking=blocking, timeout=timeout)
-        if not self._invalidation_greenlet:
-            self._invalidation_greenlet = None
+            self._invalidation_greenlet.kill()
+        self._invalidation_greenlet = None
 
     @check_enabled
     def __setitem__(self, key, value):
@@ -263,7 +266,10 @@ class RedisCache(MutableMapping):
 
         :param redis.connection.Connection connection:
         """
-        if self._invalidation_greenlet is None:
+        if not self.enabled:
             # This is the invalidation pubsub connection itself
+            # Or this is called by a Connection making a new connection
+            # while the cache is disabled or in the process of being
+            # disabled
             return
         self._invalidation_greenlet.track_connection(connection)

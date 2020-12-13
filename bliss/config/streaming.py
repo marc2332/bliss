@@ -50,12 +50,7 @@ class DataStream(BaseSetting):
         self._approximate = approximate
 
     def __str__(self):
-        try:
-            n = len(self)
-        except TypeError:
-            # TODO: Redis bug (xlen returns sometimes Pipeline)
-            n = "nan"
-        return f"{self.__class__.__name__}({self.name}, {n}/{self._maxlen})"
+        return f"{self.__class__.__name__}({self.name}, maxlen={self._maxlen})"
 
     def __len__(self):
         return self.connection.xlen(self.name)

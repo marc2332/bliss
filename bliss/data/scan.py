@@ -89,7 +89,7 @@ def watch_session_scans(
     ready_event=None,
     stop_handler=None,
     watch_scan_group: bool = False,
-    exclude_existing_scans: bool = False,
+    exclude_existing_scans=None,
 ):
     """Any scan node that is created before the `ready_event` will not be watched
     when `exclude_existing_scans=True`.
@@ -102,9 +102,11 @@ def watch_session_scans(
     :param Event ready_event: started listening to Redis
     :param DataStreamReaderStopHandler stop_handler:
     :param bool watch_scan_group: If True the scan groups are also listed like any other scans
-    :param bool exclude_existing_scans:
+    :param bool exclude_existing_scans: False by default (will become True by default in the future)
     """
-    warnings.warn("'exclude_existing_scans' will be True by default", FutureWarning)
+    if exclude_existing_scans is None:
+        exclude_existing_scans = False
+        warnings.warn("'exclude_existing_scans' will be True by default", FutureWarning)
     session_node = get_or_create_node(session_name, node_type="session")
     if session_node is None:
         return

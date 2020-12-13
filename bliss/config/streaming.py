@@ -350,9 +350,12 @@ class DataStreamReader:
         self.stop_handler = stop_handler
 
     def __str__(self):
-        streams = f"{len(self._active_streams)}/{len(self._streams)} streams active"
-        consumer = f"{self._consumer_state.name} consumer"
-        return f"{self.__class__.__name__}({streams}, {consumer})"
+        return "{}({} subscribed, {} activate, {} consumer".format(
+            self.__class__.__name__,
+            len(self._streams),
+            len(self._active_streams),
+            self._consumer_state.name,
+        )
 
     @property
     def _consumer_state(self):
@@ -403,7 +406,8 @@ class DataStreamReader:
     @property
     def _synchro_stream(self):
         """The read synchronization stream (created when missing).
-        This data stream is for internal use only (i.e. not meant for consumer).
+        This data stream is for internal use only (i.e. not meant for
+        the consumer).
         """
         if self.__synchro_stream is not None:
             return self.__synchro_stream
@@ -612,7 +616,8 @@ class DataStreamReader:
         try:
             if self._synchro_stream is None:
                 raise RuntimeError(
-                    "Add at least once stream before iterating over the events"
+                    "Subscribe to at least one stream before iterating over "
+                    + self.__class__.__name__
                 )
             sinfo = self._compile_stream_info(
                 self._synchro_stream, first_index=0, priority=-1

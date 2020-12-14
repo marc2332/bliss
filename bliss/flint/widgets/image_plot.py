@@ -94,8 +94,14 @@ class _Title:
 
         frameInfo = ""
         displayName = channel.displayName(scan)
+        shape = ""
         data = channel.data(scan)
         if data is not None:
+            array = data.array()
+            if array is not None:
+                height, width = array.shape[0:2]
+                shape = f": {width} × {height}"
+
             if data.source() == "video":
                 op = " ≈ "
             else:
@@ -106,7 +112,7 @@ class _Title:
             if frameInfo != "":
                 frameInfo += " "
             frameInfo += f"[{data.source()}]"
-        return f"{displayName}{frameInfo}"
+        return f"{displayName}{shape}{frameInfo}"
 
     def __updateTitle(self, title):
         subtitle = None

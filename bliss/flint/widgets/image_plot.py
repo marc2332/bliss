@@ -242,12 +242,15 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         return config
 
     def setConfiguration(self, config):
-        try:
-            self.__colormap._setFromDict(config.colormap)
-            self.__colormapInitialized = True
-        except Exception:
-            # As it relies on private API, make it safe
-            _logger.error("Impossible to restore colormap preference", exc_info=True)
+        if config.colormap is not None:
+            try:
+                self.__colormap._setFromDict(config.colormap)
+                self.__colormapInitialized = True
+            except Exception:
+                # As it relies on private API, make it safe
+                _logger.error(
+                    "Impossible to restore colormap preference", exc_info=True
+                )
         super(ImagePlotWidget, self).setConfiguration(config)
 
     def defaultColormap(self):

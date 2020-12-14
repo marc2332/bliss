@@ -526,12 +526,12 @@ def wa(**kwargs):
         print(_tabulate(table))
 
 
-def lsmot(**kwargs):
+def lsmot():
     """
     Displays names of all motors
     """
 
-    for name, _, _, _ in iter_axes_position_all(**kwargs):
+    for name in global_map.get_axes_names_iter():
         print("* {}".format(name))
 
 

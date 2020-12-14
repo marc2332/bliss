@@ -177,4 +177,3 @@ def fill_positioners(scan):
         rd["positioners_units"] = units
 
     return rd
-

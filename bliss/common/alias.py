@@ -354,7 +354,8 @@ class MapWithAliases(Map):
 
     def get_axes_names_iter(self):
         for axis in self.get_axes_iter():
-            yield axis.name
+            if axis.positioner:
+                yield axis.name
 
     def get_axes_positions_iter(self, on_error=None):
         def request(axis):

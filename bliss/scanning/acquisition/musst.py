@@ -157,7 +157,7 @@ class MusstAcquisitionMaster(AcquisitionMaster):
 
     def wait_ready(self):
         while self.musst.STATE == self.musst.RUN_STATE:
-            gevent.idle()
+            gevent.sleep(0)
         self._running_state = False
         self._event.set()
 

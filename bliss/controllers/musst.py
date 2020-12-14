@@ -519,7 +519,7 @@ class musst:
 
     def _wait(self):
         while self.STATE == self.RUN_STATE:
-            gevent.idle()
+            gevent.sleep(0)
 
     def run(self, entryPoint=None, wait=False):
         """ Execute program.

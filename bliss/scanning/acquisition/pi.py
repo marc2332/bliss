@@ -143,6 +143,6 @@ class PIAcquisitionSlave(AcquisitionSlave):
                 for channel, data_name in zip(self.channels, data.dtype.names):
                     channel.emit(data[data_name])
                 self._nb_acq_points += len(data)
-                gevent.idle()
+                gevent.sleep(0)
             else:
                 gevent.sleep(self.count_time / 2.0)

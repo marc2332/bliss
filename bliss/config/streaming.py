@@ -675,9 +675,9 @@ class DataStreamReader:
                         # Lower priority streams are never read until
                         # while higher priority streams have unread data
                         keep_reading = True
-                        self._logger.debug(f"SKIP {name}: {len(events)} events")
+                        self._logger.debug("SKIP %s: %d events", name, len(events))
                         break
-                    self._logger.debug(f"PROCESS {name}: {len(events)} events")
+                    self._logger.debug("PROCESS %s: %d events", name, len(events))
                     if name == synchro_name:
                         self._process_synchro_events(events)
                         keep_reading = True

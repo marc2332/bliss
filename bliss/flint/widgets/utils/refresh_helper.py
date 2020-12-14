@@ -64,12 +64,13 @@ class RefreshManager(qt.QObject):
         currentRate = self.refreshMode()
 
         menu.addSection("Refresh rate")
-        rates = [1000, 500, 200, 100]
+        rates = [5000, 2000, 1000, 500, 200, 100]
         for rate in rates:
+            hz = 1000 / rate
             action = qt.QAction(menu)
             action.setCheckable(True)
             action.setChecked(currentRate == rate)
-            action.setText(f"{rate} ms")
+            action.setText(f"{rate} ms = {hz:0.1f} Hz")
             action.setToolTip(f"Set the refresh rate to {rate} ms")
             action.triggered.connect(functools.partial(self.setRefreshMode, rate))
             menu.addAction(action)

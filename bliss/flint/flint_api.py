@@ -975,3 +975,18 @@ class FlintApi:
         if not action.isEnabled():
             raise RuntimeError("Logbook action is not enabled")
         action.trigger()
+
+    def get_workspace(self) -> str:
+        """Returns the current used workspace"""
+        workspace = self.__flintModel.workspace()
+        return workspace.name()
+
+    def load_workspace(self, name: str) -> bool:
+        """Load a workspace by it's name.
+
+        Returns true if it was successfully loaded.
+        """
+        manager = self.__flintModel.mainManager()
+        wmanager = manager.workspaceManager()
+        wmanager.loadWorkspace(name)
+        return self.get_workspace() == name

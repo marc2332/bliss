@@ -741,12 +741,12 @@ class Axis:
         return self.__name
 
     @property
-    def positioner(self):
+    def _positioner(self):
         """Axis positioner"""
         return self.__positioner
 
-    @positioner.setter
-    def positioner(self, new_p):
+    @_positioner.setter
+    def _positioner(self, new_p):
         self.__positioner = new_p
 
     @autocomplete_property

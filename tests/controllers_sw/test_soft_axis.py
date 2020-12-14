@@ -100,5 +100,5 @@ def test_soft_axis_iter_position_all(session):
     o = Object()
     m0 = SoftAxis("bla", o)
     assert not any(whereall.axis_name == "bla" for whereall in iter_axes_position_all())
-    m0.positioner = True
+    m0._positioner = True
     assert any(whereall.axis_name == "bla" for whereall in iter_axes_position_all())

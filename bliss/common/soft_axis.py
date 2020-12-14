@@ -21,7 +21,6 @@ def SoftAxis(
     tolerance=None,
     export_to_session=True,
     unit=None,
-    positioner=False,
 ):
 
     # if callable(position):
@@ -48,7 +47,7 @@ def SoftAxis(
 
     controller._init()
     axis = controller.get_axis(name)
-    axis.positioner = positioner
+    axis._positioner = False
 
     if export_to_session:
         current_session = get_current_session()

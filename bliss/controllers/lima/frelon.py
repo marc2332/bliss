@@ -38,7 +38,7 @@ class Camera(CameraBase):
     @image_mode.setter
     def image_mode(self, value):
         self._proxy.image_mode = value
-        self._lima_device._image_params.init_max_dim()
+        self._lima_device.image.update_max_size()
 
     def __info__(self):
         info = f"image_mode = {self.image_mode}\n"

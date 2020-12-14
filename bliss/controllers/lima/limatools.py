@@ -252,7 +252,7 @@ def load_simulator_frames(simulator, nframes, files_pattern):
     sim.file_pattern = files_pattern
     sim.nb_prefetched_frames = nframes
     # update the camera max_size after loading new images
-    simulator.image._read_detector_max_size()
+    simulator.image.update_max_size()
     reset_cam(simulator, roi=[0, 0, 0, 0])
 
 

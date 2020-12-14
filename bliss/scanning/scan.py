@@ -131,6 +131,10 @@ class DataWatchCallback:
         pass
 
 
+def is_zerod(node):
+    return node.type == "channel" and len(node.shape) == 0
+
+
 class StepScanDataWatch(DataWatchCallback):
     """Follow 0D data generation for a step scan. Data is buffered and
     yielded to the callback point-per-point (i.e. channels are synchronized).

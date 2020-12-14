@@ -17,6 +17,14 @@
   height_factor: 100.0
   noise_factor: 0.1
 -
+  name: sim_ct_linear
+  plugin: bliss
+  class: SimulationCounter
+  distribution: LINEAR
+  mu_offset: 0.0
+  sigma_factor: 1.0
+  noise_factor: 0.0
+-
   name: sim_ct_flat_12
   plugin: bliss
   class: SimulationCounter

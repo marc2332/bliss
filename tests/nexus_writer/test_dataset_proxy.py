@@ -57,6 +57,7 @@ def test_dataset_proxy(tmpdir):
             continue
         if fulluri and datatype != "hdf5":
             continue
+
         # Number of points published: npoints + nextra
         if not detector_shape and datatype:
             continue
@@ -65,6 +66,7 @@ def test_dataset_proxy(tmpdir):
                 continue
             elif nextra < 0:
                 nextra = -1
+
         # Scan part of the saved dataset shape
         npoints = numpy.prod(scan_shape, dtype=int)
         if npoints:
@@ -78,6 +80,7 @@ def test_dataset_proxy(tmpdir):
             scan_save_shape = scan_shape
             escan_save_shape = tuple(n if n else i for i, n in enumerate(scan_shape, 4))
             npoints = numpy.prod(escan_save_shape, dtype=int)
+
         # Expected shape after publish + reshape
         edetector_shape = detector_shape
         if saveorder.corder:
@@ -139,8 +142,12 @@ def test_dataset_proxy(tmpdir):
             os.chmod(str(datadir), 0)
 
         # Make sure it exists with the expected shape
-        dproxy.reshape(escan_save_shape)
-        dproxy.create()
+        if dproxy.is_external:
+            dproxy.reshape(escan_save_shape)
+            dproxy.flush()
+        else:
+            dproxy.flush()
+            dproxy.reshape(escan_save_shape)
         assert dproxy.current_scan_save_shape == escan_save_shape, err_msg
         assert dproxy.current_shape == escan_shape, err_msg
         assert dproxy.current_detector_shape == edetector_shape, err_msg

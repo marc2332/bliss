@@ -168,8 +168,6 @@ class BaseProxy(abc.ABC):
 
         :param sequence newdata:
         """
-        if not len(newdata):
-            return
         with self.open(create=True) as destination:
             try:
                 self.npoints += self._insert_data(destination, newdata)
@@ -252,6 +250,6 @@ class BaseProxy(abc.ABC):
         return complete
 
     def flush(self):
-        """Skipped when it already exists. It may not exist after creation.
+        """Flush any buffered data
         """
         self.create()

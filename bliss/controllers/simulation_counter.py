@@ -15,7 +15,6 @@ from bliss.controllers.counter import CounterController
 from bliss.common.soft_axis import SoftAxis
 from bliss.common.protocols import counter_namespace
 
-# for logging
 import logging
 from bliss.common.logtools import log_debug, log_debug_data, get_logger
 
@@ -27,6 +26,7 @@ This fake counter is usable in a `ct` or in a scan.
 It returns floats numbers that can be:
 
 * constant
+* linear
 * random
 * following a gaussian distribution
 
@@ -35,76 +35,86 @@ number of points), it returns values according to a user defined
 distribution:
 
 * FLAT (constant value)
+* LINEAR
 * GAUSSIAN
 
-
-Parameters:
-* <distribution>:  'GAUSSIAN' | 'FLAT'
+Parameters for all distributions:
 * <noise_factor>:
     * >= 0.0
     * add a random noise to the distribution
     * 0 means 'no random noise added'
     * noise added is only positive.
-* <height_factor>:
-    * >= 0.0
-    * multiplication factor to adjust height (Y)
+
+Parameters if using FLAT:
+* <noise_factor>:
+* <height_factor>: height of the flat signal (>= 0)
+
+Parameters if using LINEAR:
+* <mu_offset>: intercept
+* <sigma_factor>: slope
 
 Parameters if using GAUSSIAN:
-* <mu_offset>: shitfs mean value by <mu_offset> (X-offset)
+* <mu_offset>: shift mean value by <mu_offset> (X-offset)
 * <sigma_factor>: standard deviation adjustement factor.
-"""
-
-# configuration example:
-"""
--
-  name: sim_ct_1
-  plugin: bliss
-  class: simulation_counter
-  distribution: GAUSSIAN
-  mu_offset: 1.0
-  sigma_factor: 1.0
-  height_factor: 1.0
-  noise_factor: 0.005
--
-  name: sim_ct_2
-  plugin: bliss
-  class: simulation_counter
-  distribution: FLAT
-  height_factor: 1.0
-  noise_factor: 0.005
-"""
+* <height_factor>: height of the gaussian
 
 
-# tests:
-"""
+Configuration example:
 
-ct(0.1)
+    -
+      name: sim_ct_1
+      plugin: bliss
+      class: simulation_counter
+      distribution: GAUSSIAN
+      mu_offset: 1.0
+      sigma_factor: 1.0
+      height_factor: 1.0
+      noise_factor: 0.005
+    -
+      name: sim_ct_2
+      plugin: bliss
+      class: simulation_counter
+      distribution: FLAT
+      height_factor: 1.0
+      noise_factor: 0.005
+    -
+      name: sim_ct_3
+      plugin: bliss
+      class: simulation_counter
+      distribution: LINEAR
+      mu_offset: 0.0
+      sigma_factor: 1.0
+      noise_factor: 0.005
 
-debugon(sim_ct_1)
 
-plotselect(sim_ct_1)
-ascan(m1,-5,5,35,0.001, sim_ct_1); print(cen())
-(0.0, 3.8845999488607355)
+Tests:
 
-plotselect(sim_ct_2)
-ascan(m1,-5,5,35,0.001, sim_ct_2);print(cen())
-(-1.0121850156448249, 1.6335338706093914)
+    ct(0.1)
 
-ct(0.1)        # does not produce a gaussian
-timescan(0.1)  # does not produce a gaussian
+    debugon(sim_ct_1)
 
+    plotselect(sim_ct_1)
+    ascan(m1,-5,5,35,0.001, sim_ct_1); print(cen())
+    (0.0, 3.8845999488607355)
 
-ascan(m1,-5,5,35,0.001)
-loopscan(13, 0.1)
-pointscan(m1, [-3 , -2, -1,  0, 0.2,1, 1.1], 0.1)
-timescan(0.1, npoints=13)
+    plotselect(sim_ct_2)
+    ascan(m1,-5,5,35,0.001, sim_ct_2);print(cen())
+    (-1.0121850156448249, 1.6335338706093914)
 
-a2scan(m1,-5,5, m2, 0, 3, 13, 0.01)
-cen()
+    ct(0.1)        # does not produce a gaussian
+    timescan(0.1)  # does not produce a gaussian
 
 
-dscan(m1,-1,1, 13, 0.01)
+    ascan(m1,-5,5,35,0.001)
+    loopscan(13, 0.1)
+    pointscan(m1, [-3 , -2, -1,  0, 0.2,1, 1.1], 0.1)
+    timescan(0.1, npoints=13)
 
+    a2scan(m1,-5,5, m2, 0, 3, 13, 0.01)
+    cen()
+
+
+    dscan(m1,-1,1, 13, 0.01)
 """
 
 
@@ -117,17 +127,20 @@ class SimulationCounterAcquisitionSlave(AcquisitionSlave):
         start=0,
         stop=0,
         distribution=None,
-        gauss_param=None,
+        shape_param=None,
         noise_factor=0,
         ctrl_params=None,
     ):
-        # global_map.register(self)
         log_debug(
             self, "SIMULATION_COUNTER_ACQ_DEV -- SimulationCounterAcquisitionSlave()"
         )
 
+        shape_param.setdefault("mu_offset", 0.0)
+        shape_param.setdefault("sigma_factor", 1.0)
+        shape_param.setdefault("height_factor", 1.0)
+
         self.distribution = distribution
-        self.gauss_param = gauss_param
+        self.shape_param = shape_param
         self.noise_factor = noise_factor
         self.scan_type = scan_type
         self.scan_start = start
@@ -142,7 +155,7 @@ class SimulationCounterAcquisitionSlave(AcquisitionSlave):
             ctrl_params=ctrl_params,
         )
 
-    def is_count_scan(self):
+    def timescan_or_ct(self):
         """
         Return True if the scan involving this acq_device has NOT a
         predefined (timescan) number of points or is just a single count (ct).
@@ -151,6 +164,20 @@ class SimulationCounterAcquisitionSlave(AcquisitionSlave):
             return True
         else:
             return False
+
+    @property
+    def distribution(self):
+        distribution = self._distribution.upper()
+        if self.timescan_or_ct():
+            distribution = "FLAT"
+        elif distribution not in ("FLAT", "LINEAR"):
+            # Gaussian by default
+            distribution = "GAUSSIAN"
+        return distribution
+
+    @distribution.setter
+    def distribution(self, value):
+        self._distribution = value
 
     def prepare(self):
         log_debug(self, "SIMULATION_COUNTER_ACQ_DEV -- prepare()")
@@ -163,7 +190,7 @@ class SimulationCounterAcquisitionSlave(AcquisitionSlave):
         if nbpoints == 0:
             nbpoints = 1
 
-        if self.is_count_scan() or self.scan_type in ["pointscan"]:
+        if self.timescan_or_ct() or self.scan_type in ["pointscan"]:
             # ct, timescan(without npoints), pointscan
             scan_start = self.scan_start
             scan_stop = self.scan_stop
@@ -186,68 +213,39 @@ class SimulationCounterAcquisitionSlave(AcquisitionSlave):
             scan_stop,
         )
 
-        #### Get gaussian distribution parameters
-
-        mu_offset = self.gauss_param.get("mu_offset", 0.0)
-        sigma_factor = self.gauss_param.get("sigma_factor", 1.0)
-        self.height_factor = self.gauss_param.get("height_factor", 1.0)
-
-        _dbg_string = f"SIMULATION_COUNTER_ACQ_DEV -- prepare() -- distribution={self.distribution}"
-        _dbg_string += f"mu_offset={mu_offset:g} sigma_factor={sigma_factor}"
-        _dbg_string += (
-            f"height_factor={self.height_factor} noise_factor={self.noise_factor}"
+        _dbg_string = f"SIMULATION_COUNTER_ACQ_DEV -- prepare() -- distribution={self.distribution} "
+        _dbg_string += " ".join(
+            [f"{name}={value}" for name, value in self.shape_param.items()]
         )
         log_debug(self, _dbg_string)
 
         #### Generation of the distribution
-        # base data
-        if self.is_count_scan() or self.distribution == "FLAT":
-            log_debug(
-                self, "SIMULATION_COUNTER_ACQ_DEV -- prepare() -- is count scan or FLAT"
+        if self.distribution == "FLAT":
+            self.data = np.ones(nbpoints) * self.shape_param["height_factor"]
+        elif self.distribution == "LINEAR":
+            xdata = np.linspace(scan_start, scan_stop, nbpoints)
+            self.data = (
+                xdata * self.shape_param["sigma_factor"] + self.shape_param["mu_offset"]
             )
-            self.data = np.ones(nbpoints)
         else:
-            log_debug(
-                self,
-                "SIMULATION_COUNTER_ACQ_DEV -- prepare() -- neither count nor FLAT",
+            xdata = np.linspace(scan_start, scan_stop, nbpoints)
+            self.data = self.gauss(
+                xdata, self.shape_param["mu_offset"], self.shape_param["sigma_factor"]
             )
-            self.data = np.linspace(scan_start, scan_stop, nbpoints)
-
-        log_debug(self, "SIMULATION_COUNTER_ACQ_DEV -- prepare() -- data(linspace)=")
-        log_debug(self, self.data)
-
-        # creates distribution
-        if self.is_count_scan() or self.distribution == "FLAT":
-            log_debug(self, "SIMULATION_COUNTER_ACQ_DEV -- prepare() -- FLAT")
-            pass
-        else:
-            log_debug(
-                self,
-                "SIMULATION_COUNTER_ACQ_DEV -- prepare() -- GAUSSIAN -- start=%s stop=%s nbpoints=%d",
-                scan_start,
-                scan_stop,
-                nbpoints,
-            )
-            self.data = self.gauss(self.data, mu_offset, sigma_factor)
-
+            self.data = self.data * self.shape_param["height_factor"]
         log_debug_data(
             self, "SIMULATION_COUNTER_ACQ_DEV -- prepare() -- data=", self.data
         )
 
-        # applying Y factor.
-        self.data = self.data * self.height_factor
-        log_debug_data(self, "self.data with height_factor=", self.data)
-
-        # computing noise.
-        if self.is_count_scan():
+        # applying noise
+        if self.timescan_or_ct():
             noise = (np.random.rand(1)[0] * self.noise_factor) + 1
         else:
             noise = (np.random.rand(nbpoints) * self.noise_factor) + 1
-        log_debug_data(self, "noise=", noise)
-
-        # applying noise.
         self.data = self.data * noise
-        log_debug_data(self, "self.data with  noise=", self.data)
+        log_debug_data(
+            self, "SIMULATION_COUNTER_ACQ_DEV -- prepare() -- data+noise=", self.data
+        )
 
         next(iter(self._counters.keys())).data = self.data
 
@@ -308,7 +306,7 @@ class SimulationCounterAcquisitionSlave(AcquisitionSlave):
 
     def stop(self):
         log_debug(self, "SIMULATION_COUNTER_ACQ_DEV -- stop()")
-        if self.distribution == "GAUSSIAN" and not self.is_count_scan():
+        if self.distribution == "GAUSSIAN":
             log_debug(
                 self,
                 "SIMULATION_COUNTER_ACQ_DEV -- (Theorical values) %s mu=%f sigma=%f fwhm=%f",
@@ -338,7 +336,7 @@ class SimulationCounterAcquisitionSlave(AcquisitionSlave):
         # publishes the data
         self.channels[0].emit(value)
 
-        if not self.is_count_scan():
+        if not self.timescan_or_ct():
             self._index += 1
         log_debug(self, "SIMULATION_COUNTER_ACQ_DEV -- trigger()  END")
 
@@ -359,7 +357,7 @@ class SimulationCounterController(CounterController):
         sigma_factor = counter.config.get("sigma_factor", 1.0)
         height_factor = counter.config.get("height_factor", 1.0)
 
-        gauss_param = {
+        shape_param = {
             "mu_offset": mu_offset,
             "sigma_factor": sigma_factor,
             "height_factor": height_factor,
@@ -391,7 +389,7 @@ class SimulationCounterController(CounterController):
         params["start"] = start
         params["stop"] = stop
         params["distribution"] = counter.config.get("distribution", "FLAT")
-        params["gauss_param"] = gauss_param
+        params["shape_param"] = shape_param
         params["noise_factor"] = counter.config.get("noise_factor", 0.0)
 
         return params

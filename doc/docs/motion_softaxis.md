@@ -64,7 +64,7 @@ class Pilatus(object):
     _energy = 12.34
 
     def get_energy(self):
-        return self._enery
+        return self._energy
 
     def set_energy(self, new_energy):
         self._energy = new_energy

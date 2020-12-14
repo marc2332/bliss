@@ -174,6 +174,15 @@ class ScatterNormalization:
                     # There could be a lot of inconsistencies with meta info
                     self.__skipImage = True
 
+        xChannel = item.xChannel().channel(scan)
+        yChannel = item.yChannel().channel(scan)
+        self.__size = None
+        if xChannel is not None and yChannel is not None:
+            xmeta = xChannel.metadata()
+            ymeta = yChannel.metadata()
+            if ymeta.axisPoints is not None and xmeta.axisPoints is not None:
+                self.__size = ymeta.axisPoints, xmeta.axisPoints
+
         # Filter to display the last frame
         groupByChannels = item.groupByChannels()
         if groupByChannels is not None:
@@ -218,6 +227,13 @@ class ScatterNormalization:
         if self.__mask is None:
             return array
         return array[self.__mask]
+
+    def size(self) -> Optional[Tuple[int, int]]:
+        """Returns the size of the scatter if it's a regular scatter
+
+        Else return None
+        """
+        return self.__size
 
     def setupScatterItem(
         self,

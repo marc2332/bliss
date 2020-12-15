@@ -675,4 +675,4 @@ class LiveWindow(MainWindow):
             colormapWidget.setFloating(True)
             colormapWidget.setVisible(True)
             if self.__lastColormapWidgetFloatingGeometry is not None:
-                widget.setGeometry(self.__lastColormapWidgetFloatingGeometry)
+                colormapWidget.setGeometry(self.__lastColormapWidgetFloatingGeometry)

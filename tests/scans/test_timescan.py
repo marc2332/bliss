@@ -21,6 +21,7 @@ def test_timescan(session):
     scan_data = s.get_data()
     for name in names:
         assert scan_data[name].size == 10
+    assert s.scan_info["title"] == "timescan 0.1 10"
     assert numpy.array_equal(scan_data[names[0]], detectors[0].data)
 
 

@@ -354,7 +354,8 @@ class MapWithAliases(Map):
 
     def get_axes_names_iter(self):
         for axis in self.get_axes_iter():
-            yield axis.name
+            if axis._positioner:
+                yield axis.name
 
     def get_axes_positions_iter(self, on_error=None):
         def request(axis):
@@ -372,7 +373,8 @@ class MapWithAliases(Map):
 
         tasks = list()
         for axis in self.get_axes_iter():
-            tasks.append(gevent.spawn(request, axis))
+            if axis._positioner:
+                tasks.append(gevent.spawn(request, axis))
 
         try:
             gevent.joinall(tasks)

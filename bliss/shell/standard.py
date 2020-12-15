@@ -148,6 +148,7 @@ __all__ = (
         "umvdr",
         "rockit",
         "move",
+        "lsmot",
         "plotinit",
         "plotselect",
         "flint",
@@ -263,7 +264,7 @@ def lslog(glob: str = None, debug_only=False) -> None:
     Search for loggers
     Args:
         glob: a logger name with optional glob matching
-        debug_only: True to display only loggers at debug level 
+        debug_only: True to display only loggers at debug level
                     (equivalent to lslog)
 
 
@@ -523,6 +524,15 @@ def wa(**kwargs):
     for table in tables:
         print("")
         print(_tabulate(table))
+
+
+def lsmot():
+    """
+    Displays names of all motors
+    """
+
+    for name in global_map.get_axes_names_iter():
+        print("* {}".format(name))
 
 
 @custom_error_msg(

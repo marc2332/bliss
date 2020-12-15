@@ -682,6 +682,7 @@ class Axis:
         self.__no_offset = False
         self._group_move = GroupMove()
         self._lock = gevent.lock.Semaphore()
+        self.__positioner = True
 
         try:
             config.parent
@@ -738,6 +739,15 @@ class Axis:
     def name(self):
         """Axis name"""
         return self.__name
+
+    @property
+    def _positioner(self):
+        """Axis positioner"""
+        return self.__positioner
+
+    @_positioner.setter
+    def _positioner(self, new_p):
+        self.__positioner = new_p
 
     @autocomplete_property
     def controller(self):

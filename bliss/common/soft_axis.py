@@ -47,6 +47,7 @@ def SoftAxis(
 
     controller._init()
     axis = controller.get_axis(name)
+    axis._positioner = False
 
     if export_to_session:
         current_session = get_current_session()

@@ -393,11 +393,11 @@ class WorkspaceManager(qt.QObject):
         self.saveWorkspaceAs(workspace, name)
 
     def __saveCurrentWorkspaceName(self, name: str):
-        settings = self.__getSettings()
+        settings = self.__getSessionSettings()
         settings["@lastname"] = name
 
     def __getLastWorkspaceName(self):
-        settings = self.__getSettings()
+        settings = self.__getSessionSettings()
         name = settings.get("@lastname", self.DEFAULT)
         return name
 
@@ -445,6 +445,19 @@ class WorkspaceManager(qt.QObject):
             w.deleteLater()
         return widgets
 
+    def __getSessionSettings(self) -> HashObjSetting:
+        """Returns the settings storing workspaces in this bliss session."""
+        flintModel = self.mainManager().flintModel()
+        redis = flintModel.redisConnection()
+        sessionName = flintModel.blissSessionName()
+        if sessionName is None:
+            raise ValueError("No session defined")
+
+        key = config.get_workspace_key(sessionName)
+        setting = HashObjSetting(key, connection=redis)
+
+        return setting
+
     def __getSettings(self) -> HashObjSetting:
         """Returns the settings storing workspaces in this bliss session."""
         flintModel = self.mainManager().flintModel()
@@ -452,8 +465,16 @@ class WorkspaceManager(qt.QObject):
         sessionName = flintModel.blissSessionName()
         if sessionName is None:
             raise ValueError("No session defined")
-        key = config.get_workspace_key(sessionName)
+
+        key = config.get_workspace_key(None)
         setting = HashObjSetting(key, connection=redis)
+
+        if len(setting) == 0:
+            # FIXME: Move settings from BLISS <= 1.7dev to BLISS 1.7
+            key = config.get_workspace_key(sessionName)
+            oldSetting = HashObjSetting(key, connection=redis)
+            setting.update(oldSetting.get_all())
+
         return setting
 
     def reloadCurrentWorkspace(self):

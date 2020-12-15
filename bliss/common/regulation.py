@@ -723,6 +723,7 @@ class Loop(SamplingCounterController):
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
 
+        self._last_setpoint = None
         self._deadband = 0.1
         self._deadband_time = 1.0
         self._deadband_idle_factor = 0.5
@@ -761,7 +762,7 @@ class Loop(SamplingCounterController):
     # ----------- BASE METHODS -----------------------------------------
 
     def read_all(self, *counters):
-        return [self.setpoint]
+        return [self._get_working_setpoint()]
 
     ##--- CONFIG METHODS
     def load_base_config(self):
@@ -976,6 +977,7 @@ class Loop(SamplingCounterController):
 
         self._start_regulation()
         self._start_ramping(value)
+        self._last_setpoint = value
 
     def stop(self):
         """ Stop the ramping """
@@ -1309,6 +1311,22 @@ class Loop(SamplingCounterController):
             return self._controller.is_ramping(self)
 
     # ------------------------------------------------------
+    @lazy_init
+    def _get_working_setpoint(self):
+        """ get the current working setpoint """
+
+        log_debug(self, "Loop:_get_working_setpoint")
+        try:
+            return self._controller.get_working_setpoint(self)
+
+        except NotImplementedError:
+
+            # _get_working_setpoint can be polled by counting or plot
+            # so cache the value if the controller can only returns the target setpoint
+            # which is constant and then doesn't need to be re-read.
+            if self._last_setpoint is None:
+                self._last_setpoint = self._get_setpoint()
+            return self._last_setpoint
 
     @lazy_init
     def _get_setpoint(self):
@@ -1648,6 +1666,14 @@ class SoftLoop(Loop):
 
         log_debug(self, "SoftLoop:apply_proportional_on_measurement: %s" % (enable,))
         self.pid.proportional_on_measurement = bool(enable)
+
+    def _get_working_setpoint(self):
+        """ get the current working setpoint """
+
+        log_debug(self, "SoftLoop:_get_working_setpoint")
+        # The SoftRamp updates the setpoint value of the SoftLoop while ramping
+        # so working_setpoint and setpoint are the same
+        return self._get_setpoint()
 
     def _get_setpoint(self):
         """

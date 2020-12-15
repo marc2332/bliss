@@ -402,6 +402,20 @@ class Controller:
         log_info(self, "Controller:get_setpoint: %s" % (tloop))
         raise NotImplementedError
 
+    def get_working_setpoint(self, tloop):
+        """
+        Get the current working setpoint (setpoint along ramping)
+        Raises NotImplementedError if not defined by inheriting class
+
+        Args:
+           tloop:  Loop class type object
+
+        Returns:
+           (float) working setpoint value (in tloop.input unit).
+        """
+        log_info(self, "Controller:get_working_setpoint: %s" % (tloop))
+        raise NotImplementedError
+
     # ------ setpoint ramping methods (optional) ------------------------
 
     def start_ramp(self, tloop, sp, **kwargs):

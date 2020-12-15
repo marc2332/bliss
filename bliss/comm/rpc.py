@@ -150,6 +150,9 @@ SPECIAL_METHODS = set(
         "getstate",
         "setstate",
         "slots",
+        "eq",
+        "ne",
+        "hash",
     )
 )
 

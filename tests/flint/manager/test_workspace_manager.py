@@ -62,12 +62,12 @@ def test_dumps_loads__workspace(with_plot, local_flint):
     workspace.addWidget(widget)
 
     data = workspace_manager.WorkspaceData()
-    data.setWorkspace(workspace, None, includePlots=with_plot)
+    data.setWorkspace(workspace, includePlots=with_plot)
     string = pickle.dumps(data)
     data2 = pickle.loads(string)
 
     workspace2 = flint_model.Workspace()
-    data2.feedWorkspace(workspace2, None)
+    data2.feedWorkspace(workspace2, [], None)
     assert len(workspace2.widgets()) == 1
     widget2 = workspace2.widgets()[0]
     assert isinstance(widget, curve_plot.CurvePlotWidget)
@@ -151,7 +151,7 @@ def test_deserialization_workspace_v1(data_test, local_flint):
         pass
     else:
         workspace = flint_model.Workspace()
-        data.feedWorkspace(workspace, None)
+        data.feedWorkspace(workspace, [], None)
         assert len(workspace.widgets()) == 1
         widget = workspace.widgets()[0]
         assert isinstance(widget, curve_plot.CurvePlotWidget)

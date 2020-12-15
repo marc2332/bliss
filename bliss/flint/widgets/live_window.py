@@ -113,16 +113,34 @@ class LiveWindow(MainWindow):
         This configuration is stored in the Redis session.
         """
         config = LiveWindowConfiguration()
-        displayed = self.__ctWidget is not None
-        config.show_count_widget = displayed
-        displayed = self.positionersWidget(create=False) is not None
-        config.show_positioners_widget = displayed
-        displayed = self.__colormapWidget is not None
-        config.show_colormap_dialog = displayed
+        # FIXME Must be part of the ColormapDialog config
         config.colormap_geometry = self.__lastColormapWidgetFloatingGeometry
         return config
 
+    def updateFromWorkspace(self, workspace: flint_model.Workspace):
+        """Synchronize the available widgets from the current workspace"""
+        widgets = workspace.widgets()
+
+        ctWidgets = [w for w in widgets if isinstance(w, CtWidget)]
+        if len(ctWidgets) > 0:
+            self.__ctWidget = ctWidgets[0]
+        else:
+            self.__ctWidget = None
+
+        pWidgets = [w for w in widgets if isinstance(w, PositionersWidget)]
+        if len(pWidgets) > 0:
+            self.__positionersWidget = weakref.ref(pWidgets[0])
+        else:
+            self.__positionersWidget = None
+
+        cWidgets = [w for w in widgets if isinstance(w, ColormapWidget)]
+        if len(cWidgets) > 0:
+            self.__colormapWidget = cWidgets[0]
+        else:
+            self.__colormapWidget = None
+
     def setConfiguration(self, config: LiveWindowConfiguration):
+        # FIXME: this flag should be removed to to only use widgets from workspace
         ctWidgetDisplayed = self.__ctWidget is not None
         if config.show_count_widget != ctWidgetDisplayed:
             self.__toggleCtWidget()
@@ -151,7 +169,6 @@ class LiveWindow(MainWindow):
 
     def __createCtWidget(self):
         flintModel = self.flintModel()
-
         widget = CtWidget(self)
         widget.setAttribute(qt.Qt.WA_DeleteOnClose)
         widget.setFlintModel(self.__flintModel)
@@ -170,6 +187,8 @@ class LiveWindow(MainWindow):
             self.tabifyDockWidget(curveWidget, widget)
 
         widget.setWindowTitle("Count")
+        workspace = self.__flintModel.workspace()
+        workspace.addWidget(widget)
         return widget
 
     def __ctWidgetClosed(self):
@@ -187,6 +206,8 @@ class LiveWindow(MainWindow):
         if ctWidget is None:
             self.ctWidget(create=True)
         else:
+            workspace = self.__flintModel.workspace()
+            workspace.removeWidget(ctWidget)
             ctWidget.deleteLater()
 
     def __createPositionersWidget(self):
@@ -210,6 +231,8 @@ class LiveWindow(MainWindow):
             self.tabifyDockWidget(curveWidget, widget)
 
         widget.setWindowTitle("Positioners")
+        workspace = self.__flintModel.workspace()
+        workspace.addWidget(widget)
         return widget
 
     def __positionersWidgetClosed(self):
@@ -231,6 +254,8 @@ class LiveWindow(MainWindow):
         if widget is None:
             self.positionersWidget(create=True)
         else:
+            workspace = self.__flintModel.workspace()
+            workspace.removeWidget(widget)
             widget.deleteLater()
 
     def acquireColormapWidget(self, newOwner):
@@ -270,6 +295,9 @@ class LiveWindow(MainWindow):
         widget.setVisible(True)
         widget.setWindowFlag(qt.Qt.WindowStaysOnTopHint, True)
 
+        workspace = self.__flintModel.workspace()
+        workspace.addWidget(widget)
+
         return widget
 
     def __colormapWidgetClosed(self):
@@ -296,6 +324,8 @@ class LiveWindow(MainWindow):
         if widget is None:
             self.colormapWidget(create=True)
         else:
+            workspace = self.__flintModel.workspace()
+            workspace.removeWidget(widget)
             widget.close()
             self.__colormapWidgetClosed()
 
@@ -540,12 +570,18 @@ class LiveWindow(MainWindow):
         if workspace is None:
             workspace = flintModel.workspace()
         widgets = workspace.widgets()
+
+        # FIXME Remove me: this widget already have to be part of the widgets
         ctWidget = self.ctWidget(create=False)
         if ctWidget is not None:
-            widgets.append(ctWidget)
+            if ctWidget not in widgets:
+                widgets.append(ctWidget)
+        # FIXME Remove me: this widget already have to be part of the widgets
         positionersWidget = self.positionersWidget(create=False)
         if positionersWidget is not None:
-            widgets.append(positionersWidget)
+            if positionersWidget not in widgets:
+                widgets.append(positionersWidget)
+
         colormapWidget = self.colormapWidget(create=False)
 
         with utils.blockSignals(self):

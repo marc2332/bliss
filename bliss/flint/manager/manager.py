@@ -250,15 +250,18 @@ class ManageMainBehaviours(qt.QObject):
 
             for widget in newWorkspace.widgets():
                 if widget.isVisible():
-                    widget.widgetActivated.emit(widget)
+                    if hasattr(widget, "widgetActivated"):
+                        widget.widgetActivated.emit(widget)
                     break
         self.__updateLiveScanTitle()
 
     def __widgetAdded(self, widget):
-        widget.widgetActivated.connect(self.__widgetActivated)
+        if hasattr(widget, "widgetActivated"):
+            widget.widgetActivated.connect(self.__widgetActivated)
 
     def __widgetRemoved(self, widget):
-        widget.widgetActivated.disconnect(self.__widgetActivated)
+        if hasattr(widget, "widgetActivated"):
+            widget.widgetActivated.disconnect(self.__widgetActivated)
 
     def __widgetActivated(self, widget):
         if self.__activeDock is widget:
@@ -319,7 +322,8 @@ class ManageMainBehaviours(qt.QObject):
 
     def _initNewDock(self, widget):
         widget.setAttribute(qt.Qt.WA_DeleteOnClose)
-        widget.setFlintModel(self.__flintModel)
+        if hasattr(widget, "setFlintModel"):
+            widget.setFlintModel(self.__flintModel)
         widget.windowClosed.connect(self.__dockClosed)
 
     def __initClassMapping(self):
@@ -588,7 +592,8 @@ class ManageMainBehaviours(qt.QObject):
 
         if isinstance(dock, PlotWidget):
             dock.setPlotModel(None)
-        dock.setFlintModel(None)
+        if hasattr(dock, "setFlintModel"):
+            dock.setFlintModel(None)
         workspace = flintModel.workspace()
         workspace.removeWidget(dock)
 

@@ -20,6 +20,7 @@ import functools
 import logging
 from silx.gui import qt
 from silx.gui import icons
+from silx.gui.qt import inspect
 
 from bliss.config.settings import HashObjSetting
 from . import manager
@@ -79,7 +80,7 @@ class WidgetDescription:
 
 class WorkspaceData(dict):
     def setWorkspace(
-        self, workspace: flint_model.Workspace, liveWindow, includePlots: bool
+        self, workspace: flint_model.Workspace, includePlots: bool = False
     ):
         plots = {}
         if includePlots:
@@ -88,9 +89,8 @@ class WorkspaceData(dict):
 
         widgetDescriptions = []
         for widget in workspace.widgets():
-            if liveWindow is not None and widget is liveWindow.ctWidget(create=False):
-                # FIXME: The ct widget is at the same time a widget and a value
-                # in the live_property config (we have to remove one of the other)
+
+            if not inspect.isValid(widget):
                 continue
 
             if includePlots and isinstance(widget, PlotWidget):
@@ -115,23 +115,49 @@ class WorkspaceData(dict):
         self["plots"] = plots
         self["widgets"] = widgetDescriptions
 
+    def widgetDescriptions(self) -> List[WidgetDescription]:
+        return self["widgets"]
+
     def setLiveWindow(self, window: qt.QWidget):
         config = window.configuration()
         self["layout"] = window.saveState()
         self["window_config"] = config
 
-    def initLiveWindow(self, window: qt.QWidget):
-        # NOTE: compatibility with BLISS <= 1.3
-        # FIXME: Remove it in few months
+    def initLiveWindow(self, window: qt.QWidget, workspace: flint_model.Workspace):
+
+        # FIXME ugly hack to reach new widgets created by live window
+        model = window.flintModel()
+        currentWorkspace = model.workspace()
+        if currentWorkspace is not None:
+            previousWidgets = set(currentWorkspace.widgets())
+        else:
+            previousWidgets = set()
+
+        window.updateFromWorkspace(workspace)
         if "window_config" in self:
             config = self["window_config"]
             window.setConfiguration(config)
+
+        # FIXME ugly hack to reach new widgets created by live window
+        if currentWorkspace is not None:
+            currentWidgets = set(currentWorkspace.widgets())
+        else:
+            currentWidgets = set()
+
+        newWidgets = currentWidgets - previousWidgets
+        for widget in newWidgets:
+            workspace.addWidget(widget)
 
         layout = self["layout"]
         _logger.debug("Restore layout state")
         window.restoreState(layout)
 
-    def feedWorkspace(self, workspace: flint_model.Workspace, parent: qt.QMainWindow):
+    def feedWorkspace(
+        self,
+        workspace: flint_model.Workspace,
+        remainingWidgets: List[qt.QWidget],
+        parent: qt.QMainWindow,
+    ):
         plots: dict = self["plots"]
         widgetDescriptions = self["widgets"]
 
@@ -142,6 +168,8 @@ class WorkspaceData(dict):
             descriptions.append(data)
 
         objectNames = set([d.objectName for d in descriptions])
+
+        existingWidgets = {w.objectName(): w for w in remainingWidgets}
 
         def pickUnusedObjectName():
             for i in range(100):
@@ -162,7 +190,12 @@ class WorkspaceData(dict):
             else:
                 objectName = data.objectName
 
-            widget = data.className(parent)
+            if objectName in existingWidgets:
+                widget = existingWidgets[objectName]
+                if parent is not None:
+                    widget.setParent(parent)
+            else:
+                widget = data.className(parent)
             widget.setObjectName(objectName)
             widget.setWindowTitle(data.windowTitle)
             if hasattr(widget, "setConfiguration") and data.config is not None:
@@ -171,15 +204,21 @@ class WorkspaceData(dict):
             # Looks needed to retrieve the right layout with restoreSate
             if parent is not None:
                 parent.addDockWidget(qt.Qt.LeftDockWidgetArea, widget)
-            if data.modelId is not None:
-                plot = plots[data.modelId]
-                widget.setPlotModel(plot)
+            if objectName not in existingWidgets:
+                if data.modelId is not None:
+                    plot = plots[data.modelId]
+                    widget.setPlotModel(plot)
             workspace.addWidget(widget)
 
 
 class WorkspaceManager(qt.QObject):
 
     DEFAULT = "base"
+
+    def __init__(self, parent=None):
+        qt.QObject.__init__(self, parent=parent)
+        self.__session: Dict[str, WorkspaceData] = {}
+        """Save workspace during flint life time"""
 
     def mainManager(self) -> manager.ManageMainBehaviours:
         return self.parent()
@@ -236,26 +275,34 @@ class WorkspaceManager(qt.QObject):
         action = qt.QAction(menu)
         action.setText("Reload")
         action.setToolTip("Reload the last saved state of the active workspace")
-        action.triggered.connect(self.__reloadLayout)
+        action.triggered.connect(self.reloadCurrentWorkspace)
         iconName = qt.QStyle.SP_FileDialogBack
         icon = menu.style().standardIcon(iconName)
         action.setIcon(icon)
         menu.addAction(action)
 
         action = qt.QAction(menu)
+        action.setText("Save")
+        action.setToolTip("Save the active workspace")
+        action.triggered.connect(self.saveCurrentWorkspace)
+        menu.addAction(action)
+
+        action = qt.QAction(menu)
         action.setText("Save as...")
-        action.triggered.connect(self.__saveWorkspaceAs)
+        action.setToolTip("Save the active workspace into another name")
+        action.triggered.connect(self.saveCurrentWorkspaceAs)
         menu.addAction(action)
 
         action = qt.QAction(menu)
         action.setText("Rename as...")
-        action.triggered.connect(self.__renameWorkspaceAs)
+        action.setToolTip("Rename the active workspace to another name")
+        action.triggered.connect(self.renameCurrentWorkspaceAs)
         menu.addAction(action)
 
         action = qt.QAction(menu)
         action.setText("Remove")
         action.setToolTip(
-            "Remove the active workspace (and switch to the default workspace)"
+            "Remove the active workspace (after switching to the default workspace)"
         )
         action.triggered.connect(
             functools.partial(self.removeWorkspace, currentWorkspace)
@@ -311,7 +358,7 @@ class WorkspaceManager(qt.QObject):
                 )
             menu.addAction(action)
 
-    def __renameWorkspaceAs(self):
+    def renameCurrentWorkspaceAs(self):
         flintModel = self.mainManager().flintModel()
         workspace = flintModel.workspace()
         workspace.name()
@@ -328,7 +375,7 @@ class WorkspaceManager(qt.QObject):
             return
         self.renameWorkspaceAs(workspace, name)
 
-    def __saveWorkspaceAs(self):
+    def saveCurrentWorkspaceAs(self):
         flintModel = self.mainManager().flintModel()
         workspace = flintModel.workspace()
         workspace.name()
@@ -372,9 +419,31 @@ class WorkspaceManager(qt.QObject):
             if isinstance(w, PlotWidget):
                 w.setPlotModel(None)
                 w.setScan(None)
-            w.setFlintModel(None)
+            if hasattr(w, "setFlintModel"):
+                w.setFlintModel(None)
             w.setObjectName(None)
             w.deleteLater()
+
+    def __closeUnusedWidget(self, data: WorkspaceData):
+        flintModel = self.mainManager().flintModel()
+        workspace = flintModel.workspace()
+        if workspace is None:
+            return
+        widgets = workspace.popWidgets()
+        names = set([desc.objectName for desc in data.widgetDescriptions()])
+        for w in list(widgets):
+            if w.objectName() in names:
+                continue
+            # Make sure we can create object name without collision
+            widgets.remove(w)
+            if isinstance(w, PlotWidget):
+                w.setPlotModel(None)
+                w.setScan(None)
+            if hasattr(w, "setFlintModel"):
+                w.setFlintModel(None)
+            w.setObjectName(None)
+            w.deleteLater()
+        return widgets
 
     def __getSettings(self) -> HashObjSetting:
         """Returns the settings storing workspaces in this bliss session."""
@@ -387,35 +456,13 @@ class WorkspaceManager(qt.QObject):
         setting = HashObjSetting(key, connection=redis)
         return setting
 
-    def __reloadLayout(self):
+    def reloadCurrentWorkspace(self):
         flintModel = self.mainManager().flintModel()
-        name = self.__getLastWorkspaceName()
-        window = flintModel.liveWindow()
-        settings = self.__getSettings()
+        workspace = flintModel.workspace()
+        name = workspace.name()
+        self.loadWorkspace(name, flintScope=False)
 
-        try:
-            data = settings.get(name, None)
-        except Exception:
-            _logger.error(
-                "Problem to load workspace data. Information will be lost.",
-                exc_info=True,
-            )
-            data = None
-
-        if data is not None and not isinstance(data, WorkspaceData):
-            _logger.error(
-                "Problem to load workspace data. Unexpected type %s. Information will be lost.",
-                type(data),
-                exc_info=True,
-            )
-            data = None
-
-        if data is None:
-            return
-
-        data.initLiveWindow(window)
-
-    def loadWorkspace(self, name: str):
+    def loadWorkspace(self, name: str, flintScope: bool = True):
         _logger.debug("Load workspace %s", name)
         flintModel = self.mainManager().flintModel()
 
@@ -427,15 +474,24 @@ class WorkspaceManager(qt.QObject):
         data = None
 
         sessionName = flintModel.blissSessionName()
-        if sessionName is not None:
-            try:
-                settings = self.__getSettings()
-                data = settings.get(newWorkspace.name(), None)
-            except Exception:
-                _logger.error(
-                    "Problem to load workspace data. Information will be lost.",
-                    exc_info=True,
-                )
+
+        if flintScope:
+            if name in self.__session:
+                data = self.__session[name]
+        else:
+            if name in self.__session:
+                del self.__session[name]
+
+        if data is None:
+            if sessionName is not None:
+                try:
+                    settings = self.__getSettings()
+                    data = settings.get(newWorkspace.name(), None)
+                except Exception:
+                    _logger.error(
+                        "Problem to load workspace data. Information will be lost.",
+                        exc_info=True,
+                    )
 
         if data is not None and not isinstance(data, WorkspaceData):
             _logger.error(
@@ -445,13 +501,17 @@ class WorkspaceManager(qt.QObject):
             )
             data = None
 
-        # It have to be done before creating widgets
-        self.__closeWorkspace()
-
         if data is None:
+            # It have to be done before creating widgets
+            self.__closeWorkspace()
             window.feedDefaultWorkspace(flintModel, newWorkspace)
         else:
-            data.feedWorkspace(newWorkspace, parent=window)
+            # It have to be done before creating widgets
+            remainingWidgets = self.__closeUnusedWidget(data)
+            flintModel = self.mainManager().flintModel()
+            data.feedWorkspace(
+                newWorkspace, remainingWidgets=remainingWidgets, parent=window
+            )
 
             # FIXME: Could be done in the manager callback event
             for plot in newWorkspace.plots():
@@ -466,7 +526,7 @@ class WorkspaceManager(qt.QObject):
                 if isinstance(widget, PlotWidget):
                     widget.setScan(scan)
 
-            data.initLiveWindow(window)
+            data.initLiveWindow(window, newWorkspace)
 
         # Make sure everything is visible (just in case)
         for widget in newWorkspace.widgets():
@@ -474,6 +534,7 @@ class WorkspaceManager(qt.QObject):
 
         if sessionName is not None:
             self.__saveCurrentWorkspaceName(newWorkspace.name())
+
         flintModel.setWorkspace(newWorkspace)
 
     def removeWorkspace(self, name: str):
@@ -495,6 +556,9 @@ class WorkspaceManager(qt.QObject):
             names.remove(name)
         self.__saveAvailableNames(names)
 
+        if name in self.__session:
+            del self.__session[name]
+
         key = "flint.workspace.%s" % name
         flintModel = self.mainManager().flintModel()
         redis = flintModel.redisConnection()
@@ -504,14 +568,24 @@ class WorkspaceManager(qt.QObject):
         """Save the current workspace the load the requested one"""
         flintModel = self.mainManager().flintModel()
         workspace = flintModel.workspace()
-        self.saveWorkspace(workspace)
+        self.saveWorkspace(workspace, flintScope=True)
         self.loadWorkspace(name)
 
-    def saveWorkspace(self, workspace: flint_model.Workspace, last=False):
+    def saveCurrentWorkspace(self):
+        flintModel = self.mainManager().flintModel()
+        workspace = flintModel.workspace()
+        self.saveWorkspace(workspace, flintScope=False)
+
+    def saveWorkspace(
+        self, workspace: flint_model.Workspace, last=False, flintScope: bool = False
+    ):
         """Save this workspace
 
         Arguments:
             - last: If true, save that this workspace was used
+            - flintScope: If true, the workspace is save at flint scope, else
+                the flint scope is cleaned up and the workspace is saved in
+                Redis
         """
         flintModel = self.mainManager().flintModel()
         sessionName = flintModel.blissSessionName()
@@ -534,13 +608,17 @@ class WorkspaceManager(qt.QObject):
 
         data = WorkspaceData()
         window = flintModel.liveWindow()
-        includePlots = workspace.name() != self.DEFAULT
-        data.setWorkspace(workspace, window, includePlots=includePlots)
+        data.setWorkspace(workspace)
 
         data.setLiveWindow(window)
 
-        settings = self.__getSettings()
-        settings[name] = data
+        if flintScope:
+            self.__session[name] = data
+        else:
+            if name in self.__session:
+                del self.__session[name]
+            settings = self.__getSettings()
+            settings[name] = data
 
         if last:
             self.__saveCurrentWorkspaceName(name)

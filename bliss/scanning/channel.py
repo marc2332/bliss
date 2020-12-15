@@ -59,12 +59,16 @@ class AcquisitionChannel:
 
     @property
     def name(self):
-        """Return the channel fullname, or the alias"""
-        prefix, _, short_chan_name = self.__name.rpartition(":")
-        alias = global_map.aliases.get(short_chan_name)
+        """If the `name` from the constructor is "A:B" this returns:
+            - "A:B"  (when B has no alias)
+            - "C"    (when B has alias "C" and A != "axis")
+            - "A:C"  (when B has alias "C" and A == "axis")
+        """
+        prefix, _, last_part = self.__name.rpartition(":")
+        alias = global_map.aliases.get(last_part)
         if alias:
             if prefix == "axis":
-                return f"axis:{alias.name}"
+                return f"{prefix}:{alias.name}"
             else:
                 return alias.name
         else:
@@ -72,17 +76,23 @@ class AcquisitionChannel:
 
     @property
     def short_name(self):
-        """Return the channel short name (alias or last part of fullname)
+        """If the `name` from the constructor is "A:B" this returns:
+            - "B"   (when B has no alias)
+            - "C"   (when B has alias "C")
         """
-        _, _, short_chan_name = self.name.rpartition(":")
-        return short_chan_name
+        _, _, last_part = self.name.rpartition(":")
+        return last_part
 
     @property
     def fullname(self):
-        chan_prefix, _, short_chan_name = self.__name.rpartition(":")
-        alias = global_map.aliases.get(short_chan_name)
+        """If the `name` from the constructor is "A:B" this returns:
+            - "A:B"     (when B has no alias)
+            - "A:C"     (when B has alias "C")
+        """
+        prefix, _, last_part = self.__name.rpartition(":")
+        alias = global_map.aliases.get(last_part)
         if alias:
-            return f"{chan_prefix}:{alias.name}"
+            return f"{prefix}:{alias.name}"
         else:
             return self.__name
 

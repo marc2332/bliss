@@ -34,7 +34,8 @@ from bliss.common.profiling import SimpleTimeStatistics
 from bliss.common.profiling import simple_time_profile as time_profile
 from bliss.controllers.motor import Controller
 from bliss.config.conductor.client import get_caching_redis_proxy
-from bliss.data.node import get_or_create_node, create_node
+from bliss.data.node import create_node
+from bliss.data.node import DataNodeAsyncHelper
 from bliss.data.scan import get_data
 from bliss.scanning.chain import AcquisitionSlave, AcquisitionMaster, StopChain
 from bliss.scanning.writer.null import Writer as NullWriter
@@ -1196,25 +1197,6 @@ class Scan:
                     task.join()
                 self.__trigger_data_watch_callback(signal, sender, sync=True)
 
-    def _prepare_channels(self, channels, parent_node):
-        for channel in channels:
-            chan_name = channel.short_name
-            channel_node = get_or_create_node(
-                chan_name,
-                node_type=channel.data_node_type,
-                parent=parent_node,
-                shape=channel.shape,
-                dtype=channel.dtype,
-                unit=channel.unit,
-                fullname=channel.fullname,
-                connection=self.scan_connection,
-            )
-            channel.data_node = channel_node
-            connect(channel, "new_data", self._channel_event)
-            if self._REDIS_CACHING:
-                channel_node.add_prefetch()
-            self.nodes[channel] = channel_node
-
     def prepare(self, scan_info, devices_tree):
         with time_profile(self._stats_dict, "scan.prepare.devices", logger=logger):
             self._prepare_devices(devices_tree)
@@ -1222,26 +1204,81 @@ class Scan:
             self.writer.prepare(self)
 
     def _prepare_devices(self, devices_tree):
-        self.__nodes = dict()
-        self._devices = list(devices_tree.expand_tree())[1:]
-        for dev in self._devices:
-            dev_node = devices_tree.get_node(dev)
-            level = devices_tree.depth(dev_node)
-            if level == 1:
-                parent_node = self.node
-            else:
-                parent_node = self.nodes[dev_node.bpointer]
-            if isinstance(dev, (AcquisitionSlave, AcquisitionMaster)):
-                data_container_node = create_node(
-                    dev.name, parent=parent_node, connection=self.scan_connection
-                )
-                if self._REDIS_CACHING:
-                    data_container_node.add_prefetch()
-                self.nodes[dev] = data_container_node
-                self._prepare_channels(dev.channels, data_container_node)
+        nodes = dict()
+        # DEPTH expand without the root node
+        devices = list(devices_tree.expand_tree())[1:]
 
-                for signal in ("start", "end"):
-                    connect(dev, signal, self._device_event)
+        # Create channel nodes and their parents in Redis
+        addparentinfo = dict()  # {level:(parents, children)}
+        asynchelper = DataNodeAsyncHelper(self.scan_connection)
+
+        with asynchelper:
+            # All this will be executed in one pipeline:
+            for dev in devices:
+                if not isinstance(dev, (AcquisitionSlave, AcquisitionMaster)):
+                    continue
+
+                # Create the parent node for the channel nodes
+                dev_node = devices_tree.get_node(dev)
+                level = devices_tree.depth(dev_node)
+                if level == 1:
+                    # Top level node has the scan node as parent
+                    parent = self.node
+                else:
+                    parent = nodes[dev_node.bpointer]
+                channel_parent = create_node(
+                    dev.name,  # appended to parent.db_name
+                    parent=parent,
+                    add_to_parent=False,  # post-pone because order matters
+                    connection=asynchelper.async_proxy,
+                )
+                asynchelper.replace_connection(channel_parent)
+                nodes[dev] = channel_parent
+
+                parents, children = addparentinfo.setdefault(level, (list(), list()))
+                parents.append((parent, channel_parent))
+
+                # Create the channel nodes
+                for channel in dev.channels:
+                    channel_node = create_node(
+                        channel.short_name,  # appended to channel_parent.db_name
+                        node_type=channel.data_node_type,
+                        parent=channel_parent,
+                        add_to_parent=False,  # post-pone because order matters
+                        shape=channel.shape,
+                        dtype=channel.dtype,
+                        unit=channel.unit,
+                        fullname=channel.fullname,  # node.fullname
+                        channel_name=channel.fullname,  # node.name
+                        connection=asynchelper.async_proxy,
+                    )
+                    asynchelper.replace_connection(channel_node)
+                    channel.data_node = channel_node
+                    nodes[channel] = channel_node
+                    children.append((channel_parent, channel_node))
+
+        if self._REDIS_CACHING:
+            for node in nodes.values():
+                node.add_prefetch()
+
+        # Add the children to their parents in Redis (NEW_NODE events)
+        for level, addlists in sorted(addparentinfo.items(), key=lambda item: item[0]):
+            for addlist in addlists:
+                with asynchelper:
+                    # All this will be executed in one pipeline:
+                    for parent, child in addlist:
+                        asynchelper.replace_connection(parent, child)
+                        parent.add_children(child)
+
+        # Connect device and channel events
+        self.__nodes = nodes
+        self._devices = devices
+        for dev, node in list(nodes.items()):
+            if dev in devices:
+                connect(dev, "start", self._device_event)
+                connect(dev, "end", self._device_event)
+            else:
+                connect(dev, "new_data", self._channel_event)
 
     def _update_scan_info_with_user_scan_meta(self, meta_timing):
         # be aware: this is patched in ct!

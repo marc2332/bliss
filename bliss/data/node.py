@@ -276,7 +276,7 @@ def get_filtered_nodes(
         )
     else:
         if kw.get("connection") is None:
-            kw["connection"] = client.get_redis_connection(db=1)
+            kw["connection"] = client.get_redis_proxy(db=1)
         db_names = filter_node_names(
             *db_names,
             include_types=include_filter,
@@ -372,7 +372,7 @@ def filter_node_names(
         recursive_exclude_types = (recursive_exclude_types,)
 
     if connection is None:
-        connection = client.get_redis_connection(db=1)
+        connection = client.get_redis_proxy(db=1)
 
     # Get attributes from the principal representations in 1 call (pipeline)
     pipeline = connection.pipeline()
@@ -507,6 +507,91 @@ def _create_node(*args, **kwargs):
     return create_node(*args, **kwargs)
 
 
+class DataNodeAsyncHelper:
+    """This context manager helps to create and use DataNode's in a pipeline.
+    It can be used as a context manager. Inside the context, you use the
+    `replace_connection` method to replace the DataNode's connection with
+    an asynchronous proxy. The DataNode's connection will be replaced
+    again upon exiting the context with the synchronous proxy provided
+    to this helper.
+
+    Usage:
+
+        with DataNodeAsyncHelper(sync_proxy) as helper:
+            helper.replace_connection(node1)
+            helper.replace_connection(node2)
+            # ... all Redis calls of node1 and node2 are asynchronous
+
+        # ... all Redis calls of node1 and node2 are synchronous
+
+    Warning: the DataNode's are no longer thread-safe inside the context.
+    """
+
+    def __init__(self, sync_proxy):
+        self.sync_proxy = sync_proxy
+        self._nodes = []
+        self._async_proxy = None
+        self._results = None
+
+    @property
+    def results(self):
+        self._raise_inside_context()
+        return self._results
+
+    @property
+    def async_proxy(self):
+        self._raise_outside_context()
+        return self._async_proxy
+
+    def _raise_outside_context(self):
+        if self._async_proxy is None:
+            raise RuntimeError(
+                f"Can only be done inside the {self.__class__.__name__} context"
+            )
+
+    def _raise_inside_context(self):
+        if self._async_proxy is None:
+            raise RuntimeError(
+                f"Can only be done outside the {self.__class__.__name__} context"
+            )
+
+    def __enter__(self):
+        """Create asynchronous proxy
+        """
+        if self._async_proxy is not None:
+            raise RuntimeError("You cannot enter this context more than once")
+        if self._nodes:
+            raise RuntimeError(
+                "Node connections were not reset in the previous context"
+            )
+        self._nodes = []
+        self._async_proxy = self.sync_proxy.pipeline()
+        self._results = None
+        return self
+
+    def replace_connection(self, *nodes):
+        """Replace all connections with the asynchronous proxy. When
+        the context exits, all connections are replace with the synchronous
+        proxy.
+        """
+        self._raise_outside_context()
+        for node in nodes:
+            if node not in self._nodes:
+                self._nodes.append(node)
+                node.replace_connection(self._async_proxy)
+
+    def __exit__(self, *args):
+        """Execute the pipeline and reset the node connections
+        """
+        try:
+            self._results = self._async_proxy.execute()
+        finally:
+            self._async_proxy = None
+            for node in self._nodes:
+                node.replace_connection(self.sync_proxy)
+            self._nodes = None
+
+
 def set_ttl(db_name):
     """Set the time-to-live upon garbage collection of DataNode
     which was instantiated with `create==True` (also affects the parents).
@@ -563,17 +648,32 @@ class DataNode(metaclass=DataNodeMetaClass):
     def _principal_db_name(name, parent=None):
         """Redis key of the principal representation of a `DataNode` in Redis
         """
-        return f"{parent.db_name}:{name}" if parent else name
+        if parent:
+            return f"{parent.db_name}:{name}"
+        else:
+            return name
 
     def __init__(
-        self, node_type, name, parent=None, connection=None, create=False, **kwargs
+        self,
+        node_type,
+        name,
+        parent=None,
+        add_to_parent=True,
+        create=False,
+        connection=None,
+        **kwargs,
     ):
         """
         :param str node_type:
         :param str name: used in the associated Redis keys
         :param DataNode parent:
         :param bool create: create the associated Redis keys
-        :param kwargs: see `_init_info`
+        :param bool add_to_parent: only applicable when `create=True`.
+        :param connection:
+        :param kwargs: see `_init_info`. The `kwargs["info"]` will become `node.info`.
+                       All other keys from `kwargs` are skipped, except for derived classes
+                       that overwrite `_init_info`. They can take keys from `kwargs`
+                       to populate the `kwargs["info"]`.
         """
         # The DataNode's Redis connection, used by all Redis queries
         if connection is None:
@@ -601,28 +701,33 @@ class DataNode(metaclass=DataNodeMetaClass):
             self._ttl_setter = None
             self._struct = self._get_struct(db_name, connection=self.db_connection)
 
-    def add_prefetch(self):
+    def add_prefetch(self, async_proxy=None):
         """As long as caching on the proxy level exists in CachingRedisDbProxy,
-        we need to prefetch settings.
+        we need to prefetch settings like this.
         """
-        self.db_connection.add_prefetch(self._struct, self._info)
+        if async_proxy is None:
+            async_proxy = self.db_connection
+        async_proxy.add_prefetch(self._struct, self._info)
 
-    def remove_prefetch(self):
+    def remove_prefetch(self, async_proxy=None):
         """Undo `add_prefetch`.
         """
-        self.db_connection.remove_prefetch(self._struct, self._info)
+        if async_proxy is None:
+            async_proxy = self.db_connection
+        async_proxy.remove_prefetch(self._struct, self._info)
 
     def _init_info(self, **kwargs):
         return kwargs.pop("info", {})
 
-    def _finalize_init(self, create=False, parent=None, **kwargs):
-        if create:
+    def _finalize_init(self, parent=None, add_to_parent=True, **kwargs):
+        if self.__new_node:
             # Mark node as "initialized" in Redis
             self._mark_initialized()
             # Add to the children_list stream of the parent
             if parent is not None:
                 self._struct.parent = parent.db_name
-                parent.add_children(self)
+                if add_to_parent:
+                    parent.add_children(self)
             # Set TTL on garbage collection
             self._ttl_setter = weakref.finalize(self, set_ttl, self.__db_name)
 
@@ -782,7 +887,6 @@ class DataNode(metaclass=DataNodeMetaClass):
     @property
     @protect_from_kill
     def fullname(self):
-        warnings.warn("fullname is deprecated", FutureWarning)
         return self._struct.fullname
 
     @property
@@ -812,7 +916,7 @@ class DataNode(metaclass=DataNodeMetaClass):
     def parent(self):
         parent_name = self._struct.parent
         if parent_name:
-            parent = self.get_node(parent_name)
+            parent = self.get_node(parent_name, state="exists")
             if parent is None:  # clean
                 del self._struct.parent
             return parent
@@ -865,6 +969,20 @@ class DataNode(metaclass=DataNodeMetaClass):
         if parent:
             db_names.extend(parent.get_db_names())
         return db_names
+
+    def get_settings(self):
+        return [self._struct, self._info]
+
+    def replace_connection(self, redis_proxy):
+        """Replace the connection of this nodes and all associated
+        Bliss settings.
+        """
+        # A hard reference to the Redis proxy
+        self.db_connection = redis_proxy
+        # Weak references to the Redis proxy
+        cnx = weakref.ref(redis_proxy)
+        for setting in self.get_settings():
+            setting._cnx = cnx
 
     @protect_from_kill
     def walk(
@@ -1275,6 +1393,9 @@ class DataNodeContainer(DataNode):
         db_names = super().get_db_names()
         db_names.append("%s_children_list" % self.db_name)
         return db_names
+
+    def get_settings(self):
+        return super().get_settings() + [self._children_stream]
 
     def add_children(self, *children):
         """Publish new (direct) child in Redis

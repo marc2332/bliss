@@ -91,8 +91,6 @@ class Connection:
     The Beacon connection also manages all Redis connections.
     Use `get_redis_proxy` to create a connection or use an existing one.
     Use `close_all_redis_connections` to close all Redis connections.
-    When the greenlet that created a Redis connection is garbage collected,
-    the Redis connection will be closed.
 
     Beacon locks: the methods `lock`, `unlock` and  `who_locked` provide
     a mechanism to acquire and release locks in the Beacon server.

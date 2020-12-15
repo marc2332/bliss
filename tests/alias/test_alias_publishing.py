@@ -12,10 +12,10 @@ def test_alias_data_channel(alias_session):
     env_dict = alias_session.env_dict
 
     s = scans.a2scan(
-        env_dict["robyy"],
+        env_dict["robu"],
         0,
         1,
-        env_dict["robzz"],
+        env_dict["robzz"],  # alias of 'robz'
         0,
         1,
         3,
@@ -29,7 +29,7 @@ def test_alias_data_channel(alias_session):
         return_scan=True,
     )
 
-    dump1 = """{a2scan}:axis:robyy robyy
+    dump1 = """{a2scan}:axis:robu robu
 {a2scan}:axis:robzz robzz
 {a2scan}:axis:timer:elapsed_time elapsed_time
 {a2scan}:axis:timer:epoch epoch
@@ -52,7 +52,7 @@ def test_alias_default_lima_counters(alias_session):
     env_dict = alias_session.env_dict
 
     s = scans.a2scan(
-        env_dict["robyy"],
+        env_dict["robu"],
         0,
         1,
         env_dict["robzz"],
@@ -64,7 +64,7 @@ def test_alias_default_lima_counters(alias_session):
         save=True,
     )
 
-    dump1 = """{a2scan}:axis:robyy robyy
+    dump1 = """{a2scan}:axis:robu robu
 {a2scan}:axis:robzz robzz
 {a2scan}:axis:timer:elapsed_time elapsed_time
 {a2scan}:axis:timer:epoch epoch
@@ -99,7 +99,7 @@ def test_lima_counter_aliased_and_lima_counters(alias_session):
     env_dict = alias_session.env_dict
 
     s = scans.a2scan(
-        env_dict["robyy"],
+        env_dict["robu"],
         0,
         1,
         env_dict["robzz"],
@@ -112,7 +112,7 @@ def test_lima_counter_aliased_and_lima_counters(alias_session):
         save=True,
     )
 
-    dump1 = """{a2scan}:axis:robyy robyy
+    dump1 = """{a2scan}:axis:robu robu
 {a2scan}:axis:robzz robzz
 {a2scan}:axis:timer:elapsed_time elapsed_time
 {a2scan}:axis:timer:epoch epoch
@@ -141,7 +141,7 @@ def test_lima_counter_aliased_and_lima_counters(alias_session):
         i += 1
     assert i == len(dump1_str.split("\n"))
     s2 = scans.a2scan(
-        env_dict["robyy"],
+        env_dict["robu"],
         0,
         1,
         env_dict["robzz"],

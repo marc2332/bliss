@@ -58,6 +58,9 @@ class ScanNode(DataNodeContainer):
         db_names.append(self.db_name + "_data")
         return db_names
 
+    def get_settings(self):
+        return super().get_settings() + [self._sync_stream]
+
     def _subscribe_stream(self, stream_suffix, reader, first_index=None, **kw):
         """Subscribe to a particular stream associated with this node.
 

@@ -411,5 +411,8 @@ class LimaImageChannelDataNode(_ChannelDataNodeBase):
                 db_names.append(url)
         return db_names
 
+    def get_settings(self):
+        return super().get_settings() + [self._queue_ref]
+
     def __len__(self):
         return len(self.get(0, -1))

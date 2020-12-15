@@ -184,40 +184,85 @@ class WorkspaceManager(qt.QObject):
     def mainManager(self) -> manager.ManageMainBehaviours:
         return self.parent()
 
-    def createManagerActions(self, parent: qt.QObject) -> List[qt.QAction]:
+    def connectManagerActions(self, parent: qt.QObject, menu: qt.QMenu):
         """Create actions to interact with the manager"""
-        result = []
+        menu.aboutToShow.connect(self.__feedWorkspaceMenu)
 
-        action = qt.QAction(parent)
-        action.setText("Load")
-        loadMenu = qt.QMenu(parent)
-        loadMenu.aboutToShow.connect(self.__feedLoadMenu)
-        action.setMenu(loadMenu)
-        result.append(action)
+    def __feedWorkspaceMenu(self):
+        menu: qt.QMenu = self.sender()
+        menu.clear()
 
-        action = qt.QAction(parent)
-        action.setText("Remove")
-        removeMenu = qt.QMenu(parent)
-        removeMenu.aboutToShow.connect(self.__feedRemoveMenu)
-        action.setMenu(removeMenu)
-        result.append(action)
+        flintModel = self.mainManager().flintModel()
+        workspace = flintModel.workspace()
+        currentWorkspace = workspace.name()
 
-        action = qt.QAction(parent)
+        try:
+            names = self.__getAvailableNames()
+        except IOError:
+            action = qt.QAction(menu)
+            action.setEnabled(False)
+            action.setText("Error while loading names")
+            menu.addAction(action)
+            names = []
+
+        names = list(sorted(names))
+
+        menu.addSection("Active workspace")
+        group = qt.QActionGroup(menu)
+        if len(names) > 0:
+            for name in names:
+                action = qt.QAction(menu)
+                action.setText(f"{name}")
+                action.setCheckable(True)
+                if name == currentWorkspace:
+                    action.setToolTip("The current workspace")
+                    action.setChecked(True)
+                    action.setEnabled(False)
+                else:
+                    action.triggered.connect(
+                        functools.partial(self.switchToWorkspace, name)
+                    )
+                    action.setToolTip("Switch to '%s' workspace" % name)
+                menu.addAction(action)
+                group.addAction(action)
+        else:
+            action = qt.QAction(menu)
+            action.setEnabled(False)
+            action.setText("No workspace")
+            menu.addAction(action)
+
+        menu.addSeparator()
+
+        action = qt.QAction(menu)
+        action.setText("Reload")
+        action.setToolTip("Reload the last saved state of the active workspace")
+        action.triggered.connect(self.__reloadLayout)
+        iconName = qt.QStyle.SP_FileDialogBack
+        icon = menu.style().standardIcon(iconName)
+        action.setIcon(icon)
+        menu.addAction(action)
+
+        action = qt.QAction(menu)
         action.setText("Save as...")
         action.triggered.connect(self.__saveWorkspaceAs)
-        result.append(action)
+        menu.addAction(action)
 
-        action = qt.QAction(parent)
+        action = qt.QAction(menu)
         action.setText("Rename as...")
         action.triggered.connect(self.__renameWorkspaceAs)
-        result.append(action)
+        menu.addAction(action)
 
-        action = qt.QAction(parent)
-        action.setText("Reload layout")
-        action.triggered.connect(self.__reloadLayout)
-        result.append(action)
-
-        return result
+        action = qt.QAction(menu)
+        action.setText("Remove")
+        action.setToolTip(
+            "Remove the active workspace (and switch to the default workspace)"
+        )
+        action.triggered.connect(
+            functools.partial(self.removeWorkspace, currentWorkspace)
+        )
+        icon = icons.getQIcon("flint:icons/remove-item")
+        action.setIcon(icon)
+        menu.addAction(action)
 
     def __saveAvailableNames(self, names: List[str]):
         settings = self.__getSettings()
@@ -264,37 +309,6 @@ class WorkspaceManager(qt.QObject):
                 action.triggered.connect(
                     functools.partial(self.switchToWorkspace, name)
                 )
-            menu.addAction(action)
-
-    def __feedRemoveMenu(self):
-        menu: qt.QMenu = self.sender()
-        menu.clear()
-
-        try:
-            names = self.__getAvailableNames()
-        except IOError:
-            action = qt.QAction(menu)
-            action.setEnabled(False)
-            action.setText("Error while loading names")
-            menu.addAction(action)
-            return
-
-        if self.DEFAULT in names:
-            names.remove(self.DEFAULT)
-
-        if len(names) == 0:
-            action = qt.QAction(menu)
-            action.setEnabled(False)
-            action.setText("No workspace")
-            menu.addAction(action)
-            return
-
-        for name in names:
-            action = qt.QAction(menu)
-            action.setText(f"{name}")
-            action.triggered.connect(functools.partial(self.removeWorkspace, name))
-            icon = icons.getQIcon("flint:icons/remove-item")
-            action.setIcon(icon)
             menu.addAction(action)
 
     def __renameWorkspaceAs(self):
@@ -463,6 +477,19 @@ class WorkspaceManager(qt.QObject):
         flintModel.setWorkspace(newWorkspace)
 
     def removeWorkspace(self, name: str):
+        if name == self.DEFAULT:
+            _logger.warning("The base workspace can't be removed", self.DEFAULT)
+            return
+
+        flintModel = self.mainManager().flintModel()
+        workspace = flintModel.workspace()
+        currentWorkspace = workspace.name()
+        if name == currentWorkspace:
+            _logger.info(
+                "Switch to '%s' workspace before removing '%s'", self.DEFAULT, name
+            )
+            self.loadWorkspace(self.DEFAULT)
+
         names = self.__getAvailableNames()
         if name in names:
             names.remove(name)

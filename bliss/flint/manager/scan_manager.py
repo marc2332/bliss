@@ -444,15 +444,6 @@ class ScanManager:
         else:
             assert False
 
-        if self.__flintModel is not None:
-            flintApi = self.__flintModel.flintApi()
-            data_event = (
-                flintApi.data_event[master_name]
-                .setdefault(data_type, {})
-                .setdefault(data.get("channel_index", 0), gevent.event.Event())
-            )
-            data_event.set()
-
     def __update_channel_data(
         self, cache: _ScanCache, channel_name, raw_data, frame_id=None, source=None
     ):

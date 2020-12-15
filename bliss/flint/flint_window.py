@@ -8,17 +8,18 @@
 
 from __future__ import annotations
 from typing import Dict
-from typing import NamedTuple
 
 import logging
 import os
 
+import silx
 from silx.gui import qt
 
 from bliss.flint.widgets.log_widget import LogWidget
 from bliss.flint.widgets.live_window import LiveWindow
 from bliss.flint.widgets.custom_plot import CustomPlot
 from bliss.flint.widgets.state_indicator import StateIndicator
+from bliss.flint.widgets.utils import app_actions
 from bliss.flint.model import flint_model
 
 _logger = logging.getLogger(__name__)
@@ -107,6 +108,11 @@ class FlintWindow(qt.QMainWindow):
         action.setStatusTip("Show a IPython console (for debug purpose)")
         action.triggered.connect(self.openDebugConsole)
         windowMenu.addAction(action)
+
+        displayMenu: qt.QMenu = menubar.addMenu("Display")
+        action = app_actions.OpenGLAction(self)
+        displayMenu.addAction(action)
+        displayMenu.aboutToShow.connect(action.updateState)
 
         menubar = self.menuBar()
         layoutMenu = menubar.addMenu("&Layout")
@@ -272,14 +278,6 @@ class FlintWindow(qt.QMainWindow):
         settings.setValue("size", self.size())
         settings.setValue("pos", self.pos())
         settings.endGroup()
-
-        manager = self.__flintState.mainManager()
-        try:
-            manager.saveBeforeClosing()
-        except Exception:
-            _logger.error("Error while saving the workspace", exc_info=True)
-
-        settings.sync()
 
     def __initLogWindowFromSettings(self):
         settings = self.__flintState.settings()

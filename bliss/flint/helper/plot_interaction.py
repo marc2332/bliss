@@ -487,7 +487,7 @@ class ShapesSelector(Selector):
                 w, h = map(int, map(round, shape["size"]))
                 roi = RectangleROI()
                 roi.setGeometry(origin=(x, y), size=(w, h))
-                roi.setName(shape.get["label"])
+                roi.setName(shape["label"])
             elif isinstance(shape, lima_roi.RoiProfile):
                 if shape.mode == "horizontal":
                     roi = extra_rois.LimaHProfileRoi()

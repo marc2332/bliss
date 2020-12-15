@@ -42,9 +42,16 @@ def configure_parser_arguments(parser: ArgumentParser):
         "--gl",
         dest="opengl",
         action="store_true",
-        default=False,
+        default=None,
         help="Enable OpenGL rendering. It provides a faster rendering for plots "
         "but could have issue with remote desktop (default: matplotlib is used)",
+    )
+    parser.add_argument(
+        "--disable-opengl",
+        dest="opengl",
+        action="store_false",
+        default=None,
+        help="Disable OpenGL rendering. Use matplotlib by default for this execution)",
     )
     parser.add_argument(
         "--disable-share-opengl-contexts",

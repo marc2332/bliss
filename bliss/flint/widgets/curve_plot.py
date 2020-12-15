@@ -266,10 +266,8 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         toolBar.addAction(action)
 
         action = fit.FitAction(self.__plot, self)
-        if hasattr(action, "setFittedItemUpdatedFromActiveCurve"):
-            # FIXME: This have to be removed for the silx 0.13 release
-            action.setFittedItemUpdatedFromActiveCurve(True)
-            action.setXRangeUpdatedOnZoom(True)
+        action.setFittedItemUpdatedFromActiveCurve(True)
+        action.setXRangeUpdatedOnZoom(True)
         toolBar.addAction(action)
 
         toolBar.addSeparator()
@@ -293,10 +291,9 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         return self.__plot
 
     def eventFilter(self, widget, event):
-        if widget is not self.__plot and widget is not self.__plot.getWidgetHandle():
-            return
-        if event.type() == qt.QEvent.MouseButtonPress:
-            self.widgetActivated.emit(self)
+        if widget is self.__plot or widget is self.__plot.getWidgetHandle():
+            if event.type() == qt.QEvent.MouseButtonPress:
+                self.widgetActivated.emit(self)
         return widget.eventFilter(widget, event)
 
     def createPropertyWidget(self, parent: qt.QWidget):

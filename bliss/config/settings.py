@@ -625,13 +625,13 @@ class BaseHashSetting(BaseSetting):
         cnx = self.connection
         cnx.delete(self.name)
         if values is not None:
-            cnx.hmset(self.name, values)
+            cnx.hset(self.name, mapping=values)
 
     @write_decorator_dict
     def update(self, values):
         cnx = self.connection
         if values:
-            cnx.hmset(self.name, values)
+            cnx.hset(self.name, mapping=values)
 
     def has_key(self, key):
         cnx = self.connection

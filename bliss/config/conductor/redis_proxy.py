@@ -15,10 +15,25 @@ import redis
 import redis.client
 from collections.abc import MutableMapping
 
+from bliss.common.utils import grouped
 
 """Implementation of different Redis proxy. Note that a proxy does not
 hold any connections, except for the SingleRedisConnectionProxy.
 """
+
+
+def key_value_list_or_mapping_to_dict(key_value_list_or_mapping):
+    """Helper function to convert a list key1,value1, ..., keyN, valueN to a dict,
+    or to return a mapping as it is
+    """
+    if len(key_value_list_or_mapping) == 1:
+        # must be a mapping
+        assert isinstance(key_value_list_or_mapping[0], MutableMapping)
+        mapping = key_value_list_or_mapping[0]
+    else:
+        # function parameters as key1, value1, ..., keyN, valueN
+        mapping = dict(grouped(key_value_list_or_mapping, 2))
+    return mapping
 
 
 class AsyncRedisDbProxy(redis.client.Pipeline):
@@ -55,6 +70,18 @@ class RedisDbProxy(redis.Redis):
     def __init__(self, pool, async_class=AsyncRedisDbProxy, **kw):
         self._async_class = async_class
         super().__init__(connection_pool=pool, **kw)
+
+    def hset(self, name, *key_value_list_or_mapping, mapping=None):
+        """hset method, compatible with deprecated hmset
+
+        If mapping is given: just call redis.Redis "hset"
+        If not mapping is given, individual key, value args can be passed,
+        or a dictionary
+        """
+        if mapping is None:
+            mapping = key_value_list_or_mapping_to_dict(key_value_list_or_mapping)
+
+        return super().hset(name, mapping=mapping)
 
     def pipeline(self, transaction=True, shard_hint=None):
         return self._async_class(
@@ -190,23 +217,18 @@ class CachingAsyncRedisDbProxy(AsyncRedisDbProxy):
         self._db_cache_tasks.append(hdel_func)
         return super().hdel(name, *keys)
 
-    def hset(self, name, key, value):
+    def hset(self, name, *key_value_list_or_mapping, mapping=None):
+        if mapping is None:
+            mapping = key_value_list_or_mapping_to_dict(key_value_list_or_mapping)
+
         def hset_func():
             cached_dict = self._db_cache.get(name)
             if cached_dict is not None:
-                cached_dict[key.encode()] = value
+                for key, value in mapping.items():
+                    cached_dict[key.encode()] = value
 
         self._db_cache_tasks.append(hset_func)
-        return super().hset(name, key, value)
-
-    def hmset(self, name, mapping):
-        def hmset_func():
-            cached_dict = self._db_cache.get(name)
-            if cached_dict is not None:
-                cached_dict.update((k.encode(), v) for k, v in mapping.items())
-
-        self._db_cache_tasks.append(hmset_func)
-        return super().hmset(name, mapping)
+        return super().hset(name, mapping=mapping)
 
     def lpop(self, name, *values):
         def lpop_func():
@@ -402,18 +424,14 @@ class CachingRedisDbProxy(SafeRedisDbProxy):
         return len(cached_dict)
 
     @caching_command
-    def hset(self, name, key, value):
-        return_val = super().hset(name, key, value)
+    def hset(self, name, *key_value_list_or_mapping, mapping=None):
+        if mapping is None:
+            mapping = key_value_list_or_mapping_to_dict(key_value_list_or_mapping)
         cached_dict = self._get_cache_dict(name)
-        cached_dict[key.encode()] = value
-        return return_val
+        for key, value in mapping.items():
+            cached_dict[key.encode()] = value
 
-    @caching_command
-    def hmset(self, name, mapping):
-        return_val = super().hmset(name, mapping)
-        cached_dict = self._get_cache_dict(name)
-        cached_dict.update((k.encode(), v) for k, v in mapping.items())
-        return return_val
+        return super().hset(name, mapping=mapping)
 
     @caching_command
     def hscan(self, name, cursor=0, match=None, count=None):

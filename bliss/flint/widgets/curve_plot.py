@@ -451,8 +451,8 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         self.__plot.getYAxis(axis="left").setLabel(y1Label)
         self.__plot.getYAxis(axis="right").setLabel(y2Label)
 
+        axis = self.__plot.getXAxis()
         if xAxis is not None:
-            axis = self.__plot.getXAxis()
             if xAxis.unit() == "s":
                 # FIXME: There is no axis for duration
                 # then the elapse time will be displayed in 1970, but it is still fine
@@ -460,6 +460,8 @@ class CurvePlotWidget(plot_helper.PlotWidget):
                 axis.setTimeZone("UTC")
             else:
                 axis.setTickMode(axis_mdl.TickMode.DEFAULT)
+        else:
+            axis.setTickMode(axis_mdl.TickMode.DEFAULT)
 
     def __updateAxesItems(self):
         """Update items which have relation with the X axis"""

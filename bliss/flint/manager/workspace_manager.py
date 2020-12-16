@@ -114,6 +114,7 @@ class WorkspaceData(dict):
 
         self["plots"] = plots
         self["widgets"] = widgetDescriptions
+        self["version"] = 2
 
     def widgetDescriptions(self) -> List[WidgetDescription]:
         return self["widgets"]
@@ -132,6 +133,9 @@ class WorkspaceData(dict):
             previousWidgets = set(currentWorkspace.widgets())
         else:
             previousWidgets = set()
+
+        version = self.get("version", 1)
+        _logger.debug("WorkspaceData version %s", version)
 
         window.updateFromWorkspace(workspace)
         if "window_config" in self:
@@ -392,6 +396,8 @@ class WorkspaceManager(qt.QObject):
             if hasattr(w, "setFlintModel"):
                 w.setFlintModel(None)
             w.setObjectName(None)
+            if hasattr(w, "windowClosed"):
+                w.windowClosed.emit()
             w.deleteLater()
 
     def __closeUnusedWidget(self, data: WorkspaceData):
@@ -412,6 +418,8 @@ class WorkspaceManager(qt.QObject):
             if hasattr(w, "setFlintModel"):
                 w.setFlintModel(None)
             w.setObjectName(None)
+            if hasattr(w, "windowClosed"):
+                w.windowClosed.emit()
             w.deleteLater()
         return widgets
 
@@ -462,10 +470,12 @@ class WorkspaceManager(qt.QObject):
 
     def loadWorkspace(self, name: str, flintScope: bool = True):
         _logger.debug("Load workspace %s", name)
-        flintModel = self.mainManager().flintModel()
+        manager = self.mainManager()
+        flintModel = manager.flintModel()
 
         newWorkspace = flint_model.Workspace()
         newWorkspace.setName(name)
+        manager.setNextWorkspace(newWorkspace)
         window = flintModel.liveWindow()
         scan = flintModel.currentScan()
 
@@ -499,10 +509,15 @@ class WorkspaceManager(qt.QObject):
             )
             data = None
 
+        # Make sure there is no changes during the switch
+        workspace = flintModel.workspace()
+        workspace.setLocked(True)
+
         if data is None:
             # It have to be done before creating widgets
             self.__closeWorkspace()
             window.feedDefaultWorkspace(flintModel, newWorkspace)
+            window.updateFromWorkspace(newWorkspace)
         else:
             # It have to be done before creating widgets
             remainingWidgets = self.__closeUnusedWidget(data)
@@ -520,7 +535,6 @@ class WorkspaceManager(qt.QObject):
 
             # FIXME: Could be done in the manager callback event
             for widget in newWorkspace.widgets():
-                self.parent()._initNewDock(widget)
                 if isinstance(widget, PlotWidget):
                     widget.setScan(scan)
 
@@ -533,7 +547,11 @@ class WorkspaceManager(qt.QObject):
         if sessionName is not None:
             self.__saveCurrentWorkspaceName(newWorkspace.name())
 
+        manager.setNextWorkspace(None)
         flintModel.setWorkspace(newWorkspace)
+        _logger.debug(
+            "Available widgets: %s", [w.objectName() for w in newWorkspace.widgets()]
+        )
 
     def removeWorkspace(self, name: str):
         if name == self.DEFAULT:

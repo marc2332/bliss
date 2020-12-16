@@ -120,6 +120,7 @@ class ManageMainBehaviours(qt.QObject):
         self.__tangoMetadata = None
         self.__beaconLogHandler = None
         self.__memMonitoring = MemoryMonitoring(self)
+        self.__nextWorkspace = None
 
     def memoryMonitoring(self) -> MemoryMonitoring:
         """Provide an helper to monitor the memory.
@@ -133,6 +134,10 @@ class ManageMainBehaviours(qt.QObject):
             manager.memoryMonitoring().start()
         """
         return self.__memMonitoring
+
+    def setNextWorkspace(self, workspace):
+        """If not None, redirect registration into this workspace"""
+        self.__nextWorkspace = workspace
 
     def setFlintModel(self, flintModel: flint_model.FlintState):
         if self.__flintModel is not None:
@@ -247,21 +252,26 @@ class ManageMainBehaviours(qt.QObject):
                 self.__widgetAdded(widget)
             newWorkspace.widgetAdded.connect(self.__widgetAdded)
             newWorkspace.widgetRemoved.connect(self.__widgetRemoved)
-
             for widget in newWorkspace.widgets():
-                if widget.isVisible():
-                    if hasattr(widget, "widgetActivated"):
-                        widget.widgetActivated.emit(widget)
-                    break
+                self.__widgetAdded(widget)
         self.__updateLiveScanTitle()
 
     def __widgetAdded(self, widget):
+        _logger.debug("Widget added %s", widget.objectName())
+        if hasattr(widget, "setFlintModel"):
+            # FIXME: This should be done outside
+            widget.setFlintModel(self.__flintModel)
         if hasattr(widget, "widgetActivated"):
             widget.widgetActivated.connect(self.__widgetActivated)
+        if hasattr(widget, "windowClosed"):
+            widget.windowClosed.connect(self.__dockClosed)
 
     def __widgetRemoved(self, widget):
+        _logger.debug("Widget removed %s", widget.objectName())
         if hasattr(widget, "widgetActivated"):
             widget.widgetActivated.disconnect(self.__widgetActivated)
+        if hasattr(widget, "windowClosed"):
+            widget.windowClosed.disconnect(self.__dockClosed)
 
     def __widgetActivated(self, widget):
         if self.__activeDock is widget:
@@ -320,11 +330,17 @@ class ManageMainBehaviours(qt.QObject):
         self.workspaceManager().saveWorkspace(workspace, last=True)
         _logger.info("Workspace saved")
 
-    def _initNewDock(self, widget):
-        widget.setAttribute(qt.Qt.WA_DeleteOnClose)
-        if hasattr(widget, "setFlintModel"):
-            widget.setFlintModel(self.__flintModel)
-        widget.windowClosed.connect(self.__dockClosed)
+    def registerDock(self, widget):
+        """Register a new dock to the application
+
+        As the dock is added to the workspace. If the current workspace is feed,
+        it will trigger `__widgetAdded`.
+        """
+        if self.__nextWorkspace is not None:
+            workspace = self.__nextWorkspace
+        else:
+            workspace = self.__flintModel.workspace()
+        workspace.addWidget(widget)
 
     def __initClassMapping(self):
         if len(self.__classMapping) > 0:
@@ -496,7 +512,6 @@ class ManageMainBehaviours(qt.QObject):
             if plotModel is defaultPlot:
                 defaultWidget = widget
 
-            workspace.addWidget(widget)
             previousScan = widget.scan()
             self.__clearPreviousScan(previousScan)
             widget.setScan(scan)
@@ -584,18 +599,22 @@ class ManageMainBehaviours(qt.QObject):
 
     def __dockClosed(self):
         dock = self.sender()
+
         flintModel = self.flintModel()
         liveWindow = flintModel.liveWindow()
-        propertyWidget = liveWindow.propertyWidget()
-        if propertyWidget.focusWidget() is dock:
+
+        propertyWidget = liveWindow.propertyWidget(create=False)
+        if propertyWidget is not None and propertyWidget.focusWidget() is dock:
             propertyWidget.setFocusWidget(None)
 
         if isinstance(dock, PlotWidget):
             dock.setPlotModel(None)
         if hasattr(dock, "setFlintModel"):
             dock.setFlintModel(None)
+
         workspace = flintModel.workspace()
-        workspace.removeWidget(dock)
+        if not workspace.locked():
+            workspace.removeWidget(dock)
 
     def __createWidgetFromPlot(
         self, parent: qt.QWidget, plotModel: plot_model.Plot
@@ -618,7 +637,7 @@ class ManageMainBehaviours(qt.QObject):
         workspace = flintModel.workspace()
         widget: qt.QDockWidget = widgetClass(parent)
         widget.setPlotModel(plotModel)
-        self._initNewDock(widget)
+        widget.setAttribute(qt.Qt.WA_DeleteOnClose)
 
         title = plotModel.name()
         if title is None:
@@ -640,6 +659,7 @@ class ManageMainBehaviours(qt.QObject):
 
         widget.setWindowTitle(title)
         widget.setObjectName(name)
+        self.registerDock(widget)
         return widget
 
     def __getUnusedTitle(self, prefix, workspace) -> str:
@@ -674,8 +694,7 @@ class ManageMainBehaviours(qt.QObject):
         # Create the profile widget
         window = flintModel.liveWindow()
         widget = holder_widget.ProfileHolderWidget(parent=window)
-        self._initNewDock(widget)
-        workspace.addWidget(widget)
+        widget.setAttribute(qt.Qt.WA_DeleteOnClose)
 
         # Search for another profile
         lastTab = None if len(otherProfiles) == 0 else otherProfiles[-1]
@@ -702,6 +721,8 @@ class ManageMainBehaviours(qt.QObject):
         else:
             window.addDockWidget(qt.Qt.RightDockWidgetArea, widget)
             widget.setFloating(True)
+
+        self.registerDock(widget)
         return widget
 
     def setFlintStarted(self):

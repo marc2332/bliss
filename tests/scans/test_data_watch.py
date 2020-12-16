@@ -61,6 +61,7 @@ def test_simple_continuous_scan_with_session_watcher(session, scan_saving):
         lambda *args: new_data_args.append(args),
         end,
         ready_event=watcher_ready_event,
+        exclude_existing_scans=False,
     )
 
     try:
@@ -166,6 +167,7 @@ def test_limatake_with_watcher(session, lima_simulator):
         lambda *args: new_data_args.append(args),
         end,
         ready_event=watcher_ready_event,
+        exclude_existing_scans=False,
     )
 
     try:
@@ -239,6 +241,7 @@ def test_parallel_scans(default_session):
         lambda *args: new_data_args.append(args),
         end,
         ready_event=ready_event,
+        exclude_existing_scans=False,
     )
 
     assert ready_event.wait(3.)
@@ -305,6 +308,7 @@ def test_sequence_scans(default_session):
         lambda *args: new_data_args.append(args),
         end,
         ready_event=ready_event,
+        exclude_existing_scans=False,
     )
 
     assert ready_event.wait(timeout=3.)

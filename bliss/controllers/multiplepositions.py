@@ -71,6 +71,7 @@ import functools
 
 from tabulate import tabulate
 from gevent import Timeout
+from bliss.common.protocols import IcatPublisher
 from bliss.common.motor_group import Group
 from bliss.common.axis import AxisState
 from bliss.config.channels import Channel
@@ -81,7 +82,7 @@ from bliss import global_map, is_bliss_shell
 from bliss.scanning.scan_meta import get_user_scan_meta
 
 
-class MultiplePositions:
+class MultiplePositions(IcatPublisher):
     """ Handle multiple positions.
     """
 

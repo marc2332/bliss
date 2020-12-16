@@ -6,6 +6,7 @@ import gevent.lock
 from bliss.controllers.wago.wago import ModulesConfig, WagoController, get_wago_comm
 from bliss.config.channels import Channel
 from bliss.common.counter import SamplingCounter
+from bliss.common.protocols import CounterContainer
 from bliss.controllers.counter import SamplingCounterController, counter_namespace
 from bliss.common import event
 from bliss import global_map
@@ -378,7 +379,7 @@ class BpmController(SamplingCounterController):
 
 
 # --------- EBV CONTROLLER ----------------------------
-class EBV:
+class EBV(CounterContainer):
     _WAGO_KEYS = [
         "status",
         "screen",

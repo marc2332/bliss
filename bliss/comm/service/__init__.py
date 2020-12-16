@@ -29,7 +29,7 @@ def get_object_from_port(port):
 
 
 # --- CLIENT ---
-class Client:
+class Client(protocols.CounterContainer):
     def __init__(self, name, config_node):
         self.__name = name
         self._config_node = config_node
@@ -138,7 +138,7 @@ class Client:
             return self._proxy.counters
         if isinstance(self._proxy, counter.Counter):
             return protocols.counter_namespace([self._proxy])
-        raise NotImplementedError
+        return protocols.counter_namespace([])
 
 
 # --- SERVER ---

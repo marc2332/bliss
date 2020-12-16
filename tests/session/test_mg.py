@@ -7,6 +7,8 @@
 
 import pytest
 from unittest import mock
+import gevent
+
 from bliss import global_map
 from bliss.common import measurementgroup
 from bliss.common.session import DefaultSession
@@ -456,7 +458,7 @@ def test_enable_disable_issue_1736(test_mg_two_lima_same_prefix):
     assert all("lima_simulator2" in fullname for fullname in mg.enabled)
 
 
-def test_bad_controller(test_mg):
+def test_bad_controller(test_mg, caplog):
     class BadController(CounterController):
         @property
         def counters(self):
@@ -467,6 +469,7 @@ def test_bad_controller(test_mg):
 
     # should work fine, even if one controller has an exception
     assert list(global_map.get_counters_iter())
+    assert caplog.text
     assert test_mg.available
 
     # try to enable non-existent controller
@@ -563,3 +566,15 @@ def test_calls_to_get_counters_from_names(test_mg):
     ):
         test_mg.__info__()
         measurementgroup._get_counters_from_names.assert_called_once()
+
+
+def test_unresponsive_lima_dev_counters_iter(default_session, caplog):
+    with lima_simulator_context("simulator", "id00/limaccds/simulator1") as fqdn_proxy:
+        # lima simulator device is inserted to BLISS session
+        lima_simulator = default_session.config.get("lima_simulator")
+
+    # here Lima server has been terminated
+
+    list(global_map.get_counters_iter())
+
+    assert "Could not retrieve counters from controller" in caplog.text

@@ -11,6 +11,7 @@ Axis related classes (:class:`~bliss.common.axis.Axis`, \
 and :class:`~bliss.common.axis.GroupMove`)
 """
 from bliss import global_map
+from bliss.common.protocols import Scannable
 from bliss.common.cleanup import capture_exceptions
 from bliss.common.motor_config import MotorConfig
 from bliss.common.motor_settings import AxisSettings
@@ -652,7 +653,7 @@ def lazy_init(func):
 
 
 @with_custom_members
-class Axis:
+class Axis(Scannable):
     """
     Bliss motor axis
 

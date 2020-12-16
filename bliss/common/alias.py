@@ -14,6 +14,7 @@ The alias serves the following purposes:
 """
 import itertools
 import functools
+import logging
 import weakref
 import gevent
 from tabulate import tabulate
@@ -330,16 +331,16 @@ class MapWithAliases(Map):
 
         for counter_or_container in self.instance_iter("counters"):
             counters = []
-            try:
-                if isinstance(counter_or_container, CounterContainer):
+            if isinstance(counter_or_container, CounterContainer):
+                try:
                     counters = counter_or_container.counters
-
-                elif isinstance(counter_or_container, Counter):
-                    counters = [counter_or_container]
-
-            except Exception:
-                # the controller has a problem ?
-                continue
+                except Exception:
+                    logging.getLogger("bliss").exception(
+                        "Could not retrieve counters from controller"
+                    )
+                    continue
+            elif isinstance(counter_or_container, Counter):
+                counters = [counter_or_container]
 
             for cnt in counters:
                 if not cnt.fullname in aliased_counters:

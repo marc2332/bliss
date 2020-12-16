@@ -11,7 +11,6 @@ from bliss.common.counter import Counter
 from typing import Union, Tuple, List, Sequence
 from bliss.common.protocols import Scannable, CounterContainer, IterableNamespace
 from bliss.common.measurementgroup import MeasurementGroup
-from bliss.common.axis import Axis
 
 ######### types for typeguard #########
 _int = numbers.Integral
@@ -23,9 +22,7 @@ _countables = Union[
 _float_or_countables = Union[
     numbers.Real, IterableNamespace, Counter, MeasurementGroup, CounterContainer, Tuple
 ]
-_scannable = Union[Axis, Scannable]
-# Axis is included explicitly in _scannable as the Scannable protocol evaluates
-# all attributes that are part of the protocol during type checking. (py 3.7)
+_scannable = Scannable
 _scannable_or_name = Union[_scannable, str]
 _scannable_start_stop_list = Sequence[Tuple[_scannable, _float, _float]]
 _scannable_start_stop_intervals_list = Sequence[Tuple[_scannable, _float, _float, _int]]

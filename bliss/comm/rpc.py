@@ -129,6 +129,7 @@ msgpack.register_pickle()
 
 SPECIAL_METHODS = set(
     (
+        "abstractmethods",
         "new",
         "init",
         "del",
@@ -148,6 +149,7 @@ SPECIAL_METHODS = set(
         "reduce_ex",
         "getstate",
         "setstate",
+        "slots",
     )
 )
 

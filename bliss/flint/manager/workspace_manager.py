@@ -232,6 +232,14 @@ class WorkspaceManager(qt.QObject):
         menu.clear()
 
         flintModel = self.mainManager().flintModel()
+        sessionName = flintModel.blissSessionName()
+        if sessionName is None:
+            action = qt.QAction(menu)
+            action.setEnabled(False)
+            action.setText("No BLISS session attached")
+            menu.addAction(action)
+            return
+
         workspace = flintModel.workspace()
         currentWorkspace = workspace.name()
 

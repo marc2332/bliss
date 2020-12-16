@@ -320,44 +320,6 @@ class WorkspaceManager(qt.QObject):
         names = settings.get("@names", [])
         return names
 
-    def __feedLoadMenu(self):
-        menu: qt.QMenu = self.sender()
-        menu.clear()
-
-        try:
-            names = self.__getAvailableNames()
-        except IOError:
-            action = qt.QAction(menu)
-            action.setEnabled(False)
-            action.setText("Error while loading names")
-            menu.addAction(action)
-            return
-
-        if len(names) == 0:
-            action = qt.QAction(menu)
-            action.setEnabled(False)
-            action.setText("No workspace")
-            menu.addAction(action)
-            return
-
-        flintModel = self.mainManager().flintModel()
-        workspace = flintModel.workspace()
-        currentWorkspace = workspace.name()
-
-        for name in names:
-            action = qt.QAction(menu)
-            action.setText(f"{name}")
-            if name == currentWorkspace:
-                action.setToolTip("The current workspace")
-                action.setCheckable(True)
-                action.setChecked(True)
-                action.setEnabled(False)
-            else:
-                action.triggered.connect(
-                    functools.partial(self.switchToWorkspace, name)
-                )
-            menu.addAction(action)
-
     def renameCurrentWorkspaceAs(self):
         flintModel = self.mainManager().flintModel()
         workspace = flintModel.workspace()

@@ -44,13 +44,10 @@ def run_scans(*scns):
     print(f"\nRunning {len(scns)} scans ...")
     glts = [gevent.spawn(s.run) for s in scns]
     try:
-        gevent.joinall(glts)
+        gevent.joinall(glts, raise_error=True)
     except KeyboardInterrupt:
         gevent.killall(glts, KeyboardInterrupt)
         raise
-    else:
-        for g in glts:
-            g.get()
     finally:
         print("\nScans finished.")
 
@@ -445,9 +442,6 @@ def client_context(n, *args, **kwargs):
     finally:
         if glts:
             gevent.killall(glts)
-            gevent.joinall(glts)
-            for g in glts:
-                g.get()
 
 
 if __name__ == "__main__":

@@ -140,9 +140,10 @@ class CacheInvalidationGreenlet(gevent.Greenlet):
             for key in inv_keys:
                 try:
                     self._db_cache.pop(key.decode(), None)
-                except TypeError:
+                except (TypeError, RedisCacheError):
                     # The cache is in the process of closing down
-                    # (set to None which gives this TypeError)
+                    #   - set to None which gives this TypeError
+                    #   - disabled which gives RedisCacheError
                     break
                 except UnicodeDecodeError:
                     pass

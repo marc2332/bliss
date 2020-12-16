@@ -6,19 +6,23 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 
+import sys
 import enum
 import weakref
 import fnmatch
-import gevent
+import time
 from functools import wraps
+from collections.abc import MutableMapping
+from collections import Counter
+from contextlib import contextmanager
+import gevent
 import redis
 import redis.client
-from collections.abc import MutableMapping
 
 from bliss.common.utils import grouped
 
 """Implementation of different Redis proxy. Note that a proxy does not
-hold any connections, except for the SingleRedisConnectionProxy.
+hold any connections, except for AsyncRedisDbProxy and SingleRedisConnectionProxy.
 """
 
 
@@ -42,12 +46,220 @@ class AsyncRedisDbProxy(redis.client.Pipeline):
 
     As this takes a fixed connection from the connection pool, it
     is not greenlet-safe.
+
+    Reponse callbacks are applied to the result of a certain command.
+    Execute callbacks are called upon execution of the pipeline.
     """
 
-    def pipeline(self, transaction=True, shard_hint=None):
+    def __init__(
+        self, connection_pool, response_callbacks, transaction=True, shard_hint=None
+    ):
+        if response_callbacks is None:
+            response_callbacks = dict()
+        self._execute_callbacks = list()
+        super().__init__(connection_pool, response_callbacks, transaction, shard_hint)
+
+    def pipeline(self, **kw):
+        return self.__class__(self.connection_pool, self.response_callbacks, **kw)
+
+    def reset(self):
+        super().reset()
+        self._execute_callbacks = list()
+
+    def execute(self, **kw):
+        callbacks = self._execute_callbacks
+        result = super().execute(**kw)
+        for func, args, kwargs in callbacks:
+            func(*args, **kwargs)
+        return result
+
+    def add_execute_callback(self, func, *args, **kw):
+        self._execute_callbacks.append((func, args, kw))
+
+
+class MonitoringAsyncRedisDbProxy(AsyncRedisDbProxy):
+    """An asynchronous Redis proxy which monitors time, total buffered
+    command size and events per stream.
+
+    Use `wait_maximum_reached` to wait until one of the monitored resources
+    hit their maximum.
+
+    Use `maximum_is_reached` to manually say the maximum is reached.
+    """
+
+    def __init__(self, *args, **kw):
+        """
+        :param int or None max_stream_events: maximum event per stream
+        :param int or None max_bytes: maximum on the buffered commands
+        :param num or None max_time: maximum on time since first buffered command
+        """
+        self._max_stream_events = kw.pop("max_stream_events", None)
+        self._max_bytes = kw.pop("max_bytes", None)
+        self._max_time = kw.pop("max_time", None)
+        self._max_event = gevent.event.Event()
+        self._reset_monitoring()
+        super().__init__(*args, **kw)
+
+    def wait_maximum_reached(self):
+        """Wait until any of the resouce maxima is reached
+        """
+        return self._max_event.wait(timeout=self._time_left)
+
+    def maximum_is_reached(self):
+        """Causes an existing or future `wait_maximum_reached` call to
+        return immediately (until reset).
+        """
+        self._max_event.set()
+
+    def _reset_monitoring(self):
+        """Restart resource monitoring
+        """
+        self._nbytes = 0
+        self._nstream_events = Counter()
+        self._start_time = None
+        self._max_event.clear()
+        if (
+            self._max_stream_events is None
+            and self._max_bytes is None
+            and self._max_time is None
+        ):
+            self._max_event.set()
+
+    def reset(self):
+        super().reset()
+        self._reset_monitoring()
+
+    def xadd(self, name, fields, **kw):
+        super().xadd(name, fields, **kw)
+        self._monitor_stream_events(name)
+
+    def pipeline_execute_command(self, *args, **options):
+        super().pipeline_execute_command(*args, **options)
+        self._monitor_time()
+        self._monitor_data_size(args)
+
+    def _monitor_stream_events(self, name):
+        """Increase the stream counter and check maximum
+        """
+        if self._max_event.is_set() or self._max_stream_events is None:
+            return
+        self._nstream_events[name] += 1
+        if self._nstream_events[name] >= self._max_stream_events:
+            self.maximum_is_reached()
+
+    def _monitor_data_size(self, data):
+        """Increase the total buffered command size and check maximum
+        """
+        if self._max_event.is_set() or self._max_bytes is None:
+            return
+        self._nbytes += sys.getsizeof(data)
+        if self._nbytes >= self._max_bytes:
+            self.maximum_is_reached()
+
+    def _monitor_time(self):
+        """Start timing when needed and check time maximum
+        """
+        if self._time_left == 0:
+            self.maximum_is_reached()
+
+    @property
+    def _time_left(self):
+        """Returns `None` when not monitoring time or some maximum is
+        already reached.
+        """
+        if self._max_event.is_set() or self._max_time is None:
+            return None
+        if self._start_time is None:
+            self._start_time = time.time()
+        return max(self._max_time - (time.time() - self._start_time), 0)
+
+    def pipeline(self, **kw):
         return self.__class__(
-            self.connection_pool, self.response_callbacks, transaction, shard_hint
+            self.connection_pool,
+            self.response_callbacks,
+            max_stream_events=self._max_stream_events,
+            max_bytes=self._max_bytes,
+            max_time=self._max_time,
+            **kw,
         )
+
+
+class MonitoringAsyncRedisDbProxyManager:
+    """Rotate asynchronous Redis proxies and execute in the background
+    upon rotation. Usage:
+
+        mgr = proxy.rotating_pipeline()
+        with mgr.async_proxy() as async_proxy:
+            async_proxy.set("key1", "value1")
+            async_proxy.xadd("key2", {"key": "value2"})
+
+        with mgr.async_proxy() as async_proxy:
+            async_proxy.set("key3", "value3")
+            async_proxy.xadd("key4", {"key": "value4"})
+            async_proxy.add_execute_callback(func, "var1", kwarg1="kwarg1")
+
+        mgr.flush()  # to force a pipeline execution
+
+    The underlying pipeline is rotated and executed when `flush` is called
+    or when the pipeline has reached its rotating criterea (see MonitoringAsyncRedisDbProxy).
+    """
+
+    def __init__(self, async_proxy: MonitoringAsyncRedisDbProxy):
+        self._execution_task = None
+        self._rotation_async_proxy = async_proxy
+        self._lock = gevent.lock.Semaphore()
+
+    @contextmanager
+    def async_proxy(self):
+        with self._lock:
+            yield self._rotation_async_proxy
+            self._ensure_execution_task()
+
+    def flush(self, blocking=True, timeout=None, raise_error=False):
+        """Finish the execution task and thereby forcing execution of
+        the pipeline.
+        """
+        with self._lock:
+            self._rotation_async_proxy.maximum_is_reached()
+            task = self._ensure_execution_task()
+        if task is not None and blocking:
+            if raise_error:
+                task.get(timeout=timeout)
+            else:
+                task.join(timeout=timeout)
+        return task
+
+    def _ensure_execution_task(self):
+        """Return the current pipeline execution task and make sure it
+        is running when there are commands in the pipeline.
+
+        Before starting the execution of a new task, an exception is
+        raised when the previos task failed.
+        """
+        # Return when task is running or no commands in the pipeline
+        if self._execution_task or not len(self._rotation_async_proxy):
+            return self._execution_task
+
+        # Raise error when the previous task failed
+        if self._execution_task is not None:
+            self._execution_task.get()
+
+        # Swap the current pipeline and launch the execution task
+        self._execution_task = gevent.spawn(self._execution_loop)
+        return self._execution_task
+
+    def _execution_loop(self):
+        """Execute the pipeline and swap it. Repeat until no more commands
+        in the pipeline. Before executing the pipeline, it waits for the
+        rotation event.
+        """
+        while True:
+            if not len(self._rotation_async_proxy):
+                break
+            self._rotation_async_proxy.wait_maximum_reached()
+            async_proxy = self._rotation_async_proxy
+            self._rotation_async_proxy = async_proxy.pipeline()
+            async_proxy.execute()
 
 
 class RedisDbProxy(redis.Redis):
@@ -83,9 +295,14 @@ class RedisDbProxy(redis.Redis):
 
         return super().hset(name, mapping=mapping)
 
-    def pipeline(self, transaction=True, shard_hint=None):
-        return self._async_class(
-            self.connection_pool, self.response_callbacks, transaction, shard_hint
+    def pipeline(self, **kw):
+        return self._async_class(self.connection_pool, self.response_callbacks, **kw)
+
+    def rotating_pipeline(self, **kw):
+        return MonitoringAsyncRedisDbProxyManager(
+            MonitoringAsyncRedisDbProxy(
+                self.connection_pool, self.response_callbacks, **kw
+            )
         )
 
 
@@ -280,13 +497,13 @@ class CachingAsyncRedisDbProxy(AsyncRedisDbProxy):
         self._db_cache_tasks.append(clear_cache)
         return super().lrem(name, *args)
 
-    def execute(self):
+    def execute(self, **kw):
         # Apply all commands on the cached database
         for task in self._db_cache_tasks:
             task()
         self._db_cache_tasks.clear()
         # Apply all commands to the server database
-        return super().execute()
+        return super().execute(**kw)
 
 
 class CachingRedisDbProxy(SafeRedisDbProxy):

@@ -148,7 +148,7 @@ class BaseMCA(CounterController):
             "read_all_triggers", False
         )  # only used with SYNC trig mode
 
-        if self.detector_type == DetectorType.MERCURY:
+        if self.detector_type in [DetectorType.MERCURY, DetectorType.FALCONX]:
             if params["trigger_mode"] in [
                 TriggerMode.GATE,
                 TriggerMode.GATE.name,
@@ -159,6 +159,9 @@ class BaseMCA(CounterController):
                     params["preset_time"], params["block_size"]
                 )
                 params["block_size"] = block_size
+        elif self.detector_type == DetectorType.FALCONX:
+            if params["npoints"] == 1:
+                params["refresh_rate"] = min(0.1, params["preset_time"])
 
         return params
 
@@ -327,6 +330,14 @@ class BaseMCA(CounterController):
     @block_size.setter
     def block_size(self, value=None):
         raise NotImplementedError
+
+    @property
+    def refresh_rate(self):
+        return None
+
+    @refresh_rate.setter
+    def refresh_rate(self, value):
+        pass
 
     # Acquisition
 

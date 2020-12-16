@@ -32,6 +32,7 @@ class McaAcquisitionSlave(AcquisitionSlave):
         preset_time=1.0,
         block_size=None,
         polling_time=0.1,
+        refresh_rate=0.1,
         spectrum_size=None,
         prepare_once=True,
         start_once=True,
@@ -80,6 +81,7 @@ class McaAcquisitionSlave(AcquisitionSlave):
 
         # Extra arguments
         self.block_size = block_size
+        self.refresh_rate = refresh_rate
         # Manage scans using software trigger with variable preset_time per point
         if isinstance(preset_time, list):
             self.preset_time_list = preset_time
@@ -135,12 +137,14 @@ class McaAcquisitionSlave(AcquisitionSlave):
         # The MCA acqObj handle this internally and it discards the first measure done @ x_mot_pos == x_start if
         #
         #
-        # (TO BE TESTED) If using trigger_mode==GATE, the acquisition is expected to start when receiving the first trigger
-        # (up or down edge of the gate).
+        # (TO BE TESTED) If using trigger_mode==GATE, the acquisition is
+        # expected to start when receiving the first trigger (up or down edge of
+        # the gate).
 
         # Generic configuration
         self.device.trigger_mode = self.trigger_mode
         self.device.spectrum_size = self.spectrum_size
+        self.device.refresh_rate = self.refresh_rate
 
         # Mode-specfic configuration
         self.expected_npoints = self.npoints
@@ -148,18 +152,19 @@ class McaAcquisitionSlave(AcquisitionSlave):
         if self.soft_trigger_mode:
             # SOFTWARE
             self.device.preset_mode = PresetMode.REALTIME
-            # manage variable integration time.
-            # in this mode the mca prepare method is call at ech point
+
+            # Manage variable integration time.
+            # In this mode the mca prepare method is called at each point.
             if self.preset_time_list is not None:
                 if self.preset_time_index < len(self.preset_time_list):
                     self.preset_time = self.preset_time_list[self.preset_time_index]
                     self.preset_time_index += 1
             self.device.preset_value = self.preset_time
-            self.read_all_triggers = True  # forced to True with this trig mode
+            self.read_all_triggers = True  # Forced to True with this trig mode.
 
         elif self.sync_trigger_mode:
             # SYNC
-            # with this trigger mode read_all_triggers can be True or False (user choice via acq_params)
+            # With this trigger mode read_all_triggers can be True or False (user choice via acq_params)
             self.device.hardware_points = self.npoints + 1
             self.device.block_size = self.block_size
             self.expected_npoints = self.npoints + 1
@@ -196,6 +201,7 @@ class McaAcquisitionSlave(AcquisitionSlave):
         self._trigger_event.set()
 
     def wait_ready(self):
+        """ ??? """
         if self.preset_time_list is not None:
             self._trigger_event.wait()
 

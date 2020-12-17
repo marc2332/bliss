@@ -138,6 +138,7 @@ class PlotConfiguration:
 
         # Image/scatter widget
         self.colormap: Optional[Dict] = None
+        self.profile_state: bytes = None
 
     def __reduce__(self):
         return (self.__class__, (), self.__getstate__())

@@ -150,6 +150,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         self.__plot.getYAxis().setInverted(True)
 
         self.__roiManager = RegionOfInterestManager(self.__plot)
+        self.__profileAction = None
 
         self.__title = _Title(self.__plot)
 
@@ -247,6 +248,8 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         except Exception:
             # As it relies on private API, make it safe
             _logger.error("Impossible to save colormap preference", exc_info=True)
+
+        config.profile_state = self.__profileAction.saveState()
         return config
 
     def setConfiguration(self, config):
@@ -259,6 +262,9 @@ class ImagePlotWidget(plot_helper.PlotWidget):
                 _logger.error(
                     "Impossible to restore colormap preference", exc_info=True
                 )
+        if config.profile_state is not None:
+            self.__profileAction.restoreState(config.profile_state)
+
         super(ImagePlotWidget, self).setConfiguration(config)
 
     def defaultColormap(self):
@@ -308,7 +314,8 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         action.setIcon(icon)
         toolBar.addAction(action)
 
-        toolBar.addAction(profile_action.ProfileAction(self.__plot, self, "image"))
+        self.__profileAction = profile_action.ProfileAction(self.__plot, self, "image")
+        toolBar.addAction(self.__profileAction)
 
         action = marker_action.MarkerAction(plot=self.__plot, parent=self, kind="image")
         self.__markerAction = action

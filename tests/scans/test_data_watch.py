@@ -51,6 +51,8 @@ def test_simple_continuous_scan_with_session_watcher(session, scan_saving):
         end_scan_event.set()
         end_scan_args.append(args)
 
+    watcher_ready_event = gevent.event.Event()
+
     session_watcher = gevent.spawn(
         watch_session_scans,
         scan_saving.session,
@@ -58,12 +60,15 @@ def test_simple_continuous_scan_with_session_watcher(session, scan_saving):
         lambda *args: new_child_args.append(args),
         lambda *args: new_data_args.append(args),
         end,
+        ready_event=watcher_ready_event,
+        exclude_existing_scans=False,
     )
+
     try:
-        gevent.sleep(0.1)  # wait a bit to have session watcher greenlet started
+        assert watcher_ready_event.wait(3)
         scan = Scan(chain, save=False)
         scan.run()
-        end_scan_event.wait(2.0)
+        assert end_scan_event.wait(3)
     finally:
         session_watcher.kill()
 
@@ -162,14 +167,13 @@ def test_limatake_with_watcher(session, lima_simulator):
         lambda *args: new_data_args.append(args),
         end,
         ready_event=watcher_ready_event,
+        exclude_existing_scans=False,
     )
 
     try:
-        watcher_ready_event.wait()
-
+        assert watcher_ready_event.wait(3)
         scan.run()
-
-        end_scan_event.wait(2.0)
+        assert end_scan_event.wait(3)
     finally:
         session_watcher.kill()
 
@@ -225,8 +229,9 @@ def test_parallel_scans(default_session):
     ready_event = gevent.event.Event()
 
     def end(*args):
-        end_scan_event.set()
         end_scan_args.append(args)
+        if len(end_scan_args) == 2:
+            end_scan_event.set()
 
     session_watcher = gevent.spawn(
         watch_session_scans,
@@ -236,9 +241,10 @@ def test_parallel_scans(default_session):
         lambda *args: new_data_args.append(args),
         end,
         ready_event=ready_event,
+        exclude_existing_scans=False,
     )
 
-    ready_event.wait(timeout=3.)
+    assert ready_event.wait(3.)
 
     g1 = gevent.spawn(s1.run)
     g2 = gevent.spawn(s2.run)
@@ -246,7 +252,7 @@ def test_parallel_scans(default_session):
 
     try:
         gevent.joinall(gs, raise_error=True)
-        end_scan_event.wait(2.0)
+        assert end_scan_event.wait(3.)
     finally:
         session_watcher.kill()
 
@@ -274,10 +280,10 @@ def test_parallel_scans(default_session):
     ]
     assert loopscan_data[-1].keys() == set(expected_keys)
 
-    for array in ascan_data[-1].values():
-        assert len(array) == 26
-    for array in loopscan_data[-1].values():
-        assert len(array) == 20
+    for name, array in ascan_data[-1].items():
+        assert len(array) == 26, name
+    for name, array in loopscan_data[-1].items():
+        assert len(array) == 20, name
 
 
 def test_sequence_scans(default_session):
@@ -302,9 +308,10 @@ def test_sequence_scans(default_session):
         lambda *args: new_data_args.append(args),
         end,
         ready_event=ready_event,
+        exclude_existing_scans=False,
     )
 
-    ready_event.wait(timeout=3.)
+    assert ready_event.wait(timeout=3.)
     try:
         seq = Sequence()
         with seq.sequence_context() as scan_seq:

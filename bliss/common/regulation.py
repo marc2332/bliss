@@ -718,7 +718,7 @@ class Loop(SamplingCounterController):
 
         self._ramp = SoftRamp(self.input.read, self._set_setpoint)
         self._use_soft_ramp = None
-        self._force_ramping_from_current_pv = config.get("ramp_from_pv", False)
+        self._force_ramping_from_current_pv = config.get("ramp_from_pv", True)
 
         # useful attribute for a temperature controller writer
         self._attr_dict = {}

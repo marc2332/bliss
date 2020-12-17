@@ -90,7 +90,14 @@ def configure_parser_arguments(parser: ArgumentParser):
         action="store_true",
         dest="clear_settings",
         default=False,
-        help="Start with cleared local user settings. ",
+        help="Start with cleared local user settings.",
+    )
+    parser.add_argument(
+        "--bliss-session",
+        type=str,
+        dest="bliss_session",
+        default=None,
+        help="Start Flint an connect it to a BLISS session name.",
     )
     parser.add_argument(
         "--log-file",

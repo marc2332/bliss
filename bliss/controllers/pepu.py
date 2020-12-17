@@ -220,6 +220,7 @@ ChannelConfig = collections.namedtuple("ChannelConfig", "mode state")
 
 
 def ChannelConfig_fromstring(text):
+    # state = True   # TO BE USED FOR FIRMWARE > 0.05
     for elem in text.split():
         try:
             mode = ChannelMode(elem)

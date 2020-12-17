@@ -1145,6 +1145,11 @@ class Scan:
             self.__state_change.clear()
             self.__state_change.wait()
 
+    def __trigger_watchers_data_event(self, signal, sender, sync=False):
+        # Only used when self._USE_PIPELINE_MGR=False
+        self.__trigger_data_watch_callback(signal, sender, sync=sync)
+        self.__trigger_watchdog_data_event(signal, sender)
+
     def __trigger_data_watch_callback(self, signal, sender, sync=False):
         if self._data_watch_callback is not None:
             event_set = self._data_events.setdefault(sender, set())
@@ -1161,6 +1166,8 @@ class Scan:
                 )
             else:
                 self._data_watch_callback_event.set()
+
+    def __trigger_watchdog_data_event(self, signal, sender):
         if self._watchdog_task is not None:
             self._watchdog_task.trigger_data_event(sender, signal)
 
@@ -1173,6 +1180,7 @@ class Scan:
                         async_proxy.add_execute_callback(
                             self.__trigger_data_watch_callback, signal, sender
                         )
+                        self.__trigger_watchdog_data_event(signal, sender)
             else:
                 with KillMask():
                     with self._stream_pipeline_lock:
@@ -1210,7 +1218,7 @@ class Scan:
                 task = gevent.spawn(
                     self._pipeline_execute,
                     self._current_pipeline_stream,
-                    self.__trigger_data_watch_callback,
+                    self.__trigger_watchers_data_event,
                 )
 
                 self._stream_pipeline_task = task
@@ -1234,11 +1242,12 @@ class Scan:
                 if self._USE_PIPELINE_MGR:
                     self._rotating_pipeline_mgr.flush(raise_error=False)
                     self.__trigger_data_watch_callback(signal, sender, sync=True)
+                    self.__trigger_watchdog_data_event(signal, sender)
                 else:
                     task = self._swap_pipeline()
                     if task is not None:
                         task.join()
-                    self.__trigger_data_watch_callback(signal, sender, sync=True)
+                    self.__trigger_watchers_data_event(signal, sender, sync=True)
 
     def prepare(self, scan_info, devices_tree):
         with time_profile(self._stats_dict, "scan.prepare.devices", logger=logger):

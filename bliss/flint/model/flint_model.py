@@ -29,7 +29,7 @@ class Workspace(qt.QObject):
 
     def __init__(self, parent=None):
         super(Workspace, self).__init__(parent=parent)
-        self.__name = "base"
+        self.__name = ""
         self.__widgets: List[qt.QWidget] = []
         self.__locked = False
 

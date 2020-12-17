@@ -377,10 +377,13 @@ class WorkspaceManager(qt.QObject):
 
     def loadLastWorkspace(self):
         try:
+            # The last workspace name is part of a session
             name = self.__getLastWorkspaceName()
         except ValueError:
+            # But workspaces are not stored in a specific session
+            # So what the base workspace can be loaded
             name = self.DEFAULT
-        return self.loadWorkspace(name)
+        self.loadWorkspace(name)
 
     def __closeWorkspace(self):
         flintModel = self.mainManager().flintModel()
@@ -469,7 +472,7 @@ class WorkspaceManager(qt.QObject):
         return name in settings
 
     def loadWorkspace(self, name: str, flintScope: bool = True):
-        _logger.debug("Load workspace %s", name)
+        _logger.debug("Load workspace '%s'", name)
         manager = self.mainManager()
         flintModel = manager.flintModel()
 
@@ -479,6 +482,7 @@ class WorkspaceManager(qt.QObject):
             workspace = flintModel.workspace()
             if workspace is not None and name == workspace.name():
                 # It's already the current workspace
+                _logger.debug("Workspace already loaded. Skipped.")
                 return False
             if name in self.__session:
                 data = self.__session[name]
@@ -556,6 +560,7 @@ class WorkspaceManager(qt.QObject):
         _logger.debug(
             "Available widgets: %s", [w.objectName() for w in newWorkspace.widgets()]
         )
+        _logger.debug("Load workspace '%s': done", name)
 
     def removeWorkspace(self, name: str):
         if name == self.DEFAULT:

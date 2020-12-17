@@ -263,85 +263,101 @@ def test_sequence_events(session):
             seq_context.add(s2)
 
     event_dump = list()
+    nscans = 4
+    started_event = gevent.event.Event()
+    finished_event = gevent.event.Event()
 
     def my_listener(session_node, event_dump):
-        for i, (event, node, data) in enumerate(session_node.walk_events()):
-            event_dump.append(
-                (
-                    event.name,
+        try:
+            nend = 0
+            it = session_node.walk_events(started_event=started_event)
+            for i, (eventtype, node, data) in enumerate(it):
+                event = (
+                    eventtype.name,
                     node.type,
                     re.split(r"test_sequence_events[0-9,_]*:", node.db_name)[-1],
                 )
-            )
+                print(event)
+                event_dump.append(event)
+                nend += eventtype == eventtype.END_SCAN
+                if nend == nscans:
+                    break
+        finally:
+            del it  # stop DataStreamReader, don't wait for garbage collection
+            finished_event.set()
 
+    # Make sure we are listening before the scan starts
     g_lis = gevent.spawn(
         my_listener, get_session_node(current_session.name), event_dump
     )
-    gevent.sleep(.1)
-    g_seq = gevent.spawn(my_seq, diode, robz)
+    assert started_event.wait(timeout=5)
 
+    # Launch the sequence of scans and wait until all END_SCAN events
+    # were recieved
+    g_seq = gevent.spawn(my_seq, diode, robz)
     g_seq.join()
-    gevent.sleep(.5)
+    assert finished_event.wait(timeout=5)
     g_lis.kill()
 
-    idx = event_dump.index(("NEW_NODE", "scan", "1_loopscan"))
-    idx2 = event_dump.index(("END_SCAN", "scan", "1_loopscan"))
-    assert idx < idx2
-    idx = idx2
+    idx_before = event_dump.index(("NEW_NODE", "scan", "1_loopscan"))
+    idx_after = event_dump.index(("END_SCAN", "scan", "1_loopscan"))
+    assert idx_before != 0
+    assert idx_before < idx_after
+    idx_before = idx_after
 
-    idx2 = event_dump.index(("NEW_NODE", "scan_group", "2_sequence_of_scans"))
-    assert idx < idx2
-    idx = idx2
+    idx_after = event_dump.index(("NEW_NODE", "scan_group", "2_sequence_of_scans"))
+    assert idx_before < idx_after
+    idx_before = idx_after
 
-    idx2 = event_dump.index(("NEW_NODE", "scan", "3_ascan"))
-    assert idx < idx2
-    idx = idx2
+    idx_after = event_dump.index(("NEW_NODE", "scan", "3_ascan"))
+    assert idx_before < idx_after
+    idx_before = idx_after
 
-    idx2 = event_dump.index(("NEW_DATA", "channel", "3_ascan:axis:robz"))
-    assert idx < idx2
+    idx_after = event_dump.index(("NEW_DATA", "channel", "3_ascan:axis:robz"))
+    assert idx_before < idx_after
 
-    idx2 = event_dump.index(
+    idx_after = event_dump.index(
         ("NEW_DATA", "channel", "2_sequence_of_scans:GroupingMaster:scan_numbers")
     )
-    assert idx < idx2
+    assert idx_before < idx_after
 
-    idx2 = event_dump.index(
+    idx_after = event_dump.index(
         ("NEW_DATA", "node_ref_channel", "2_sequence_of_scans:GroupingMaster:scans")
     )
-    assert idx < idx2
-    idx = idx2
+    assert idx_before < idx_after
+    idx_before = idx_after
 
-    idx2 = event_dump.index(("END_SCAN", "scan", "3_ascan"))
-    assert idx < idx2
-    idx = idx2
+    idx_after = event_dump.index(("END_SCAN", "scan", "3_ascan"))
+    assert idx_before < idx_after
+    idx_before = idx_after
 
-    idx2 = event_dump.index(("NEW_NODE", "scan", "4_dscan"))
-    assert idx < idx2
-    idx = idx2
+    idx_after = event_dump.index(("NEW_NODE", "scan", "4_dscan"))
+    assert idx_before < idx_after
+    idx_before = idx_after
 
-    idx2 = event_dump.index(
+    idx_after = event_dump.index(
         ("NEW_DATA", "node_ref_channel", "2_sequence_of_scans:GroupingMaster:scans"),
-        idx,
+        idx_before,
     )
-    assert idx < idx2
+    assert idx_before < idx_after
 
-    idx2 = event_dump.index(("NEW_DATA", "channel", "4_dscan:axis:robz"))
-    assert idx < idx2
+    idx_after = event_dump.index(("NEW_DATA", "channel", "4_dscan:axis:robz"))
+    assert idx_before < idx_after
 
-    idx2 = event_dump.index(("END_SCAN", "scan", "4_dscan"))
-    assert idx < idx2
-    idx = idx2
+    idx_after = event_dump.index(("END_SCAN", "scan", "4_dscan"))
+    assert idx_before < idx_after
+    idx_before = idx_after
 
-    idx2 = event_dump.index(
+    idx_after = event_dump.index(
         ("NEW_DATA", "node_ref_channel", "2_sequence_of_scans:GroupingMaster:scans"),
-        idx,
+        idx_before,
     )
-    assert idx < idx2
-    idx = idx2
+    assert idx_before < idx_after
+    idx_before = idx_after
 
-    idx2 = event_dump.index(("END_SCAN", "scan_group", "2_sequence_of_scans"))
-    assert idx < idx2
-    idx = idx2
+    idx_after = event_dump.index(("END_SCAN", "scan_group", "2_sequence_of_scans"))
+    assert idx_before < idx_after
+    idx_before = idx_after
 
 
 def test_group_with_killed_scan(default_session):

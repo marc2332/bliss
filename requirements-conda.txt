@@ -43,7 +43,7 @@ tabulate
 tailon == 1.1.0.1
 tango >= 9.3.2
 tango-metadata >= 4.0.7
-tblib
+tblib >= 1.7
 tmux >= 2.7
 treelib <= 1.5.5
 typeguard == 2.6.1

@@ -1,7 +1,15 @@
+# -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2015-2020 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
+
 """
 Bliss controller for ethernet NewFocus 87xx series piezo controller.
 A. Beteva, M. Guijarro, ESRF BCU
 """
+
 import time
 from warnings import warn
 
@@ -9,6 +17,7 @@ from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState
 from bliss.comm.util import get_comm, TCP
 from bliss.common import event
+from bliss.config.settings import SimpleSetting
 from bliss import global_map
 import gevent.lock
 
@@ -21,7 +30,6 @@ class NF8753(Controller):
 
         self.__current_selected_channel = None
         self.lock = gevent.lock.RLock()
-        self.__busy = False
 
     def initialize(self):
         # acceleration is not mandatory in config
@@ -52,12 +60,11 @@ class NF8753(Controller):
     def initialize_axis(self, axis):
         axis.driver = axis.config.get("driver", str)
         axis.channel = axis.config.get("channel", int)
-        axis.accumulator = None
-
-        event.connect(axis, "move_done", self._axis_move_done)
+        axis.accumulator = SimpleSetting(f"{axis.name}_accumulator", default_value=0.0)
+        axis.no_offset = True
 
         # self._write_no_reply(axis, "JOF") #, raw=True)
-        self._write_no_reply(axis, "MON %s" % axis.driver)
+        self._write_no_reply(None, "MON %s" % axis.driver)
 
     def _select_channel(self, axis):
         change_channel = "CHL %s=%d" % (axis.driver, axis.channel)
@@ -71,7 +78,6 @@ class NF8753(Controller):
                 cmd_string += "\r\n"
             if axis is not None:
                 self._select_channel(axis)
-            # print 'sending', cmd_string
             self.sock.write_readline(cmd_string.encode(), eol=b">")
             time.sleep(DELAY)
 
@@ -83,10 +89,8 @@ class NF8753(Controller):
             if axis is not None:
                 self._select_channel(axis)
 
-            # print 'sending', cmd_string, 'waiting for reply...'
             ans = self.sock.write_readline(cmd_string.encode(), eol=eol.encode())
             time.sleep(DELAY)
-            # print 'reply=', ans
 
             ans = ans.decode()
             ans = ans.replace(">", "")
@@ -95,16 +99,26 @@ class NF8753(Controller):
             else:
                 return ans.split("=")[1].split("\r\n>")[0]
 
+    def read_position(self, axis):
+        return axis.accumulator.get()
+
+    def set_position(self, axis, new_position):
+        """Set the position of <axis> in controller to <new_position>.
+        This method is called by `position` property of <axis>.
+        """
+        axis.accumulator.set(new_position)
+        return new_position
+
     def read_velocity(self, axis):
-        return int(self._write_read(axis, "VEL %s %d" % (axis.driver, axis.channel)))
+        return int(self._write_read(None, "VEL %s %d" % (axis.driver, axis.channel)))
 
     def set_velocity(self, axis, new_velocity):
-        # self._write_no_reply(axis, "VEL %s %s=%d" % (axis.driver, axis.channel, new_velocity))
+        self._write_no_reply(
+            None, "VEL %s %s=%d" % (axis.driver, axis.channel, new_velocity)
+        )
         return self.read_velocity(axis)
 
     def state(self, axis):
-        if self.__busy:
-            return AxisState("BUSY")
         sta = self._write_read(axis, "STA", eol="\r\n>", raw=True)
         for line in sta.split("\n"):
             if line.startswith(axis.driver):
@@ -114,27 +128,9 @@ class NF8753(Controller):
                 else:
                     return AxisState("READY")
 
-    def prepare_move(self, motion):
-        self.__busy = True
-        self.__moving_axis = motion.axis
-        if self.__moving_axis.accumulator is None:
-            _accu = (
-                self.__moving_axis.settings.get("offset")
-                * self.__moving_axis.steps_per_unit
-            )
-            self.__moving_axis.accumulator = _accu
-        self.__moving_axis.accumulator += motion.delta
-
-    def _axis_move_done(self, done):
-        if done:
-            # print ">"*10, "AXIS MOVE DONE"
-            self.__busy = False
-            self.__moving_axis.position(
-                self.__moving_axis.accumulator / self.__moving_axis.steps_per_unit
-            )
-
     def start_one(self, motion):
-        # print "in motion start_one for axis", motion.axis.name
+        new_position = motion.axis.accumulator.get() + motion.delta
+        motion.axis.accumulator.set(new_position)
         self._write_no_reply(
             motion.axis, "REL %s=%d G" % (motion.axis.driver, motion.delta)
         )

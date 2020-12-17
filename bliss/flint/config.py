@@ -123,6 +123,6 @@ def get_workspace_key(session_name: str) -> str:
     """Returns the base key prefix used to store workspace information in Redis
     """
     if session_name is None:
-        return f"flint.workspace"
+        return "flint.workspace"
     else:
         return f"flint.{session_name}.workspace"

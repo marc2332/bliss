@@ -188,7 +188,7 @@ def create_scan_model(scan_info: Dict, is_group: bool = False) -> scan_model.Sca
         if roi_dict is not None:
             try:
                 roi = lima_roi.dict_to_roi(roi_dict)
-            except:
+            except Exception:
                 _logger.warning("Error while reading roi '%s'", key, exc_info=True)
 
         metadata = scan_model.DeviceMetadata(roi)

@@ -79,10 +79,17 @@ class MainPropertyWidget(ExtendedDockWidget):
         if self.__viewSource is not None:
             viewSource = self.__viewSource()
 
+        if widget is viewSource:
+            # Skip if it is the same source
+            if widget is None and self.__viewSource is None:
+                # Make sure the view source ref is None
+                # And not only invalidated
+                return
+
         if widget is None:
             view = self.createEmptyWidget(self)
             self.__viewSource = None
-        elif widget is not viewSource:
+        else:
             view = widget.createPropertyWidget(self)
             self.__viewSource = weakref.ref(widget)
 

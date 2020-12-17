@@ -8,7 +8,7 @@ import gevent
 from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState
 from bliss.common.greenlet_utils import KillMask
-from bliss.config.channels import Channel
+from bliss.config.channels import Channel, Cache
 
 from .sdk import AMC
 
@@ -62,6 +62,7 @@ class AMC100(Controller):
         axis.config.set("check_discrepancy", False)
 
         axis._hw_offset = Channel(f"{axis.name}:_hw_offset", default_value=0.)
+        axis._target_range = Cache(axis, "target_range")
 
     def initialize_hardware_axis(self, axis):
         # check if axis is connected
@@ -78,8 +79,9 @@ class AMC100(Controller):
 
         # set the window size for the close loop if enable
         if axis.closed_loop:
-            target_range = axis.config.get("target-range", converter=int)
+            target_range = axis.config.get("target-range", converter=int, default=100)
             self._dev.control.setControlTargetRange(axis.channel, target_range)
+            axis._target_range.value = target_range
 
         if axis.config.get("autopower", converter=bool, default=True):
             self.set_on(axis)
@@ -137,8 +139,18 @@ class AMC100(Controller):
         status = self._dev.status.getCombinedStatus(axis.channel)[1].upper()
         if status == "MOVING":
             return AxisState("MOVING")
-        elif status == "READY" or status == "IN TARGET RANGE":
+        elif status == "READY":
             return AxisState("READY")
+        elif status == "IN TARGET RANGE":
+            # as the start of movement is not synchronized
+            # we need to check if the position reach the dead-band
+            current_pos = self._dev.move.getPosition(axis.channel)[1]
+            target_pos = self._dev.move.getControlTargetPosition(axis.channel)[1]
+            target_range = axis._target_range.value
+            if abs(current_pos - target_pos) > target_range:
+                return AxisState("MOVING")
+            else:
+                return AxisState("READY")
 
     def start_jog(self, axis, velocity, direction):
         # if needed
@@ -163,8 +175,9 @@ class AMC100(Controller):
 
     def start_one(self, motion):
         axis = motion.axis
+        target_pos = motion.target_pos - axis._hw_offset.value
         if axis.closed_loop:
-            self._dev.move.setControlTargetPosition(axis.channel, motion.target_pos)
+            self._dev.move.setControlTargetPosition(axis.channel, target_pos)
         else:
             delta = motion.delta
             backward_dir = True if delta < 0 else False
@@ -174,7 +187,6 @@ class AMC100(Controller):
 
                 def move_loop():
                     ldelta = round(delta)
-                    target_pos = motion.target_pos - axis._hw_offset.value
                     for i in range(abs(ldelta)):
                         with KillMask():
                             self._dev.move.setNSteps(axis.channel, backward_dir, 1)

@@ -12,7 +12,6 @@ from typing import Dict
 import logging
 import os
 
-import silx
 from silx.gui import qt
 
 from bliss.flint.widgets.log_widget import LogWidget

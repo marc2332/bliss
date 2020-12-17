@@ -34,7 +34,6 @@ environment.
 import sys
 import logging
 import signal
-import warnings
 import functools
 
 import gevent
@@ -49,11 +48,11 @@ except ImportError:
 # In case silx/matplotlib tries to import PySide, PyQt4...
 import PyQt5.QtCore  # noqa
 
-import silx
+import silx  # noqa
 
 # Have to be imported early to prevent segfault (noticed with WSL)
 # See https://github.com/silx-kit/silx/issues/3232
-import silx.gui.plot.matplotlib
+import silx.gui.plot.matplotlib  # noqa
 from silx.gui import qt
 from bliss.flint.model import flint_model
 

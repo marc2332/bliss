@@ -5,85 +5,11 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-"""ESRF - PePU controller
-
-Example YAML_ configuration:
-
-.. code-block:: yaml
-
-    plugin: bliss
-    class: PEPU
-    module: pepu
-    name: pepudcm2
-    tcp:
-      url: pepudcm2
-    template: renishaw    # optional
-
-Usage::
-
-    >>> from bliss.config.static import get_config
-    >>> from bliss.controllers.pepu import Stream, Trigger, Signal, ChannelMode
-
-    >>> config = get_config()
-
-    >>> pepudcm2 = config.get('pepudcm2')
-
-    >>> # Read device parameters:
-    >>> pepudcm2.sys_info
-    'DANCE version: 00.01 , build: 2016/11/28 13:02:35, versions: none'
-    >>> pepudcm2.version
-    '00.01'
-
-    >>> # Get the input channel 1 and read the current value:
-    >>> in1 = pepudcm2.in_channels[1]
-    >>> print(in1.value)
-
-    >>> # enable / disable the channel
-    >>> in1.enabled = True
-
-    >>> # read/change the channel mode
-    >>> in1.mode
-    <ChannelMode.BISS: 'BISS'>
-    >>> in1.mode = ChannelMode.QUAD
-
-    >>> # Define a calculation
-    >>> calc1 = pepudcm2.calc_channels[1]
-    >>> calc1.formula = '0.25 * IN1 + 3'
-
-    >>> # Create a global inactive and unitialized stream and then initialize
-    >>> s0 = pepudcm2.create_stream('S0')
-    >>> s0.trigger = Trigger(start=Signal.SOFT, clock=Signal.SOFT)
-    >>> s0.frequency = 1
-    >>> s0.nb_points = 10
-    >>> s0.sources = ['CALC1']
-
-    >>> # Create a fully initialized stream in one go
-    >>> s1 = pepudcm2.create_stream(name='S1',
-                                    trigger=Trigger(Signal.SOFT, Signal.SOFT),
-                                    frequency=10, nb_points=4,
-                                    sources=('CALC1', 'CALC2'))
-
-    >>> # Do an acquisition:
-    >>> s1.start()
-    >>> pepudcm2.software_trigger()
-    >>> s1.nb_points_ready
-    1
-    >>> p1.read(1)
-    array([ 2.75, -3.])
-    >>> pepudcm2.software_trigger()
-    >>> pepudcm2.software_trigger()
-    >>> pepudcm2.software_trigger()
-    >>> s1.nb_points_ready
-    3
-    >>> p1.read(3)
-    array([ 2.75, -3.  ,  2.75, -3.  ,  2.75, -3.  ])
-
-For the counter interface, see the
-`PePU scan support documentation <bliss.scanning.acquisition.pepu.html>`__.
+"""
+BLISS controller for PEPU device.
 """
 
 import enum
-import logging
 import weakref
 import collections
 import itertools
@@ -94,7 +20,6 @@ from bliss.controllers.motors.icepap import _command, _ackcommand
 
 from bliss.controllers.counter import CounterController
 from bliss.common.counter import Counter
-from bliss.controllers.counter import counter_namespace
 
 
 TEMPLATE_RENISHAW = """\
@@ -173,6 +98,9 @@ def idint_to_float(value, integer=40, decimal=8):
 
 
 def frequency_fromstring(text):
+    """ Convert freq string read from config into int value in Hertz.
+    ex: '3MHZ' -> 3000000
+    """
     text = text.upper()
     if "MHZ" in text:
         frequency = float(text.replace("MHZ", "")) * 1e6
@@ -295,7 +223,7 @@ def StreamInfo_fromstring(text):
     while i < len(args):
         item = args[i]
         if item == "TRIG":
-            items["trigger"] = Trigger.fromstring(args[i + 1] + " " + args[i + 2])
+            items["trigger"] = Trigger_fromstring(args[i + 1] + " " + args[i + 2])
             i += 1
         elif item == "FSAMPL":
             items["frequency"] = frequency_fromstring(args[i + 1])

@@ -24,7 +24,6 @@ from silx.gui.plot.items import roi as silx_rois
 from bliss.controllers.lima import roi as lima_rois
 from bliss.flint.widgets.utils import rois as flint_rois
 
-
 from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
@@ -224,7 +223,10 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         self.__initColormapWidget()
 
     def __initColormapWidget(self):
-        live = self.flintModel().liveWindow()
+        flintModel = self.flintModel()
+        if flintModel is None:
+            return
+        live = flintModel.liveWindow()
         colormapWidget = live.acquireColormapWidget(self)
         if colormapWidget is not None:
             for item in self.__plot.getItems():

@@ -455,7 +455,10 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         self.__initColormapWidget()
 
     def __initColormapWidget(self):
-        live = self.flintModel().liveWindow()
+        flintModel = self.flintModel()
+        if flintModel is None:
+            return
+        live = flintModel.liveWindow()
         colormapWidget = live.acquireColormapWidget(self)
         if colormapWidget is not None:
             for item in self.__plot.getItems():

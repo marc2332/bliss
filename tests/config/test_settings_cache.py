@@ -31,7 +31,7 @@ def test_hash_command(beacon, redis_version):
     cache.hset(hash_name, "truc", "123")
     assert h["truc"] == 123 == int(cache.hget(hash_name, "truc"))
 
-    cache.hmset(hash_name, {"hello": "20", "super": "40"})
+    cache.hset(hash_name, {"hello": "20", "super": "40"})
     assert h["super"] == 40
 
     # hscan

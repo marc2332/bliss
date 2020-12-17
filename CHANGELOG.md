@@ -12,10 +12,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flint:
     - Display ROI geometries with the detector image widget during a scan
     - Allow to switch OpenGL/matplotlib from "Display" menu
-		- This setting is saved in user config file
-	    - Added `--disable-opengl`
-	- Autoscale +/-3stddev on colormap is now clamped with the input data range
-	- Arc ROI is provided with 2 interactive modes: 3 points (default) or polar mode
+        - This setting is saved in a config file in the computer per user
+        - Added `--disable-opengl`
+    - Autoscale +/-3stddev on colormap is now clamped with the input data range
+    - Arc ROI is provided with 2 interactive modes: 3 points (default) or polar mode
+    - Refresh rate are displayed in both period and frequency
+    - Display scatter and image size in the plot title
+    - Workspace
+        - Rework the way workspace are managed
+        - Rework the workspace menu and provide an explicit "save" action
+        - Better handling of the workspace state
+        - Image profile selection is saved/restored (experimental)
+        - Workspace are now anymore session dependent
 - Scan description (`scan_info`)
     - `bliss.scanning.scan_info.ScanInfo` was created in order to replace
       scan_info dictionary and ScanInfoFactory
@@ -25,6 +33,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Provides ROI geometry
 
 ### Changed
+
+- Flint:
+    - Skip warning about missing elogbook when BLISS is used as library
+    - Workspaces are not anymore automatically saved between Flint executions,
+      and explicit "save" action is provided in the "workspace" menu
 
 ### Fixed
 

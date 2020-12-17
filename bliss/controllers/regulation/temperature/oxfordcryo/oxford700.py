@@ -124,7 +124,9 @@ class Oxford700(Controller):
            object state string. This is one of READY/RUNNING/ALARM/FAULT
         """
         log_info(self, "Controller:state_output: %s" % (toutput))
-        return self.hw_controller.read_phase()  # read_cryodrive_status
+        rmode = self.hw_controller.read_run_mode()
+        phase = self.hw_controller.read_phase()
+        return (rmode, phase)  # read_cryodrive_status
 
     # ------ PID methods ------------------------
 

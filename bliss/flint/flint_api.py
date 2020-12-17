@@ -984,9 +984,13 @@ class FlintApi:
     def load_workspace(self, name: str) -> bool:
         """Load a workspace by it's name.
 
+        Raises a ValueError is the name is not an available workspace
+
         Returns true if it was successfully loaded.
         """
         manager = self.__flintModel.mainManager()
         wmanager = manager.workspaceManager()
+        if not wmanager.isWorkspace(name):
+            raise ValueError("Workspace '%s' does not exist" % name)
         wmanager.loadWorkspace(name)
         return self.get_workspace() == name

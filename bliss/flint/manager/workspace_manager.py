@@ -453,6 +453,13 @@ class WorkspaceManager(qt.QObject):
         name = workspace.name()
         self.loadWorkspace(name, flintScope=False)
 
+    def isWorkspace(self, name: str) -> bool:
+        """Returns true if the name is a workspace name"""
+        if name in self.__session:
+            return True
+        settings = self.__getSettings()
+        return name in settings
+
     def loadWorkspace(self, name: str, flintScope: bool = True):
         _logger.debug("Load workspace %s", name)
         flintModel = self.mainManager().flintModel()

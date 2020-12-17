@@ -20,6 +20,8 @@ class BackgroundCalcCounterController(CalcCounterController):
 
         self.background_object = config.get("open_close", None)
 
+        self.background_object_initial_state = "UNKNOWN"
+
         CalcCounterController.__init__(self, name, config)
 
         self._integration_time = None
@@ -84,10 +86,13 @@ class BackgroundCalcCounterController(CalcCounterController):
             if self.background_object is None:
                 self.take_background_data(time)
             else:
-                # Close beam
-                self.background_object_state = self.background_object.state
+                # Store initial state.
+                self.background_object_initial_state = self.background_object.state
+
+                # Close beam.
                 self.background_object.close()
-                # take background
+
+                # Take background.
                 if self.background_object.state == "CLOSED":
                     with cleanup(self._close):
                         self.take_background_data(time)
@@ -97,7 +102,8 @@ class BackgroundCalcCounterController(CalcCounterController):
                     )
 
     def _close(self):
-        if self.background_object_state == "OPEN":
+        """ Re-open if initial state was OPEN"""
+        if self.background_object_initial_state == "OPEN":
             self.background_object.open()
 
     def take_background_data(self, time):

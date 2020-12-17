@@ -473,22 +473,26 @@ class WorkspaceManager(qt.QObject):
         manager = self.mainManager()
         flintModel = manager.flintModel()
 
+        data = None
+
+        if flintScope:
+            workspace = flintModel.workspace()
+            if workspace is not None and name == workspace.name():
+                # It's already the current workspace
+                return False
+            if name in self.__session:
+                data = self.__session[name]
+        else:
+            if name in self.__session:
+                del self.__session[name]
+
         newWorkspace = flint_model.Workspace()
         newWorkspace.setName(name)
         manager.setNextWorkspace(newWorkspace)
         window = flintModel.liveWindow()
         scan = flintModel.currentScan()
 
-        data = None
-
         sessionName = flintModel.blissSessionName()
-
-        if flintScope:
-            if name in self.__session:
-                data = self.__session[name]
-        else:
-            if name in self.__session:
-                del self.__session[name]
 
         if data is None:
             if sessionName is not None:

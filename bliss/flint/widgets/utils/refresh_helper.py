@@ -63,6 +63,8 @@ class RefreshManager(qt.QObject):
 
         currentRate = self.refreshMode()
 
+        group = qt.QActionGroup(self)
+
         menu.addSection("Refresh rate")
         rates = [5000, 2000, 1000, 500, 200, 100]
         for rate in rates:
@@ -74,6 +76,7 @@ class RefreshManager(qt.QObject):
             action.setToolTip(f"Set the refresh rate to {rate} ms")
             action.triggered.connect(functools.partial(self.setRefreshMode, rate))
             menu.addAction(action)
+            group.addAction(action)
 
         action = qt.QAction(menu)
         action.setCheckable(True)
@@ -82,6 +85,7 @@ class RefreshManager(qt.QObject):
         action.setToolTip("The plot is updated when a new data is received")
         action.triggered.connect(functools.partial(self.setRefreshMode, None))
         menu.addAction(action)
+        group.addAction(action)
 
         menu.addSection("Measured rate")
         periode = self.periode()

@@ -235,13 +235,17 @@ def _get_counters_from_object(arg):
     """Get the counters from a bliss object (typically a scan function
     positional counter argument).
 
-    According to issue #251, `arg` can be:
-    - a counter
-    - a counter namepace
-    - a controller, in which case:
-       - controller.groups.default namespace is used if it exists
-       - controller.counters namepace otherwise
-    - a measurementgroup
+    Arguments:
+        arg: Can be:
+
+             - a counter
+             - a counter namespace
+             - a controller, in which case:
+
+                - controller.groups.default namespace is used if it exists
+                - controller.counters namespace otherwise
+
+             - a measurementgroup
     """
     counters = []
     try:

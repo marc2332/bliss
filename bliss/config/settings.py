@@ -1541,25 +1541,27 @@ class ParametersWardrobe(metaclass=ParametersType):
     def to_beacon(self, name: str, *instances):
         """
         Export one or more instance to Beacon.
-        It will save the Wardrobe under Beacon subfolder /wardrobe/
+        It will save the Wardrobe under Beacon subfolder `/wardrobe/`
 
         Args:
             name: name of the file (will be saved with .dat extension)
             instances: arguments passed as comma separated
 
         Example:
-            >>>materials = ParametersWardrobe("materials")
-            >>>materials.switch('copper')
 
-            >>># exporting current instance
-            >>>materials.to_beacon('2019-06-23-materials')
+        .. code-block:: python
 
-            >>># exporting a instance giving the name
-            >>>materials.to_beacon('2019-06-23-materials', 'copper')
+            materials = ParametersWardrobe("materials")
+            materials.switch('copper')
 
-            >>># exporting all instances
-            >>>materials.to_beacon('2019-06-23-materials', *materials.instances)  # uses python list unpacking
+            # exporting current instance
+            materials.to_beacon('2019-06-23-materials')
 
+            # exporting a instance giving the name
+            materials.to_beacon('2019-06-23-materials', 'copper')
+
+            # exporting all instances
+            materials.to_beacon('2019-06-23-materials', *materials.instances)  # uses python list unpacking
         """
         if re.match("[A-Za-z_]+[A-Za-z0-9_-]*", name) is None:
             raise NameError(

@@ -15,23 +15,26 @@ Before sending a set command, the key to be turned off, and back to on after
 executing the command.
 
 Example yml file:
-class: Mcce
-channels:
-  -
-    name: mcce_ch1
-    address: 1
-    serial:
-      url: "rfc2217://ld231:28100"
-  -
-    name: mcce_ch2
-    address: 2
-    serial:
-       url: "rfc2217://ld231:28016"
-  -
-    name: mcce_ch3
-    address: 3
-    serial:
-       url: "rfc2217://ld231:28017"
+
+.. code-block::
+
+    class: Mcce
+    channels:
+      -
+        name: mcce_ch1
+        address: 1
+        serial:
+          url: "rfc2217://ld231:28100"
+      -
+        name: mcce_ch2
+        address: 2
+        serial:
+           url: "rfc2217://ld231:28016"
+      -
+        name: mcce_ch3
+        address: 3
+        serial:
+           url: "rfc2217://ld231:28017"
 """
 import enum
 import tabulate

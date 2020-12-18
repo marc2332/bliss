@@ -9,15 +9,19 @@
 Monochromatic attenuators, controlled via wago - pneumatic actuators and ADC.
 
 yml configuration example:
-name: matt
-class: matt
-controller_ip: wcid29a
-nb_filter: 12
-att_type: 2
-control_module: "750-516"
+
+.. code-block::
+
+    name: matt
+    class: matt
+    controller_ip: wcid29a
+    nb_filter: 12
+    att_type: 2
+    control_module: "750-516"
 
 
 The filters are controlled pneumatically via WAGO output modules.
+
 The position is red from WAGO modules, in a different way, depending
 on the mechanics (4 types - 0 to 3).
 The input and output modules are next to each other, so ther should

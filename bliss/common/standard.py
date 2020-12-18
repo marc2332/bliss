@@ -146,21 +146,23 @@ def iter_axes_position(*axes, **kwargs):
     Args:
         axis (~bliss.common.axis.Axis): motor axis
 
-    example:
-      DEMO [18]: wm(m2, m1, m3)
+    Example:
 
-                       m2      m1[mm]       m3
-      -------  ----------  ----------  -------
-      User
-       High     -123.00000   128.00000      inf
-       Current   -12.00000     7.00000  3.00000
-       Low       456.00000  -451.00000     -inf
-      Offset       0.00000     3.00000  0.00000
-      Dial
-       High      123.00000   123.00000      inf
-       Current    12.00000     2.00000  3.00000
-       Low      -456.00000  -456.00000     -inf
+    .. code-block::
 
+          DEMO [18]: wm(m2, m1, m3)
+
+                           m2      m1[mm]       m3
+          -------  ----------  ----------  -------
+          User
+           High     -123.00000   128.00000      inf
+           Current   -12.00000     7.00000  3.00000
+           Low       456.00000  -451.00000     -inf
+          Offset       0.00000     3.00000  0.00000
+          Dial
+           High      123.00000   123.00000      inf
+           Current    12.00000     2.00000  3.00000
+           Low      -456.00000  -456.00000     -inf
     """
     if not axes:
         raise RuntimeError("need at least one axis name/object")
@@ -372,9 +374,12 @@ def rockit(motor, total_move):
     """
     Rock an axis from it's current position +/- total_move/2.
     Usage example:
-    with rockit(mot1, 10):
-         ascan(mot2,-1,1,10,0.1,diode)
-         amesh(....)
+
+    .. code-block:: python
+
+        with rockit(mot1, 10):
+             ascan(mot2,-1,1,10,0.1,diode)
+             amesh(....)
     """
     if motor.is_moving:
         raise RuntimeError(f"Motor {motor.name} is moving")

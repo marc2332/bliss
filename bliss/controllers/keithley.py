@@ -67,9 +67,14 @@ The following sensor parameters are stored as settings:
 
 A demo is available from the command line:
 
-$ python -m bliss.controllers.keithley <url> <pad>
+.. code-block:: python
+
+    python -m bliss.controllers.keithley <url> <pad>
 
 Developer details:
+
+.. code-block::
+
     READ? <=> INIT + FETCH?
     MEASURE[:<function>]? <=> CONF[:<function>] + READ?  == CONF[:<function>] + INIT + READ?
 """

@@ -119,9 +119,14 @@ def flatten(items):
 
 
 def merge(items):
-    """merge a list of list, first level only
-    e.g.  merge([ [1,2], [3] ]) -> [1,2,3]
-          merge([ [1,2], [[3,4]], [5] ]) -> [1,2,[3,4],5]
+    """Merge a list of list, first level only
+
+    Example:
+
+    .. code-block:
+
+        merge([ [1,2], [3] ]) -> [1,2,3]
+        merge([ [1,2], [[3,4]], [5] ]) -> [1,2,[3,4],5]
     """
     return [item for sublist in items for item in sublist]
 
@@ -906,10 +911,14 @@ def typeguardTypeError_to_hint(function):
 
 
 def typecheck_var_args_pattern(args_pattern, empty_var_pos_args_allowed=False):
-    """decorator that can be used for typechecking of *args that have to follow a certain pattern e.g. 
-    @typecheck_var_args_pattern([_scannable,_float])
-    def umv(*args):
-     ...
+    """Decorator that can be used for typechecking of `*args` that have to
+    follow a certain pattern e.g.
+
+    .. code-block::
+
+        @typecheck_var_args_pattern([_scannable,_float])
+        def umv(*args):
+            ...
     """
 
     def decorate(function):
@@ -940,10 +949,13 @@ def typecheck_var_args_pattern(args_pattern, empty_var_pos_args_allowed=False):
 
 
 def modify_annotations(annotations):
-    """Modify the annotation in an existing signature
-    @modify_annotations({"args": "motor1, rel. pos1, motor2, rel. pos2, ..."})
-    def umvr(*args):
-        ...
+    """Modify the annotation in an existing signature.
+
+    .. code-block: python
+
+        @modify_annotations({"args": "motor1, rel. pos1, motor2, rel. pos2, ..."})
+        def umvr(*args):
+            ...
     """
 
     def decorate(function):

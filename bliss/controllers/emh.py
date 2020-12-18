@@ -22,13 +22,14 @@ Example YAML_ configuration:
     - counter_name: e2
       channel: 2
 
-Usage::
+Usage:
 
-    >>> from bliss.config.static import get_config
-    >>> from bliss.controllers.EMH import ...
-    >>> config = get_config()
+.. code-block:: python
 
-    >>> em.test_hw()
+    from bliss.config.static import get_config
+    from bliss.controllers.EMH import ...
+    config = get_config()
+    em.test_hw()
 
 """
 

@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import logging
+import pickle
 
 from silx.gui import qt
 from silx.gui import icons
@@ -89,6 +90,53 @@ class ProfileAction(qt.QWidgetAction):
         toolButton.setMenu(menu)
         toolButton.setPopupMode(qt.QToolButton.InstantPopup)
         self.setDefaultWidget(toolButton)
+
+    def manager(self):
+        """Returns the profile manager"""
+        return self.__manager
+
+    def saveState(self):
+        """Save the profile content"""
+        manager = self.manager().getRoiManager()
+        rois = manager.getRois()
+        result = []
+        for roi in rois:
+            if roi.getFocusProxy() is not None:
+                # Skip compound ROIs
+                continue
+            try:
+                # FIXME: Make this object pickelable
+                result.append((type(roi), roi.getName(), roi.getPosition()))
+            except Exception:
+                _logger.error("Error while pickeling ROIs", exc_info=True)
+                return None
+        return pickle.dumps(result)
+
+    def restoreState(self, state) -> bool:
+        """Restore the profile content"""
+        manager = self.manager().getRoiManager()
+        manager.clear()
+        if state is None:
+            return
+        try:
+            rois = pickle.loads(state)
+        except Exception:
+            _logger.error("Error while unpickeling ROIs", exc_info=True)
+            return False
+
+        error = False
+        for classObj, name, pos in rois:
+            try:
+                # FIXME: Make this object pickelable
+                roi = classObj()
+                roi.setName(name)
+                roi.setPosition(pos)
+                manager.addRoi(roi)
+            except Exception:
+                _logger.error("Error while importing ROI", exc_info=True)
+                error = True
+
+        return not error
 
     def __updateMenu(self):
         roi = self.__manager.getCurrentRoi()

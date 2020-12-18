@@ -29,13 +29,22 @@ class Workspace(qt.QObject):
 
     def __init__(self, parent=None):
         super(Workspace, self).__init__(parent=parent)
-        self.__name = "base"
+        self.__name = ""
         self.__widgets: List[qt.QWidget] = []
+        self.__locked = False
+
+    def setLocked(self, locked):
+        self.__locked = locked
+
+    def locked(self) -> bool:
+        return self.__locked
 
     def name(self):
         return self.__name
 
     def setName(self, name: str):
+        if self.__locked:
+            raise ValueError("Workspace locked")
         self.__name = name
 
     def plots(self) -> List[plot_model.Plot]:
@@ -52,14 +61,20 @@ class Workspace(qt.QObject):
         return list(self.__widgets)
 
     def addWidget(self, widget):
+        if self.__locked:
+            raise ValueError("Workspace locked")
         self.__widgets.append(widget)
         self.widgetAdded.emit(widget)
 
     def removeWidget(self, widget):
+        if self.__locked:
+            raise ValueError("Workspace locked")
         if widget not in self.__widgets:
             # FIXME: Find the real problem. Here it is just a mitigation
             _logger.error(
-                "Widget %s (%s) was not part of the workspace", widget, type(widget)
+                "Widget %s (%s) was not part of the workspace",
+                widget.objectName(),
+                type(widget),
             )
             return
         self.__widgets.remove(widget)
@@ -73,6 +88,8 @@ class Workspace(qt.QObject):
         return widgets
 
     def clearWidgets(self):
+        if self.__locked:
+            raise ValueError("Workspace locked")
         widgets = list(self.__widgets)
         self.__widgets = []
         for widget in widgets:

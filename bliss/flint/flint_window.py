@@ -12,7 +12,6 @@ from typing import Dict
 import logging
 import os
 
-import silx
 from silx.gui import qt
 
 from bliss.flint.widgets.log_widget import LogWidget
@@ -122,8 +121,7 @@ class FlintWindow(qt.QMainWindow):
         menubar = self.menuBar()
         workspaceMenu = menubar.addMenu("&Workspace")
         workspaceManager = manager.workspaceManager()
-        for action in workspaceManager.createManagerActions(self):
-            workspaceMenu.addAction(action)
+        workspaceManager.connectManagerActions(self, workspaceMenu)
 
         BLISS_HELP_ROOT = "https://bliss.gitlab-pages.esrf.fr/bliss/master/"
         BLISS_HELP_URL = BLISS_HELP_ROOT

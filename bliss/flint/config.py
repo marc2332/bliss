@@ -18,7 +18,7 @@ from argparse import ArgumentParser
 import bliss.release
 
 
-FLINT_API_VERSION = 2
+FLINT_API_VERSION = 3
 """Define an easy way to check flint_api.
 
 Should be updated every time flint_api changes, in order
@@ -122,4 +122,7 @@ def get_flint_key(pid=None) -> str:
 def get_workspace_key(session_name: str) -> str:
     """Returns the base key prefix used to store workspace information in Redis
     """
-    return f"flint.{session_name}.workspace"
+    if session_name is None:
+        return "flint.workspace"
+    else:
+        return f"flint.{session_name}.workspace"

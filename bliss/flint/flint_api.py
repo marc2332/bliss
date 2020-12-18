@@ -812,7 +812,11 @@ class FlintApi:
         return self.__request_selector(plot_id, selector)
 
     def request_select_mask_image(
-        self, plot_id, initial_mask: numpy.ndarray = None, timeout=None
+        self,
+        plot_id,
+        initial_mask: numpy.ndarray = None,
+        timeout=None,
+        directory: str = None,
     ) -> str:
         """
         Request a shape selection in a specific plot and return the selection.
@@ -823,6 +827,7 @@ class FlintApi:
             plot_id: Identifier of the plot
             initial_mask: A 2d boolean array, or None
             timeout: A timeout to enforce the user to do a selection
+            directory: Directory used to import/export masks
 
         Return:
             This method returns an event name which have to be registered to
@@ -836,6 +841,8 @@ class FlintApi:
         initial_mask = _aswritablearray(initial_mask)
         if initial_mask is not None:
             selector.setInitialMask(initial_mask, copy=False)
+        if directory:
+            selector.setDirectory(directory)
         selector.setTimeout(timeout)
         return self.__request_selector(plot_id, selector)
 
@@ -968,3 +975,22 @@ class FlintApi:
         if not action.isEnabled():
             raise RuntimeError("Logbook action is not enabled")
         action.trigger()
+
+    def get_workspace(self) -> str:
+        """Returns the current used workspace"""
+        workspace = self.__flintModel.workspace()
+        return workspace.name()
+
+    def load_workspace(self, name: str) -> bool:
+        """Load a workspace by it's name.
+
+        Raises a ValueError is the name is not an available workspace
+
+        Returns true if it was successfully loaded.
+        """
+        manager = self.__flintModel.mainManager()
+        wmanager = manager.workspaceManager()
+        if not wmanager.isWorkspace(name):
+            raise ValueError("Workspace '%s' does not exist" % name)
+        wmanager.loadWorkspace(name)
+        return self.get_workspace() == name

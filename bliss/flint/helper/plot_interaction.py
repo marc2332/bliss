@@ -635,11 +635,15 @@ class MaskImageSelector(Selector):
         self.__selection = None
         self.__dock: MaskToolsDockWidget = None
         self.__initialMask: Optional[numpy.ndarray] = None
+        self.__directory: Optional[str] = None
 
     def setInitialMask(self, mask: numpy.ndarray, copy=True):
         if copy and mask is not None:
             mask = numpy.array(mask)
         self.__initialMask = mask
+
+    def setDirectory(self, directory: str):
+        self.__directory = directory
 
     def setTimeout(self, timeout):
         self.__timeout = timeout
@@ -648,9 +652,12 @@ class MaskImageSelector(Selector):
         plot = self.parent()
 
         dock = MaskToolsDockWidget(plot=plot, name="Mask tools")
+        maskTool = dock.widget()
+        if self.__directory is not None:
+            maskTool.setMaskFileDirectory(self.__directory)
 
         # Inject a button to validate the selection
-        group = dock.widget().otherToolGroup
+        group = maskTool.otherToolGroup
         layout = group.layout()
         self._validate = qt.QPushButton("Validate")
         size = self._validate.sizeHint()
@@ -669,7 +676,7 @@ class MaskImageSelector(Selector):
             # Must be done after the show else it is not working
             dock.setSelectionMask(self.__initialMask, copy=False)
             # Inject a default selection by default
-            dock.widget().rectAction.trigger()
+            maskTool.rectAction.trigger()
 
             dock.visibilityChanged.connect(self.__selectionCancelled)
         finally:

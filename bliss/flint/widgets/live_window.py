@@ -97,8 +97,6 @@ class LiveWindow(MainWindow):
         self.__colormapWidget = None
         self.__lastColormapWidgetFloatingGeometry = None
 
-        self.__initGui()
-
     def postInit(self):
         colormapWidget = self.colormapWidget(create=False)
         if colormapWidget is not None:
@@ -113,50 +111,73 @@ class LiveWindow(MainWindow):
         This configuration is stored in the Redis session.
         """
         config = LiveWindowConfiguration()
-        displayed = self.__ctWidget is not None
-        config.show_count_widget = displayed
-        displayed = self.positionersWidget(create=False) is not None
-        config.show_positioners_widget = displayed
-        displayed = self.__colormapWidget is not None
-        config.show_colormap_dialog = displayed
+        # FIXME Must be part of the ColormapDialog config
         config.colormap_geometry = self.__lastColormapWidgetFloatingGeometry
         return config
 
     def setConfiguration(self, config: LiveWindowConfiguration):
-        ctWidgetDisplayed = self.__ctWidget is not None
-        if config.show_count_widget != ctWidgetDisplayed:
+        # FIXME: backward compatibility with BLISS 1.6
+        # FIXME: this flag should be removed to only use widgets from workspace
+        ctWidgetDisplayed = self.ctWidget(create=False) is not None
+        if config.show_count_widget and not ctWidgetDisplayed:
             self.__toggleCtWidget()
         positionersWidgetDisplayed = self.positionersWidget(create=False) is not None
-        if config.show_positioners_widget != positionersWidgetDisplayed:
+        if config.show_positioners_widget and not positionersWidgetDisplayed:
             self.__togglePositionersWidget()
-        colormapWidget = self.__colormapWidget is not None
-        if config.show_colormap_dialog != colormapWidget:
+        colormapWidget = self.colormapWidget(create=False) is not None
+        if config.show_colormap_dialog and not colormapWidget:
             self.__toggleColormapWidget()
         self.__lastColormapWidgetFloatingGeometry = config.colormap_geometry
 
-    def __initGui(self):
-        scanStatusWidget = ScanStatus(self)
-        scanStatusWidget.setObjectName("scan-status-dock")
-        propertyWidget = MainPropertyWidget(self)
-        propertyWidget.setObjectName("property-widget")
+    def updateFromWorkspace(self, workspace: flint_model.Workspace):
+        """Synchronize the available widgets from the current workspace"""
+        widgets = workspace.widgets()
 
-        scanStatusWidget.widget().setSizePolicy(
+        def get_weak_widget(classObj):
+            selectedWidgets = [w for w in widgets if isinstance(w, classObj)]
+            if len(selectedWidgets) > 0:
+                return weakref.ref(selectedWidgets[0])
+            else:
+                return None
+
+        self.__ctWidget = get_weak_widget(CtWidget)
+        self.__positionersWidget = get_weak_widget(PositionersWidget)
+        self.__colormapWidget = get_weak_widget(ColormapWidget)
+        if self.__colormapWidget is not None:
+            widget = self.__colormapWidget()
+            widget.windowClosed.connect(self.__colormapWidgetClosed)
+        self.__scanStatusWidget = get_weak_widget(ScanStatus)
+        self.__propertyWidget = get_weak_widget(MainPropertyWidget)
+
+    def __createScanStatus(self):
+        widget = ScanStatus(self)
+        widget.setObjectName("scan-status-dock")
+        widget.widget().setSizePolicy(
             qt.QSizePolicy.Preferred, qt.QSizePolicy.Preferred
         )
-        propertyWidget.widget().setSizePolicy(
+
+        manager = self.__flintModel.mainManager()
+        if manager is not None:
+            manager.registerDock(widget)
+        return widget
+
+    def __createPropertyWidget(self):
+        widget = MainPropertyWidget(self)
+        widget.setObjectName("property-widget")
+        widget.widget().setSizePolicy(
             qt.QSizePolicy.Preferred, qt.QSizePolicy.Expanding
         )
-        self.__scanStatusWidget = scanStatusWidget
-        self.__propertyWidget = propertyWidget
+
+        manager = self.__flintModel.mainManager()
+        if manager is not None:
+            manager.registerDock(widget)
+        return widget
 
     def __createCtWidget(self):
         flintModel = self.flintModel()
-
         widget = CtWidget(self)
         widget.setAttribute(qt.Qt.WA_DeleteOnClose)
         widget.setFlintModel(self.__flintModel)
-        widget.windowClosed.connect(self.__ctWidgetClosed)
-        widget.destroyed.connect(self.__ctWidgetClosed)
         widget.setObjectName("ct-dock")
 
         workspace = flintModel.workspace()
@@ -170,24 +191,11 @@ class LiveWindow(MainWindow):
             self.tabifyDockWidget(curveWidget, widget)
 
         widget.setWindowTitle("Count")
+
+        manager = self.__flintModel.mainManager()
+        if manager is not None:
+            manager.registerDock(widget)
         return widget
-
-    def __ctWidgetClosed(self):
-        self.__ctWidget = None
-
-    def ctWidget(self, create=True) -> Optional[CtWidget]:
-        """Returns the widget used to display ct."""
-        if self.__ctWidget is None and create:
-            widget = self.__createCtWidget()
-            self.__ctWidget = widget
-        return self.__ctWidget
-
-    def __toggleCtWidget(self):
-        ctWidget = self.ctWidget(create=False)
-        if ctWidget is None:
-            self.ctWidget(create=True)
-        else:
-            ctWidget.deleteLater()
 
     def __createPositionersWidget(self):
         flintModel = self.flintModel()
@@ -195,8 +203,6 @@ class LiveWindow(MainWindow):
         widget = PositionersWidget(self)
         widget.setAttribute(qt.Qt.WA_DeleteOnClose)
         widget.setFlintModel(self.__flintModel)
-        widget.windowClosed.connect(self.__ctWidgetClosed)
-        widget.destroyed.connect(self.__ctWidgetClosed)
         widget.setObjectName("positioners-dock")
 
         workspace = flintModel.workspace()
@@ -210,10 +216,49 @@ class LiveWindow(MainWindow):
             self.tabifyDockWidget(curveWidget, widget)
 
         widget.setWindowTitle("Positioners")
+
+        manager = self.__flintModel.mainManager()
+        if manager is not None:
+            manager.registerDock(widget)
         return widget
 
-    def __positionersWidgetClosed(self):
-        self.__positionersWidget = None
+    def __createColormapWidget(self):
+        widget = ColormapWidget(self)
+        widget.setAttribute(qt.Qt.WA_DeleteOnClose)
+
+        widget.windowClosed.connect(self.__colormapWidgetClosed)
+        widget.setObjectName("colormap-dock")
+        widget.setWindowTitle("Colormap")
+
+        self.addDockWidget(qt.Qt.RightDockWidgetArea, widget)
+        widget.setFloating(True)
+        if self.__lastColormapWidgetFloatingGeometry is not None:
+            widget.setGeometry(self.__lastColormapWidgetFloatingGeometry)
+        widget.setVisible(True)
+        widget.setWindowFlag(qt.Qt.WindowStaysOnTopHint, True)
+
+        manager = self.__flintModel.mainManager()
+        if manager is not None:
+            manager.registerDock(widget)
+        return widget
+
+    def __colormapWidgetClosed(self):
+        colormapWidget = self.sender()
+        if colormapWidget is not None:
+            colormapWidget.windowClosed.disconnect(self.__colormapWidgetClosed)
+            if colormapWidget.isFloating():
+                self.__lastColormapWidgetFloatingGeometry = colormapWidget.geometry()
+
+    def ctWidget(self, create=True) -> Optional[CtWidget]:
+        """Returns the widget used to display ct."""
+        if self.__ctWidget is None:
+            widget = None
+        else:
+            widget = self.__ctWidget()
+        if widget is None and create:
+            widget = self.__createCtWidget()
+            self.__ctWidget = weakref.ref(widget)
+        return widget
 
     def positionersWidget(self, create=True) -> Optional[PositionersWidget]:
         """Returns the widget used to display positioners."""
@@ -226,101 +271,113 @@ class LiveWindow(MainWindow):
             self.__positionersWidget = weakref.ref(widget)
         return widget
 
-    def __togglePositionersWidget(self):
-        widget = self.positionersWidget(create=False)
-        if widget is None:
-            self.positionersWidget(create=True)
-        else:
-            widget.deleteLater()
-
     def acquireColormapWidget(self, newOwner):
         """Acquire the colormap widget.
 
         Returns the colormap widget if it was acquired, else returns None.
         """
-        if self.__colormapWidget is None:
+        colormapWidget = self.colormapWidget(create=False)
+        if colormapWidget is None:
             return None
-        self.__colormapWidget.setOwner(newOwner)
-        return self.__colormapWidget
+        colormapWidget.setOwner(newOwner)
+        return colormapWidget
 
     def ownedColormapWidget(self, owner):
-        """Returns the colormap =widget if it was acquired by this widget.
+        """Returns the colormap widget if it was acquired by this widget.
 
         Else returns None
         """
-        colormapWidget = self.__colormapWidget
+        colormapWidget = self.colormapWidget(create=False)
         if colormapWidget is None:
             return None
-        currentOwner = self.__colormapWidget.owner()
+        currentOwner = colormapWidget.owner()
         if currentOwner is owner:
             return colormapWidget
         return None
 
-    def __createColormapWidget(self):
-        widget = ColormapWidget(self)
-        widget.windowClosed.connect(self.__colormapWidgetClosed)
-        widget.destroyed.connect(self.__colormapWidgetClosed)
-        widget.setObjectName("colormap-dock")
-        widget.setWindowTitle("Colormap")
-
-        self.addDockWidget(qt.Qt.RightDockWidgetArea, widget)
-        widget.setFloating(True)
-        if self.__lastColormapWidgetFloatingGeometry is not None:
-            widget.setGeometry(self.__lastColormapWidgetFloatingGeometry)
-        widget.setVisible(True)
-        widget.setWindowFlag(qt.Qt.WindowStaysOnTopHint, True)
-
-        return widget
-
-    def __colormapWidgetClosed(self):
-        colormapWidget = self.__colormapWidget
-        if colormapWidget is not None:
-            if colormapWidget.isFloating():
-                self.__lastColormapWidgetFloatingGeometry = colormapWidget.geometry()
-            self.__colormapWidget = None
-            colormapWidget.deleteLater()
-
     def colormapWidget(self, create=True, show=False) -> Optional[PositionersWidget]:
         """Returns the widget used to display colormaps."""
-        if self.__colormapWidget is None and create:
+        if self.__colormapWidget is None:
+            widget = None
+        else:
+            widget = self.__colormapWidget()
+        if widget is None and create:
             widget = self.__createColormapWidget()
-            self.__colormapWidget = widget
-        elif show:
-            widget = self.__colormapWidget
+            self.__colormapWidget = weakref.ref(widget)
+        if show and widget is not None:
             widget.show()
             widget.raise_()
-        return self.__colormapWidget
+        return widget
 
-    def __toggleColormapWidget(self):
-        widget = self.colormapWidget(create=False)
-        if widget is None:
-            self.colormapWidget(create=True)
-        else:
-            widget.close()
-            self.__colormapWidgetClosed()
-
-    def scanStatusWidget(self) -> Optional[ScanStatus]:
+    def scanStatusWidget(self, create=True) -> Optional[ScanStatus]:
         """Returns the widget used to display the scan status."""
-        return self.__scanStatusWidget
+        if self.__scanStatusWidget is None:
+            widget = None
+        else:
+            widget = self.__scanStatusWidget()
+        if widget is None and create:
+            widget = self.__createScanStatus()
+            self.__scanStatusWidget = weakref.ref(widget)
+        return widget
+
+    def propertyWidget(self, create=True) -> Optional[MainPropertyWidget]:
+        """Returns the widget used to display properties."""
+        if self.__propertyWidget is None:
+            widget = None
+        else:
+            widget = self.__propertyWidget()
+        if widget is None and create:
+            widget = self.__createPropertyWidget()
+            self.__propertyWidget = weakref.ref(widget)
+        return widget
+
+    def __toggleGeneric(self, getter, visibility):
+        """Toggle a widget using the common pattern of this live widget
+
+        This is a little cryptic but it avoid duplication.
+
+        Argument:
+            getter: A callable which returns the widget if it exists. Else,
+                depending on `create=False`, it returns None, or create and
+                return the new widget
+            visibility: If true, use `setVisible` to toggle the widget, else
+                create and destroy it
+        """
+        widget = getter(create=False)
+        if widget is None:
+            getter()
+        else:
+            if visibility:
+                widget.setVisible(not widget.isVisible())
+            else:
+                if hasattr(widget, "windowClosed"):
+                    # FIXME: It would be better to move it at another place
+                    widget.windowClosed.emit()
+                widget.deleteLater()
 
     def __toggleStatus(self):
-        widget = self.scanStatusWidget()
-        widget.setVisible(not widget.isVisible())
-
-    def propertyWidget(self) -> Optional[MainPropertyWidget]:
-        """Returns the widget used to display properties."""
-        return self.__propertyWidget
+        self.__toggleGeneric(self.scanStatusWidget, visibility=True)
 
     def __toggleProperty(self):
-        widget = self.propertyWidget()
-        widget.setVisible(not widget.isVisible())
+        self.__toggleGeneric(self.propertyWidget, visibility=True)
+
+    def __toggleCtWidget(self):
+        self.__toggleGeneric(self.ctWidget, visibility=False)
+
+    def __togglePositionersWidget(self):
+        self.__toggleGeneric(self.positionersWidget, visibility=False)
+
+    def __toggleColormapWidget(self):
+        self.__toggleGeneric(self.colormapWidget, visibility=False)
 
     def setFlintModel(self, flintModel: flint_model.FlintState):
         self.__flintModel = flintModel
-        if self.__scanStatusWidget is not None:
-            self.__scanStatusWidget.setFlintModel(flintModel)
-        if self.__ctWidget is not None:
-            self.__ctWidget.setFlintModel(flintModel)
+        widget = self.scanStatusWidget(create=False)
+        if widget is not None:
+            widget.setFlintModel(flintModel)
+        widget = self.ctWidget(create=False)
+        if widget is not None:
+            widget.setFlintModel(flintModel)
 
     def flintModel(self) -> flint_model.FlintState:
         assert self.__flintModel is not None
@@ -338,7 +395,6 @@ class LiveWindow(MainWindow):
         curvePlotWidget.widget().setSizePolicy(
             qt.QSizePolicy.Expanding, qt.QSizePolicy.Expanding
         )
-
         workspace.addWidget(curvePlotWidget)
         self.setPredefinedLayout(_PredefinedLayouts.ONE_STACK, workspace)
 
@@ -374,19 +430,19 @@ class LiveWindow(MainWindow):
         showColormapAction = action
 
         def updateActions():
-            scanStatus = self.scanStatusWidget()
+            scanStatus = self.scanStatusWidget(create=False)
             showScanStateAction.setChecked(
                 scanStatus is not None and scanStatus.isVisible()
             )
-            propertyWidget = self.propertyWidget()
+            propertyWidget = self.propertyWidget(create=False)
             showPropertyAction.setChecked(
                 propertyWidget is not None and propertyWidget.isVisible()
             )
             ctWidget = self.ctWidget(create=False)
             showCountAction.setChecked(ctWidget is not None)
             positionersWidget = self.positionersWidget(create=False)
-            colormapWidget = self.colormapWidget(create=False)
             showPositionersAction.setChecked(positionersWidget is not None)
+            colormapWidget = self.colormapWidget(create=False)
             showColormapAction.setChecked(colormapWidget is not None)
 
         menu.addAction(showScanStateAction)
@@ -534,23 +590,39 @@ class LiveWindow(MainWindow):
     def setPredefinedLayout(
         self, layoutKind: _PredefinedLayouts, workspace: flint_model.Workspace = None
     ):
-        statusWidget = self.__scanStatusWidget
-        propertyWidget = self.__propertyWidget
+        # FIXME: This function have to be reworked
+        # The layout constructed with a dedicated module
+
         flintModel = self.flintModel()
         if workspace is None:
             workspace = flintModel.workspace()
+
+        statusWidget = self.scanStatusWidget()
+        propertyWidget = self.propertyWidget()
+
         widgets = workspace.widgets()
+        # FIXME Remove me: this widget already have to be part of the widgets
         ctWidget = self.ctWidget(create=False)
         if ctWidget is not None:
-            widgets.append(ctWidget)
+            if ctWidget not in widgets:
+                widgets.append(ctWidget)
+        # FIXME Remove me: this widget already have to be part of the widgets
         positionersWidget = self.positionersWidget(create=False)
         if positionersWidget is not None:
-            widgets.append(positionersWidget)
+            if positionersWidget not in widgets:
+                widgets.append(positionersWidget)
+
+        allWidgets = list(widgets)
+        if statusWidget in widgets:
+            widgets.remove(statusWidget)
+        if propertyWidget in widgets:
+            widgets.remove(propertyWidget)
+
         colormapWidget = self.colormapWidget(create=False)
 
         with utils.blockSignals(self):
             if layoutKind == _PredefinedLayouts.ONE_STACK:
-                self.__freeDockSpace(widgets + [statusWidget, propertyWidget])
+                self.__freeDockSpace(allWidgets)
 
                 statusWidget.setParent(self)
                 self.addDockWidget(qt.Qt.LeftDockWidgetArea, statusWidget)
@@ -580,7 +652,7 @@ class LiveWindow(MainWindow):
                 )
 
             elif layoutKind == _PredefinedLayouts.ONE_FOR_IMAGE_AND_MCA:
-                self.__freeDockSpace(widgets + [statusWidget, propertyWidget])
+                self.__freeDockSpace(allWidgets)
 
                 statusWidget.setParent(self)
                 self.addDockWidget(qt.Qt.LeftDockWidgetArea, statusWidget)
@@ -606,7 +678,7 @@ class LiveWindow(MainWindow):
                 )
 
             elif layoutKind == _PredefinedLayouts.ONE_PER_KIND:
-                self.__freeDockSpace(widgets + [statusWidget, propertyWidget])
+                self.__freeDockSpace(allWidgets)
 
                 statusWidget.setParent(self)
                 self.addDockWidget(qt.Qt.LeftDockWidgetArea, statusWidget)
@@ -639,4 +711,4 @@ class LiveWindow(MainWindow):
             colormapWidget.setFloating(True)
             colormapWidget.setVisible(True)
             if self.__lastColormapWidgetFloatingGeometry is not None:
-                widget.setGeometry(self.__lastColormapWidgetFloatingGeometry)
+                colormapWidget.setGeometry(self.__lastColormapWidgetFloatingGeometry)

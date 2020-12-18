@@ -57,8 +57,10 @@ class _Title:
         """Remembers the last subtitle in case it have to be reuse when
         displaying the data from the previous scan"""
 
-    def itemUpdated(self, scan, item):
-        self.__updateAll(scan, item)
+    def itemUpdated(
+        self, scan, item: plot_model.Item, normalization: ScatterNormalization
+    ):
+        self.__updateAll(scan, item, normalization)
 
     def scanRemoved(self, scan):
         """Removed scan, just before using another scan"""
@@ -78,9 +80,24 @@ class _Title:
             title += " (finished)"
         self.__updateTitle(title)
 
-    def __formatItemTitle(self, scan: scan_model.Scan, item=None):
+    def __formatItemTitle(
+        self,
+        scan: scan_model.Scan,
+        item: plot_item_model.ScatterItem = None,
+        normalization: ScatterNormalization = None,
+    ):
         if item is None:
             return None
+
+        valueChannel = item.valueChannel()
+        if valueChannel is not None:
+            title = valueChannel.baseName()
+            size = normalization.size()
+            if size is not None:
+                height, width = size
+                title = f"{title}: {width} × {height}"
+        else:
+            title = "No data"
 
         groups = {}
 
@@ -96,10 +113,10 @@ class _Title:
                 fvalue = array[-1]
                 groups[channel.name()] = fvalue
 
-        if len(groups) == 0:
-            return None
-        titles = [f"{k} = {v}" for k, v in groups.items()]
-        title = ", ".join(titles)
+        if len(groups) > 0:
+            titles = [f"{k} = {v}" for k, v in groups.items()]
+            frame = ", ".join(titles)
+            title = f"{title} {frame}"
         return title
 
     def __updateTitle(self, title):
@@ -110,10 +127,15 @@ class _Title:
             title = f"{title}\n{subtitle}"
         self.__plot.setGraphTitle(title)
 
-    def __updateAll(self, scan: scan_model.Scan, item=None):
+    def __updateAll(
+        self,
+        scan: scan_model.Scan,
+        item: plot_model.Item = None,
+        normalization: ScatterNormalization = None,
+    ):
         title = scan_info_helper.get_full_title(scan)
         subtitle = None
-        itemTitle = self.__formatItemTitle(scan, item)
+        itemTitle = self.__formatItemTitle(scan, item, normalization)
         self.__lastSubTitle = itemTitle
         if itemTitle is not None:
             subtitle = f"{itemTitle}"
@@ -174,6 +196,15 @@ class ScatterNormalization:
                     # There could be a lot of inconsistencies with meta info
                     self.__skipImage = True
 
+        xChannel = item.xChannel().channel(scan)
+        yChannel = item.yChannel().channel(scan)
+        self.__size = None
+        if xChannel is not None and yChannel is not None:
+            xmeta = xChannel.metadata()
+            ymeta = yChannel.metadata()
+            if ymeta.axisPoints is not None and xmeta.axisPoints is not None:
+                self.__size = ymeta.axisPoints, xmeta.axisPoints
+
         # Filter to display the last frame
         groupByChannels = item.groupByChannels()
         if groupByChannels is not None:
@@ -218,6 +249,13 @@ class ScatterNormalization:
         if self.__mask is None:
             return array
         return array[self.__mask]
+
+    def size(self) -> Optional[Tuple[int, int]]:
+        """Returns the size of the scatter if it's a regular scatter
+
+        Else return None
+        """
+        return self.__size
 
     def setupScatterItem(
         self,
@@ -417,7 +455,10 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         self.__initColormapWidget()
 
     def __initColormapWidget(self):
-        live = self.flintModel().liveWindow()
+        flintModel = self.flintModel()
+        if flintModel is None:
+            return
+        live = flintModel.liveWindow()
         colormapWidget = live.acquireColormapWidget(self)
         if colormapWidget is not None:
             for item in self.__plot.getItems():
@@ -437,11 +478,14 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         return config
 
     def setConfiguration(self, config):
-        try:
-            self.__colormap._setFromDict(config.colormap)
-        except Exception:
-            # As it relies on private API, make it safe
-            _logger.error("Impossible to restore colormap preference", exc_info=True)
+        if config.colormap is not None:
+            try:
+                self.__colormap._setFromDict(config.colormap)
+            except Exception:
+                # As it relies on private API, make it safe
+                _logger.error(
+                    "Impossible to restore colormap preference", exc_info=True
+                )
         super(ScatterPlotWidget, self).setConfiguration(config)
 
     def defaultColormap(self):
@@ -903,7 +947,7 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         else:
             indexes = None
 
-        self.__title.itemUpdated(scan, item)
+        self.__title.itemUpdated(scan, item, normalization)
 
         legend = valueChannel.name()
         style = item.getStyle(scan)

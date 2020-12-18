@@ -38,12 +38,19 @@ def clean_up_user_data():
     As result all the saved user preferences will be lost.
     """
     session_name = current_session.name
-    key = flint_config.get_workspace_key(session_name)
-
     beacon = get_default_connection()
     redis = beacon.get_redis_proxy()
 
-    # get existing flint, if any
+    # get existing keys, if any
+
+    # Old keys from BLISS <= 1.6dev
+    key = flint_config.get_workspace_key(session_name)
+    pattern = f"{key}*"
+    for key in redis.scan_iter(pattern):
+        key = key.decode()
+        redis.delete(key)
+
+    key = flint_config.get_workspace_key(None)
     pattern = f"{key}*"
     for key in redis.scan_iter(pattern):
         key = key.decode()

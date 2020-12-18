@@ -24,7 +24,6 @@ from silx.gui.plot.items import roi as silx_rois
 from bliss.controllers.lima import roi as lima_rois
 from bliss.flint.widgets.utils import rois as flint_rois
 
-
 from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
@@ -94,8 +93,14 @@ class _Title:
 
         frameInfo = ""
         displayName = channel.displayName(scan)
+        shape = ""
         data = channel.data(scan)
         if data is not None:
+            array = data.array()
+            if array is not None:
+                height, width = array.shape[0:2]
+                shape = f": {width} × {height}"
+
             if data.source() == "video":
                 op = " ≈ "
             else:
@@ -106,7 +111,7 @@ class _Title:
             if frameInfo != "":
                 frameInfo += " "
             frameInfo += f"[{data.source()}]"
-        return f"{displayName}{frameInfo}"
+        return f"{displayName}{shape}{frameInfo}"
 
     def __updateTitle(self, title):
         subtitle = None
@@ -145,6 +150,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         self.__plot.getYAxis().setInverted(True)
 
         self.__roiManager = RegionOfInterestManager(self.__plot)
+        self.__profileAction = None
 
         self.__title = _Title(self.__plot)
 
@@ -218,7 +224,10 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         self.__initColormapWidget()
 
     def __initColormapWidget(self):
-        live = self.flintModel().liveWindow()
+        flintModel = self.flintModel()
+        if flintModel is None:
+            return
+        live = flintModel.liveWindow()
         colormapWidget = live.acquireColormapWidget(self)
         if colormapWidget is not None:
             for item in self.__plot.getItems():
@@ -239,15 +248,23 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         except Exception:
             # As it relies on private API, make it safe
             _logger.error("Impossible to save colormap preference", exc_info=True)
+
+        config.profile_state = self.__profileAction.saveState()
         return config
 
     def setConfiguration(self, config):
-        try:
-            self.__colormap._setFromDict(config.colormap)
-            self.__colormapInitialized = True
-        except Exception:
-            # As it relies on private API, make it safe
-            _logger.error("Impossible to restore colormap preference", exc_info=True)
+        if config.colormap is not None:
+            try:
+                self.__colormap._setFromDict(config.colormap)
+                self.__colormapInitialized = True
+            except Exception:
+                # As it relies on private API, make it safe
+                _logger.error(
+                    "Impossible to restore colormap preference", exc_info=True
+                )
+        if config.profile_state is not None:
+            self.__profileAction.restoreState(config.profile_state)
+
         super(ImagePlotWidget, self).setConfiguration(config)
 
     def defaultColormap(self):
@@ -297,7 +314,8 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         action.setIcon(icon)
         toolBar.addAction(action)
 
-        toolBar.addAction(profile_action.ProfileAction(self.__plot, self, "image"))
+        self.__profileAction = profile_action.ProfileAction(self.__plot, self, "image")
+        toolBar.addAction(self.__profileAction)
 
         action = marker_action.MarkerAction(plot=self.__plot, parent=self, kind="image")
         self.__markerAction = action

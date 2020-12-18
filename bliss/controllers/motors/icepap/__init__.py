@@ -755,14 +755,16 @@ class Icepap(Controller):
     @object_method(types_info=(("bool", "str"), "None"), filter=_object_method_filter)
     def activate_tracking(self, axis, activate, mode=None):
         """
-        Activate/Deactivate the tracking position depending on
-        activate flag
-        mode -- default "INPOS" if None.
-        mode can be :
-           - SYNC   -> Internal SYNC signal
-           - ENCIN  -> ENCIN signal
-           - INPOS  -> INPOS signal
-           - ABSENC -> ABSENC signal
+        Activate/Deactivate the tracking position depending on activate flag
+
+        Arguments:
+            mode: Can be one of:
+
+                   - `None`: defaulted with `"INPOS"`
+                   - `"SYNC"`: Internal SYNC signal
+                   - `"ENCIN"`: ENCIN signal
+                   - `"INPOS"`: INPOS signal
+                   - `"ABSENC"`: ABSENC signal
         """
         address = axis.address
 

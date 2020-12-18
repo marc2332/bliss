@@ -118,40 +118,43 @@ class Session:
     Sessions group objects with a setup.
 
     YAML file example:
-     - plugin: session          # could be defined in parents
-       class: Session
-       name: super_mario        # session name
 
-       # 'config-objects' contains
-       # object name you want to export
-       # either in yaml compact list
-       config-objects: [seby,diode2]
-       # or standard yaml list
-       config-objects:
-       - seby
-       - diode2
-       # if config-objects key doesn't exist,
-       # session will export all objects;
-       # 'exclude-objects' can be used to exclude objects
-       exclude-objects: [seby]
+    .. code-block::
 
-       # you can also include other session
-       # with the 'include-sessions'
-       include-sessions: [luigi]
+         - plugin: session          # could be defined in parents
+           class: Session
+           name: super_mario        # session name
 
-       # finally a setup file can be defined to be
-       # executed for the session.
-       # All objects or functions defined in the
-       # setup file will be exported in the environment.
-       # The file path is relative to the session yaml file
-       # location if it starts with a './'
-       # otherwise it is absolute from the root of the
-       # beacon file data base.
-       setup-file: ./super_mario.py
+           # 'config-objects' contains
+           # object name you want to export
+           # either in yaml compact list
+           config-objects: [seby,diode2]
+           # or standard yaml list
+           config-objects:
+           - seby
+           - diode2
+           # if config-objects key doesn't exist,
+           # session will export all objects;
+           # 'exclude-objects' can be used to exclude objects
+           exclude-objects: [seby]
 
-       # A svg synoptic (Web shell) can be added:
-       synoptic:
-         svg-file: super_mario.svg
+           # you can also include other session
+           # with the 'include-sessions'
+           include-sessions: [luigi]
+
+           # finally a setup file can be defined to be
+           # executed for the session.
+           # All objects or functions defined in the
+           # setup file will be exported in the environment.
+           # The file path is relative to the session yaml file
+           # location if it starts with a './'
+           # otherwise it is absolute from the root of the
+           # beacon file data base.
+           setup-file: ./super_mario.py
+
+           # A svg synoptic (Web shell) can be added:
+           synoptic:
+             svg-file: super_mario.svg
     """
 
     def __init__(self, name, config_tree):

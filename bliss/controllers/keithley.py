@@ -28,29 +28,35 @@ YAML_ configuration example:
       nplc: 0.1                    # (13)
       auto_range: False            # (14)
 
+
 #. plugin name (mandatory: keithley)
 #. controller name (mandatory). Some controller settings are needed. To hook the
    settings to the controller we use the controller name. That is why it is
    mandatory
-#. controller model (optional. default: discover by asking instrument *IDN)
+#. controller model (optional. default: discover by asking instrument *IDN*)
 #. auto-zero enabled (optional, default: False)
 #. display enabled (optional, default: True)
 #. zero-check enabled (optional, default: False). Only for 6485!
 #. zero-correct enabled (optional, default: False). Only for 6485!
 #. controller URL (mandatory, valid: gpib, tcp, serial)
+
   #. gpib (mandatory: *url* and *pad*). See :class:~bliss.comm.gpib.Gpib for
      list of options
   #. serial (mandatory: *port*). See :class:~bliss.comm.serial.Serial for list
      of options
   #. tcp (mandatory: *url*). See :class:~bliss.comm.tcp.Tcp for list of options
+
 #. list of sensors (mandatory)
 #. sensor name (mandatory)
 #. sensor address (mandatory). Valid values:
+
   #. model 6482: 1, 2
   #. model 6485: 1
   #. model 2000: 1
+
 #. sensor DC current NPLC (optional, default: 0.1)
 #. sensor DC current auto-range (optional, default: False)
+
 
 Some parameters (described below) are stored as settings. This means that the
 static configuration described above serves as a *default configuration*.
@@ -67,9 +73,14 @@ The following sensor parameters are stored as settings:
 
 A demo is available from the command line:
 
-$ python -m bliss.controllers.keithley <url> <pad>
+.. code-block:: python
+
+    python -m bliss.controllers.keithley <url> <pad>
 
 Developer details:
+
+.. code-block::
+
     READ? <=> INIT + FETCH?
     MEASURE[:<function>]? <=> CONF[:<function>] + READ?  == CONF[:<function>] + INIT + READ?
 """

@@ -43,8 +43,7 @@ class Controller:
     """
     Motor controller base class
 
-    See Also:
-        :ref:`bliss-how-to-motor-controller`
+    See also :ref:`bliss-how-to-motor-controller`
     """
 
     def __init__(self, name, config, axes, encoders, shutters, switches):
@@ -121,7 +120,7 @@ class Controller:
         Return a float value representing the precision of the position in steps
 
         * 1e-6 is the default value: it means the motor can deal with floating point
-        steps up to 6 digits 
+          steps up to 6 digits
         * 1 means the motor controller can only deal with an integer number of steps
         """
         return 1e-6

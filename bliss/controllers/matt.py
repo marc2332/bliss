@@ -9,55 +9,62 @@
 Monochromatic attenuators, controlled via wago - pneumatic actuators and ADC.
 
 yml configuration example:
-name: matt
-class: matt
-controller_ip: wcid29a
-nb_filter: 12
-att_type: 2
-control_module: "750-516"
+
+.. code-block::
+
+    name: matt
+    class: matt
+    controller_ip: wcid29a
+    nb_filter: 12
+    att_type: 2
+    control_module: "750-516"
 
 
 The filters are controlled pneumatically via WAGO output modules.
+
 The position is red from WAGO modules, in a different way, depending
 on the mechanics (4 types - 0 to 3).
-The input and output modules are next to each other, so ther should
+
+The input and output modules are next to each other, so there should
 not be any other wago module between.
+
 The different configurations are:
- -type 0: one control bit to move a filter, two limit switch bits to
+
+- type 0: one control bit to move a filter, two limit switch bits to
           read the position.
           To insert the filter in the beam, the control bit is set to 1, to
-          extracrt it - to 0. The IN limit switch bit is 1 and the OUT
+          extract it - to 0. The IN limit switch bit is 1 and the OUT
           limit switch bit is 0 when in or inverse when the filter is out of
           the beam. The even numbers (including 0) are the IN and the odd
           numbers are the OUT bits. The input modules have 4 channels each
-          and if more than 4 filters, all the modules are consequtive. The
+          and if more than 4 filters, all the modules are consecutive. The
           output modules have 8 filters and if more than 4 filters, all the
-          modules are consequtive.
- -type 1: one control bit to move a filter, one limit switch bit to
+          modules are consecutive.
+- type 1: one control bit to move a filter, one limit switch bit to
           read the position.
           To insert the filter in the beam, the control bit is set to 1, to
-          extracrt it - to 0. The limit switch bit is 1 when the filter is in
+          extract it - to 0. The limit switch bit is 1 when the filter is in
           the beam, 0 when out. The input and output modules have 4 channels.
- -type 2: one control bit to move a filter, two limit switch bits to
+- type 2: one control bit to move a filter, two limit switch bits to
           read the position.
           To insert the filter in the beam, the control bit is set to 1, to
-          extracrt it - to 0. Bits 4 -7 are 1 when the filters 0-4 are in the
+          extract it - to 0. Bits 4 -7 are 1 when the filters 0-4 are in the
           beam and 0, when out of the beam. The first four channels of the
           input modules are not used.
           The input modules have 4 channels each, the output  modules - 8
           channels each. If more than 4 filters, the input and the output
           modules alternate.
- -type 3: one control bit to move a filter, two limit switch bits to
+- type 3: one control bit to move a filter, two limit switch bits to
           read the position.
           To insert the filter in the beam, the control bit is set to 1, to
-          extracrt it - to 0. The odd numbers are 1 when the filter is in the
+          extract it - to 0. The odd numbers are 1 when the filter is in the
           beam and 0, when out of the beam. The even numbers are not used.
           The input modules have 4 channels each, the output  modules - 8
           channels each. If more than 4 filters, the input and the output
           modules alternate.
 
-        The 750-436 and 740-430 Digital Input modules have 8 channels, while
-        the 750-402 and 750-408 Digital Input module has 4 channels only.
+The 750-436 and 740-430 Digital Input modules have 8 channels, while
+the 750-402 and 750-408 Digital Input module has 4 channels only.
 """
 
 from bliss.controllers.wago.wago import WagoController, ModulesConfig

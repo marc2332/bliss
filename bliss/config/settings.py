@@ -543,15 +543,13 @@ class QueueSettingProp(BaseSetting):
 
 class BaseHashSetting(BaseSetting):
     """
-    A Setting stored as a key,value pair in Redis
+    A `Setting` stored as a key,value pair in Redis
 
-    Args:
+    Arguments:
         name: name of the BaseHashSetting (used on Redis)
         connection: Redis connection object
-            read_type_conversion: conversion of data applyed
-                after reading
-            write_type_conversion: conversion of data applyed
-                before writing
+        read_type_conversion: conversion of data applied after reading
+        write_type_conversion: conversion of data applied before writing
     """
 
     def __init__(
@@ -740,15 +738,13 @@ end
 class OrderedHashSetting(BaseHashSetting):
     """
     A Setting stored as a key,value pair in Redis
-    The insertion order is mantained
+    The insertion order is maintained
 
-    Args:
+    Arguments:
         name: name of the BaseHashSetting (used on Redis)
         connection: Redis connection object
-            read_type_conversion: conversion of data applyed
-                after reading
-            write_type_conversion: conversion of data applyed
-                before writing
+        read_type_conversion: conversion of data applied after reading
+        write_type_conversion: conversion of data applied before writing
     """
 
     add_key_script_sha1 = None
@@ -911,13 +907,9 @@ class HashSetting(BaseHashSetting):
     Args:
         name: name of the HashSetting (used on Redis)
         connection: Redis connection object
-            read_type_conversion: conversion of data applyed
-                after reading
-            write_type_conversion: conversion of data applyed
-                before writing
-    kwargs:
-        default_values: dictionary of default values retrieved
-            on fallback
+        read_type_conversion: conversion of data applied after reading
+        write_type_conversion: conversion of data applied before writing
+        default_values: dictionary of default values retrieved on fallback
     """
 
     def __init__(
@@ -1541,25 +1533,27 @@ class ParametersWardrobe(metaclass=ParametersType):
     def to_beacon(self, name: str, *instances):
         """
         Export one or more instance to Beacon.
-        It will save the Wardrobe under Beacon subfolder /wardrobe/
+        It will save the Wardrobe under Beacon subfolder `/wardrobe/`
 
         Args:
             name: name of the file (will be saved with .dat extension)
             instances: arguments passed as comma separated
 
         Example:
-            >>>materials = ParametersWardrobe("materials")
-            >>>materials.switch('copper')
 
-            >>># exporting current instance
-            >>>materials.to_beacon('2019-06-23-materials')
+        .. code-block:: python
 
-            >>># exporting a instance giving the name
-            >>>materials.to_beacon('2019-06-23-materials', 'copper')
+            materials = ParametersWardrobe("materials")
+            materials.switch('copper')
 
-            >>># exporting all instances
-            >>>materials.to_beacon('2019-06-23-materials', *materials.instances)  # uses python list unpacking
+            # exporting current instance
+            materials.to_beacon('2019-06-23-materials')
 
+            # exporting a instance giving the name
+            materials.to_beacon('2019-06-23-materials', 'copper')
+
+            # exporting all instances
+            materials.to_beacon('2019-06-23-materials', *materials.instances)  # uses python list unpacking
         """
         if re.match("[A-Za-z_]+[A-Za-z0-9_-]*", name) is None:
             raise NameError(

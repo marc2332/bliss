@@ -13,7 +13,7 @@
     flexdc
     galildmc213
     icepap
-    id16
+    id26
     kb
     mx
     mockup

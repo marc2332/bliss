@@ -8,30 +8,36 @@
 """
 MCCE (Module de Command et Control des Electrometres)
 Serial interface allows remote reading and programming.
+
 The parameters of the serial line are:
-8 bits, no parity, 1 stop bit, 9600 bauds
-eol = "\r\n"
+
+- 8 bits, no parity, 1 stop bit, 9600 bauds
+- `eol = "\\r\\n"`
+
 Before sending a set command, the key to be turned off, and back to on after
 executing the command.
 
 Example yml file:
-class: Mcce
-channels:
-  -
-    name: mcce_ch1
-    address: 1
-    serial:
-      url: "rfc2217://ld231:28100"
-  -
-    name: mcce_ch2
-    address: 2
-    serial:
-       url: "rfc2217://ld231:28016"
-  -
-    name: mcce_ch3
-    address: 3
-    serial:
-       url: "rfc2217://ld231:28017"
+
+.. code-block::
+
+    class: Mcce
+    channels:
+      -
+        name: mcce_ch1
+        address: 1
+        serial:
+          url: "rfc2217://ld231:28100"
+      -
+        name: mcce_ch2
+        address: 2
+        serial:
+           url: "rfc2217://ld231:28016"
+      -
+        name: mcce_ch3
+        address: 3
+        serial:
+           url: "rfc2217://ld231:28017"
 """
 import enum
 import tabulate
@@ -246,10 +252,12 @@ class Mcce:
 
     @property
     def range(self):
-        """ Read the electrometer range
+        """Read the electrometer range.
+
         Returns:
             (int): Current range
             (str): Range units
+
         Raises:
             RuntimeError: Command not executed
         """
@@ -258,10 +266,11 @@ class Mcce:
         return self.mcce_range_str[_range]
 
     @range.setter
-    def range(self, value):
-        """ Set the range
-        Args:
-           (int): The desired range
+    def range(self, value: int):
+        """Set the range
+
+        Argument:
+           value: The desired range
         """
         if isinstance(value, str):
             _range = self.mcce_range_str.index(value)

@@ -20,43 +20,43 @@ from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 from bliss.flint.client.live_plots import LiveImagePlot
 
 """
-# EBV mockup
+.. code-block::
 
-- controller: EBV
-  plugin: bliss
-  name: bv1
-  class: EBV
-  wago_controller: $ebv_wago_simulator
-  single_model: False
-  has_foil: False
-  channel: 0
-  counter_name: ebv_diode
-  camera_tango_url: id00/limaccds/simulator2
+    # EBV mockup
 
+    - controller: EBV
+      plugin: bliss
+      name: bv1
+      class: EBV
+      wago_controller: $ebv_wago_simulator
+      single_model: False
+      has_foil: False
+      channel: 0
+      counter_name: ebv_diode
+      camera_tango_url: id00/limaccds/simulator2
 
-- name: ebv_wago_simulator
-  plugin: bliss
-  module: wago.wago
-  class: WagoMockup
-  modbustcp:
-      url: localhost
-  ignore_missing: True
-  mapping:
-      - type: 750-436
-        logical_names: status,status,status,status
-      - type: 750-530
-        logical_names: screen,screen,led,led,gain,gain,gain,gain
-      - type: 750-530
-        logical_names: _,_,_,_,_,_,_,_
-      - type: 750-479
-        logical_names: current
+    - name: ebv_wago_simulator
+      plugin: bliss
+      module: wago.wago
+      class: WagoMockup
+      modbustcp:
+          url: localhost
+      ignore_missing: True
+      mapping:
+          - type: 750-436
+            logical_names: status,status,status,status
+          - type: 750-530
+            logical_names: screen,screen,led,led,gain,gain,gain,gain
+          - type: 750-530
+            logical_names: _,_,_,_,_,_,_,_
+          - type: 750-479
+            logical_names: current
 
-
-- name: mybpm
-  plugin: bliss
-  module: ebv
-  class: BpmController
-  camera_tango_url: idxx/limaccds/camname
+    - name: mybpm
+      plugin: bliss
+      module: ebv
+      class: BpmController
+      camera_tango_url: idxx/limaccds/camname
 """
 
 

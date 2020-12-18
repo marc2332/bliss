@@ -83,7 +83,7 @@ class RefreshManager(qt.QObject):
         action.triggered.connect(functools.partial(self.setRefreshMode, None))
         menu.addAction(action)
 
-        menu.addSection("Mesured rate")
+        menu.addSection("Measured rate")
         periode = self.periode()
         if periode is not None:
             periode = round(periode * 1000)

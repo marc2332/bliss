@@ -35,6 +35,7 @@ from bliss.common.profiling import simple_time_profile as time_profile
 from bliss.controllers.motor import Controller
 from bliss.config.conductor.client import get_caching_redis_proxy
 from bliss.data.node import create_node
+from bliss.data.nodes import channel as channelnode
 from bliss.data.node import DataNodeAsyncHelper
 from bliss.data.scan import get_data
 from bliss.scanning.chain import AcquisitionSlave, AcquisitionMaster, StopChain
@@ -574,6 +575,8 @@ class Scan:
     # cached, not the channel data.
     _REDIS_CACHING = True
 
+    _USE_PIPELINE_MGR = True
+
     def __init__(
         self,
         chain,
@@ -608,9 +611,12 @@ class Scan:
         self._add_to_scans_queue = not (name == "ct" and self._shadow_scan_number)
 
         # Double buffer pipeline for streams store
-        self._stream_pipeline_lock = gevent.lock.Semaphore()
-        self._stream_pipeline_task = None
-        self._current_pipeline_stream = None
+        if self._USE_PIPELINE_MGR:
+            self._rotating_pipeline_mgr = None
+        else:
+            self._stream_pipeline_lock = gevent.lock.Semaphore()
+            self._stream_pipeline_task = None
+            self._current_pipeline_stream = None
 
         self.__nodes = dict()
         self._devices = []
@@ -817,11 +823,36 @@ class Scan:
         if self._shadow_scan_number:
             node_name = "_" + node_name
         self._create_data_node(node_name)
-        self._current_pipeline_stream = self.root_connection.pipeline()
-        self._pending_watch_callback = weakref.WeakKeyDictionary()
+
+        if self._USE_PIPELINE_MGR:
+            # Channel data will be emitted and the associated `trigger_data_watch_callback`
+            # calls executed, when one of the following things happens:
+            #  - 1 stream has buffered a number of events equal to `max_stream_events`
+            #  - the total buffered data has reached `max_bytes` bytes
+            #  - the time from the first buffered event reached `max_time`
+            #  - `flush` is called on the proxy rotation manager
+
+            max_time = 1  # We don't want to keep Redis subscribers waiting too long
+            if channelnode.CHANNEL_MAX_LEN:
+                max_stream_events = min(channelnode.CHANNEL_MAX_LEN // 10, 50)
+            else:
+                max_stream_events = 50
+            max_bytes = None  # No maximum
+
+            self._rotating_pipeline_mgr = self.root_connection.rotating_pipeline(
+                max_bytes=max_bytes,
+                max_stream_events=max_stream_events,
+                max_time=max_time,
+            )
+        else:
+            self._current_pipeline_stream = self.root_connection.pipeline()
+            self._pending_watch_callback = weakref.WeakKeyDictionary()
 
     def _end_node(self):
-        self._current_pipeline_stream = None
+        if self._USE_PIPELINE_MGR:
+            self._rotating_pipeline_mgr = None
+        else:
+            self._current_pipeline_stream = None
 
         with capture_exceptions(raise_index=0) as capture:
             _exception, _, _ = sys.exc_info()
@@ -1114,6 +1145,11 @@ class Scan:
             self.__state_change.clear()
             self.__state_change.wait()
 
+    def __trigger_watchers_data_event(self, signal, sender, sync=False):
+        # Only used when self._USE_PIPELINE_MGR=False
+        self.__trigger_data_watch_callback(signal, sender, sync=sync)
+        self.__trigger_watchdog_data_event(signal, sender)
+
     def __trigger_data_watch_callback(self, signal, sender, sync=False):
         if self._data_watch_callback is not None:
             event_set = self._data_events.setdefault(sender, set())
@@ -1130,21 +1166,32 @@ class Scan:
                 )
             else:
                 self._data_watch_callback_event.set()
+
+    def __trigger_watchdog_data_event(self, signal, sender):
         if self._watchdog_task is not None:
             self._watchdog_task.trigger_data_event(sender, signal)
 
     def _channel_event(self, event_dict, signal=None, sender=None):
         with time_profile(self._stats_dict, "scan.events.channel", logger=logger):
-            with KillMask():
-                with self._stream_pipeline_lock:
-                    self.nodes[sender].store(
-                        event_dict, cnx=self._current_pipeline_stream
-                    )
-                    pending = self._pending_watch_callback.setdefault(
-                        self._current_pipeline_stream, list()
-                    )
-                    pending.append((signal, sender))
-            self._swap_pipeline()
+            if self._USE_PIPELINE_MGR:
+                with KillMask():
+                    with self._rotating_pipeline_mgr.async_proxy() as async_proxy:
+                        self.nodes[sender].store(event_dict, cnx=async_proxy)
+                        async_proxy.add_execute_callback(
+                            self.__trigger_data_watch_callback, signal, sender
+                        )
+                        self.__trigger_watchdog_data_event(signal, sender)
+            else:
+                with KillMask():
+                    with self._stream_pipeline_lock:
+                        self.nodes[sender].store(
+                            event_dict, cnx=self._current_pipeline_stream
+                        )
+                        pending = self._pending_watch_callback.setdefault(
+                            self._current_pipeline_stream, list()
+                        )
+                        pending.append((signal, sender))
+                self._swap_pipeline()
 
     def _pipeline_execute(self, pipeline, trigger_func):
         while True:
@@ -1171,7 +1218,7 @@ class Scan:
                 task = gevent.spawn(
                     self._pipeline_execute,
                     self._current_pipeline_stream,
-                    self.__trigger_data_watch_callback,
+                    self.__trigger_watchers_data_event,
                 )
 
                 self._stream_pipeline_task = task
@@ -1192,10 +1239,15 @@ class Scan:
     def _device_event(self, event_dict=None, signal=None, sender=None):
         with time_profile(self._stats_dict, "scan.events.device", logger=logger):
             if signal == "end":
-                task = self._swap_pipeline()
-                if task is not None:
-                    task.join()
-                self.__trigger_data_watch_callback(signal, sender, sync=True)
+                if self._USE_PIPELINE_MGR:
+                    self._rotating_pipeline_mgr.flush(raise_error=False)
+                    self.__trigger_data_watch_callback(signal, sender, sync=True)
+                    self.__trigger_watchdog_data_event(signal, sender)
+                else:
+                    task = self._swap_pipeline()
+                    if task is not None:
+                        task.join()
+                    self.__trigger_watchers_data_event(signal, sender, sync=True)
 
     def prepare(self, scan_info, devices_tree):
         with time_profile(self._stats_dict, "scan.prepare.devices", logger=logger):
@@ -1495,9 +1547,12 @@ class Scan:
             # wait the end of publishing
             # (should be already finished)
             with capture():
-                stream_task = self._swap_pipeline()
-                if stream_task is not None:
-                    stream_task.get()
+                if self._USE_PIPELINE_MGR:
+                    self._rotating_pipeline_mgr.flush(raise_error=True)
+                else:
+                    stream_task = self._swap_pipeline()
+                    if stream_task is not None:
+                        stream_task.get()
 
             # Disconnect events
             self.disconnect_all()

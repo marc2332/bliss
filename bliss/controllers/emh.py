@@ -178,10 +178,11 @@ class EMH(CounterController):
         return vlist
 
     def raw_write(self, message):
-        """Send <message> to the controller.
-        * type of <message> must be 'str'
-        * converts <message> into 'bytes'
-        * add terminator char : "\n"
+        """Send `message` to the controller.
+
+        * type of `message` must be `str`
+        * converts `message` into `bytes`
+        * add terminator char : `"\\n"`
         * send command to the device
         * NO answer is read from controller
         """
@@ -189,12 +190,13 @@ class EMH(CounterController):
         self.comm.write(message.encode())
 
     def raw_write_read(self, message):
-        """Send <message> to the controller and read the answer.
-        * type of <message> must be 'str'
-        * converts <message> into 'bytes'
-        * add terminator char : "\n"
+        """Send `message` to the controller and read the answer.
+
+        * type of `message` must be `str`
+        * converts `message` into `bytes`
+        * add terminator char : `"\\n"`
         * send command to the device
-        * return answer from controller as a 'str' string
+        * return answer from controller as a `str` string
         """
         message = message + "\n"
         ans = self.comm.write_readline(message.encode()).decode()

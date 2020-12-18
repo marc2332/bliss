@@ -32,7 +32,7 @@ YAML_ configuration example:
 #. controller name (mandatory). Some controller settings are needed. To hook the
    settings to the controller we use the controller name. That is why it is
    mandatory
-#. controller model (optional. default: discover by asking instrument *IDN)
+#. controller model (optional. default: discover by asking instrument *IDN*)
 #. auto-zero enabled (optional, default: False)
 #. display enabled (optional, default: True)
 #. zero-check enabled (optional, default: False). Only for 6485!

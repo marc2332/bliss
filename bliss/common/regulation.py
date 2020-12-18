@@ -9,32 +9,36 @@
 This module implements the classes allowing the control of regulation processes and associated hardware
 
     The regulation is a process that:
+
     1) reads a value from an input device 
-    2) takes a target value (setpoint) and compare it to the current input value (processed value)
+    2) takes a target value (`setpoint`) and compare it to the current input value (processed value)
     3) computes an output value sent to an output device which has an effect on the processed value
     4) back to step 1) and loop forever so that the processed value reaches the target value and stays stable around that target value.  
 
     The regulation Loop has:
-    -one input: an Input object to read the processed value (ex: temperature sensor)
-    -one output: an Output object which has an effect on the processed value (ex: cooling device)
 
-    The regulation is automaticaly started by setting a new setpoint (Loop.setpoint = target_value).
+    -One input: an Input object to read the processed value (ex: temperature sensor)
+    -One output: an Output object which has an effect on the processed value (ex: cooling device)
+
+    The regulation is automatically started by setting a new `setpoint` (`Loop.setpoint = target_value`).
     The Loop object implements methods to manage the PID algorithm that performs the regulation.
     A Loop object is associated to one Input and one Output.
 
-    The Loop object has a ramp object. If loop.ramprate != 0 then any new setpoint cmd (using Loop.setpoint)
-    will use a ramp to reach that value (HW ramp if available else a 'SoftRamp').
+    The Loop object has a ramp object. If loop.ramprate != 0 then any new `setpoint` cmd (using `Loop.setpoint`)
+    will use a ramp to reach that value (HW ramp if available else a `SoftRamp`).
 
     The Output object has a ramp object. If loop.output.ramprate != 0 then any new value sent to the output
-    will use a ramp to reach that value (HW ramp if available else a 'SoftRamp').
+    will use a ramp to reach that value (HW ramp if available else a `SoftRamp`).
     
     Depending on the hardware capabilities we can distinguish two main cases.
 
     1) Hardware regulation:
 
         A physical controller exists and the input and output devices are connected to the controller.
-        In that case, a regulation Controller object must be implemented by inheriting from the Controller base class (bliss.controllers.regulator).
-        The inputs and ouputs attached to that controller are defined through the YML configuration file.
+        In that case, a regulation Controller object must be implemented by inheriting from the `Controller` base class (`bliss.controllers.regulator`).
+        The inputs and outputs attached to that controller are defined through the YML configuration file.
+
+    .. code-block::
 
             ---------------------------------------------- YML file example ------------------------------------------------------------------------    
 
@@ -43,15 +47,15 @@ This module implements the classes allowing the control of regulation processes 
                 module: temperature.mockup
                 host: lid42
                 inputs:
-                    - 
+                    -
                         name: thermo_sample
                         channel: A
                         unit: deg
 
-                    - 
+                    -
                         name: sensor
                         channel: B
-            
+
                 outputs: 
                     -
                         name: heater
@@ -60,7 +64,7 @@ This module implements the classes allowing the control of regulation processes 
                         low_limit:  0.0          # <-- minimum device value [unit] 
                         high_limit: 100.0        # <-- maximum device value [unit]
                         ramprate: 0.0            # <-- ramprate to reach the output value [unit/s]
-            
+
                 ctrl_loops:
                     -
                         name: sample_regulation
@@ -76,7 +80,7 @@ This module implements the classes allowing the control of regulation processes 
                         deadband_time: 1.5
                         ramprate: 1.0            # <-- ramprate to reach the setpoint value [input_unit/s]
                         wait_mode: deadband
-             
+
             ----------------------------------------------------------------------------------------------------------------------------------------
 
     2) Software regulation
@@ -84,29 +88,31 @@ This module implements the classes allowing the control of regulation processes 
         Input and Output devices are not always connected to a regulation controller.
         For example, it may be necessary to regulate a temperature by moving a cryostream on a stage (axis).
 
-        Any 'SamplingCounter' can be interfaced as an input (ExternalInput) and any 'Axis' as an input or output (ExternalOutput).
+        Any `SamplingCounter` can be interfaced as an input (`ExternalInput`) and any 'Axis' as an input or output (`ExternalOutput`).
         Devices which are not standard Bliss objects can be interfaced by implementing a custom input or output class inheriting from the Input/Output classes.
 
         To perform the regulation with this kind of inputs/outputs not attached to an hardware regulation controller, users must define a SoftLoop.
-        The SoftLoop object inherits from the Loop class and implements its own PID algorithm (using the 'simple_pid' Python module). 
+        The `SoftLoop` object inherits from the Loop class and implements its own PID algorithm (using the `simple_pid` Python module).
+
+    .. code-block::
 
             ---------------------------------------------- YML file example ------------------------------------------------------------------------
-            - 
+            -
                 class: MyDevice     # <== any kind of object (usually declared in another YML file)
                 package: bliss.controllers.regulation.temperature.mockup
                 plugin: bliss
                 name: my_device
 
-            -   
+            -
                 class: MyCustomInput     # <-- a custom input defined by the user and inheriting from the ExternalInput class
                 package: bliss.controllers.regulation.temperature.mockup  # <-- the module where the custom class is defined
                 plugin: bliss
                 name: custom_input
                 device: $my_device       # <-- any kind of object reference (pointing to an object declared somewhere else in a YML config file)
                 unit: deg
-                        
-            
-            -   
+
+
+            -
                 class: MyCustomOutput    # <-- a custom output defined by the user and inheriting from the ExternalOutput class
                 package: bliss.controllers.regulation.temperature.mockup  # <-- the module where the custom class is defined
                 plugin: bliss
@@ -116,15 +122,15 @@ This module implements the classes allowing the control of regulation processes 
                 low_limit: 0.0           # <-- minimum device value [unit]
                 high_limit: 100.0        # <-- maximum device value [unit]
                 ramprate: 0.0            # <-- ramprate to reach the output value [unit/s]
-            
-            
+
+
             - 
                 class: ExternalInput     # <-- declare an 'ExternalInput' object
                 name: diode_input          
                 device: $diode           # <-- a SamplingCounter object reference (pointing to a counter declared somewhere else in a YML config file )
                 unit: N/A
-            
-            
+
+
             -
                 class: ExternalOutput    # <-- declare an 'ExternalOutput' object
                 name: robz_output        
@@ -134,9 +140,9 @@ This module implements the classes allowing the control of regulation processes 
                 high_limit: 1.0          # <-- maximum device value [unit]
                 ramprate: 0.0            # <-- ramprate to reach the output value [unit/s]
                 mode: relative           # <-- the axis will perform relative moves (use 'absolute' for absolute moves)
-                
-            
-            - 
+
+
+            -
                 class: SoftLoop          # <== declare a 'SoftLoop' object
                 name: soft_regul
                 input: $custom_input
@@ -144,8 +150,8 @@ This module implements the classes allowing the control of regulation processes 
                 P: 0.05
                 I: 0.1
                 D: 0.0
-                low_limit: 0.0            # <-- low limit of the PID output value. Usaually equal to 0 or -1.
-                high_limit: 1.0           # <-- high limit of the PID output value. Usaually equal to 1.
+                low_limit: 0.0            # <-- low limit of the PID output value. Usually equal to 0 or -1.
+                high_limit: 1.0           # <-- high limit of the PID output value. Usually equal to 1.
                 frequency: 10.0
                 deadband: 0.1
                 deadband_time: 3.0
@@ -154,7 +160,6 @@ This module implements the classes allowing the control of regulation processes 
 
                 ------------------------------------------------------------------------------------------------------------------------------------
 
-    
         Note: a SoftLoop can use an Input or Output defined in a regulation controller section.
         For example the 'soft_regul' loop could define 'thermo_sample' as its input.  
     
@@ -199,7 +204,8 @@ def _get_external_device_name(device):
 
 @with_custom_members
 class Input(SamplingCounterController):
-    """ Implements the access to an input device which is accessed via the regulation controller (like a sensor plugged on a channel of the controller)
+    """Implements the access to an input device which is accessed via the
+    regulation controller (like a sensor plugged on a channel of the controller)
     """
 
     def __init__(self, controller, config):
@@ -279,20 +285,26 @@ class Input(SamplingCounterController):
         return self._controller.state_input(self)
 
     def allow_regulation(self):
-        """ This method is called by the SoftLoop to check if the regulation should be suspended.
-            If this method returns False, the SoftLoop will pause the PID algorithm that computes the output value.
-            As soon as this method returns True, the PID algorithm is resumed.
-            While returning False, you must ensure that the read method of the Input
-            still returns a numerical value (like the last readable value). 
+        """This method is called by the SoftLoop to check if the regulation
+        should be suspended.
+
+        If this method returns False, the SoftLoop will pause the PID algorithm
+        that computes the output value. As soon as this method returns True, the
+        PID algorithm is resumed.
+
+        While returning False, you must ensure that the read method of the Input
+        still returns a numerical value (like the last readable value).
          """
         return True
 
 
 class ExternalInput(Input):
-    """ Implements the access to an external input device (i.e. not accessed via the regulation controller itself, like an axis or a counter)
-        Managed devices are objects of the type:
-         - Axis
-         - SamplingCounter
+    """Implements the access to an external input device (i.e. not accessed via
+    the regulation controller itself, like an axis or a counter)
+
+    Managed devices are objects of the type:
+    - `Axis`
+    - `SamplingCounter`
     """
 
     def __init__(self, config):
@@ -566,14 +578,17 @@ class Output(SamplingCounterController):
 
 
 class ExternalOutput(Output):
-    """ Implements the access to an external output device (i.e. not accessed via the regulation controller itself, like an axis)
-        Managed devices are objects of the type:
-         - Axis
+    """Implements the access to an external output device (i.e. not accessed via
+    the regulation controller itself, like an axis)
 
-        The Output has a ramp object. 
-        If ramprate != 0 then any new value sent to the output
-        will use a ramp to reach that value (hardware ramping if available, else a software ramp).
+    Managed devices are objects of the type:
 
+    - Axis
+
+    The Output has a ramp object.
+    If `ramprate != 0` then any new value sent to the output
+    will use a ramp to reach that value (hardware ramping if available, else a
+    software ramp).
     """
 
     def __init__(self, config):

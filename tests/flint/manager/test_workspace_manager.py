@@ -167,4 +167,3 @@ def test_deserialization_workspace_v1(data_test, local_flint):
             assert len(workspace.plots()) == 0
             assert widget.plotModel() is None
 
-    print(pickle.dumps(data))

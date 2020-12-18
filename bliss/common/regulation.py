@@ -865,6 +865,7 @@ class Loop(SamplingCounterController):
 
         log_debug(self, "Loop:set_deadband: %s" % (value))
         self._deadband = value
+        self._soft_axis._Axis__tolerance = value
 
     @property
     def deadband_time(self):

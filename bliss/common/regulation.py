@@ -1317,17 +1317,19 @@ class Loop(SamplingCounterController):
         """ get the current working setpoint """
 
         log_debug(self, "Loop:_get_working_setpoint")
-        try:
-            return self._controller.get_working_setpoint(self)
 
-        except NotImplementedError:
-
-            # _get_working_setpoint can be polled by counting or plot
-            # so cache the value if the controller can only returns the target setpoint
-            # which is constant and then doesn't need to be re-read.
-            if self._last_setpoint is None:
-                self._last_setpoint = self._get_setpoint()
-            return self._last_setpoint
+        if self._use_soft_ramp:
+            return self._ramp._wrk_setpoint
+        else:
+            try:
+                return self._controller.get_working_setpoint(self)
+            except NotImplementedError:
+                # _get_working_setpoint can be polled by counting or plot
+                # so cache the value if the controller can only returns the target setpoint
+                # which is constant and then doesn't need to be re-read.
+                if self._last_setpoint is None:
+                    self._last_setpoint = self._get_setpoint()
+                return self._last_setpoint
 
     @lazy_init
     def _get_setpoint(self):

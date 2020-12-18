@@ -9,7 +9,10 @@ import pytest
 from bliss.flint.manager import workspace_manager
 from bliss.flint.model import flint_model
 from bliss.flint.widgets import curve_plot
+from bliss.flint.widgets import property_widget
 from bliss.flint.model import plot_model
+from bliss.flint.widgets.live_window import LiveWindow
+from silx.gui import qt
 
 
 @pytest.mark.parametrize(
@@ -167,3 +170,24 @@ def test_deserialization_workspace_v1(data_test, local_flint):
             assert len(workspace.plots()) == 0
             assert widget.plotModel() is None
 
+
+def test_workspace_v1_with_live_window(local_flint):
+    flint = flint_model.FlintState()
+    workspace = flint_model.Workspace(flint)
+
+    class Manager:
+        def registerDock(self, dock):
+            print("registerDock", dock)
+            workspace.addWidget(dock)
+
+    flint.setMainManager(Manager())
+
+    window = LiveWindow()
+    window.setAttribute(qt.Qt.WA_DeleteOnClose)
+    window.setFlintModel(flint)
+
+    data = pickle.loads(WORKSPACE_V1_WITHOUT_PLOT)
+    data.initLiveWindow(window, workspace)
+
+    widgetKind = [type(w) for w in workspace.widgets()]
+    assert widgetKind.count(property_widget.MainPropertyWidget) == 1

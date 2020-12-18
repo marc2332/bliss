@@ -142,6 +142,14 @@ class WorkspaceData(dict):
             config = self["window_config"]
             window.setConfiguration(config)
 
+        if version == 1:
+            # The first workspace storage was not saving property and status
+            # widget by default. It was used from BLISS 1.0 to BLISS 1.6 included.
+            # Workspace saved with BLISS 1.7 and later  to not relay on it.
+            # FIXME: THis could be removed in few version
+            window.propertyWidget(create=True)
+            window.scanStatusWidget(create=True)
+
         # FIXME ugly hack to reach new widgets created by live window
         if currentWorkspace is not None:
             currentWidgets = set(currentWorkspace.widgets())
@@ -152,9 +160,10 @@ class WorkspaceData(dict):
         for widget in newWidgets:
             workspace.addWidget(widget)
 
-        layout = self["layout"]
-        _logger.debug("Restore layout state")
-        window.restoreState(layout)
+        layout = self.get("layout")
+        if layout is not None:
+            _logger.debug("Restore layout state")
+            window.restoreState(layout)
 
     def feedWorkspace(
         self,

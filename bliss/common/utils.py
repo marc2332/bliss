@@ -988,24 +988,30 @@ def is_pattern(pattern: str) -> bool:
 
 
 def get_matching_names(patterns, names, strict_pattern_as_short_name=False):
+    """Search a pattern into a list of names (unix pattern style).
 
-    """ search a pattern into a list of names (unix pattern style) 
+    .. list-table::
+       :header-rows: 1
 
-        pattern     |       meaning
-        ------------|-------------------------------------------
-          *         | matches everything
-          ?         | matches any single character
-          [seq]     | matches any character in seq
-          [!seq]    | matches any character not in seq
+       * - Pattern
+         - Meaning
+       * - `*`
+         - matches everything
+       * - `?`
+         - matches any single character
+       * - `[seq]`
+         - matches any character in seq
+       * - `[!seq]`
+         - matches any character not in seq
 
-        arguments:
-          - patterns: a list of patterns
-          - names: a list of names
-          - strict_pattern_as_short_name: if True patterns without special character,
-            are transformed like this: 'pattern' -> '*:pattern' (as the 'short name' part of a 'fullname')
+    Arguments:
+        patterns: a list of patterns
+        names: a list of names
+        strict_pattern_as_short_name: if True patterns without special character,
+                                      are transformed like this: `'pattern' -> '*:pattern'`
+                                      (as the 'short name' part of a 'fullname')
 
-        return: dict { pattern : matching names }
-
+    Return: dict { pattern : matching names }
     """
 
     special_char = ["*", ":"]

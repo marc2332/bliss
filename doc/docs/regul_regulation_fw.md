@@ -1,5 +1,31 @@
 # Regulation framework
 
+**The Regulation framework provides 3 kinds of objects:**
+
+* `Input`  to evaluate the actual state of the system (like the room temperature).
+* `Output` to perform an action on the system (like an heater).
+* `Loop`   to manage the regulation of the system via the *PID* parameters and a given setpoint (like the target temperature for the room).
+
+**For regulation purposes only the Loop object has to be imported in the Bliss session.**
+
+The Input and Output associated to a Loop are accessed via `Loop.input` and `Loop.output`.
+
+The regulation controller can be accessed with the `.controller` property (ex: `Loop.controller`).
+
+
+**The regulation process can be described by the following steps:**
+
+![Screenshot](img/regulation_schema.png)
+
+1. **Input** reads the actual value of the processed variable (i.e. the physical parameter that is monitored by the regulation).
+2. **Loop** computes an *output_value* that depends on the actual value of the Input, the "distance" to the setpoint and the *PID* parameters.
+3. The *output_value* is sent to the **Output**. The output device has an effect on the system and modifies the value of the processed variable.
+4. back to step 1) and loop forever so that the processed value reaches the setpoint value and stays stable around that value (deadband).
+
+
+See [Interacting with the Loop object](regul_regulation_fw.md#interacting-with-the-loop-object) for further details about the usage of the Loop object within a Bliss session.
+
+
 !!! info
     The `Regulation` framework replaces the older [Temperature](regul_temperature_fw.md) framework.
 
@@ -30,31 +56,6 @@
 
 
 
-The Regulation framework provides 3 kinds of objects:
-
-* `Input`  to evaluate the actual state of the system (like the room temperature).
-* `Output` to perform an action on the system via its output device (like an heater).
-* `Loop`   to manage the regulation of the system via the *PID* parameters and a given setpoint (like the target temperature for the room).
-
-
-
-The regulation process can be described by the following steps:
-
-1. **Input** reads the actual value of the processed variable (i.e. the physical parameter that is monitored by the regulation).
-2. **Loop** computes an output value that depends on the actual value of the Input, the "distance" to the setpoint and the *PID* parameters.
-3. The output value is sent to the **Output**. The output device has an effect on the system and modifies the value of the processed variable.
-4. back to step 1) and loop forever so that the processed value reaches the setpoint value and stays stable around that value (deadband).
-
-
-**Input**, **Output** and **Loop** objects will access the **Controller** class written for the equipment.
-
-**ExternalInput**, **ExternalOutput** encapsulate any object of the Bliss configuration into Input/Output
-and can be used by a **SoftLoop**.
-
-**SoftLoop** runs a software PID algorithm using any pair of Input/Output.
-
-See [Interacting with the Loop object](regul_regulation_fw.md#interacting-with-the-loop-object) for further details about the usage of the Loop object within a Bliss session.
-
 
 ## Configure a regulation hardware
 
@@ -63,6 +64,14 @@ The `hardware regulation` case corresponds to the situation, where a regulation 
 A controller can declare multiple inputs, outputs and loops. But one loop is always associated to one input and one output.
 
 **The loops, inputs and outputs linked to that controller are declared within the configuration of the controller.**
+
+**These objects are the ones that should be imported in a Bliss session, not the controller!**
+
+**Input**, **Output** and **Loop** objects will access the **Controller** class written for the equipment.
+
+The regulation controller can be accessed via these object with the `.controller` property (ex: `Loop.controller`).
+
+
 
 To define a new controller class based on the regulation framework for a new hardware, see [Writing a custom controller for a regulation hardware](regul_regulation_fw.md#writing-a-custom-controller-for-a-regulation-hardware).
 
@@ -118,12 +127,27 @@ To define a new controller class based on the regulation framework for a new har
 
 ```
 
+**In a bliss session import the Loop objects ls336l_1 or ls336l_2 but not the controller lakeshore336.**
+
+The controller can be accessed via `Loop.controller` (ex: `ls336l_1.controller`).
+
+The Input and Output of the Loop can be accessed via `Loop.input` and `Loop.output`.
+
+The Input and Output objects can also be imported in a Bliss session (for example when the regulation loop is not used and when the output is used in a direct control).
+
 
 ## Configure a software regulation
 
 `Software regulation` can be applied, where no existing hardware for regulation is available.
 For example, it may be necessary to regulate a temperature by moving a cryostream with a motor (axis) or a beam position by
 reading a diode and moving an axis.
+
+**ExternalInput**, **ExternalOutput** encapsulate any object of the Bliss configuration into Input/Output
+and can be used by a **SoftLoop**.
+
+**SoftLoop** runs a software PID algorithm using any pair of Input/Output.
+
+
 
 ### External Input/Output
 
@@ -344,9 +368,12 @@ Out [3]:
 
 **PID tunning methods:**
 
-- `Loop.kp`: get/set the 'proportional' coefficient of the PID regulation algorithm.
-- `Loop.ki`: get/set the 'integral' coefficient of the PID regulation algorithm.
-- `Loop.kd`: get/set the 'derivative' coefficient of the PID regulation algorithm.
+- `Loop.kp`: get/set the proportional coefficient of the PID regulation algorithm.
+- `Loop.ki`: get/set the integral coefficient of the PID regulation algorithm.
+- `Loop.kd`: get/set the derivative coefficient of the PID regulation algorithm.
+
+
+![Screenshot](img/regulation_pid_schema.jpg)
 
 **Pseudo-axis methods:**
 

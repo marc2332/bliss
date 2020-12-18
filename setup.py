@@ -207,6 +207,7 @@ def main():
         setup_requires += ["pytest-runner"]
 
     package_data = {
+        "bliss.controllers.regulation.temperature.eurotherm": ["*.txt"],
         "bliss.config.redis": ["*.conf"],
         "bliss.config.plugins": ["*.html"],
         "bliss.config.conductor.web.configuration": [

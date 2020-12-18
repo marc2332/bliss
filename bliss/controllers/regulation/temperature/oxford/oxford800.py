@@ -109,21 +109,21 @@ class Handler(object):
         return cryo.Phase_id[1] == "Hold"
 
     @get_cryo
-    def read_sample_setpoint(self, cryo):
-        """ Read sample setpoint.
+    def read_gas_setpoint(self, cryo):
+        """ Read gas setpoint.
             Return a value in Kelvin.
         """
         cryo.wait_new_status()
         return cryo.Set_temp
 
     @get_cryo
-    def read_sample_temperature(self, cryo):
+    def read_gas_temperature(self, cryo):
         cryo.wait_new_status()
         return cryo.Sample_temp
 
     @get_cryo
-    def read_sample_error(self, cryo):
-        """ Read sample error.
+    def read_gas_error(self, cryo):
+        """ Read gas error.
             Return a value in Kelvin.
         """
         cryo.wait_new_status()
@@ -158,16 +158,16 @@ class Handler(object):
         return cryo.Target_temp
 
     @get_cryo
-    def read_shield_temperature(self, cryo):
-        """ Read the shield temperature
+    def read_evap_temperature(self, cryo):
+        """ Read the evap temperature
             Return a value in Kelvin.
         """
         cryo.wait_new_status()
         return cryo.Evap_temp
 
     @get_cryo
-    def read_cold_head_temperature(self, cryo):
-        """ Read the cold head temperature
+    def read_suct_temperature(self, cryo):
+        """ Read the suct temperature
             Return a value in Kelvin.
         """
         cryo.wait_new_status()
@@ -175,35 +175,35 @@ class Handler(object):
 
     @get_cryo
     def read_gas_flow(self, cryo):
-        """ Read the gas flow (cryodrive speed).
+        """ Read the gas flow (l/min).
         """
         cryo.wait_new_status()
         return cryo.Gas_flow
 
     @get_cryo
-    def read_sample_heat(self, cryo):
-        """ Read the sample stage heater.
+    def read_gas_heat(self, cryo):
+        """ Read the gas heater.
         """
         cryo.wait_new_status()
         return cryo.Gas_heat
 
     @get_cryo
-    def read_shield_heat(self, cryo):
-        """ Read the shield heater.
+    def read_evap_heat(self, cryo):
+        """ Read the evap heater.
         """
         cryo.wait_new_status()
         return cryo.Evap_heat
 
     @get_cryo
-    def read_average_sample_heat(self, cryo):
-        """ Read the average value of sample heater.
+    def read_suct_heat(self, cryo):
+        """ Read the suct heater.
         """
         cryo.wait_new_status()
         return cryo.Average_suct_heat
 
     @get_cryo
-    def read_cryodrive_status(self, cryo):
-        """ Read cryodrive status.
+    def read_line_pressure(self, cryo):
+        """ Read Back pressure [100*bar]
         """
         cryo.wait_new_status()
         return cryo.Back_pressure

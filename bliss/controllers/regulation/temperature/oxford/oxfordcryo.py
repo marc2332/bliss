@@ -174,6 +174,7 @@ class StatusPacket:
         "AlarmConditionStartUpFail",
         "AlarmConditionLowFlow",
         "AlarmConditionTempFail",
+        # "AlarmConditionGasTypeError",  #11  differences from doc starts here!
         "AlarmConditionTempReadingError",
         "AlarmConditionSensorFail",
         "AlarmConditionBrownOut",
@@ -521,20 +522,20 @@ class OxfordCryostream:
     def is_paused(self):
         return self.statusPacket.phase == "Hold"
 
-    def read_sample_setpoint(self):
-        """ Read sample setpoint.
+    def read_gas_setpoint(self):
+        """ Read gas setpoint.
             Return a value in Kelvin.
         """
         return self.statusPacket.gas_set_point
 
-    def read_sample_temperature(self):
-        """ Read sample temperature.
+    def read_gas_temperature(self):
+        """ Read gas temperature.
             Return a value in Kelvin
         """
         return self.statusPacket.gas_temp
 
-    def read_sample_error(self):
-        """ Read sample error.
+    def read_gas_error(self):
+        """ Read gas error.
             Return a value in Kelvin.
         """
         return self.statusPacket.gas_error
@@ -559,40 +560,40 @@ class OxfordCryostream:
         """
         return self.statusPacket.target_temp
 
-    def read_shield_temperature(self):
-        """ Read the shield temperature
+    def read_evap_temperature(self):
+        """ Read the evap temperature
             Return a value in Kelvin.
         """
         return self.statusPacket.evap_temp
 
-    def read_cold_head_temperature(self):
-        """ Read the cold head temperature
+    def read_suct_temperature(self):
+        """ Read the suct temperature
             Return a value in Kelvin.
         """
         return self.statusPacket.suct_temp
 
     def read_gas_flow(self):
-        """ Read the gas flow (cryodrive speed).
+        """ Read the gas flow (l/min).
         """
         return self.statusPacket.gas_flow
 
-    def read_sample_heat(self):
-        """ Read the sample stage heater.
+    def read_gas_heat(self):
+        """ Read the gas heater.
         """
         return self.statusPacket.gas_heat
 
-    def read_shield_heat(self):
-        """ Read the shield heater.
+    def read_evap_heat(self):
+        """ Read the evap heater.
         """
         return self.statusPacket.evap_heat
 
-    def read_average_sample_heat(self):
-        """ Read the average value of sample heater.
+    def read_suct_heat(self):
+        """ Read suct heater.
         """
         return self.statusPacket.suct_heat
 
-    def read_cryodrive_status(self):
-        """ Read cryodrive status.
+    def read_line_pressure(self):
+        """ Read Back pressure [100*bar]
         """
         return self.statusPacket.line_pressure
 

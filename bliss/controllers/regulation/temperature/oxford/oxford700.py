@@ -81,7 +81,8 @@ class Oxford700(Controller):
            read value  (in input unit)    
         """
         log_info(self, "Controller:read_input: %s" % (tinput))
-        return self.hw_controller.read_sample_temperature()
+        # read_evap_temperature / read_suct_temperature
+        return self.hw_controller.read_gas_temperature()
 
     def read_output(self, toutput):
         """
@@ -95,8 +96,8 @@ class Oxford700(Controller):
            read value (in output unit)         
         """
         log_info(self, "Controller:read_output: %s" % (toutput))
-        # read_gas_flow / read_sample_heat / read_shield_heat
-        return self.hw_controller.read_average_sample_heat()
+        # read_gas_flow / read_gas_heat / read_evap_heat
+        return self.hw_controller.read_suct_heat()
 
     def state_input(self, tinput):
         """
@@ -126,7 +127,7 @@ class Oxford700(Controller):
         log_info(self, "Controller:state_output: %s" % (toutput))
         rmode = self.hw_controller.read_run_mode()
         phase = self.hw_controller.read_phase()
-        return (rmode, phase)  # read_cryodrive_status
+        return (rmode, phase)
 
     # ------ PID methods ------------------------
 

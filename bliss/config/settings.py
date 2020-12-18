@@ -543,15 +543,13 @@ class QueueSettingProp(BaseSetting):
 
 class BaseHashSetting(BaseSetting):
     """
-    A Setting stored as a key,value pair in Redis
+    A `Setting` stored as a key,value pair in Redis
 
-    Args:
+    Arguments:
         name: name of the BaseHashSetting (used on Redis)
         connection: Redis connection object
-            read_type_conversion: conversion of data applyed
-                after reading
-            write_type_conversion: conversion of data applyed
-                before writing
+        read_type_conversion: conversion of data applied after reading
+        write_type_conversion: conversion of data applied before writing
     """
 
     def __init__(
@@ -740,15 +738,13 @@ end
 class OrderedHashSetting(BaseHashSetting):
     """
     A Setting stored as a key,value pair in Redis
-    The insertion order is mantained
+    The insertion order is maintained
 
-    Args:
+    Arguments:
         name: name of the BaseHashSetting (used on Redis)
         connection: Redis connection object
-            read_type_conversion: conversion of data applyed
-                after reading
-            write_type_conversion: conversion of data applyed
-                before writing
+        read_type_conversion: conversion of data applied after reading
+        write_type_conversion: conversion of data applied before writing
     """
 
     add_key_script_sha1 = None
@@ -911,13 +907,9 @@ class HashSetting(BaseHashSetting):
     Args:
         name: name of the HashSetting (used on Redis)
         connection: Redis connection object
-            read_type_conversion: conversion of data applyed
-                after reading
-            write_type_conversion: conversion of data applyed
-                before writing
-    kwargs:
-        default_values: dictionary of default values retrieved
-            on fallback
+        read_type_conversion: conversion of data applied after reading
+        write_type_conversion: conversion of data applied before writing
+        default_values: dictionary of default values retrieved on fallback
     """
 
     def __init__(

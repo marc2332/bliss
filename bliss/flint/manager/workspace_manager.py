@@ -225,6 +225,31 @@ class WorkspaceData(dict):
 
 
 class WorkspaceManager(qt.QObject):
+    """
+    The WorkspaceManager provide an API to manage the workspaces.
+
+    It provides 3 different scopes:
+
+    - current scope: the current workspace
+    - flint scope: The state of the workspaces as it was edited during this Flint
+        execution
+    - persistent scope: The state of the workspaces with persistent storage in
+        Redis
+
+    The name of the current workspace is saved in Redis inside each session
+    in order to restart Flint with the last used workspace.
+
+    A modified workspace is automatically stored in the flint scope, and can be
+    reused while Flint is not closed.
+
+    An explicit `save` action have to be triggered to save the current workspace
+    in the persistent scope. It is stored in Redis independently of the current
+    session: From any session, any workspace can be loaded and saved.
+
+    A `reload` action is provided in order to reload the previous stored state
+    from the persistent  scope of the current workspace. This is to prevent user
+    mistakes: something done wrong can be reverted.
+    """
 
     DEFAULT = "base"
 
@@ -342,6 +367,9 @@ class WorkspaceManager(qt.QObject):
         return names
 
     def renameCurrentWorkspaceAs(self):
+        """
+        Rename the current workspace and stay in this workspace.
+        """
         flintModel = self.mainManager().flintModel()
         workspace = flintModel.workspace()
         workspace.name()
@@ -359,6 +387,10 @@ class WorkspaceManager(qt.QObject):
         self.renameWorkspaceAs(workspace, name)
 
     def saveCurrentWorkspaceAs(self):
+        """
+        Save the current workspace as another name and switch to this new
+        workspace.
+        """
         flintModel = self.mainManager().flintModel()
         workspace = flintModel.workspace()
         workspace.name()
@@ -385,6 +417,12 @@ class WorkspaceManager(qt.QObject):
         return name
 
     def loadLastWorkspace(self):
+        """
+        Load the last used workspace.
+
+        If Flint is not yet in a specific BLISS session, the default workspace
+        is loaded.
+        """
         try:
             # The last workspace name is part of a session
             name = self.__getLastWorkspaceName()
@@ -468,6 +506,7 @@ class WorkspaceManager(qt.QObject):
         return setting
 
     def reloadCurrentWorkspace(self):
+        """Reload the current workspace from the persistent storage"""
         flintModel = self.mainManager().flintModel()
         workspace = flintModel.workspace()
         name = workspace.name()
@@ -481,6 +520,10 @@ class WorkspaceManager(qt.QObject):
         return name in settings
 
     def loadWorkspace(self, name: str, flintScope: bool = True):
+        """Load a workspace name and switch to it.
+
+        The current workspace is lost.
+        """
         _logger.debug("Load workspace '%s'", name)
         manager = self.mainManager()
         flintModel = manager.flintModel()
@@ -572,6 +615,13 @@ class WorkspaceManager(qt.QObject):
         _logger.debug("Load workspace '%s': done", name)
 
     def removeWorkspace(self, name: str):
+        """Remove a workspace from all the storage.
+
+        If it's the default workspace, the action is cancelled.
+
+        If the current workspace is the one to remove, switch first to the
+        default workspace and then remove the requested workspace.
+        """
         if name == self.DEFAULT:
             _logger.warning("The base workspace can't be removed", self.DEFAULT)
             return
@@ -606,6 +656,7 @@ class WorkspaceManager(qt.QObject):
         self.loadWorkspace(name)
 
     def saveCurrentWorkspace(self):
+        """Save the current workspace to the persistent storage"""
         flintModel = self.mainManager().flintModel()
         workspace = flintModel.workspace()
         self.saveWorkspace(workspace, flintScope=False)
@@ -658,6 +709,7 @@ class WorkspaceManager(qt.QObject):
             self.__saveCurrentWorkspaceName(name)
 
     def saveWorkspaceAs(self, workspace: flint_model.Workspace, name: str):
+        """Save a workspace as a new name"""
         previous = workspace.name()
         if previous == name:
             return
@@ -667,6 +719,7 @@ class WorkspaceManager(qt.QObject):
         flintModel.setWorkspace(workspace)
 
     def renameWorkspaceAs(self, workspace: flint_model.Workspace, name: str):
+        """Rename a workspace as a new name"""
         previous = workspace.name()
         if previous == name:
             return

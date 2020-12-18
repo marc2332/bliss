@@ -277,7 +277,7 @@ def test_sequence_events(session):
                     node.type,
                     re.split(r"test_sequence_events[0-9,_]*:", node.db_name)[-1],
                 )
-                print(event)
+                print(len(event_dump), event)
                 event_dump.append(event)
                 nend += eventtype == eventtype.END_SCAN
                 if nend == nscans:
@@ -325,7 +325,6 @@ def test_sequence_events(session):
         ("NEW_DATA", "node_ref_channel", "2_sequence_of_scans:GroupingMaster:scans")
     )
     assert idx_before < idx_after
-    idx_before = idx_after
 
     idx_after = event_dump.index(("END_SCAN", "scan", "3_ascan"))
     assert idx_before < idx_after

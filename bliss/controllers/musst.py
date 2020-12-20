@@ -84,6 +84,8 @@ class MusstSamplingCounterController(SamplingCounterController):
         self.musst_ctrl = musst
         # Hack to not references counters
         self._counters = weakref.WeakValueDictionary()
+        # High frequency acquisition loop
+        self.max_sampling_frequency = None
 
     def read_all(self, *counters):
         """ return the values of the given counters as a list.
@@ -350,6 +352,9 @@ class musst:
 
         self.sampling_counters = MusstSamplingCounterController(self)
         self.integrating_counters = MusstIntegratingCounterController(self)
+
+        max_freq = config_tree.get("max_sampling_frequency")
+        self.sampling_counters.max_sampling_frequency = max_freq
 
         self._channels = None
         self._timer_factor = None

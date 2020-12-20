@@ -137,7 +137,7 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
         self._ready_event.set()
 
         # self.mode_helpers will be populated with the `mode_lambdas`
-        # according to the counters involved in the acquistion. One
+        # according to the counters involved in the acquisition. One
         # entry per counter, order matters!
         self.mode_helpers = list()
 
@@ -287,8 +287,8 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
                 [[0, 0, 0, numpy.nan, numpy.nan]] * len(self._counters)
             )
 
-            # empty structur to save samples
-            # in SamplingMode.SAMPLES: list of indidual samples
+            # empty structure to save samples
+            # in SamplingMode.SAMPLES: list of individual samples
             # in SamplingMode.SINGLE: first sample
             # in SamplingMode.LAST: last sample
             samples = [[] for _ in range(len(self._counters))]
@@ -481,7 +481,7 @@ class IntegratingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
             self._AcquisitionObject__start_once = p.start_once
         else:
             raise ValueError(
-                "Wrong master node! This acquistion object is not placed below the expected master_controller acquisition object"
+                "Wrong master node! This acquisition object is not placed below the expected master_controller acquisition object"
             )
 
     def prepare(self):

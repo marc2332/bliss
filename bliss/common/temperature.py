@@ -212,7 +212,7 @@ class Output(SamplingCounterController):
     def _setpoint_state(self, deadband=None):
         """
         Return a string representing the setpoint state of an Output class type object.
-        If a setpoint is set (by ramp or by direct setting) on an ouput, the status
+        If a setpoint is set (by ramp or by direct setting) on an output, the status
         will be RUNNING until it is in the deadband.
         This RUNNING state is used by the ramping event loop in the case a user wants
         to block on the Output ramp method (wait=True)

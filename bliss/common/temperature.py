@@ -14,7 +14,7 @@ import functools
 import gevent
 import gevent.event
 from bliss.common.task import task
-from bliss.common.logtools import *
+from bliss.common.logtools import log_debug
 from bliss.common.utils import autocomplete_property
 from bliss.common.utils import with_custom_members
 from bliss import global_map
@@ -51,6 +51,8 @@ class Input(SamplingCounterController):
 
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
+
+        self.max_sampling_frequency = config.get("max_sampling_frequency", 5)
 
         global_map.register(self, parents_list=[controller])
 
@@ -109,6 +111,8 @@ class Output(SamplingCounterController):
 
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
+
+        self.max_sampling_frequency = config.get("max_sampling_frequency", 5)
 
         global_map.register(self, parents_list=[controller])
 
@@ -392,6 +396,8 @@ class Loop(SamplingCounterController):
 
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
+
+        self.max_sampling_frequency = config.get("max_sampling_frequency", 5)
 
     @property
     def controller(self):

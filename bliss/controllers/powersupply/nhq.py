@@ -743,6 +743,7 @@ class Nhq:
 
         tag2unit = {"voltage": "V", "current": "A"}
         self._cc = NhqCC(self.name + "_cc", self)
+        self._cc.max_sampling_frequency = config.get("max_sampling_frequency", 1)
 
         for conf in cnts_conf:
 

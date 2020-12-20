@@ -270,12 +270,10 @@ class PI_E51X(Controller):
         """
         return self.comm.write_readline(cmd.encode()).decode()
 
-    def raw_write_readlines(self, cmd, lines):
+    def raw_write_readlines(self, cmd: str, lines: int):
         """
-        - Adds '\n' terminator to <cmd> string
-        - Sends <cmd> string to the controller and read back <lines> lines
-        - <cmd>: 'str'
-        - <lines>: 'int'
+        - Adds '\\n' terminator to `cmd` string
+        - Sends `cmd` string to the controller and read back <lines> lines
         """
         _cmd = cmd.encode() + b"\n"
         return "\n".join(self.comm.write_readlines(_cmd, lines).decode())

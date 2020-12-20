@@ -297,8 +297,10 @@ class Transfocator:
     def tfstatus_set(self, value):
         """ Write the bit value in the WAGO. Check if the status corresponds
             to the value.
+
         Args:
             value (int): The value, representing the addition of the active bits
+
         Raises:
             RuntimeError: Timeout waiting for status to be the sane as value.
         """
@@ -334,7 +336,8 @@ class Transfocator:
         return positions
 
     def status_read(self):
-        """ The status of the transfocator as tuple
+        """ The status of the transfocator as tuple.
+
         Returns:
             (tuple): Two strings, where the first contains all the labels and
                      the second - all the positions (IN or OUT)
@@ -377,7 +380,8 @@ class Transfocator:
 
     def set_n(self, *idx_values):
         """ Set the lenses. Check if there is a security pinhole to be set.
-            To be used by __setitem__()
+            To be used by `__setitem__()`
+
         Args:
             (list): Lense index, lens value
         """

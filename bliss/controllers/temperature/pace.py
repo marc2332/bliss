@@ -284,11 +284,14 @@ class pace(Controller):
 
     def start_ramp(self, toutput, sp, **kwargs):
         """ Send the command to start ramping to a setpoint.
+
         Args:
            toutput (object): Output class type object
            sp (float): pressure set-point
+
         Kwargs:
            rate (float): ramp rate in current units per second
+
         Raises:
            RuntimeError: the ramp rate is not set
         """
@@ -301,6 +304,7 @@ class pace(Controller):
 
     def set_ramprate(self, toutput, rate, **kwargs):
         """ Set the ramp rate.
+
          Args:
             toutput (object): Output class type object
             rate (float): Desired rate in pressure units per second

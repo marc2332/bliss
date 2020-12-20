@@ -101,17 +101,17 @@ class VSCANNER(Controller):
 
     def read_position(self, axis, last_read={"t": time.time(), "pos": [None, None]}):
         """
-        Return position's setpoint of <axis> in controller units (Volts)
-        * Booth axis setpoint positions are read simultaneously.
+        Return position's setpoint of `axis` in controller units (Volts)
+
+        * Both axis setpoint positions are read simultaneously.
           the result is time-stamped and kept in cache.
         * values are in Volts; command used is "?VXY"
 
         Args:
-            - <axis> : bliss axis.
-            - [<measured>] : boolean : if True, function must
-              return measured position.
+            axis: bliss axis
+
         Return:
-            - <position> : float : axis setpoint in Volts.
+            float: axis setpoint in Volts.
         """
         cache = last_read
 
@@ -358,8 +358,9 @@ class VSCANNER(Controller):
     def stop(self, axis):
         """
         Halt a scan (not a movement ?)
+
         If a scan is running, it is stopped and the output voltages
-           are set back to the initial values.
+        are set back to the initial values.
         """
         self.send_no_ans(axis, "STOP")
 
@@ -368,26 +369,16 @@ class VSCANNER(Controller):
     To encode/decode and to be exported in Tango DS.
     """
 
-    def raw_write(self, cmd):
-        """
-        - <cmd> must be 'str'
-        """
+    def raw_write(self, cmd: str):
         self.comm.write(cmd.encode())
 
-    def raw_write_read(self, cmd):
-        """
-        - <cmd> must be 'str'
-        - Return 'str'
-        """
+    def raw_write_read(self, cmd: str) -> str:
         return self.comm.write_readline(cmd.encode(), eol="\r\n").decode()
 
-    def raw_write_readlines(self, cmd, lines):
+    def raw_write_readlines(self, cmd: str, lines: int) -> str:
         """
-        - Add '\r\n' terminator to <cmd> string
-        - Send <cmd> string to the controller and read back <lines> lines
-        - <cmd>: 'str'
-        - <lines>: 'int'
-        Return 'str'
+        - Add '\\r\\n' terminator to `cmd` string
+        - Send `cmd` string to the controller and read back `lines` lines
         """
         _cmd = cmd.encode() + b"\r\n"
 
@@ -460,25 +451,22 @@ class VSCANNER(Controller):
         info_str += self.comm.__info__()
         return info_str
 
-    def send(self, axis, cmd):
+    def send(self, axis, cmd: str):
         """
-        - Send command <cmd> to the VSCANNER.
-        - Type of <cmd> must be 'str'
-        - Convert <cmd> into 'bytes'
-        - Add the terminator characters : "\r\n"
-        - Channel is defined in <cmd>.
-        - <axis> is passed for debugging purposes.
+        Send command `cmd` to the VSCANNER.
+
+        - Convert `cmd` into 'bytes'
+        - Add the terminator characters : "\\r\\n"
+        - Channel is defined in `cmd`.
+        - `axis` is passed for debugging purposes.
         - Return answer from controller.
 
         Args:
-            - <axis> : passed for debugging purposes.
-            - <cmd> : command to send to controller (Channel is already mentionned  in <cmd>).
+            axis: passed for debugging purposes.
+            cmd: command to send to controller (Channel is already mentionned  in `cmd`).
 
         Return:
             - 1-line answer received from the controller (without "\\\\n" terminator).
-
-        Raise:
-            ?
         """
 
         # Do not log communications ? we can activate debug on serial...
@@ -498,14 +486,14 @@ class VSCANNER(Controller):
         # print "    Sending: %r Receiving: %r  (duration : %g)" % (_cmd, _ans, _duration)
         return _ans
 
-    def send_no_ans(self, axis, cmd):
+    def send_no_ans(self, axis, cmd: str):
         """
-        - Send command <cmd> to the VSCANNER
-        - Type of <cmd> must be 'str'
-        - Add the 'newline' terminator character : "\r\n"
-        - Convert <cmd> into 'bytes'
-        - Channel is defined in <cmd>
-        - <axis> is passed for debugging purposes
+        Send command `cmd` to the VSCANNER.
+
+        - Add the 'newline' terminator character : "\\r\\n"
+        - Convert `cmd` into 'bytes'
+        - Channel is defined in `cmd`
+        - `axis` is passed for debugging purposes
         - Used for answer-less commands, then return nothing
         """
         # log_debug(self, "send_no_ans : cmd=%r" % cmd)

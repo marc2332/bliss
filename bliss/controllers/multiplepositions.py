@@ -259,18 +259,20 @@ class MultiplePositions(IcatPublisher):
             for axis in axes:
                 event.disconnect(axis["axis"], "move_done", self.__move_done)
 
-    def move(self, label, wait=True):
-        """ Move the motors to the destination, simultaneously or not,
-            as defined in the config - move_simultaneously parameter
-            (default value True).
-            Wait the end of the move or not. Warning: only the simultaneosly
-            moving motors can set wait=False. Otherwise the motors will move
-            one after another in the order of the configuration file.
+    def move(self, label: str, wait: bool = True):
+        """Move the motors to the destination.
+
+        The move can be simultaneous or not, as defined in the config
+        `move_simultaneously` parameter (default value True).
+
+        Wait the end of the move or not. Warning: only the simultaneosly
+        moving motors can set wait=False. Otherwise the motors will move
+        one after another in the order of the configuration file.
+
         Args:
-            label (str): The label of the position to move to.
-        Kwargs:
-            wait (bool): Wait until the end of the movement of all the motors.
-                         default value - True.
+            label: The label of the position to move to.
+            wait: Wait until the end of the movement of all the motors.
+
         Raises:
             RuntimeError: Wrong label
         """
@@ -316,12 +318,14 @@ class MultiplePositions(IcatPublisher):
             self._position_channel.value = "unknown"
             self._state_channel.value = self.state
 
-    def wait(self, timeout=None, label=None):
+    def wait(self, timeout: float = None, label: str = None):
         """ Wait for the motors to finish their movement.
+
         Args:
-            timeout(float): Timeout [s].
-            label(str): Destination position label (only in case of
-                                                    non silultaneous move).
+            timeout: Timeout in second.
+            label: Destination position label (only in case of
+                   non silultaneous move).
+
         Raises:
             RuntimeError: Timeout while waiting for motors to move
         """
@@ -420,17 +424,22 @@ class MultiplePositions(IcatPublisher):
                 return label
         return "unknown"
 
-    def update_position(self, label, motors_destinations_list=None, description=None):
-        """ Update existing label to new motor position(s). If only the label
-            specified, the current motor(s) position replaces the previous one.
+    def update_position(
+        self, label: str, motors_destinations_list: list = None, description: str = None
+    ):
+        """Update existing label to new motor position(s).
+
+        If only the label specified, the current motor(s) position replaces
+        the previous one.
+
         Args:
-            label (str): The unique position label.
-        Kwargs:
-            motors_destinations_list (list): List of motor(s) or
-                                          tuples (motor, position, tolerance).
-                                          Important: motor is an Axis object.
-                                          tolerance is optional
-            description (str): The description of the position.
+            label: The unique position label.
+            motors_destinations_list: List of motor(s) or
+                                      tuples (motor, position, tolerance).
+                                      Important: motor is an Axis object.
+                                      tolerance is optional
+            description: The description of the position.
+
         Raises:
             TypeError: motors_destinations_list must be a list
             RuntimeError: Invalid label
@@ -481,15 +490,19 @@ class MultiplePositions(IcatPublisher):
         self._config.save()
         self._read_config()
 
-    def create_position(self, label, motors_destinations_list, description=None):
+    def create_position(
+        self, label: str, motors_destinations_list: list, description: str = None
+    ):
         """ Create new position.
+
         Args:
-            label (str): The unique position label.
-            motors_destinations_list (list): List of motor(s) or
-                                          tuples (motor, position, tolerance).
-                                          Important: motor is an Axis object.
-                                                     tolerance is optional.
-            description (str): The description of the position.
+            label: The unique position label.
+            motors_destinations_list: List of motor(s) or
+                                      tuples (motor, position, tolerance).
+                                      Important: motor is an Axis object.
+                                      tolerance is optional.
+            description: The description of the position.
+
         Raises:
             TypeError: motors_destinations_list must be a list
         """

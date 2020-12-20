@@ -11,6 +11,7 @@ import gevent
 import h5py
 import numpy
 import tango
+import mock
 
 from bliss.common.counter import SamplingCounter, SamplingMode, SoftCounter
 from bliss.common.scans import loopscan, ct, ascan
@@ -217,6 +218,7 @@ def test_SampCnt_mode_STATS(session):
     assert all(numpy.isnan(data_slow["test-sample_std"]))
 
     c_fast = SoftCounter(o, "read_fast", name="test-stat", mode=SamplingMode.STATS)
+    c_fast.max_sampling_frequency = None
 
     s_fast = ascan(ax, 1, 9, 8, .1, c_fast, save=False)
 
@@ -326,6 +328,7 @@ def test_SampCnt_mode_LAST(session):
     o = Timed_Diode()
     ax = SoftAxis("test-sample-pos", o)
     c = SoftCounter(o, "read_last", name="test", mode=SamplingMode.LAST)
+    c.max_sampling_frequency = None
 
     s = ascan(ax, 1, 9, 8, .1, c, save=False)
 
@@ -582,6 +585,7 @@ def test_multiple_samp_cnt_one_ctrl(default_session):
             self.counter3 = 0
             self.counter4 = 0
             self.counter5 = 0
+            self.max_sampling_frequency = None
 
         def read(self, counter):
             val = getattr(self, counter.name)
@@ -614,3 +618,20 @@ def test_multiple_samp_cnt_one_ctrl(default_session):
     dat2 = s.get_data()
     assert all(dat2["ctrl1:counter3"] < dat2["ctrl1:counter1"])
     assert all(dat2["ctrl1:counter1"] < dat2["ctrl1:counter4"])
+
+
+def test_sampling_counter_frequency(default_session):
+    diode = default_session.config.get("diode")
+    diodeCC = diode._counter_controller
+
+    for f in [1, 20]:
+        diodeCC.max_sampling_frequency = f
+        with mock.patch.object(
+            diodeCC, "read_all", wraps=diodeCC.read_all
+        ) as mocked_readall:
+            ct(1, diode)
+            assert mocked_readall.call_count == f
+
+    for val in [0, "1.5"]:
+        with pytest.raises(ValueError):
+            diodeCC.max_sampling_frequency = val

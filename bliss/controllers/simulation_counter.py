@@ -550,10 +550,12 @@ class FixedShapeCounter:
 
 class AutoFilterDetMon:
     """Simulated monitor (flat signal) and detector counter with
-    has a gaussian shape with maximum `monitor * transmission`.
+    has a gaussian shape with maximum :code:`monitor * transmission`.
 
     The predefined peak shape can be obtained by scanning the
     associated software axis from 0 to 1:
+
+    .. code-block:: python
 
         s = self.auto_filter.ascan(self.axis, 0, 1, self.npoints, expo, *self.detectors)
     """

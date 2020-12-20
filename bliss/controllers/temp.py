@@ -13,24 +13,26 @@ Class to be inherited by temperature controllers
 Example of .yml file for a mockup temperature controller
 with the mandatory fields:
 
-controller:
-    class: mockup                   <- mandatory
-    host: lid269
-    inputs:
-        -
-            name: thermo_sample     <- mandatory
-    outputs:
-        -
-            name: heater            <- mandatory
-            low_limit: 10           <- recommended (default: None)
-            high_limit: 200         <- recommended (default: None)
-            deadband: 0.1           <- recommended (default: None)
+.. code-block::
 
-    ctrl_loops:
-        -
-            name: sample_regulation <- mandatory
-            input: $thermo_sample   <- mandatory
-            output: $heater         <- mandatory
+    controller:
+        class: mockup                   <- mandatory
+        host: lid269
+        inputs:
+            -
+                name: thermo_sample     <- mandatory
+        outputs:
+            -
+                name: heater            <- mandatory
+                low_limit: 10           <- recommended (default: None)
+                high_limit: 200         <- recommended (default: None)
+                deadband: 0.1           <- recommended (default: None)
+    
+        ctrl_loops:
+            -
+                name: sample_regulation <- mandatory
+                input: $thermo_sample   <- mandatory
+                output: $heater         <- mandatory
 """
 import itertools
 from gevent import lock

@@ -137,17 +137,19 @@ def all_equal(iterable):
 
 
 def split_keys_to_tree(dico, separator):
-    """ Takes a dict, iterate over keys and split the key around 'separator' into tags.
-        Then creates a nested dict (like a tree) where each tag is a node.
+    """Takes a dict, iterate over keys and split the key around 'separator'
+    into tags.
 
-        example: with dico = {'A_B_C':1, 'A_B_D':2} and separator = '_'
-            returns {'A':
-                        {'B': 
-                            {'C':1, 'D':2}, 
-                        },
-                    }
+    Then creates a nested dict (like a tree) where each tag is a node.
+
+    Example:
+
+    .. code-block:: python
+
+        dico = {'A_B_C':1, 'A_B_D':2}
+        result = split_keys_to_tree(dico, '_')
+        assert result == {'A': {'B': {'C':1, 'D':2},},}
     """
-
     tree = {}
 
     for k, v in dico.items():

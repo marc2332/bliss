@@ -1064,7 +1064,11 @@ class bcolors:
 class Switch(BaseSwitch):
     """
     Switch for PI_E712 Analog and piezo amplifier Outputs
+
     Basic configuration:
+
+    .. code-block::
+
         name: pi_switch0
         output-channel: 5       # 5 (first analogue output) 1 (first piezo amplifier)
         output-type: POSITION   # POSITION (default) or CONTROL_VOLTAGE

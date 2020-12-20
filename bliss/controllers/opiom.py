@@ -259,21 +259,25 @@ class Opiom:
 
 class Switch(BaseSwitch):
     """
-    This class wrapped opiom command to emulate a switch
-    the configuration may look like this:
-    opiom: $opiom_name
-    register: IMA
-    mask: 0x3
-    shift: 1
-    states:
-       - label: OPEN
-         value: 1
-       - label: CLOSED
-         value: 0
-       - label: MUSST
-         value: 2
-       - label: COUNTER_CARD
-         value: 3
+    This class wrapped opiom command to emulate a switch.
+
+    The configuration may look like this:
+
+    .. code-block::
+
+        opiom: $opiom_name
+        register: IMA
+        mask: 0x3
+        shift: 1
+        states:
+           - label: OPEN
+             value: 1
+           - label: CLOSED
+             value: 0
+           - label: MUSST
+             value: 2
+           - label: COUNTER_CARD
+             value: 3
     """
 
     def __init__(self, name, config):

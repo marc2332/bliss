@@ -61,6 +61,8 @@ def idint_to_float(value, integer=40, decimal=8):
     Trick: the missing sign bits can be padded using
     the following formula:
 
+    .. code-block::
+
         value |= -2 * mask(value, sign_bit)
 
     Load data:

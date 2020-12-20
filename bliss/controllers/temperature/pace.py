@@ -11,15 +11,18 @@ PACE (Pressure Automated Calibration Equipmet) , acessible via tcp sockets
 
 Only one channel to control
 yml configuration example:
-controller:
-   class: pace
-   url: 'id29pace1:5025' #host:port
-   outputs:
-     - name: pmbpress
-       low_limit: 0
-       high_limit: 2.1
-       default_unit: 'BAR'
-       channel: 1            # for 6000 only
+
+.. code-block::
+
+    controller:
+       class: pace
+       url: 'id29pace1:5025' #host:port
+       outputs:
+         - name: pmbpress
+           low_limit: 0
+           high_limit: 2.1
+           default_unit: 'BAR'
+           channel: 1            # for 6000 only
 """
 # temperature controller
 from bliss.controllers.temp import Controller

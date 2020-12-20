@@ -11,61 +11,65 @@ Example YAML_ configuration:
 
 1. Attenuator with 3 predefined positions, moving 1 motor (dummy1)
 
-class: MultiplePositions
-name: att1
-positions:
-- label: Al3
-  description: Aluminum 3 mm
-  target:
-  - axis: $dummy1
-    destination: 2.5
-    tolerance: 0.01
-- label: Cu2
-  description: Copper 2 mm
-  target:
-  - axis: $dummy1
-    destination: 2.0
-    tolerance: 0.2
-- label: Al4
-  description: Aluminum 4 mm
-  target:
-  - axis: $dummy1
-    destination: 3.5
-    tolerance: 0.01
+.. code-block::
+
+    class: MultiplePositions
+    name: att1
+    positions:
+    - label: Al3
+      description: Aluminum 3 mm
+      target:
+      - axis: $dummy1
+        destination: 2.5
+        tolerance: 0.01
+    - label: Cu2
+      description: Copper 2 mm
+      target:
+      - axis: $dummy1
+        destination: 2.0
+        tolerance: 0.2
+    - label: Al4
+      description: Aluminum 4 mm
+      target:
+      - axis: $dummy1
+        destination: 3.5
+        tolerance: 0.01
 
 2. Beamstop with 3 predefined positions, moving 2 motors at the same time
 
-class: MultiplePositions
-name: beamstop
-simultaneous_move: True
-positions:
-- label: IN
-  description: Beamstop position IN the beam
-  target:
-  - axis: $dummy1
-    destination: 2.5
-    tolerance: 0.01
-  - axis: $dummy2
-    destination: 1.0
-    tolerance: 0.2
-- label: OUT
-  description: Beamstop position OUT of the beam
-  target:
-  - axis: $dummy1
-    destination: 3.5
-    tolerance: 0.01
-  - axis: $dummy2
-    destination: 2.0
-    tolerance: 0.2
-- label: PARK
-  description: Beamstop in safe position
-  target:
-  - axis: $dummy1
-    destination: 1.5
-    tolerance: 0.01
-  - axis: $dummy2
-    destination: 0.0
-    tolerance: 0.2
+.. code-block::
+
+    class: MultiplePositions
+    name: beamstop
+    simultaneous_move: True
+    positions:
+    - label: IN
+      description: Beamstop position IN the beam
+      target:
+      - axis: $dummy1
+        destination: 2.5
+        tolerance: 0.01
+      - axis: $dummy2
+        destination: 1.0
+        tolerance: 0.2
+    - label: OUT
+      description: Beamstop position OUT of the beam
+      target:
+      - axis: $dummy1
+        destination: 3.5
+        tolerance: 0.01
+      - axis: $dummy2
+        destination: 2.0
+        tolerance: 0.2
+    - label: PARK
+      description: Beamstop in safe position
+      target:
+      - axis: $dummy1
+        destination: 1.5
+        tolerance: 0.01
+      - axis: $dummy2
+        destination: 0.0
+        tolerance: 0.2
 """
 import functools
 

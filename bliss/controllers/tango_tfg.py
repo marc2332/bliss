@@ -7,6 +7,8 @@
 """
 Usage:
 
+.. code-block::
+
     timing_info = {'cycles': 1,
                    'framesets': [{'nb_frames': 30,
                                   'latency': 0.0000001,

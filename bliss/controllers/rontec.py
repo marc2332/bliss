@@ -2,15 +2,18 @@
 Rontec MCA, acessible via serial line
 
 yml configuration example:
-name: mca
-class: rontec
-serial:
-   url: "rfc2217://lid30b2:28010"       #serial line name
-calib_c: [-0.40290063, 0.0050059618, 0]  #calibration coefficients
-or
-calib_file: rontec calibration file, formated as:
-            # calibration coefficients
-            0 0.00410435 1.2e-9
+
+.. code-block::
+
+    name: mca
+    class: rontec
+    serial:
+       url: "rfc2217://lid30b2:28010"       #serial line name
+    calib_c: [-0.40290063, 0.0050059618, 0]  #calibration coefficients
+    or
+    calib_file: rontec calibration file, formated as:
+                # calibration coefficients
+                0 0.00410435 1.2e-9
 """
 import math
 import time

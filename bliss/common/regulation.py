@@ -170,8 +170,6 @@ import gevent
 import gevent.event
 import enum
 
-from bliss import current_session
-from bliss import global_map
 from bliss.common.logtools import log_debug, disable_user_output
 from bliss.common.utils import with_custom_members, autocomplete_property
 from bliss.common.counter import SamplingCounter
@@ -216,6 +214,8 @@ class Input(SamplingCounterController):
         self._controller = controller
         self._config = config
         self._channel = None
+
+        self.max_sampling_frequency = config.get("max_sampling_frequency", 5)
 
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
@@ -382,6 +382,8 @@ class Output(SamplingCounterController):
 
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
+
+        self.max_sampling_frequency = config.get("max_sampling_frequency", 5)
 
         self.create_counter(
             SamplingCounter,
@@ -761,6 +763,8 @@ class Loop(SamplingCounterController):
             unit=self.input.config.get("unit", "N/A"),
             mode="SINGLE",
         )
+
+        self.max_sampling_frequency = config.get("max_sampling_frequency", 5)
 
         self._create_soft_axis()
 

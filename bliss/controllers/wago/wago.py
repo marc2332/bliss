@@ -2077,6 +2077,8 @@ class Wago(SamplingCounterController):
         except Exception:
             pass
 
+        self.max_sampling_frequency = config_tree.get("max_sampling_frequency", 1)
+
         try:
             self.cnt_names = config_tree["counter_names"].replace(" ", "").split(",")
         except Exception:

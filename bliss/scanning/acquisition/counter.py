@@ -295,6 +295,11 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
             counters = list(self._counters.keys())
 
             if not self._SINGLE_COUNT:
+                if self.device.max_sampling_frequency:
+                    period = 1 / self.device.max_sampling_frequency
+                else:
+                    period = 0  # maximum frequency
+
                 # Counter integration loop
                 while not self._stop_flag:
                     start_read = time.time()
@@ -327,9 +332,15 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
                             samples[i] = [read_value[i]]
 
                     current_time = time.time()
-                    if (current_time + (acc_read_time / nb_read)) > stop_time:
+                    sleep_time = max(start_read + period - current_time, 0)
+                    if (
+                        current_time + (acc_read_time / nb_read) + sleep_time
+                    ) > stop_time:
                         break
-                    gevent.sleep(0)  # to be able to kill the task
+
+                    # limit acquisition speed to controller maximum frequency
+                    gevent.sleep(sleep_time)
+
             else:
                 # SINGLE_COUNT case
                 acc_value = numpy.array(

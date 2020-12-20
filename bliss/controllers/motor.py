@@ -12,7 +12,6 @@ from bliss.common.axis import Trajectory
 from bliss.common.motor_group import Group, TrajectoryGroup
 from bliss.common import event
 from bliss.controllers.counter import SamplingCounterController
-from bliss.common.counter import SamplingCounter
 from bliss.physics import trajectory
 from bliss.common.utils import set_custom_members, object_method, grouped
 from bliss import global_map
@@ -25,6 +24,9 @@ class EncoderCounterController(SamplingCounterController):
         super().__init__("encoder")
 
         self.motor_controller = motor_controller
+
+        # High frequency acquisition loop
+        self.max_sampling_frequency = None
 
     def read_all(self, *encoders):
         try:

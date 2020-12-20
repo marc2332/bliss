@@ -1,7 +1,9 @@
 """CFFI binding."""
 
 import cffi
+import logging
 
+_logger = logging.getLogger(__name__)
 ffi = cffi.FFI()
 
 ffi.cdef(
@@ -50,4 +52,8 @@ void xiaGetVersionInfo(int *rel, int *min, int *maj, char *pretty);
 """
 )
 
-handel = ffi.dlopen("handel.dll")
+try:
+    handel = ffi.dlopen("handel.dll")
+except Exception:
+    _logger.error("Error while loading handel.dll", exc_info=True)
+    handel = None

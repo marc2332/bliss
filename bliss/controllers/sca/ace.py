@@ -745,6 +745,8 @@ class Ace:
         self._scc = AceSCC(self.name, self)
         self._icc = AceICC(self.name, self)
 
+        self._scc.max_sampling_frequency = config.get("max_sampling_frequency", 1)
+
         for conf in cnts_conf:
 
             name = conf["counter_name"].strip()

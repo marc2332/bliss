@@ -181,6 +181,8 @@ class Keithley3706(SamplingCounterController):
         # eol used by socket when reading lines.
         self.comm = get_comm(config, TCP, eol=self.msg_eol, port=5025)
 
+        self.max_sampling_frequency = config.get("max_sampling_frequency", 1)
+
         for counter_conf in config.get("counters", list()):
             unit = counter_conf.get_inherited("unit")
             slot = counter_conf.get("slot")

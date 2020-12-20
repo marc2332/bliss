@@ -28,19 +28,19 @@ LIMA_DTYPE = {
 
 
 class LimaAcquisitionMaster(AcquisitionMaster):
+    """
+    Acquisition device for lima camera.
+
+    All parameters are directly matched with the lima device server
+
+    `wait_frame_id` it's the frame number to wait for the next
+    sequence in case the synchronisation is base on data.
+    i.e: for a mesh with one fast axes (continous),
+    combine with one slow step motor. if you do 20 images per line,
+    the wait_frame_id must be equal to :code:`range(0,TOTAL_IMAGE,IMAGE_PER_LINE)`.
+    """
+
     def __init__(self, device, ctrl_params=None, **acq_params):
-        """
-        Acquisition device for lima camera.
-
-        All parameters are directly matched with the lima device server
-
-        **wait_frame_id** it's the frame number to wait for the next
-        sequence in case the synchronisation is base on data.
-        i.e: for a mesh with one fast axes (continous), 
-        combine with one slow step motor. if you do 20 images per line,
-        the wait_frame_id must be equal to range(0,TOTAL_IMAGE,IMAGE_PER_LINE).
-        """
-
         # ensure that ctrl-params have been completed
         ctrl_params = self.init_ctrl_params(device, ctrl_params)
 

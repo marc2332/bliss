@@ -5,6 +5,8 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 """
+Time frame generator (TGF) controller based on a Tango device server.
+
 Usage:
 
 .. code-block::

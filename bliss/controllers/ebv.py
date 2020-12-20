@@ -108,6 +108,9 @@ class EBVCounterController(SamplingCounterController):
         self._ebv_device = ebv_device
         self._diode_name = diode_name
 
+        # High frequency sampling acquisition loop
+        self.max_sampling_frequency = None
+
     def read(self, counter):
         if counter.name == self._diode_name:
             return self._ebv_device.current
@@ -179,6 +182,9 @@ class BpmController(SamplingCounterController):
             "Bpp32S": "int32",
             "Bpp32F": "float32",
         }
+
+        # High frequency sampling acquisition loop
+        self.max_sampling_frequency = None
 
         self.create_counter(BpmCounter, "acq_time", 0, unit="s", mode="SINGLE")
         self.create_counter(BpmCounter, "intensity", 1, mode="MEAN")
@@ -460,6 +466,9 @@ class EBV(CounterContainer):
         self._counter_controller = EBVCounterController(
             self, self._cnt_name, register_counters=False
         )
+        max_freq = config_node.get("max_sampling_frequency")
+        self._counter_controller.max_sampling_frequency = max_freq
+
         self._diode_counter = self._counter_controller.create_counter(
             SamplingCounter, self._cnt_name, unit="mA"
         )
@@ -468,6 +477,7 @@ class EBV(CounterContainer):
 
         if self._cam_tango_url:
             self._bpm = BpmController(self.name, config_node, register_counters=False)
+            self._bpm.max_sampling_frequency = config_node.get("max_sampling_frequency")
 
         self.initialize()
 

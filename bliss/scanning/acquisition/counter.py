@@ -137,7 +137,7 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
         self._ready_event.set()
 
         # self.mode_helpers will be populated with the `mode_lambdas`
-        # according to the counters involved in the acquistion. One
+        # according to the counters involved in the acquisition. One
         # entry per counter, order matters!
         self.mode_helpers = list()
 
@@ -287,14 +287,19 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
                 [[0, 0, 0, numpy.nan, numpy.nan]] * len(self._counters)
             )
 
-            # empty structur to save samples
-            # in SamplingMode.SAMPLES: list of indidual samples
+            # empty structure to save samples
+            # in SamplingMode.SAMPLES: list of individual samples
             # in SamplingMode.SINGLE: first sample
             # in SamplingMode.LAST: last sample
             samples = [[] for _ in range(len(self._counters))]
             counters = list(self._counters.keys())
 
             if not self._SINGLE_COUNT:
+                if self.device.max_sampling_frequency:
+                    period = 1 / self.device.max_sampling_frequency
+                else:
+                    period = 0  # maximum frequency
+
                 # Counter integration loop
                 while not self._stop_flag:
                     start_read = time.time()
@@ -327,9 +332,15 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
                             samples[i] = [read_value[i]]
 
                     current_time = time.time()
-                    if (current_time + (acc_read_time / nb_read)) > stop_time:
+                    sleep_time = max(start_read + period - current_time, 0)
+                    if (
+                        current_time + (acc_read_time / nb_read) + sleep_time
+                    ) > stop_time:
                         break
-                    gevent.sleep(0)  # to be able to kill the task
+
+                    # limit acquisition speed to controller maximum frequency
+                    gevent.sleep(sleep_time)
+
             else:
                 # SINGLE_COUNT case
                 acc_value = numpy.array(
@@ -481,7 +492,7 @@ class IntegratingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
             self._AcquisitionObject__start_once = p.start_once
         else:
             raise ValueError(
-                "Wrong master node! This acquistion object is not placed below the expected master_controller acquisition object"
+                "Wrong master node! This acquisition object is not placed below the expected master_controller acquisition object"
             )
 
     def prepare(self):

@@ -174,6 +174,7 @@ class Cyberstar:
         self._cc = CyberstarCC(self.name + "_cc", self)
         self._cc.create_counter(SamplingCounter, "sca_low", unit="V", mode="SINGLE")
         self._cc.create_counter(SamplingCounter, "sca_up", unit="V", mode="SINGLE")
+        self._cc.max_sampling_frequency = config.get("max_sampling_frequency", 1)
 
     def __info__(self):
         return "\n".join(self._show())

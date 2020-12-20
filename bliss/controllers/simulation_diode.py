@@ -39,6 +39,8 @@ class SimulationDiodeController(SamplingCounterController):
 
     def __init__(self):
         super().__init__(name="simulation_diode_sampling_controller")
+        # High frequency acquisition loop
+        self.max_sampling_frequency = None
 
     def read_all(self, *counters):
         gevent.sleep(self._read_overhead)
@@ -108,4 +110,5 @@ def simulation_diode(name, config):
         )
     else:
         diode = SimulationDiodeSamplingCounter(name, controller)
+    controller.max_sampling_frequency = config.get("max_sampling_frequency")
     return diode

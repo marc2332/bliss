@@ -317,6 +317,8 @@ class BaseMultimeter(BeaconObject):
         self._counter_controller = BaseMultimeter._CounterController(
             "keithley", comm=comm
         )
+        max_freq = config.get("max_sampling_frequency")
+        self._counter_controller.max_sampling_frequency = max_freq
 
     def __str__(self):
         return "{0}({1})".format(self.__class__.__name__, self.name)
@@ -554,6 +556,9 @@ class AmmeterDDC(BeaconObject):
         super().__init__(config)
 
         self._counter_controller = AmmeterDDCCounterController("keithley", interface)
+        self._counter_controller.max_sampling_frequency = config.get(
+            "max_sampling_frequency", 1
+        )
 
     @property
     def name(self):

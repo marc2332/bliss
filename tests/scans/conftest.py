@@ -81,6 +81,7 @@ class DummyDevice(AcquisitionSlave):
 class CustomSimulationDiodeController(SamplingCounterController):
     def __init__(self):
         super().__init__("custom_simulation_diode_controller")
+        self.max_sampling_frequency = None
 
     def read(self, counter):
         if counter.read_exception:

@@ -334,6 +334,18 @@ class SoftCounter(SamplingCounter):
 
         return info_str
 
+    # as there is a 1-1 correspondance between counter controller and
+    # sampling counter in the case of SoftCounter, the 'max_sampling_frequency'
+    # property, which has to be set on the controller, is exposed on the
+    # SoftCounter object
+    @property
+    def max_sampling_frequency(self):
+        return self._counter_controller.max_sampling_frequency
+
+    @max_sampling_frequency.setter
+    def max_sampling_frequency(self, freq):
+        self._counter_controller.max_sampling_frequency = freq
+
 
 class CalcCounter(Counter):
     def __info__(self):

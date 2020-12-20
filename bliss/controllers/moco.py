@@ -40,6 +40,9 @@ class Moco(CounterContainer):
 
         # Counters
         self.counters_controller = MocoCounterController(self)
+        self.counters_controller.max_sampling_frequency = config_tree.get(
+            "max_sampling_frequency"
+        )
         counter_node = config_tree.get("counters")
         for config_dict in counter_node:
             if self.counters_controller is not None:

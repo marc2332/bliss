@@ -14,7 +14,7 @@ import functools
 import gevent
 import gevent.event
 from bliss.common.task import task
-from bliss.common.logtools import *
+from bliss.common.logtools import log_debug
 from bliss.common.utils import autocomplete_property
 from bliss.common.utils import with_custom_members
 from bliss import global_map
@@ -51,6 +51,8 @@ class Input(SamplingCounterController):
 
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
+
+        self.max_sampling_frequency = config.get("max_sampling_frequency", 5)
 
         global_map.register(self, parents_list=[controller])
 
@@ -109,6 +111,8 @@ class Output(SamplingCounterController):
 
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
+
+        self.max_sampling_frequency = config.get("max_sampling_frequency", 5)
 
         global_map.register(self, parents_list=[controller])
 
@@ -212,7 +216,7 @@ class Output(SamplingCounterController):
     def _setpoint_state(self, deadband=None):
         """
         Return a string representing the setpoint state of an Output class type object.
-        If a setpoint is set (by ramp or by direct setting) on an ouput, the status
+        If a setpoint is set (by ramp or by direct setting) on an output, the status
         will be RUNNING until it is in the deadband.
         This RUNNING state is used by the ramping event loop in the case a user wants
         to block on the Output ramp method (wait=True)
@@ -392,6 +396,8 @@ class Loop(SamplingCounterController):
 
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
+
+        self.max_sampling_frequency = config.get("max_sampling_frequency", 5)
 
     @property
     def controller(self):

@@ -73,8 +73,8 @@ This module implements the classes allowing the control of regulation processes 
                         P: 0.5
                         I: 0.2
                         D: 0.0
-                        low_limit: 0.0           # <-- low limit of the PID output value. Usaually equal to 0 or -1.
-                        high_limit: 1.0          # <-- high limit of the PID output value. Usaually equal to 1.
+                        low_limit: 0.0           # <-- low limit of the PID output value. Usually equal to 0 or -1.
+                        high_limit: 1.0          # <-- high limit of the PID output value. Usually equal to 1.
                         frequency: 10.0
                         deadband: 0.05
                         deadband_time: 1.5
@@ -170,8 +170,6 @@ import gevent
 import gevent.event
 import enum
 
-from bliss import current_session
-from bliss import global_map
 from bliss.common.logtools import log_debug, disable_user_output
 from bliss.common.utils import with_custom_members, autocomplete_property
 from bliss.common.counter import SamplingCounter
@@ -216,6 +214,8 @@ class Input(SamplingCounterController):
         self._controller = controller
         self._config = config
         self._channel = None
+
+        self.max_sampling_frequency = config.get("max_sampling_frequency", 5)
 
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
@@ -383,6 +383,8 @@ class Output(SamplingCounterController):
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
 
+        self.max_sampling_frequency = config.get("max_sampling_frequency", 5)
+
         self.create_counter(
             SamplingCounter,
             self.name + "_counter",
@@ -417,7 +419,7 @@ class Output(SamplingCounterController):
 
     @property
     def limits(self):
-        """ Return the limits of the ouput device (in output unit)
+        """ Return the limits of the output device (in output unit)
         """
 
         return self._limits
@@ -537,7 +539,7 @@ class Output(SamplingCounterController):
     def _set_value(self, value):
         """ Set the value for the output. Value is expressed in output unit """
 
-        # lasy_init not required here because this method is called by a method with the @lasy_init
+        # lazy_init not required here because this method is called by a method with the @lazy_init
 
         log_debug(self, "Output:_set_value %s" % value)
 
@@ -547,7 +549,7 @@ class Output(SamplingCounterController):
     def _start_ramping(self, value):
         """ Start the ramping process to target_value """
 
-        # lasy_init not required here because this method is called by a method with the @lasy_init
+        # lazy_init not required here because this method is called by a method with the @lazy_init
 
         log_debug(self, "Output:_start_ramping %s" % value)
 
@@ -704,7 +706,7 @@ class Loop(SamplingCounterController):
         -one input: an Input object to read the processed value (ex: temperature sensor).
         -one output: an Output object which has an effect on the processed value (ex: cooling device).
 
-        The regulation is automaticaly started by setting a new setpoint (Loop.setpoint = target_value).
+        The regulation is automatically started by setting a new setpoint (Loop.setpoint = target_value).
         The Loop object implements methods to manage the PID algorithm that performs the regulation.
         A Loop object is associated to one Input and one Output.
 
@@ -761,6 +763,8 @@ class Loop(SamplingCounterController):
             unit=self.input.config.get("unit", "N/A"),
             mode="SINGLE",
         )
+
+        self.max_sampling_frequency = config.get("max_sampling_frequency", 5)
 
         self._create_soft_axis()
 
@@ -1253,8 +1257,8 @@ class Loop(SamplingCounterController):
         Get the PID range (PID output value limits).
 
         Usually, the PID range must be:
-        - [ 0, 1] for uni-directionnal 'moves' on the output (like heating more or less) 
-        - [-1, 1] for bi-directionnal 'moves' on the output (like heating/cooling or relative moves with a motor axis).
+        - [ 0, 1] for uni-directional 'moves' on the output (like heating more or less) 
+        - [-1, 1] for bi-directional 'moves' on the output (like heating/cooling or relative moves with a motor axis).
 
         The PID value is the value returned by the PID algorithm.
         """
@@ -1269,8 +1273,8 @@ class Loop(SamplingCounterController):
         Set the PID range (PID output value limits).
 
         Usually, the PID range must be:
-        - [ 0, 1] for uni-directionnal 'moves' on the output (like heating more or less) 
-        - [-1, 1] for bi-directionnal 'moves' on the output (like heating/cooling or relative moves with a motor axis).
+        - [ 0, 1] for uni-directional 'moves' on the output (like heating more or less) 
+        - [-1, 1] for bi-directional 'moves' on the output (like heating/cooling or relative moves with a motor axis).
 
         The PID value is the value returned by the PID algorithm.
         """
@@ -1475,7 +1479,7 @@ class SoftLoop(Loop):
         -one input: an Input object to read the processed value (ex: temperature sensor).
         -one output: an Output object which has an effect on the processed value (ex: cooling device).
 
-        The regulation is automaticaly started by setting a new setpoint (Loop.setpoint = target_value).
+        The regulation is automatically started by setting a new setpoint (Loop.setpoint = target_value).
         The regulation is handled by the software and is based on the 'simple_pid' python module.
 
         The Loop has a ramp object. If loop.ramprate != 0 then any new setpoint cmd
@@ -1618,8 +1622,8 @@ class SoftLoop(Loop):
         Get the PID range (PID output value limits).
 
         Usually, the PID range must be:
-        - [ 0, 1] for uni-directionnal 'moves' on the output (like heating more or less) 
-        - [-1, 1] for bi-directionnal 'moves' on the output (like heating/cooling or relative moves with a motor axis).
+        - [ 0, 1] for uni-directional 'moves' on the output (like heating more or less) 
+        - [-1, 1] for bi-directional 'moves' on the output (like heating/cooling or relative moves with a motor axis).
 
         The PID value is the value returned by the PID algorithm.
         """
@@ -1633,8 +1637,8 @@ class SoftLoop(Loop):
         Set the PID range (PID output value limits).
 
         Usually, the PID range must be:
-        - [ 0, 1] for uni-directionnal 'moves' on the output (like heating more or less) 
-        - [-1, 1] for bi-directionnal 'moves' on the output (like heating/cooling or relative moves with a motor axis).
+        - [ 0, 1] for uni-directional 'moves' on the output (like heating more or less) 
+        - [-1, 1] for bi-directional 'moves' on the output (like heating/cooling or relative moves with a motor axis).
 
         The PID value is the value returned by the PID algorithm.
         """

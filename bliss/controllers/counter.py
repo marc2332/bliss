@@ -5,7 +5,6 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from collections import namedtuple
 import numpy
 from bliss import global_map
 from bliss.common.protocols import CounterContainer
@@ -59,23 +58,20 @@ class CounterController(CounterContainer):
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
         """
-        Returns an `Acquistion` object instance.
-
-        Intended to be used through by the ChainNode.
-
-        `acq_params`, `ctrl_params` and `parent_acq_params` have to be dicts (None not supported)
-
-        In case a incomplete set of `acq_params` is provided parent_acq_params may eventually
-        be used to complete acq_params before choosing which `Acquistion` object needs to be
-        instantiated or just to provide all necessary `acq_params` to the `Acquistion` object.
-
-        `parent_acq_params` should be inserted into acq_params with low priority to not overwrite
-        explicitly provided `acq_params` i.e. by using `setdefault`.
-
-        .. code-block: python
-
-            if "acq_expo_time" in parent_acq_params:
-                acq_params.setdefault("count_time", parent_acq_params["acq_expo_time"])
+        returns an Acquisition Object instance. 
+        Intended to be used through by the ChainNode. 
+        acq_params, ctrl_params and parent_acq_params have to be dicts (None not supported)
+        
+        In case a incomplete set of acq_params is provided parent_acq_params may eventually
+        be used to complete acq_params before choosing which Acquisition Object needs to be
+        instiated or just to provide all necessary acq_params to the Acquisition Object.
+        
+        parent_acq_params should be inserted into acq_params with low priority to not overwrite
+        explicitly provided acq_params i.e. by using setdefault
+        
+        e.g.
+        if "acq_expo_time" in parent_acq_params:
+            acq_params.setdefault("count_time", parent_acq_params["acq_expo_time"])
         """
         raise NotImplementedError
 
@@ -102,6 +98,26 @@ class SamplingCounterController(CounterController):
             master_controller=master_controller,
             register_counters=register_counters,
         )
+        # by default maximum sampling frequency during acquisition loop = 1 Hz
+        self.__max_sampling_frequency = 1
+
+    @property
+    def max_sampling_frequency(self):
+        """ Maximum sampling frequency in acquisition loop (Hz) (None -> no limit) """
+        return self.__max_sampling_frequency
+
+    @max_sampling_frequency.setter
+    def max_sampling_frequency(self, freq):
+        """ Maximum sampling acquisition frequency setter.
+
+        freq = <int, float> -> set the frequency
+        freq = None         -> means no limit (maximum frequency)
+        """
+        if freq and not isinstance(freq, (float, int)):
+            raise ValueError("Max frequency should be a float number or None")
+        if freq == 0:
+            raise ValueError("Max frequency should be not zero")
+        self.__max_sampling_frequency = freq
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
         return SamplingCounterAcquisitionSlave(

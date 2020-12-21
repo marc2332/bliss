@@ -16,8 +16,8 @@ Links to the card manuals:
 Quickstart
 ----------
 
-The :ref:`CT2 how-to <bliss-ct2-how-to>` provides a concise guide on how to
-configure and start working with a CT2 card.
+This documentation provides a concise guide on how to configure and start working
+with a CT2 card. Take a look at the BLISS documentation for a complete explanation.
 
 This chapter assumes you already have a ESRF_ CT2 (P201/C208) :term:`PCI`
 counter card and driver installed.
@@ -56,11 +56,7 @@ You can instantiate the :class:`CT2` from a beacon configured card:
 #. card address (mandatory). Use `/dev/ct_<card_nb>` for a local card or
    `tcp://<host>:<port>` to connect to a remote bliss rpc CT2 server.
 
-For a complete see :ref:`bliss-ct2-how-to`.
-
-For the complete CT2 YAML_ specification see :ref:`bliss-ct2-yaml`.
-
-like this::
+Like this::
 
     from bliss.config.static import get_config
 

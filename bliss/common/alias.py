@@ -165,7 +165,9 @@ class Aliases:
         alias_obj = None
 
         if isinstance(obj_or_name, str):
-            fullname = obj_or_name  # can be a motor name or a counter fullname
+            fullname = (
+                obj_or_name
+            )  # can be a motor name, a counter fullname or a session-exported, single counter object name
 
             # check if object exists
             for obj in self.__map.get_axes_iter():
@@ -173,19 +175,27 @@ class Aliases:
                     original_object = obj
                     alias_obj = ObjectAlias(alias_name, obj)
                     break
-                if obj.encoder and obj.encoder.name == fullname:
-                    # motor encoder counter
-                    obj = obj.encoder
-                    original_object = obj
-                    alias_obj = CounterAlias(alias_name, obj)
-                    break
             else:
                 # counter
-                try:
-                    obj = self.__map.get_counter_from_fullname(fullname)
-                except AttributeError:
-                    pass
+                obj = None
+                all_counters = {}
+                for obj in self.__map.get_counters_iter():
+                    if obj.fullname == fullname:
+                        break
+                    all_counters[obj.fullname] = obj
                 else:
+                    if not ":" in fullname:
+                        name = fullname  # single counter
+                        # in case of a single counter, the name will always be the last part of the fullname
+                        # since first part is devoted to the counter controller
+                        candidates = [
+                            obj
+                            for obj_fullname, obj in all_counters.items()
+                            if ":" + name in obj_fullname
+                        ]
+                        if len(candidates) == 1:
+                            obj = candidates.pop()
+                if obj:
                     original_object = obj
                     alias_obj = CounterAlias(alias_name, obj)
             if alias_obj is None:

@@ -26,6 +26,8 @@
      alias_name: dtime1
    - original_name: simu1:deadtime_det2
      alias_name: dtime2
+   - original_name: m1enc
+     alias_name: robenc
 - class: Session
   name: test_alias2
   config-objects:

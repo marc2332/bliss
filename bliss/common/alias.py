@@ -173,6 +173,12 @@ class Aliases:
                     original_object = obj
                     alias_obj = ObjectAlias(alias_name, obj)
                     break
+                if obj.encoder and obj.encoder.name == fullname:
+                    # motor encoder counter
+                    obj = obj.encoder
+                    original_object = obj
+                    alias_obj = CounterAlias(alias_name, obj)
+                    break
             else:
                 # counter
                 try:

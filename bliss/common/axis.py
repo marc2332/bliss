@@ -22,6 +22,7 @@ from bliss.config.channels import Channel
 from bliss.common.logtools import log_debug, user_print
 from bliss.common.utils import rounder
 from bliss.common.utils import autocomplete_property
+from bliss.comm.exceptions import CommunicationError
 
 import enum
 import gevent
@@ -660,7 +661,10 @@ def lazy_init(func):
             raise RuntimeError(f"Axis {self.name} is disabled")
         try:
             self.controller._initialize_axis(self)
-        except Exception:
+        except Exception as e:
+            if isinstance(e, CommunicationError):
+                # also disable the controller
+                self.controller._disabled = True
             self._disabled = True
             raise
         else:

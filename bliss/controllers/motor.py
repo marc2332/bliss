@@ -44,8 +44,6 @@ class EncoderCounterController(SamplingCounterController):
 class Controller:
     """
     Motor controller base class
-
-    See also :ref:`bliss-how-to-motor-controller`
     """
 
     def __init__(self, name, config, axes, encoders, shutters, switches):

@@ -14,8 +14,14 @@ import logging
 from bliss.comm import rpc
 from bliss import release
 import bliss
-import git
-from git import InvalidGitRepositoryError
+
+_logger = logging.getLogger(__name__)
+
+try:
+    import git
+except ImportError:
+    # Make it pass for the Sphinx API documentation
+    git = None
 
 # ??? gevent imported from handel ???
 from bliss.controllers.mca.handel import gevent
@@ -25,6 +31,9 @@ import bliss.controllers.mca.handel.interface as hi
 
 # Run server
 def run(bind="0.0.0.0", port=8000, verbose=0):
+
+    if git is None:
+        raise ImportError("git library not found")
 
     # Logging.
     logger = logging.getLogger("HANDEL_rpc")
@@ -58,7 +67,7 @@ def run(bind="0.0.0.0", port=8000, verbose=0):
         sha = repo.head.object.hexsha
         branch = repo.active_branch.name
         last_commit_date = repo.head.object.committed_datetime.isoformat()
-    except InvalidGitRepositoryError:
+    except git.InvalidGitRepositoryError:
         sha = "not in git repo directory"
         branch = "not in git repo directory"
         last_commit_date = "not in git repo directory"

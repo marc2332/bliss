@@ -17,9 +17,6 @@ Minimalistic configuration example:
    class: CT2
    type: P201
    address: /dev/ct2_0
-
-
-(for the complete CT2 YAML_ specification see :ref:`bliss-ct2-yaml`)
 """
 
 

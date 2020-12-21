@@ -16,9 +16,6 @@ Minimalistic configuration example:
    name: p201
    class: CT2
    address: tcp://lid312:8909
-
-
-(for the complete CT2 YAML_ specification see :ref:`bliss-ct2-yaml`)
 """
 
 import functools

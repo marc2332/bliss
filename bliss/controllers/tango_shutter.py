@@ -10,18 +10,21 @@ Tango shutter is used to control frontend or safety shutter or a valve.
 Some commands/attributes (like automatic/manual) are only implemented in the
 front end device server, set by the _frontend variable.
 
-example yml file:
--
-  # front end shutter
-  class: TangoShutter
-  name: frontend
-  uri: //orion:10000/fe/master/id30
+Example yml file:
 
--
-  # safety shutter
-  class: TangoShutter
-  name: safshut
-  uri: id30/bsh/1
+.. code-block::
+
+    -
+      # front end shutter
+      class: TangoShutter
+      name: frontend
+      uri: //orion:10000/fe/master/id30
+    
+    -
+      # safety shutter
+      class: TangoShutter
+      name: safshut
+      uri: id30/bsh/1
 """
 
 from enum import Enum
@@ -132,7 +135,8 @@ class TangoShutter(BaseShutter):
 
     @property
     def state_string(self):
-        """Return state as combined string
+        """Return state as combined string.
+
         Returns
             (tuple): state as string, tango status
         """

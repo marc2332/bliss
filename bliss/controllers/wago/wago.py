@@ -4,6 +4,89 @@
 #
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
+
+"""
+Physical mapping
+================
+
+Every Wago PLC is normally assembled with a central unit (Wago PLC Ethernet/IP type
+750-842) plus a variable numbers of addons as needed.
+Addon modules usually has one or more input/output that can be plugged to the outside
+world.
+
+Naming Convention:
+
+* PHYSICAL_MODULES: (int) hardware modules with I/O that you physically compose to
+  obtain the physical configuration, we will number them from 0 (first hardware module)
+  to n.
+* PHYSICAL_CHANNELS: (int) I/O inside one PHYSICAL_MODULE, we will number them from 0
+  (first channel) to n.
+
+Example
+=======
+
+.. code-block::
+
+      **********************************
+      *                                *
+      *       PLC Central Unit         *
+      *                                *
+      **********************************
+      *       Physical Module n.0      *  -> Physical Channel n.0
+      *                                *
+      *        2 Digital Output        *  -> Physical Channel n.1
+      **********************************
+      *       Physical Module n.1      *  -> Physical Channel n.0
+      *                                *
+      *        2 Digital Input         *  -> Physical Channel n.1
+      **********************************
+      *       Physical Module n.2      *  -> Physical Channel n.0
+      *                                *  -> Physical Channel n.1
+      *         4 Digital Output       *  -> Physical Channel n.2
+      *                                *  -> Physical Channel n.3
+      **********************************
+
+Logical mapping
+===============
+
+We can define LOGICAL DEVICES that will group I/O of different kind and from
+different physical modules.
+This LOGICAL MAPPING will abstract the logic from the hardware.
+
+Naming conventions:
+
+* LOGICAL_DEVICE: (string) is a mnemonic string that identify the device like:
+  foh2ctrl, esTf1, pres, sain6.
+* LOGICAL_DEVICE_KEY: (int) an enumeration of logical devices where first logical
+  device will have device key 0, second logical device will have device key 1 and so on.
+* LOGICAL_CHANNEL: (int) every Logical Device can have multiple channels that are
+  numbered from 0. One logical channel will map to a Physical Channel
+
+Example taken from a configuration:
+
+    Config:
+
+    .. code-block::
+
+        750-504, foh2ctrl, foh2ctrl, foh2ctrl, foh2ctrl
+        750-408, foh2pos, sain2, foh2pos, sain2
+        750-408, foh2pos, sain6, foh2pos, sain8
+
+    Explanation:
+
+        We have 5 logical devices: foh2ctrl, foh2pos, sain2, sain6, sain8.
+
+        * foh2ctrl has 4 logical channel from 0 to 3, they are situated in the
+                   physical module n.0 respectively on physical channels from 0 to 3
+        * foh2pos has 4 logical channel from 0 to 1, two logical channels are situated
+                  on physical module n.1 (channels n.0 and n.2) and two are situated
+                  on physical module n.2 (channels n.0 and n.2)
+        * sain2 has 2 logical channels situated on physical module n.1 on channels n.1
+                and n.3
+        * sain6 has 1 logical channel situated on physical module n.2 on channel n.1
+        * sain8 has 1 logical channel situated on physical module n.2 on channel n.3
+"""
+
 import gevent
 import ctypes
 import struct
@@ -30,84 +113,6 @@ from bliss.controllers.wago.helpers import (
 )
 
 from bliss.common.utils import ShellStr
-
-"""
-EXPLANATION AND NAMING CONVENTION
-
-PHYSICAL MAPPING
-
-Every Wago PLC is normally assembled with a central unit (Wago PLC Ethernet/IP type
-750-842) plus a variable numbers of addons as needed.
-Addon modules usually has one or more input/output that can be plugged to the outside
-world.
-
-Naming Convention:
-
- * PHYSICAL_MODULES: (int) hardware modules with I/O that you physically compose to
-obtain the physical configuration, we will number them from 0 (first hardware module)
-to n.
- * PHYSICAL_CHANNELS: (int) I/O inside one PHYSICAL_MODULE, we will number them from 0
-(first channel) to n.
-
-EXAMPLE
-
-      **********************************
-      *                                *
-      *       PLC Central Unit         *
-      *                                *
-      **********************************
-      *       Physical Module n.0      *  -> Physical Channel n.0
-      *                                *
-      *        2 Digital Output        *  -> Physical Channel n.1
-      **********************************
-      *       Physical Module n.1      *  -> Physical Channel n.0
-      *                                *
-      *        2 Digital Input         *  -> Physical Channel n.1
-      **********************************
-      *       Physical Module n.2      *  -> Physical Channel n.0
-      *                                *  -> Physical Channel n.1
-      *         4 Digital Output       *  -> Physical Channel n.2
-      *                                *  -> Physical Channel n.3
-      **********************************
-
-
-
-
-LOGICAL MAPPING
-
-We can define LOGICAL DEVICES that will group I/O of different kind and from
-different physical modules.
-This LOGICAL MAPPING will abstract the logic from the hardware.
-
-Naming conventions:
-
- * LOGICAL_DEVICE: (string) is a mnemonic string that identify the device like:
-   foh2ctrl, esTf1, pres, sain6.
- * LOGICAL_DEVICE_KEY: (int) an enumeration of logical devices where first logical
-   device will have device key 0, second logical device will have device key 1 and so on.
- * LOGICAL_CHANNEL: (int) every Logical Device can have multiple channels that are 
-   numbered from 0. One logical channel will map to a Physical Channel
-
-Example taken from a configuration:
-    Config:
-        750-504, foh2ctrl, foh2ctrl, foh2ctrl, foh2ctrl
-        750-408, foh2pos, sain2, foh2pos, sain2
-        750-408, foh2pos, sain6, foh2pos, sain8
-
-    Explanation:
-        We have 5 logical devices: foh2ctrl, foh2pos, sain2, sain6, sain8.
-        foh2ctrl has 4 logical channel from 0 to 3, they are situated in the
-                 physical module n.0 respectively on physical channels from 0 to 3
-        foh2pos has 4 logical channel from 0 to 1, two logical channels are situated
-                on physical module n.1 (channels n.0 and n.2) and two are situated
-                on physical module n.2 (channels n.0 and n.2)
-        sain2 has 2 logical channels situated on physical module n.1 on channels n.1
-              and n.3
-        sain6 has 1 logical channel situated on physical module n.2 on channel n.1
-        sain8 has 1 logical channel situated on physical module n.2 on channel n.3
-
-
-"""
 
 
 WAGO_COMMS = {}
@@ -540,16 +545,16 @@ class ModulesConfig:
 
         Returns:
             dict: 4 string keys (DIGI_IN, DIGI_OUT, ANA_IN, ANA_OUT), every
-            one contains a list of tuples that contains
-                (logical_name: str, logical_channel: int, module_name: str,
-                 physical_module_number, physical_module_channel )
-            of a logical device.
+                  one contains a list of tuples that contains
+                  (logical_name: str, logical_channel: int, module_name: str,
+                  physical_module_number, physical_module_channel )
+                  of a logical device.
 
-            The important fact is that this reflects the Wago memory, so, for example
-            the third element of ANA_IN is the third Word in Wago modbus memory area,
-            this is needed as a helper for manipulating.
-            We can have empty channels if the user does not assign names, in this case
-            we will have a None value instead.
+                  The important fact is that this reflects the Wago memory, so, for example
+                  the third element of ANA_IN is the third Word in Wago modbus memory area,
+                  this is needed as a helper for manipulating.
+                  We can have empty channels if the user does not assign names, in this case
+                  we will have a None value instead.
 
         Example:
             >>> # asking for information about the first word mapped to
@@ -1372,13 +1377,17 @@ class WagoController:
             self.devwritephys(write_operation)
 
     def devwritephys(self, array_in):
-        """Writes one or more values to the PLC
+        """Writes one or more values to the PLC.
 
-        array_in:
+        Arguments:
+            array_in:
                   - first number is logical device
                   - than pairs of logical channels and value to write
         Example:
-            devwritephys(0, 0, 3.2, 1, 7.4)
+
+        .. code-block:: python
+
+            devwritephys([0, 0, 3.2, 1, 7.4])
             # will write to logical device 0
             # value 3.2 on logical channel 0 (of logical device 0)
             # value 7.4 on logical channel 1 (of logical device 0)
@@ -1698,31 +1707,32 @@ class WagoController:
         return self.modules_config.devhard2log(array_in)
 
     def devlog2hard(self, array_in):
-        """Gives information about mapping in Wago memory of I?O
+        """Gives information about mapping in Wago memory of `I?O`.
 
         Args:
-            Logical Device Key (int)
-            Logical Channel (int)
+            array_in: A list of 2 elements:
+
+                - Logical Device Key (int)
+                - Logical Channel (int)
+
         Notes:
             Logical Channels is 0 if there is only one name associated to that Key
 
-        >>> mapping = "750-504, foh2ctrl, foh2ctrl, foh2ctrl, foh2ctrl\n750-408,2 foh2pos, sain2, foh2pos, sain4\n750-408, foh2pos, sain6, foh2pos, sain8"
-        >>> wago = WagoController("wcdp3")
+        .. code-block:: python
 
-        >>> wago.devlog2hard((0,2)) # gives the third channel with the name foh2ctrl
-
-        >>> wago.devlog2hard((1,0)) # gives the first channel with the name foh2pos
-
-        >>> wago.devlog2hard((2,0)) # gives the first (and only) channel with the name sain2
-
-        >>> wago.devlog2hard((2,1)) # will fail because there is only one channel with name sain2
+            mapping = "750-504, foh2ctrl, foh2ctrl, foh2ctrl, foh2ctrl\\n750-408,2 foh2pos, sain2, foh2pos, sain4\\n750-408, foh2pos, sain6, foh2pos, sain8"
+            wago = WagoController("wcdp3")
+            wago.devlog2hard((0,2)) # gives the third channel with the name foh2ctrl
+            wago.devlog2hard((1,0)) # gives the first channel with the name foh2pos
+            wago.devlog2hard((2,0)) # gives the first (and only) channel with the name sain2
+            wago.devlog2hard((2,1)) # will fail because there is only one channel with name sain2
 
         Returns (tuple):
-            [0] : offset in wago controller memory (ex: 0x16)
-            [1] : MSB=I/O LSB=Bit/Word (ex: 0x4957 = ('I'<<8)+'W')
-            [2] : module reference (ex: 469)
-            [3] : module number (1st is 0)
-            [4] : physical channel of the module (ex: 1 for the 2nd)
+            0. offset in wago controller memory (ex: 0x16)
+            1. MSB=I/O LSB=Bit/Word (ex: 0x4957 = ('I'<<8)+'W')
+            2. module reference (ex: 469)
+            3. module number (1st is 0)
+            4. physical channel of the module (ex: 1 for the 2nd)
         """
 
         return self.modules_config.devlog2hard(array_in)
@@ -1990,12 +2000,14 @@ class WagoCounter(SamplingCounter):
     def __call__(self, *args, **kwargs):
         return self
 
-    def gain(self, gain=None, name=None):
+    def gain(self, gain: int = None, name: str = None):
         """ Set/read the gain. The gain is set by applying values on 3 channels.
+
         Args:
-            gain (int): value of the gain. Accepted values: 0-7.
-                        Read the gain if no value
-            name (str): counter name - optional.
+            gain: value of the gain. Accepted values: 0-7.
+                  Read the gain if no value
+            name: counter name - optional.
+
         Raises:
             ValueError: the gain is out of the limits (0-7)
         """

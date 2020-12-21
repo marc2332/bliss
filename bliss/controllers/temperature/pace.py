@@ -11,15 +11,18 @@ PACE (Pressure Automated Calibration Equipmet) , acessible via tcp sockets
 
 Only one channel to control
 yml configuration example:
-controller:
-   class: pace
-   url: 'id29pace1:5025' #host:port
-   outputs:
-     - name: pmbpress
-       low_limit: 0
-       high_limit: 2.1
-       default_unit: 'BAR'
-       channel: 1            # for 6000 only
+
+.. code-block::
+
+    controller:
+       class: pace
+       url: 'id29pace1:5025' #host:port
+       outputs:
+         - name: pmbpress
+           low_limit: 0
+           high_limit: 2.1
+           default_unit: 'BAR'
+           channel: 1            # for 6000 only
 """
 # temperature controller
 from bliss.controllers.temp import Controller
@@ -281,11 +284,14 @@ class pace(Controller):
 
     def start_ramp(self, toutput, sp, **kwargs):
         """ Send the command to start ramping to a setpoint.
+
         Args:
            toutput (object): Output class type object
            sp (float): pressure set-point
+
         Kwargs:
            rate (float): ramp rate in current units per second
+
         Raises:
            RuntimeError: the ramp rate is not set
         """
@@ -298,6 +304,7 @@ class pace(Controller):
 
     def set_ramprate(self, toutput, rate, **kwargs):
         """ Set the ramp rate.
+
          Args:
             toutput (object): Output class type object
             rate (float): Desired rate in pressure units per second

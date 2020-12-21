@@ -320,7 +320,7 @@ class PI_E712(Controller):
 
     def get_identifier(self, axis):
         """
-        Returns Identification information (*IDN? command).
+        Returns Identification information (`*IDN?` command).
         """
         return self.command("*IDN?")
 
@@ -337,13 +337,13 @@ class PI_E712(Controller):
 
     def command(self, cmd, nb_line=1):
         """
-        Method to send a command to the controller
-        Read answer if needed (ie. <cmd> contains a '?').
+        Method to send a command to the controller.
 
-        * Encode <cmd> string.
-        * Add "\n" terminator.
+        Read answer if needed (ie. `cmd` contains a `?`).
+
+        - Encode `cmd` string.
+        - Add `\\n` terminator.
         """
-
         with self.sock.lock:
             cmd = cmd.strip()
             need_reply = cmd.find("?") > -1
@@ -1064,7 +1064,11 @@ class bcolors:
 class Switch(BaseSwitch):
     """
     Switch for PI_E712 Analog and piezo amplifier Outputs
+
     Basic configuration:
+
+    .. code-block::
+
         name: pi_switch0
         output-channel: 5       # 5 (first analogue output) 1 (first piezo amplifier)
         output-type: POSITION   # POSITION (default) or CONTROL_VOLTAGE

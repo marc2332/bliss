@@ -13,6 +13,7 @@ Class to be inherited by regulation controllers
 Example of .yml file for a mockup temperature controller
 with the mandatory fields:
 
+.. code-block::
 
     class: Mockup
     module: temperature.mockup

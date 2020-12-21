@@ -2,15 +2,18 @@
 Rontec MCA, acessible via serial line
 
 yml configuration example:
-name: mca
-class: rontec
-serial:
-   url: "rfc2217://lid30b2:28010"       #serial line name
-calib_c: [-0.40290063, 0.0050059618, 0]  #calibration coefficients
-or
-calib_file: rontec calibration file, formated as:
-            # calibration coefficients
-            0 0.00410435 1.2e-9
+
+.. code-block::
+
+    name: mca
+    class: rontec
+    serial:
+       url: "rfc2217://lid30b2:28010"       #serial line name
+    calib_c: [-0.40290063, 0.0050059618, 0]  #calibration coefficients
+    or
+    calib_file: rontec calibration file, formated as:
+                # calibration coefficients
+                0 0.00410435 1.2e-9
 """
 import math
 import time
@@ -117,12 +120,15 @@ class Rontec(object):
     def set_calibration(self, calib=None):
         """Set the energy calibration. Give a filename or a list of
            calibration coefficients.
+
            Kwargs:
                calib (str): optional filename with the calibration coefficients
                or
                calib (list): optional list of calibration coefficients
+
            Returns:
                calib (list): Calibration coefficients
+
            Raises:
                IOError
         """
@@ -145,18 +151,21 @@ class Rontec(object):
         return self.calib_c
 
     def get_calibration(self):
-        """Get the calibration coefficients list
+        """Get the calibration coefficients list.
+
         Returns:
             calib (list): Calibration coefficients.
         """
         return self.calib_c
 
     def reset(self, calib=None):
-        """Reset the controller and sets calibration
+        """Reset the controller and sets calibration.
+
         Kwargs:
             calib (str): optional filename with the calibration coefficients
             or
             calib(list): optional list of calibration coefficients
+
         Raises:
             RuntimeError
         """
@@ -224,7 +233,8 @@ class Rontec(object):
             return MCA_STATE.UNKNOWN
 
     def set_presets(self, **kwargs):
-        """Set presets parameters
+        """Set presets parameters.
+
            Keyword Args:
               ctime (float): real time [s]
               erange (int): the energy range. Valid entries:
@@ -266,8 +276,10 @@ class Rontec(object):
         self._check_answer(asw, b"stop_acq")
 
     def start_acq(self, ctime=None):
-        """Starts new acquisition. If cnt_time is not specified, counts for
-           the preset real time
+        """Starts new acquisition.
+
+        If cnt_time is not specified, counts for the preset real time.
+
         Keyword Args:
             cnt_time (float): count time in seconds; 0 to count indefinitely
         """

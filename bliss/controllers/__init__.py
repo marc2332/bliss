@@ -37,7 +37,6 @@ and their common API and functionality can be determined
     multiplexer
     multiplexerswitch
     musst
-    mx
     nano_bpm
     opiom
     pepu

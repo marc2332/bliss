@@ -4,7 +4,9 @@
 #
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
-
+"""
+Standard functions provided to the BLISS shell.
+"""
 
 import logging
 import contextlib
@@ -259,26 +261,27 @@ def __row(cols, fmt, sep=" "):
     return sep.join([format(col, fmt) for col in cols])
 
 
-def lslog(glob: str = None, debug_only=False) -> None:
+def lslog(glob: str = None, debug_only: bool = False):
     """
-    Search for loggers
+    Search for loggers.
+
+    It uses a pattern matching normally used by shells.
+    Common operators are `*` for any number of characters
+    and `?` for one character of any type.
+
     Args:
         glob: a logger name with optional glob matching
         debug_only: True to display only loggers at debug level
                     (equivalent to lslog)
 
-
-    Hints on glob: pattern matching normally used by shells
-                    common operators are * for any number of characters
-                    and ? for one character of any type
     Examples:
 
-        >>> lslog()  # prints all loggers
+    >>> lslog()  # prints all loggers
 
-        >>> lslog('*motor?')  # prints loggers that finish with 'motor' + 1 char
-                              # like motor1, motor2, motork
+    >>> lslog('*motor?')  # prints loggers that finish with 'motor' + 1 char
+                          # like motor1, motor2, motork
 
-        >>> lslog('*Socket*')  # prints loggers that contains 'Socket'
+    >>> lslog('*Socket*')  # prints loggers that contains 'Socket'
 
     """
     if glob is None:
@@ -548,23 +551,25 @@ def wm(*axes: _scannable_or_name, **kwargs):
     Display information (position - user and dial, limits) of the given axes
 
     Args:
-        axis (~bliss.common.axis.Axis): motor axis
+        axis: A motor axis
 
-    example:
-      DEMO [18]: wm(m2, m1, m3)
+    Example:
 
-                       m2      m1[mm]       m3
-      -------  ----------  ----------  -------
-      User
-       High     -123.00000   128.00000      inf
-       Current   -12.00000     7.00000  3.00000
-       Low       456.00000  -451.00000     -inf
-      Offset       0.00000     3.00000  0.00000
-      Dial
-       High      123.00000   123.00000      inf
-       Current    12.00000     2.00000  3.00000
-       Low      -456.00000  -456.00000     -inf
+    >>> wm(m2, m1, m3)
 
+    .. code-block::
+
+                            m2      m1[mm]       m3
+          --------  ----------  ----------  -------
+          User
+           High     -123.00000   128.00000      inf
+           Current   -12.00000     7.00000  3.00000
+           Low       456.00000  -451.00000     -inf
+          Offset       0.00000     3.00000  0.00000
+          Dial
+           High      123.00000   123.00000      inf
+           Current    12.00000     2.00000  3.00000
+           Low      -456.00000  -456.00000     -inf
     """
     if not axes:
         print("need at least one axis name/object")
@@ -949,14 +954,17 @@ def edit_roi_counters(detector: Lima, acq_time: Optional[float] = None):
 
     When called without arguments, it will use the image from specified detector
     from the last scan/ct as a reference. If `acq_time` is specified,
-    it will do a 'ct()' with the given count time to acquire a new image.
+    it will do a `ct()` with the given count time to acquire a new image.
 
-                   # Flint will be open if it is not yet the case
-        BLISS [1]: edit_roi_counters(pilatus1, 0.1)
 
-                   # Flint but already be open
-        BLISS [1]: ct(0.1, pilatus1)
-        BLISS [2]: edit_roi_counters(pilatus1)
+    .. code-block:: python
+
+        # Flint will be open if it is not yet the case
+        edit_roi_counters(pilatus1, 0.1)
+
+        # Flint must already be open
+        ct(0.1, pilatus1)
+        edit_roi_counters(pilatus1)
     """
     if acq_time is not None:
         # Open flint before doing the ct
@@ -1051,15 +1059,14 @@ def interlock_show(wago_obj=None):
             wago.interlock_show()
 
 
-def menu(obj=None, dialog_type=None, *args, **kwargs):
+def menu(obj=None, dialog_type: str = None, *args, **kwargs):
     """Will display a dialog for acting on the object if this is implemented
 
     Args:
         obj: the object on which you want to operate, if no object is provided
              a complete list of available objects that have implemented some
              dialogs will be displayed.
-
-        dialog_type (str): the dialog type that you want to display between one
+        dialog_type: the dialog type that you want to display between one
              of the available. If this parameter is omitted and only one dialog
              is available for the given object than that dialog is diplayed,
              if instead more than one dialog is available will be launched a
@@ -1068,14 +1075,14 @@ def menu(obj=None, dialog_type=None, *args, **kwargs):
 
     Examples:
 
-      `menu()`  # will display all bliss objects that have dialog implemented
+    >>> menu()  # will display all bliss objects that have dialog implemented
 
-      `menu(wba)`  # will launch the only available dialog for wba: "selection"
+    >>> menu(wba)  # will launch the only available dialog for wba: "selection"
 
-      `menu(wba, "selection")`  # same as previous
+    >>> menu(wba, "selection")  # same as previous
 
-      `menu(lima_simulator)  # will launch a selection dialog between available
-                             # choices and than the selected one
+    >>> menu(lima_simulator)  # will launch a selection dialog between available
+    >>>                       # choices and than the selected one
     """
     if obj is None:
         names = set()
@@ -1116,9 +1123,10 @@ def menu(obj=None, dialog_type=None, *args, **kwargs):
 def bench():
     """
     Basic timing of procedure, this has to be use like this:
-    with bench():
-         wa()
-         ascan(roby,0,1,10,0.1,diode)
+    with :code:`bench()`:
+
+    >>> wa()
+    >>> ascan(roby,0,1,10,0.1,diode)
     """
     start_time = time.time()
     yield
@@ -1139,8 +1147,10 @@ def clear():
 def edit_mg(mg: MeasurementGroup):
     """
     Edit the measurement group with a simple dialog.
-    mg -- a measurement group if left to None == default
-    measurement group.
+
+    Arguments:
+        mg: a measurement group if left to None == default
+            measurement group.
     """
     active_mg = measurementgroup.ACTIVE_MG if mg is None else mg
     available_counters = active_mg._available_counters
@@ -1236,6 +1246,7 @@ def newdataset(
     sample_description: Optional[str] = None,
 ):
     """Change the dataset name used to determine the saving path.
+
     The description can be modified until the dataset is closed.
     """
     current_session.scan_saving.newdataset(

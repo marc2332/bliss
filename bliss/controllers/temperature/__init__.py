@@ -3,7 +3,9 @@
 .. autosummary::
     :toctree:
 
-    eurotherm
+    eurotherm2000
+    meerstetter
     mockup
     oxfordcryo
+    pace
 """

@@ -15,6 +15,8 @@ home switch position.
 
 Example YAML_ configuration:
 
+.. code-block::
+
   name: wba
   plugin: bliss
   class: WhiteBeamAttenuator
@@ -27,6 +29,7 @@ Each attenuator pole has to be configured as bliss MultiplePosition onject.
 """
 from bliss import global_map
 from bliss.common import event
+from bliss.common.axis import Axis
 from bliss.common.utils import grouped
 from bliss.common.logtools import log_info, log_error
 from bliss.controllers.tango_shutter import TangoShutterState
@@ -114,12 +117,14 @@ class WhiteBeamAttenuator:
                 return self.attenuators.index(attenuator)
         return None
 
-    def find_home_size(self, motor, step=None):
+    def find_home_size(self, motor: Axis, step: float = None):
         """Procedure to find the size of the filter - home switch is active.
-           Move the motor until the home switch is no more active.
+
+        Move the motor until the home switch is no more active.
+
         Args:
-            motor (Axis): axis object.
-            step (float): step size to use when search for the home switch end.
+            motor: axis object.
+            step: step size to use when search for the home switch end.
         """
         state = motor.state
         # check if the home switch is active
@@ -141,9 +146,12 @@ class WhiteBeamAttenuator:
         return abs(b_home - e_home)
 
     def find_configuration(self, attenuator_name):
-        """Initialisation procedure:
-             Find the negative limit switch.
-             Find all the filters by home switch search
+        """
+        Initialisation procedure:
+
+        - Find the negative limit switch.
+        - Find all the filters by home switch search
+
         Args:
             (str): attenuator name configured as multiple position axis.
         """
@@ -222,13 +230,15 @@ class WhiteBeamAttenuator:
             pos += [att["attenuator"].name, att["attenuator"].position]
         return pos
 
-    def move(self, *att_name_pos_list, wait=True):
-        """Move attenuator(s) to given position. The attenuators are moved
-           simultaneously.
+    def move(self, *att_name_pos_list, wait: bool = True):
+        """Move attenuator(s) to given position.
+
+        The attenuators are moved simultaneously.
+
         Args:
             att_name_pos_list(list): two elements per attenuator: (name or
                                      attenuator object, position)
-            wait(bool): wait until the end of move. Default value is True.
+            wait: wait until the end of move. Default value is True.
         """
 
         if len(att_name_pos_list) == 1:
@@ -267,8 +277,8 @@ class WhiteBeamAttenuator:
 
     def wait(self, *att_name_pos_list):
         """ Wait until the end of move finished
-        Args:
 
+        Args:
             att_name_pos_list(list): two elements per attenuator: (name or
                                      attenuator object, position)
         """

@@ -26,7 +26,7 @@ class Gpib(Device):
 
     url = device_property(
         dtype=str,
-        doc="* `enet://<host>:<port>` for NI ENET adapter\n"
+        doc="Url\n\n* `enet://<host>:<port>` for NI ENET adapter\n"
         "* `prologix://<host>:<port>` for prologix adapter",
     )
     pad = device_property(dtype=int, default_value=0, doc="primary address")

@@ -353,8 +353,10 @@ class _StepTriggerMaster(AcquisitionMaster):
     """
     Generic motor master helper for step by step acquisition.
 
-    :param *args == mot1,start1,stop1,nb_point,mot2,start2,stop2,nb_point,...
-    :param nb_point should be always the same for all motors
+    Arguments:
+        args: mot1, start1, stop1, nb_point, mot2, start2, stop2, nb_point, ...
+        nb_point: should be always the same for all motors
+
     Example::
 
         _StepTriggerMaster(mota,0,10,20,motb,-1,1,20)
@@ -431,8 +433,10 @@ class MeshStepTriggerMaster(_StepTriggerMaster):
     """
     Generic motor master for step by step mesh acquisition.
 
-    :param *args == mot1,start1,stop1,nb_point1,mot2,start2,stop2,nb_point2,...
-    :param backnforth if True do back and forth on the first motor
+    Arguments:
+        args: mot1, start1, stop1, nb_point1, mot2, start2, stop2, nb_point2, ...
+        backnforth:  if True do back and forth on the first motor
+
     Example::
 
         MeshStepTriggerMaster(mota,0,10,20,motb,-1,1,5)
@@ -497,8 +501,10 @@ class LinearStepTriggerMaster(_StepTriggerMaster):
     """
     Generic motor master for step by step acquisition.
 
-    :param nb_point the number of position generated
-    :param *args == mot1,start1,stop1,mot2,start2,stop2,...
+    Arguments:
+        nb_point: the number of position generated
+        args: mot1, start1, stop1, mot2, start2, stop2, ...
+
     Example::
 
         LinearStepTriggerMaster(20,mota,0,10,motb,-1,1)
@@ -520,7 +526,9 @@ class VariableStepTriggerMaster(AcquisitionMaster):
     """
     Generic motor master helper for a variable step by step acquisition.
 
-    :param *args == mot1, positions,...
+    Arguments:
+        args: mot1, positions, ...
+
     Example::
 
         _VariableStepTriggerMaster(mot1, positions, mot2, positions2)
@@ -638,13 +646,14 @@ class MeshTrajectoryMaster(AcquisitionMaster, UndershootMixin):
     """
     Generic motor master for continuous mesh acquisition on trajectory.
 
-    :param *args == mot1,start1,stop1,nb_point1,mot2,start2,stop2,nb_point2,...
-    :param undershoot use it if passed else calculated with current
-           acceleration (first motor only).
-    :param undershoot_start_margin added to the calculated undershoot
-           for the start (first motor only).
-    :param undershoot_end_margin added to the calculated undershoot
-           at the end (first motor only).
+    Arguments:
+        undershoot: use it if passed else calculated with current
+                    acceleration (first motor only).
+        undershoot_start_margin: added to the calculated undershoot
+                                 for the start (first motor only).
+        undershoot_end_margin: added to the calculated undershoot
+                               at the end (first motor only).
+
     Example::
 
         MeshTrajectoryMaster(0.1,mota,0,10,20,motb,-1,1,5)

@@ -5,4 +5,18 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-"""Shell (:term:`CLI` and Web based)"""
+"""Shell (:term:`CLI` and Web based)
+
+.. autosummary::
+    :toctree:
+
+    cli
+    data
+    dialog
+    formatters
+    qtapp
+    bliss_banners
+    interlocks
+    standard
+
+"""

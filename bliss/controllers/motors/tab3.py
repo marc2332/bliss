@@ -25,7 +25,10 @@ All distances and motor positions are in mm
                    8 id21 kb|zpz support.
 
 
-Example configuration
+Example configuration:
+
+.. code-block::
+
   controller:
     class: tab3
     d1: 660

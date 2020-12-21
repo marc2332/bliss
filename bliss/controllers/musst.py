@@ -834,17 +834,21 @@ class musst:
 class Switch(BaseSwitch):
     """
     This class wrapped musst command to emulate a switch.
-    the configuration may look like this:
-    musst: $musst_name
-    states:
-       - label: OPEN
-         set_cmd: "#BTRIG 1"
-         test_cmd: "?BTRIG"
-         test_cmd_reply: "1"
-       - label: CLOSED
-         set_cmd: "#BTRIG 0"
-         test_cmd: "?BTRIG"
-         test_cmd_reply: "0"
+
+    The configuration may look like this:
+
+    .. code-block::
+
+        musst: $musst_name
+        states:
+           - label: OPEN
+             set_cmd: "#BTRIG 1"
+             test_cmd: "?BTRIG"
+             test_cmd_reply: "1"
+           - label: CLOSED
+             set_cmd: "#BTRIG 0"
+             test_cmd: "?BTRIG"
+             test_cmd_reply: "0"
     """
 
     def __init__(self, name, config):

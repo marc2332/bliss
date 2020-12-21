@@ -8,8 +8,8 @@
 import sys
 import os.path
 
-_this_dir = os.path.realpath(__file__)
-bliss_dir = os.path.realpath(os.path.join(_this_dir, *3 * (os.path.pardir,)))
+_this_dir = os.path.realpath(os.path.dirname(__file__))
+bliss_dir = os.path.realpath(os.path.join(_this_dir, "..", ".."))
 
 sys.path.insert(0, bliss_dir)
 

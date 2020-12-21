@@ -286,7 +286,11 @@ cfgarr = {"filename": None}
 def interlock_parse_relay_line(line):
     """
     Syntax:
+
+    .. code-block::
+
         relay <outrelay1> {<iflag> ... } [name <name_string>]
+
     Notes:
         - <outrelay> must be a digital output channel
         - Instance flags (<iflag>): inverted, sticky, noforce
@@ -317,9 +321,12 @@ ParsedChannelLine = namedtuple(
 def interlock_parse_channel_line(line):
     """
     Syntax:
+
+    .. code-block::
+
         <chan1> <type> [<min> <max>] {<chflag> ... }
         <chan2> <type> [<min> <max>] {<chflag> ... }
-            ...
+        ...
         <chanN> <type> [<min> <max>] {<chflag> ... }
 
     Notes:

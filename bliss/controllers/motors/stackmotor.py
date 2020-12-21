@@ -40,11 +40,13 @@ controller:
 
 class StackMotor(CalcController):
     """
-    A Stackmotor consists in a pair of motors mounted on top of each other,
+    A Stackmotor consists in a pair of motors mounted on top of each other.
+
     - one motor with a large stroke (fast but not very precise)
     - and one with a short stroke (slow but very precise).
-    
-    A StackMotor can be (de)activated with `stack_on` & `stack_off`.
+
+    A StackMotor can be (de)activated with `stack_on` & `stack_off`
+
     - when inactive only the large motor will move when moving the stack
     - when active, the small motor will make the move if it stays within its limits,
       otherwise small motor is moved to its middle position and the large motor makes the move.

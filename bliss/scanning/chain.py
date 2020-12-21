@@ -507,8 +507,9 @@ class AcquisitionObject:
         at the end of the scan. 
         
         This can be used in two ways:
+
         1) attaching meta data to the scan_meta object and publishing it in scan_info
-           i.e: scan_meta.instrument.set(self,{"timing mode":"fast"})
+           i.e: :code:`scan_meta.instrument.set(self,{"timing mode":"fast"})`
         2) the return value of this function is used to fill the meta data of the
            node attached to this AcqObj
         """

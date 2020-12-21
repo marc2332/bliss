@@ -9,25 +9,27 @@
 Eurothers 2000 Series Cryostream, acessible via serial line
 
 yml configuration example:
-plugin: temperature
-class: eurotherm2000
-serial:
-    url: rfc2217://lid30b2:28003       #serial line name
-outputs:
-    -
-      name: heatblower
-      type: sp
-      unit: deg
-      low_limit: 10
-      high_limit: 30
-      deadband: 0.1
-      tango_server: euro2400_ss
 
-inputs:
-    -
-      name: T1
-      type: pv
-      #tango_server: euro2400_ss
+.. code-block::
+
+    plugin: temperature
+    class: eurotherm2000
+    serial:
+        url: rfc2217://lid30b2:28003       #serial line name
+    outputs:
+        -
+          name: heatblower
+          type: sp
+          unit: deg
+          low_limit: 10
+          high_limit: 30
+          deadband: 0.1
+          tango_server: euro2400_ss
+    inputs:
+        -
+          name: T1
+          type: pv
+          #tango_server: euro2400_ss
 """
 import logging
 from collections import namedtuple
@@ -342,7 +344,8 @@ class Eurotherm2000Device:
         return self.SensorTypes[sensor]
 
     def prog_status(self):
-        """Read the setpoint status
+        """Read the setpoint status.
+
            Returns:
               (int): 0 - ready
                      1 - wsp != sp so running

@@ -11,6 +11,23 @@ from bliss.controllers.regulator import Controller
 from .oxfordcryo import OxfordCryostream
 
 
+"""
+   - class: oxford700
+     plugin: regulation
+     module: temperature.oxford.oxford700
+     serial:
+        url: rfc2217://lid032:28008
+     inputs:
+        - name: ox_in
+    outputs:
+        - name: ox_out
+    ctrl_loops:
+        - name: ox_loop
+          input: $ox_in
+          output: $ox_out
+"""
+
+
 class Oxford700(Controller):
     """
     Oxford700 Regulation controller

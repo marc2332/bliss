@@ -5,10 +5,30 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+
+from functools import wraps
 import liboxford800
 from .oxford700 import Oxford700
-from functools import wraps
-from bliss.common import temperature
+
+
+"""
+  - class: oxford800
+    plugin: regulation
+    module: temperature.oxford.oxford700
+    cryoname: id10oxford800
+
+    inputs:
+        - name: ox_in
+    outputs:
+        - name: ox_out
+          low_limit:  80
+          high_limit: 500
+          unit: K
+    ctrl_loops:
+        - name: ox_loop
+          input: $ox_in
+          output: $ox_out
+"""
 
 
 def get_cryo(func):

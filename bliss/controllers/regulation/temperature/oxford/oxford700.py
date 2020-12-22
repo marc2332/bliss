@@ -5,10 +5,14 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-
+import enum
 from bliss.common.logtools import log_info
 from bliss.controllers.regulator import Controller
 from .oxfordcryo import OxfordCryostream
+
+from bliss.controllers.regulation.temperature.oxford import OxfordInput as Input
+from bliss.controllers.regulation.temperature.oxford import OxfordOutput as Output
+from bliss.controllers.regulation.temperature.oxford import OxfordLoop as Loop
 
 
 """
@@ -33,11 +37,17 @@ class Oxford700(Controller):
     Oxford700 Regulation controller
     """
 
+    class TAGTOCHAN(enum.IntEnum):
+        GAS = 1
+        EVAP = 2
+        SUCT = 3
+        FLOW = 4
+
     def __init__(self, config):
         super().__init__(config)
 
         self.hw_controller = None
-        # self._ramp_rate = None
+        self._ramp_rate = None
         # self._setpoint = None
         self._is_paused = False
 
@@ -53,7 +63,7 @@ class Oxford700(Controller):
 
         self.hw_controller = OxfordCryostream(self.config)
 
-        # self._ramp_rate = self.hw_controller.read_ramprate()
+        self._ramp_rate = self.hw_controller.read_ramprate()
         # self._setpoint = self.hw_controller.read_target_temperature()
         self._is_paused = self.hw_controller.is_paused()
 
@@ -64,7 +74,13 @@ class Oxford700(Controller):
         Args:
            tinput:  Input class type object          
         """
-        pass
+        if tinput.channel is None:
+            tinput._channel = 1
+
+        if tinput.channel not in list(self.TAGTOCHAN):
+            raise ValueError(
+                f"wrong channel '{tinput.channel}' for the input {tinput}. Should be in {list(self.TAGTOCHAN)}"
+            )
 
     def initialize_output(self, toutput):
         """
@@ -73,7 +89,13 @@ class Oxford700(Controller):
         Args:
            toutput:  Output class type object          
         """
-        pass
+        if toutput.channel is None:
+            toutput._channel = 1
+
+        if toutput.channel not in list(self.TAGTOCHAN):
+            raise ValueError(
+                f"wrong channel '{toutput.channel}' for the input {toutput}. Should be in {list(self.TAGTOCHAN)}"
+            )
 
     def initialize_loop(self, tloop):
         """
@@ -98,8 +120,13 @@ class Oxford700(Controller):
            read value  (in input unit)    
         """
         log_info(self, "Controller:read_input: %s" % (tinput))
-        # read_evap_temperature / read_suct_temperature
-        return self.hw_controller.read_gas_temperature()
+
+        if tinput.channel == self.TAGTOCHAN.GAS:
+            return self.hw_controller.read_gas_temperature()
+        elif tinput.channel == self.TAGTOCHAN.EVAP:
+            return self.hw_controller.read_evap_temperature()
+        elif tinput.channel == self.TAGTOCHAN.SUCT:
+            return self.hw_controller.read_suct_temperature()
 
     def read_output(self, toutput):
         """
@@ -113,8 +140,15 @@ class Oxford700(Controller):
            read value (in output unit)         
         """
         log_info(self, "Controller:read_output: %s" % (toutput))
-        # read_gas_flow / read_gas_heat / read_evap_heat
-        return self.hw_controller.read_suct_heat()
+
+        if toutput.channel == self.TAGTOCHAN.GAS:
+            return self.hw_controller.read_gas_heat()
+        elif toutput.channel == self.TAGTOCHAN.EVAP:
+            return self.hw_controller.read_evap_heat()
+        elif toutput.channel == self.TAGTOCHAN.SUCT:
+            return self.hw_controller.read_suct_heat()
+        elif toutput.channel == self.TAGTOCHAN.FLOW:
+            return self.hw_controller.read_gas_flow()
 
     def state_input(self, tinput):
         """
@@ -128,7 +162,7 @@ class Oxford700(Controller):
            object state string. This is one of READY/RUNNING/ALARM/FAULT
         """
         log_info(self, "Controller:state_input: %s" % (tinput))
-        return self.hw_controller.read_alarm()  # read_sample_error
+        return self.hw_controller.read_alarm()
 
     def state_output(self, toutput):
         """
@@ -172,7 +206,7 @@ class Oxford700(Controller):
            kp value
         """
         log_info(self, "Controller:get_kp: %s" % (tloop))
-        return 0
+        return "N/A"
 
     def set_ki(self, tloop, ki):
         """
@@ -198,7 +232,7 @@ class Oxford700(Controller):
            ki value
         """
         log_info(self, "Controller:get_ki: %s" % (tloop))
-        return 0
+        return "N/A"
 
     def set_kd(self, tloop, kd):
         """
@@ -224,7 +258,7 @@ class Oxford700(Controller):
            kd value
         """
         log_info(self, "Controller:get_kd: %s" % (tloop))
-        return 0
+        return "N/A"
 
     def start_regulation(self, tloop):
         """
@@ -263,8 +297,6 @@ class Oxford700(Controller):
            **kwargs: auxilliary arguments
         """
         log_info(self, "Controller:set_setpoint: %s %s" % (tloop, sp))
-        # self._setpoint = sp
-        # self.hw_controller.cool(sp)
         pass
 
     def get_setpoint(self, tloop):
@@ -279,10 +311,10 @@ class Oxford700(Controller):
            (float) setpoint value (in tloop.input unit).
         """
         log_info(self, "Controller:get_setpoint: %s" % (tloop))
-        # if self._setpoint is None:
-        #    self._setpoint = self.hw_controller.read_target_temperature()
-        # return self._setpoint
         return self.hw_controller.read_target_temperature()
+
+    def get_working_setpoint(self, tloop):
+        return self.hw_controller.read_gas_setpoint()
 
     # ------ setpoint ramping methods (optional) ------------------------
 
@@ -303,13 +335,11 @@ class Oxford700(Controller):
         log_info(self, "Controller:start_ramp: %s %s" % (tloop, sp))
 
         rate = self.get_ramprate(tloop)
-        # self._setpoint = sp
 
-        # if self._is_paused:
-        #     self.hw_controller.resume()
-        #     self._is_paused = False
-
-        self.hw_controller.ramp(rate, sp)
+        if rate == 0:
+            self.hw_controller.cool(sp)
+        else:
+            self.hw_controller.ramp(rate, sp)
 
     def stop_ramp(self, tloop):
         """
@@ -347,9 +377,11 @@ class Oxford700(Controller):
            rate:   ramp rate (in input unit per second)
         """
         log_info(self, "Controller:set_ramprate: %s %s" % (tloop, rate))
-        # self._ramp_rate = rate
+
         sp = self.get_setpoint(tloop)
-        self.hw_controller.ramp(rate, sp)
+        self._ramp_rate = int(rate)
+
+        self.hw_controller.ramp(self._ramp_rate, sp)
 
     def get_ramprate(self, tloop):
         """
@@ -363,10 +395,8 @@ class Oxford700(Controller):
            ramp rate (in input unit per second)
         """
         log_info(self, "Controller:get_ramprate: %s" % (tloop))
-        # if self._ramp_rate is None:
-        #     self._ramp_rate = self.hw_controller.read_ramprate()
-        # return self._ramp_rate
-        return self.hw_controller.read_ramprate()
+        # self._ramp_rate = self.hw_controller.read_ramprate()
+        return self._ramp_rate
 
     # --- controller method to set the Output to a given value (optional) -----------
 
@@ -398,3 +428,18 @@ class Oxford700(Controller):
 
     def resume(self):
         self.hw_controller.resume()
+
+    def end(self, rate):
+        self.hw_controller.end(rate)
+
+    def hold(self):
+        self.hw_controller.hold()
+
+    def stop(self):
+        self.hw_controller.stop()
+
+    def purge(self):
+        self.hw_controller.purge()
+
+    def restart(self):
+        self.hw_controller.restart()

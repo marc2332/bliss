@@ -194,6 +194,13 @@ class Handler(object):
         return cryo.Suct_temp
 
     @get_cryo
+    def read_remaining_duration(self, cryo):
+        """ Read the remaining time of current phase (see cmd 'plat')
+        """
+        cryo.wait_new_status()
+        return cryo.Phase_time_remaining
+
+    @get_cryo
     def read_gas_flow(self, cryo):
         """ Read the gas flow (l/min).
         """

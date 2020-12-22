@@ -386,64 +386,44 @@ class OxfordCryostream:
         """RS232 settings: 9600 baud, 8 bits, no parity, 1 stop bit
         """
 
-        # port = cfg["serial"]["url"]
-        self.serial = get_comm(cfg)  # Serial(port, baudrate=9600, eol="\r")
+        self.serial = get_comm(cfg)
         global_map.register(self.serial, parents_list=[self, "comms"])
-        # global_map.register(
-        #     self,
-        #     parents_list=["comms"],
-        #     children_list=[self.serial],
-        #     tag=f"oxford700: {port}",
-        # )
+
         self._status_packet = None
         self._update_task = gevent.spawn(self._update_status, weakref.proxy(self))
         self._event = gevent.event.Event()
 
-    # ? or del ?
     def __exit__(self, etype, evalue, etb):
         self.serial.close()
 
     def restart(self):
         """Restart a Cryostream which has shutdown
-           Returns:
-              None
         """
         self.send_cmd(CSCMDSIZE.RESTART.value, CSCOMMAND.RESTART.value)
 
     def purge(self):
         """Warm up the Coldhead as quickly as possible
-           Returns:
-              None
         """
         self.send_cmd(CSCMDSIZE.PURGE.value, CSCOMMAND.PURGE.value)
 
     def stop(self):
         """Immediately halt the Cryostream Cooler,turning off the pump and
            all the heaters - used for emergency only
-
-           Returns:
-              None
         """
         self.send_cmd(CSCMDSIZE.STOP.value, CSCOMMAND.STOP.value)
 
     def hold(self):
         """Maintain temperature fixed indefinitely, until start issued.
-           Returns:
-              None
         """
         self.send_cmd(CSCMDSIZE.HOLD.value, CSCOMMAND.HOLD.value)
 
     def pause(self):
         """Start temporary hold
-           Returns:
-              None
         """
         self.send_cmd(CSCMDSIZE.PAUSE.value, CSCOMMAND.PAUSE.value)
 
     def resume(self):
         """Exit temporary hold
-           Returns:
-              None
         """
         self.send_cmd(CSCMDSIZE.RESUME.value, CSCOMMAND.RESUME.value)
 
@@ -451,70 +431,42 @@ class OxfordCryostream:
         """Switch on/off the turbo gas flow
            Args:
               flow (bool): True when turbo is on (gas flow 10 l/min)
-           Returns:
-              None
         """
         self.send_cmd(CSCMDSIZE.TURBO.value, CSCOMMAND.TURBO.value, int(flow))
 
-    def cool(self, temp=None):
+    def cool(self, temp):
         """Make gas temperature decrease to a set value as quickly as possible
            Args:
               temp (float): final temperature [K]
-           Returns:
-              (float): current gas temperature setpoint
         """
-        if temp:
-            temp = int(temp * 100)
-            self.send_cmd(CSCMDSIZE.COOL.value, CSCOMMAND.COOL.value, temp)
-        else:
-            return self.statusPacket.gas_set_point
+        temp = int(temp * 100)
+        self.send_cmd(CSCMDSIZE.COOL.value, CSCOMMAND.COOL.value, temp)
 
-    def plat(self, duration=None):
+    def plat(self, duration):
         """Maintain temperature fixed for a certain time.
            Args:
               duration (int): time [minutes]
-           Returns:
-              (int): remaining time [minutes]
         """
-        try:
-            self.send_cmd(CSCMDSIZE.PLAT.value, CSCOMMAND.PLAT.value, int(duration))
-        except (TypeError, ValueError):
-            return self.statusPacket.remaining
+        self.send_cmd(CSCMDSIZE.PLAT.value, CSCOMMAND.PLAT.value, int(duration))
 
     def end(self, rate):
         """System shutdown with Ramp Rate to go back to temperature of 300K
            Args:
               rate (int): ramp rate [K/hour]
         """
-        try:
-            self.send_cmd(CSCMDSIZE.END.value, CSCOMMAND.END.value, int(rate))
-        except (TypeError, ValueError):
-            pass
+        self.send_cmd(CSCMDSIZE.END.value, CSCOMMAND.END.value, int(rate))
 
-    def ramp(self, rate=None, temp=None):
+    def ramp(self, rate, temp):
         """Change gas temperature to a set value at a controlled rate
            Args:
               rate (int): ramp rate [K/hour], values 1 to 360
               temp (float): target temperature [K]
-           Returns:
-              (float, float): current ramp rate [K/hour],
-                              target temperature [K]
         """
-        if rate == None:
-            rate = self.statusPacket.ramp_rate
-        if rate == 0:
-            print("Oxford700: ramprate is 0! Please set ramprate first!")
-            return
-        if temp == None:
-            temp = self.statusPacket.target_temp
-        if temp == 0.0:
-            temp = self.statusPacket.gas_temp
+        if rate < 1 or rate > 360:
+            raise ValueError("ramprate must be in range [1, 360] [K/hour]")
 
-        # try:
         temp = int(temp * 100)  # transfering to centi-Kelvin
         self.send_cmd(CSCMDSIZE.RAMP.value, CSCOMMAND.RAMP.value, int(rate), temp)
-        # except (TypeError, ValueError):
-        #    raise
 
     def is_ramping(self):
         return self.statusPacket.phase in ["Ramp", "Wait"]
@@ -571,6 +523,9 @@ class OxfordCryostream:
             Return a value in Kelvin.
         """
         return self.statusPacket.suct_temp
+
+    def read_remaining_duration(self):
+        return self.statusPacket.remaining
 
     def read_gas_flow(self):
         """ Read the gas flow (l/min).

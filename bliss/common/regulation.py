@@ -213,18 +213,21 @@ class Input(SamplingCounterController):
 
         self._controller = controller
         self._config = config
-        self._channel = None
+        self._channel = self._config.get("channel")
 
         self.max_sampling_frequency = config.get("max_sampling_frequency", 5)
 
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
 
+        self._build_counters()
+
+    def _build_counters(self):
         self.create_counter(
             SamplingCounter,
             self.name + "_counter",
-            unit=config.get("unit", "N/A"),
-            mode=config.get("sampling-counter-mode", "SINGLE"),
+            unit=self._config.get("unit", "N/A"),
+            mode=self._config.get("sampling-counter-mode", "SINGLE"),
         )
 
     def read_all(self, *counters):
@@ -253,7 +256,7 @@ class Input(SamplingCounterController):
 
     @property
     def channel(self):
-        return self.config.get("channel")
+        return self._channel
 
     # ----------- METHODS THAT A CHILD CLASS MAY CUSTOMIZE ------------------
 
@@ -371,6 +374,7 @@ class Output(SamplingCounterController):
 
         self._controller = controller
         self._config = config
+        self._channel = self._config.get("channel")
 
         self._ramp = SoftRamp(self.read, self._set_value)
         self._use_soft_ramp = None
@@ -385,11 +389,14 @@ class Output(SamplingCounterController):
 
         self.max_sampling_frequency = config.get("max_sampling_frequency", 5)
 
+        self._build_counters()
+
+    def _build_counters(self):
         self.create_counter(
             SamplingCounter,
             self.name + "_counter",
-            unit=config.get("unit", "N/A"),
-            mode=config.get("sampling-counter-mode", "SINGLE"),
+            unit=self._config.get("unit", "N/A"),
+            mode=self._config.get("sampling-counter-mode", "SINGLE"),
         )
 
     def read_all(self, *counters):
@@ -426,7 +433,7 @@ class Output(SamplingCounterController):
 
     @property
     def channel(self):
-        return self.config.get("channel")
+        return self._channel
 
     @autocomplete_property
     def soft_ramp(self):
@@ -730,6 +737,7 @@ class Loop(SamplingCounterController):
 
         self._controller = controller
         self._config = config
+        self._channel = self._config.get("channel")
         self._input = config.get("input")
         self._output = config.get("output")
 
@@ -756,17 +764,19 @@ class Loop(SamplingCounterController):
 
         self.reg_plot = None
 
-        self._counter_name = self.name + "_setpoint"
+        self.max_sampling_frequency = config.get("max_sampling_frequency", 5)
+
+        self._build_counters()
+
+        self._create_soft_axis()
+
+    def _build_counters(self):
         self.create_counter(
             SamplingCounter,
-            self._counter_name,
+            self.name + "_setpoint",
             unit=self.input.config.get("unit", "N/A"),
             mode="SINGLE",
         )
-
-        self.max_sampling_frequency = config.get("max_sampling_frequency", 5)
-
-        self._create_soft_axis()
 
     def __del__(self):
         self.close()
@@ -831,7 +841,7 @@ class Loop(SamplingCounterController):
 
     @property
     def channel(self):
-        return self.config.get("channel")
+        return self._channel
 
     # @property
     @autocomplete_property

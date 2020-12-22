@@ -259,7 +259,7 @@ class AxisSettings:
             setattr(axis, setting_name, value)
 
     def set(self, setting_name, value):
-        # the last 3 tests prevent recursion when getting one of those
+        # the next 3 tests prevent recursion when getting one of those
         # settings, that can do a set in some circumstances (first time or
         # 'no settings axis' for example), that emit a new setting event,
         # that can execute a callback that can get state or position...
@@ -296,7 +296,10 @@ class AxisSettings:
         else:
             if axis_settings.persistent_setting[setting_name]:
                 with KillMask():
-                    self._hash[setting_name] = value
+                    if value is None:
+                        self._hash[setting_name] = "None"
+                    else:
+                        self._hash[setting_name] = value
 
             self._beacon_channels[setting_name].value = value
 
@@ -323,6 +326,8 @@ class AxisSettings:
         if axis_settings.persistent_setting[setting_name]:
             with KillMask():
                 value = self._hash.get(setting_name)
+            if value == "None":
+                value = None
         else:
             chan = self._beacon_channels.get(setting_name)
             if chan:

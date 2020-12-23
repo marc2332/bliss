@@ -41,7 +41,6 @@ import socket
 import redis
 
 from bliss.config.conductor import redis_proxy
-from bliss.config.conductor import redis_caching
 
 
 class RedisDbConnectionPool(redis.ConnectionPool):
@@ -49,7 +48,9 @@ class RedisDbConnectionPool(redis.ConnectionPool):
     Instantiate this pool with the factory method `create_connection_pool`.
     Use a different pool for each database, even when on the same server.
 
-    RedisDbConnectionPool is greenlet-safe.
+    RedisDbConnectionPool is greenlet-safe except for `disconnect`. That
+    will interrupt commands executed in other greenlets. Use `safe_disconnect`
+    to let ongoing commands finish and close the connection afterwards.
 
     When getting a `redis.connection.Connection` from the pool it either
     returns an existing connection (and hence socket) or it tries to add
@@ -74,20 +75,21 @@ class RedisDbConnectionPool(redis.ConnectionPool):
         super().__init__(*args, **kw)
         # Replace thread safety with greenlet safety
         self._fork_lock = gevent.lock.RLock()
+        self._closing_connections = set()
+
+    @property
+    def nconnections(self):
+        return (
+            len(self._in_use_connections)
+            + len(self._closing_connections)
+            + len(self._available_connections)
+        )
 
     def reset(self):
         super().reset()
         # Replace thread safety with greenlet safety
         self._lock = gevent.lock.RLock()
-
-    def release(self, connection):
-        with self._lock:
-            # The proxy's `close` method could be executed concurrently,
-            # thereby releasing its connection (if it has one) more than once.
-            try:
-                return super().release(connection)
-            except KeyError:
-                pass  # Already released
+        self._closing_connections = set()
 
     def clean_pubsub(self, connection):
         # TODO: is this still used?
@@ -96,78 +98,87 @@ class RedisDbConnectionPool(redis.ConnectionPool):
             connection.clear_connect_callbacks()
             self.release(connection)
 
-    def create_proxy(self):
-        """The pool itself does not keep a reference to this proxy
+    def disconnect(self, **kw):
+        """Close all connections (closes sockets, instances stay referenced).
         """
-        return redis_proxy.SafeRedisDbProxy(self)
+        with self._lock:
+            self._in_use_connections.update(self._closing_connections)
+            self._closing_connections = set()
+            super().disconnect(**kw)
 
-    def create_single_connection_proxy(self):
-        """The pool itself does not keep a reference to this proxy
+    def safe_disconnect(self, **kw):
+        """Close unused connections. Used connections will be closed
+        upon release.
+
+        As opposed to `disconnect`, this is greenlet-safe.
         """
-        return redis_proxy.SingleRedisConnectionProxy(self)
-
-
-class CachingRedisDbConnectionPool(RedisDbConnectionPool):
-    """Like `RedisDbConnectionPool` but it implements Redis client side
-    caching. Currently the caching is done on the proxy level. In the
-    future it needs to be done on the connection level and this calls
-    will use a custom connection class which handles the caching.
-    """
-
-    def __init__(self, *args, **kw):
-        super().__init__(*args, **kw)
-        self._enable_lock = gevent.lock.RLock()
-        self.db_cache = redis_caching.RedisCache(weakref.proxy(self))
-        self.enable_caching(timeout=10)
-
-    def enable_caching(self, timeout=None):
-        """Connections in use will raise an exception.
-        """
-        # Existing connections might not have client tracking on. So first
-        # disable caching and remove all connections from the pool.
-        self.disconnect()
-        self.db_cache.enable(timeout=timeout)
-
-    def disable_caching(self):
-        """Behaves like `RedisDbConnectionPool` during/after calling this.
-
-        Existing connections will be preserved.
-        """
-        self.db_cache.disable()
+        with self._lock:
+            self._closing_connections.update(self._in_use_connections)
+            self._in_use_connections = set()
+            super().disconnect(**kw)
 
     def make_connection(self, *args, **kw):
-        """The new connection needs to send the tracking redirect command
-        upon connecting to Redis.
-        """
         connection = super().make_connection(*args, **kw)
-        connection.register_connect_callback(self.db_cache.track_connection)
+        connection.can_be_released = True
         return connection
 
-    def disconnect(self):
-        """Behaves like `RedisDbConnectionPool` during/after calling this
+    def _accept_connection(self, connection):
+        """This could disconnect the connection and remove its connect
+        callbacks when `safe_disconnect` was called while the connection
+        was used.
         """
-        self.db_cache.disable()
-        super().disconnect()
+        if not connection.can_be_released:
+            # This connection is release by a proxy but still owned by
+            # CacheInvalidationGreenlet.
+            return False
+        if connection in self._closing_connections:
+            connection.disconnect()
+            connection.clear_connect_callbacks()
+            self._closing_connections.remove(connection)
+            self._in_use_connections.add(connection)
+        return True
 
-    def create_proxy(self):
-        return redis_proxy.CachingRedisDbProxy(self)
+    def release(self, connection):
+        """Return back to the pool if the pool accepts it.
+        """
+        with self._lock:
+            if not self._accept_connection(connection):
+                return
+            try:
+                super().release(connection)
+            except KeyError:
+                pass
 
-    def create_single_connection_proxy(self):
-        raise NotImplementedError
+    def remove(self, connection):
+        """Alternative too `release` but remove from the pool.
+        """
+        with self._lock:
+            if not self._accept_connection(connection):
+                return
+            try:
+                self._in_use_connections.remove(connection)
+            except KeyError:
+                pass
 
-    def create_uncached_proxy(self):
-        return super().create_proxy()
+    def create_proxy(self, caching=False, single_connection=False):
+        """The pool itself does not keep a reference to this proxy
+        """
+        if caching:
+            return redis_proxy.CachingRedisDbProxy(connection_pool=self)
+        elif single_connection:
+            return redis_proxy.SingleConnectionRedisDbProxy(connection_pool=self)
+        else:
+            return redis_proxy.RedisDbProxy(connection_pool=self)
 
-    def create_uncached_single_connection_proxy(self):
-        return super().create_single_connection_proxy()
+    def preconnect(self, nconnections):
+        """Make sure we have already N connections in the pool
+        """
+        connections = [self.get_connection(None) for _ in range(nconnections)]
+        for connection in connections:
+            self.release(connection)
 
 
-def create_connection_pool(
-    redis_url: str, db: int, caching=False, **kw
-) -> RedisDbConnectionPool:
+def create_connection_pool(redis_url: str, db: int, **kw) -> RedisDbConnectionPool:
     """This is the starting point to create Redis connections.
     """
-    if caching:
-        return CachingRedisDbConnectionPool.from_url(redis_url, db=db, **kw)
-    else:
-        return RedisDbConnectionPool.from_url(redis_url, db=db, **kw)
+    return RedisDbConnectionPool.from_url(redis_url, db=db, **kw)

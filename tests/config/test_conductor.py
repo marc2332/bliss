@@ -106,7 +106,7 @@ def test_single_bus_for_channels(beacon):
     chan = channels.Channel(key, default_value=value)
     chan_task = [gevent.spawn(get_channel_on_different_greenlet) for i in range(3)]
 
-    gevent.joinall(chan_task, raise_error=True)
+    gevent.joinall(chan_task, timeout=10, raise_error=True)
     assert value == chan.value
     assert all([value == t.get()[1] for t in chan_task])
     buses = set([chan._bus] + [t.get()[0]._bus for t in chan_task])

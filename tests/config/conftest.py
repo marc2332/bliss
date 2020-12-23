@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
+import redis
 from bliss.config.conductor import client, connection
 
 
@@ -23,6 +24,10 @@ def two_clients(beacon):
 
 @pytest.fixture
 def new_beacon_connection(ports, clean_socket):
+    redis_db = redis.Redis(port=ports.redis_port)
+    redis_db.flushall()
+    redis_data_db = redis.Redis(port=ports.redis_data_port)
+    redis_data_db.flushall()
     conn = connection.Connection("localhost", ports.beacon_port)
     yield conn
     conn.close()

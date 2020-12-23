@@ -9,6 +9,9 @@ import pytest
 from bliss.scanning.writer.file import FileWriter
 from bliss.scanning.scan_saving import BasicScanSaving, property_with_eval_dict
 from bliss.common import scans
+from bliss.scanning.group import Sequence, Group
+from bliss.config.conductor import client
+from ..conftest import GreenletsContext, RedisConnectionContext
 
 
 class CustomWriter(FileWriter):
@@ -121,3 +124,55 @@ def test_scan_cleanup_writerexceptions(exception_on, session):
     session.scan_saving.exception_on = exception_on
     with pytest.raises(RuntimeError):
         s = scans.loopscan(5, 0.1, *detectors)
+
+
+@pytest.fixture
+def preconnect_redis_connections(beacon):
+    # Expand reusable connection pools so that don't show up in resource
+    # monitoring. Note: we need to keep a reference to the proxies,
+    # otherwise the pools get garbage collected.
+    nconnections = 50
+    proxies = []
+    for db in [0, 1]:
+        for caching in [True, False]:
+            proxy = client.get_redis_proxy(db=db, caching=caching)
+            proxies.append(proxy)
+            proxy.connection_pool.preconnect(nconnections)
+    yield
+
+
+def test_scan_resources(session, preconnect_redis_connections):
+    with GreenletsContext() as context1:
+        with RedisConnectionContext() as context2:
+            diode = session.env_dict["diode"]
+            s = scans.loopscan(3, .1, diode)
+
+    assert context2.all_resources_released
+    assert context1.all_resources_released
+
+
+def test_scan_group_resources(session, preconnect_redis_connections):
+    with GreenletsContext() as context1:
+        with RedisConnectionContext() as context2:
+            diode = session.env_dict["diode"]
+            s1 = scans.loopscan(3, .1, diode)
+            s2 = scans.loopscan(3, .2, diode)
+            g = Group(s1, s2)
+
+    assert context2.all_resources_released
+    assert context1.all_resources_released
+
+
+def test_scan_sequence_resources(session, preconnect_redis_connections):
+    with GreenletsContext() as context1:
+        with RedisConnectionContext() as context2:
+            diode = session.env_dict["diode"]
+            seq = Sequence()
+            with seq.sequence_context() as seq_context:
+                s1 = scans.loopscan(3, .1, diode)
+                seq_context.add(s1)
+                s2 = scans.loopscan(3, .2, diode)
+                seq_context.add(s2)
+
+    assert context2.all_resources_released
+    assert context1.all_resources_released

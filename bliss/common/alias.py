@@ -175,28 +175,27 @@ class Aliases:
                     alias_obj = ObjectAlias(alias_name, obj)
                     break
             else:
-                # counter
-                obj = None
-                all_counters = {}
-                for obj in self.__map.get_counters_iter():
-                    if obj.fullname == fullname:
-                        break
-                    all_counters[obj.fullname] = obj
+                # is that a counter name?
+                if ":" in fullname:
+                    # The full name is really a full name
+                    for obj in self.__map.get_counters_iter():
+                        if obj.fullname == fullname:
+                            original_object = obj
+                            break
                 else:
-                    if not ":" in fullname:
-                        name = fullname  # single counter
-                        # in case of a single counter, the name will always be the last part of the fullname
-                        # since first part is devoted to the counter controller
-                        candidates = [
-                            obj
-                            for obj_fullname, obj in all_counters.items()
-                            if obj_fullname.endswith(":" + name)
-                        ]
-                        if len(candidates) == 1:
-                            obj = candidates.pop()
-                if obj:
-                    original_object = obj
-                    alias_obj = CounterAlias(alias_name, obj)
+                    # That's a short name
+                    # which is the last part of the fullname
+                    shortname = f":{fullname}"
+                    found = []
+                    for obj in self.__map.get_counters_iter():
+                        if obj.fullname.endswith(shortname):
+                            found.append(obj)
+                    if len(found) == 1:
+                        # Short name must not be ambiguous
+                        original_object = found[0]
+
+                if original_object is not None:
+                    alias_obj = CounterAlias(alias_name, original_object)
             if alias_obj is None:
                 raise RuntimeError(
                     f"Cannot make alias '{alias_name}' for '{fullname}': object does not exist, or has an invalid type"

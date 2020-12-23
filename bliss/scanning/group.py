@@ -17,10 +17,8 @@ from bliss.scanning.chain import (
 )
 from bliss.scanning.scan import Scan
 from bliss.data.nodes.scan import ScanNode
-from bliss.data.node import get_session_node
 from bliss.scanning.scan import ScanState, ScanPreset
 from bliss.scanning.scan_info import ScanInfo
-from bliss import current_session
 from bliss.common.logtools import user_warning
 
 
@@ -38,6 +36,97 @@ class ScanGroup(Scan):
         return len(plots) >= 1
 
 
+class ScanSequenceError(RuntimeError):
+    pass
+
+
+class SequenceContext:
+    def __init__(self, sequence):
+        self.sequence = sequence
+
+    def _wait_before_adding_scan(self, scan):
+        scan.wait_state(ScanState.STARTING)
+        self.sequence.group_acq_master.new_subscan(scan)
+
+    def _add_via_node(self, scan):
+        assert isinstance(scan, ScanNode)
+        self.sequence._scans.append(scan)
+        self.sequence.group_acq_master.new_subscan(scan)
+
+    def add(self, scan: Scan):
+        """Add a scan into the group.
+
+        If the scan was not started, this method also flag the scan
+        `scan_info` with the group node_name.
+
+        Argument:
+            scan: A scan
+        """
+        assert isinstance(scan, Scan)
+        self.sequence._scans.append(scan)
+
+        if scan.state >= ScanState.STARTING:
+            # scan is running / has been running already
+            self.sequence.group_acq_master.new_subscan(scan)
+        else:
+            scan.scan_info["group"] = self.sequence.node.db_name
+            self.sequence._waiting_scans.append(
+                gevent.spawn(self._wait_before_adding_scan, scan)
+            )
+
+    def add_and_run(self, scan: Scan):
+        """Add a scan into the group, run it, and wait for
+        termination.
+
+        This method also flag the scan `scan_info` with
+        the group node_name.
+
+        Argument:
+            scan: A scan
+
+        Raise:
+            ScanSequenceError: If the scan was already started.
+        """
+        assert isinstance(scan, Scan)
+        if scan.state != 0:
+            raise ScanSequenceError(
+                f'Error in  add_and_run: scan "{scan.name}" has already been started before!'
+            )
+        scan.scan_info["group"] = self.sequence.node.db_name
+
+        self.add(scan)
+        g = gevent.spawn(scan.run)
+        g.join()
+
+    def wait_all_subscans(self, timeout=None):
+        self.sequence.wait_all_subscans(timeout=timeout)
+
+
+class StatePreset(ScanPreset):
+    def __init__(self, sequence):
+        super().__init__()
+        self._sequence = sequence
+
+    def stop(self, scan):
+        if len(self._sequence._scans) == 0:
+            return
+        max_state = ScanState.DONE
+        for s in self._sequence._scans:
+            if (
+                isinstance(s, ScanNode)
+                and s.info.get("state", ScanState.DONE) > max_state
+            ):
+                max_state = s.info.get("state", ScanState.DONE)
+            elif isinstance(s, Scan) and s.state > max_state:
+                max_state = s.state
+        if max_state == ScanState.KILLED:
+            user_warning("at least one of the scans in the sequence was KILLED")
+            scan._set_state(ScanState.KILLED)
+        elif max_state == ScanState.USER_ABORTED:
+            user_warning("at least one of the scans in the sequence was USER_ABORTED")
+            scan._set_state(ScanState.USER_ABORTED)
+
+
 class Sequence:
     """ should have a scan as internal property that runs
     in a spawned mode in the background. Each new scan
@@ -46,10 +135,9 @@ class Sequence:
     there should be a possibiltiy of calc channels.
     
     progressbar for sequence??
-            """
+    """
 
     def __init__(self, scan_info=None, title="sequence_of_scans"):
-
         self.title = title
         self.scan = None
         self._scan_info = ScanInfo.normalize(scan_info)
@@ -69,67 +157,6 @@ class Sequence:
         else:
             gevent.joinall(self._waiting_scans)
 
-    class SequenceContext:
-        def __init__(self, sequence):
-            self.sequence = sequence
-
-        def _wait_before_adding_scan(self, scan):
-            scan.wait_state(ScanState.STARTING)
-            self.sequence.group_acq_master.new_subscan(scan)
-
-        def _add_via_node(self, scan):
-            assert isinstance(scan, ScanNode)
-            self.sequence._scans.append(scan)
-            self.sequence.group_acq_master.new_subscan(scan)
-
-        def add(self, scan: Scan):
-            """Add a scan into the group.
-
-            If the scan was not started, this method also flag the scan
-            `scan_info` with the group node_name.
-
-            Argument:
-                scan: A scan
-            """
-            assert isinstance(scan, Scan)
-            self.sequence._scans.append(scan)
-
-            if scan.state >= ScanState.STARTING:
-                # scan is running / has been running already
-                self.sequence.group_acq_master.new_subscan(scan)
-            else:
-                scan.scan_info["group"] = self.sequence.node.db_name
-                self.sequence._waiting_scans.append(
-                    gevent.spawn(self._wait_before_adding_scan, scan)
-                )
-
-        def add_and_run(self, scan: Scan):
-            """Add a scan into the group, run it, and wait for
-            termination.
-
-            This method also flag the scan `scan_info` with
-            the group node_name.
-
-            Argument:
-                scan: A scan
-
-            Raise:
-                RuntimeError: If the scan was already started.
-            """
-            assert isinstance(scan, Scan)
-            if scan.state != 0:
-                raise RuntimeError(
-                    f'Error in  add_and_run: scan "{scan.name}" has already been started before!'
-                )
-            scan.scan_info["group"] = self.sequence.node.db_name
-
-            self.add(scan)
-            g = gevent.spawn(scan.run)
-            g.join()
-
-        def wait_all_subscans(self, timeout=None):
-            self.sequence.wait_all_subscans(timeout)
-
     @contextmanager
     def sequence_context(self):
         self._build_scan()
@@ -140,30 +167,41 @@ class Sequence:
                 self.scan.wait_state(ScanState.STARTING)
                 if self.group_custom_slave is not None:
                     self.group_custom_slave.start_event.wait()
-            yield self.SequenceContext(self)
+            yield SequenceContext(self)
         finally:
-            self.group_acq_master.queue.put(StopIteration)
+            # Stop the iteration over group_acq_master
+            self.group_acq_master.scan_queue.put(StopIteration)
 
-            err = False
+            # The subscans should have finished before exiting the context
             try:
-                self.wait_all_subscans(0)
+                self.wait_all_subscans(timeout=0)
+                scans_finished = True
             except gevent.Timeout:
                 gevent.killall(self._waiting_scans)
-                err = True
+                scans_finished = False
 
+            # Wait until all sequence events are published in Redis
+            # Note: publishing is done by iterating over group_acq_master
+            events_published = True
             if len(self._scans) > 0:
-                # waiting for the last point to be published before killing the scan greenlet
-                while self.group_acq_master.queue.qsize() > 0:
-                    self.group_acq_master.publish_event.wait()
-                    err |= not self.group_acq_master.publish_success
-                    gevent.sleep(0)
-                self.group_acq_master.publish_event.wait()
+                try:
+                    # Timeout not specified because we have no way of
+                    # estimating how long it will take.
+                    events_published = self.group_acq_master.wait_all_published()
+                except ScanSequenceError:
+                    events_published = False
 
-            group_scan.get()
+            # Wait until the sequence itself finishes
+            group_scan.get(timeout=None)
 
-            if err:
-                raise RuntimeError(
-                    f'Some scans of the sequence "{self.title}" have not finished! \n The dataset will be incomplete!'
+            # Raise exception when incomplete
+            if not scans_finished:
+                raise ScanSequenceError(
+                    f'Some scans of the sequence "{self.title}" have not finished before exiting the sequence context'
+                )
+            elif not events_published:
+                raise ScanSequenceError(
+                    f'Some events of the sequence "{self.title}" were not published in Redis'
                 )
 
     def _build_scan(self):
@@ -179,35 +217,8 @@ class Sequence:
         else:
             self.group_custom_slave = None
 
-        class StatePreset(ScanPreset):
-            def __init__(self, sequence):
-                ScanPreset.__init__(self)
-                self._sequence = sequence
-
-            def stop(self, scan):
-                if len(self._sequence._scans) == 0:
-                    return
-                max_state = ScanState.DONE
-                for s in self._sequence._scans:
-                    if (
-                        isinstance(s, ScanNode)
-                        and s.info.get("state", ScanState.DONE) > max_state
-                    ):
-                        max_state = s.info.get("state", ScanState.DONE)
-                    elif isinstance(s, Scan) and s.state > max_state:
-                        max_state = s.state
-                if max_state == ScanState.KILLED:
-                    user_warning("at least one of the scans in the sequence was KILLED")
-                    scan._set_state(ScanState.KILLED)
-                elif max_state == ScanState.USER_ABORTED:
-                    user_warning(
-                        "at least one of the scans in the sequence was USER_ABORTED"
-                    )
-                    scan._set_state(ScanState.USER_ABORTED)
-
         self.scan = ScanGroup(chain, self.title, save=True, scan_info=self._scan_info)
-        state_preset = StatePreset(self)
-        self.scan.add_preset(state_preset)
+        self.scan.add_preset(StatePreset(self))
 
     @property
     def node(self):
@@ -241,33 +252,31 @@ class Group(Sequence):
             for s in scans:
                 if isinstance(s, ScanNode):
                     if s.node_type not in ["scan", "scan_group"]:
-                        raise RuntimeError("Only scans can be added to group!")
-                    scan = s
+                        raise ScanSequenceError("Only scans can be added to group")
+                    scan_node = s
                 elif isinstance(s, Scan):
                     if s.state < ScanState.STARTING:
-                        raise RuntimeError(
-                            "Only scans that have been run before can be added to group!"
+                        raise ScanSequenceError(
+                            "Only scans that have been run before can be added to group"
                         )
-                    scan = s.node
+                    scan_node = s.node
                 elif type(s) == int:
-                    node_found = False
-                    # TODO: walk on the current scan container node
-                    # Scan numbering restarts for each parent
-                    for node in get_session_node(current_session.name).walk(
-                        include_filter="scan", wait=False
-                    ):
-                        if node.info["scan_nb"] == s:
-                            scan = node
-                            node_found = True
-                            break
-                    if not node_found:
-                        raise RuntimeError(f"Scan {s} not found!")
+                    scan_node = self.find_scan_node(s)
                 else:
-                    raise RuntimeError(
-                        f"Invalid argument: no scan node found that corresponds to {s}!"
+                    raise ScanSequenceError(
+                        "Invalid argument: no scan node found that corresponds to "
+                        + str(s)
                     )
 
-                seq_context._add_via_node(scan)
+                seq_context._add_via_node(scan_node)
+
+    def find_scan_node(self, scan_number: int):
+        for node in self.scan.root_node.walk(
+            include_filter="scan", exclude_children=("scan", "scan_group"), wait=False
+        ):
+            if node.info["scan_nb"] == scan_number:
+                return node
+        raise ScanSequenceError(f"Scan number '{scan_number}' not found")
 
 
 class GroupingMaster(AcquisitionMaster):
@@ -282,7 +291,7 @@ class GroupingMaster(AcquisitionMaster):
             start_once=True,
         )
 
-        self.queue = Queue()
+        self.scan_queue = Queue()
 
         self._node_channel = AcquisitionChannel(
             "scans", numpy.str, (), reference=True, data_node_type="node_ref_channel"
@@ -293,21 +302,29 @@ class GroupingMaster(AcquisitionMaster):
         self._number_channel = AcquisitionChannel("scan_numbers", numpy.int, ())
         self.channels.append(self._number_channel)
 
-        self.publish_success = True
-        self.publish_event = gevent.event.Event()
-        self.publish_event.set()
+        # Synchronize GroupingMaster iteration and wait_all_published
+        self._publishing = False
+        self._publish_success = True
+        self._publish_event = gevent.event.Event()
+        self._publish_event.set()
 
     def prepare(self):
         pass
 
     def __iter__(self):
-        yield self
-        for scan in self.queue:
-            self._new_subscan(scan)
+        self._publishing = True
+        try:
             yield self
+            for scan in self.scan_queue:
+                self._publish_new_subscan(scan)
+                yield self
+        finally:
+            self._publishing = False
 
-    def _new_subscan(self, scan):
-        self.publish_event.clear()
+    def _publish_new_subscan(self, scan):
+        """Publish group scan events in Redis related to one scan
+        """
+        self._publish_event.clear()
         try:
             if isinstance(scan, Scan):
                 scan = scan.node
@@ -323,15 +340,36 @@ class GroupingMaster(AcquisitionMaster):
                     if n.connection.ttl(n.db_name) > 0:
                         n.set_ttl(include_parents=False)
         except BaseException:
-            self.publish_success &= False
+            self._publish_success &= False
             raise
         else:
-            self.publish_success &= True
+            self._publish_success &= True
         finally:
-            self.publish_event.set()
+            self._publish_event.set()
+
+    def wait_all_published(self, timeout=None):
+        """Wait until `_publish_new_subscan` is called for all subscans
+        that are queued. Publishing is done by iterating over this
+        `GroupingMaster`.
+
+        Raises ScanSequenceError upon timeout or when there are scans
+        in the queue while nobody is iterating to publish their
+        associated sequence events.
+        """
+        with gevent.Timeout(timeout, ScanSequenceError):
+            success = True
+            while self.scan_queue.qsize() > 0 and self._publishing:
+                self._publish_event.wait()
+                success &= self._publish_success
+                gevent.sleep()
+            if self.scan_queue.qsize() > 0:
+                raise ScanSequenceError
+            self._publish_event.wait()
+            success &= self._publish_success
+            return success
 
     def new_subscan(self, scan):
-        self.queue.put(scan)
+        self.scan_queue.put(scan)
 
     def start(self):
         pass

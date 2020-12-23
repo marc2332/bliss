@@ -10,7 +10,7 @@ import pytest
 import numpy
 import re
 
-from bliss.scanning.group import Sequence, Group
+from bliss.scanning.group import Sequence, Group, ScanSequenceError
 from bliss.common import scans
 from bliss.data.node import get_node, get_or_create_node
 from bliss.data.nodes.node_ref_channel import NodeRefChannel
@@ -101,7 +101,7 @@ def test_sequence_async_scans(session):
 def test_sequence_non_started_scans_in_seq(session):
     diode = session.config.get("diode")
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(ScanSequenceError):
         seq = Sequence()
         with seq.sequence_context() as seq_context:
             s0 = scans.loopscan(1, .1, diode)
@@ -122,7 +122,7 @@ def test_sequence_empty_in_seq(session):
     with seq.sequence_context() as seq_context:
         pass
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(ScanSequenceError):
         seq = Sequence()
         with seq.sequence_context() as seq_context:
             s1 = scans.loopscan(20, .1, diode, run=False)
@@ -172,7 +172,7 @@ def test_sequence_add_and_run(session):
         s0 = scans.loopscan(1, .1, diode, run=False)
         seq_context.add_and_run(s0)
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(ScanSequenceError):
         seq = Sequence()
         with seq.sequence_context() as seq_context:
             s0 = scans.loopscan(1, .1, diode, run=False)
@@ -218,14 +218,14 @@ def test_sequence_invalid_group(session):
     s1 = scans.loopscan(3, .1, diode)
     s2 = scans.loopscan(3, .05, diode, run=False)
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(ScanSequenceError):
         g = Group(s1, s2)
 
     n = get_or_create_node("bla:bla:bla")
-    with pytest.raises(RuntimeError):
+    with pytest.raises(ScanSequenceError):
         g = Group(s1, n)
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(ScanSequenceError):
         g = Group(s1, 158453)
 
 
@@ -375,3 +375,26 @@ def test_group_with_killed_scan(default_session):
     g = Group(s1, s2)
 
     assert g.state == ScanState.KILLED
+
+
+def test_sequence_missing_events(session):
+    # Test for issue #2423
+    diode = session.config.get("diode")
+
+    with gevent.Timeout(10):
+        seq = Sequence()
+        with pytest.raises(ScanSequenceError):
+            with seq.sequence_context() as seq_context:
+                # Stop publishing sequence events to check that
+                # ScanSequenceError is raised upon exiting the context
+                seq_context.sequence.group_acq_master.scan_queue.put(StopIteration)
+                # Add a scan so that some sequence events are expected
+                seq_context.add(scans.loopscan(3, .1, diode))
+
+    with gevent.Timeout(10):
+        seq = Sequence()
+        with seq.sequence_context() as seq_context:
+            # Stop publishing sequence events to check that
+            # ScanSequenceError is raised upon exiting the context
+            seq_context.sequence.group_acq_master.scan_queue.put(StopIteration)
+            # Do not add scans so no sequence events are expected

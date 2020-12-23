@@ -19,6 +19,7 @@ import random
 import shutil
 import numpy
 from contextlib import contextmanager
+import redis.connection
 from fabio.edfimage import EdfImage
 from bliss.config import static
 from bliss.common import scans
@@ -26,6 +27,7 @@ from bliss.data.scan import watch_session_scans
 from bliss.scanning.group import Sequence, Group
 from bliss.common.tango import DeviceProxy
 from nexus_writer_service.io import nexus
+from nexus_writer_service.utils import process_utils
 from bliss.controllers import simulation_diode
 from bliss.controllers.mca import simulation as simulation_mca
 
@@ -37,6 +39,29 @@ simulation_mca.SimulatedMCA._prepare_time = 0
 simulation_mca.SimulatedMCA._cleanup_time = 0
 
 
+def print_resources():
+    nfds = len(process_utils.file_descriptors())
+    nsockets = len(process_utils.sockets())
+    ngreenlets = len(process_utils.greenlets())
+    nthreads = len(process_utils.threads())
+    nredis = len(process_utils.resources(redis.connection.Connection))
+    mb = int(process_utils.memory() / 1024 ** 2)
+    print(
+        f"{nthreads} threads, {ngreenlets} greenlets, {nredis} Redis connections, {nsockets} sockets, {nfds} fds, {mb}MB MEM"
+    )
+
+
+def kill_scans(glts, interval=10):
+    while True:
+        try:
+            with gevent.Timeout(interval):
+                print("Try killing the scans ...")
+                gevent.killall(glts, gevent.Timeout)
+                break
+        except gevent.Timeout:
+            pass
+
+
 def run_scans(*scns):
     """
     :param bliss.scanning.scan.Scan:
@@ -45,11 +70,16 @@ def run_scans(*scns):
     glts = [gevent.spawn(s.run) for s in scns]
     try:
         gevent.joinall(glts, raise_error=True)
+    except gevent.Timeout:
+        print("Stress test timeout")
+        kill_scans(glts)
+        raise
     except KeyboardInterrupt:
-        gevent.killall(glts, KeyboardInterrupt)
+        print("Stress test interrupted")
+        kill_scans(glts)
         raise
     finally:
-        print("\nScans finished.")
+        print("Scans finished.")
 
 
 def stress_many_parallel(test_session, filename, titles, checkoutput=True):
@@ -68,13 +98,13 @@ def stress_many_parallel(test_session, filename, titles, checkoutput=True):
         prepare_detectors(test_session, expotime)
         motors = get_motors(test_session)
         scns = []
-
         while detectors:
             s = get_scan(detectors, motors, scan_funcs, expotime)
             scan_seq.add(s)
             scns.append(s)
         # Run all in parallel
         run_scans(*scns)
+    print("Sequence finished.")
 
     # Group the scans
     g = Group(*scns)
@@ -82,6 +112,7 @@ def stress_many_parallel(test_session, filename, titles, checkoutput=True):
     scns.append(g.scan)
     scanseq.wait_all_subscans(timeout=10)
     scns.append(scanseq.scan)
+    print("Group finished.")
 
     if checkoutput:
         check_output(scns, titles)
@@ -135,7 +166,11 @@ def get_motors(test_session):
     :returns list: Bliss scannable objects
     """
     env_dict = test_session.env_dict
-    return [env_dict[name] for name in ["robx", "roby", "robz"]]
+    motors = [env_dict[name] for name in ["robx", "roby", "robz"]]
+    # Reset in case of a CTRL-C at the wrong moment
+    for motor in motors:
+        motor.sync_hard()
+    return motors
 
 
 def get_detectors(test_session):
@@ -197,6 +232,7 @@ def prepare_lima(test_session, frames=100):
         for i in ["", 2]
     ]
     for lima in limas:
+        lima.proxy.AbortAcq()
         lima.saving.initialize()
         lima.saving.file_format = "HDF5"
         lima.saving.mode = "ONE_FILE_PER_N_FRAMES"
@@ -358,33 +394,45 @@ def check_output(scans, titles):
         for s in scans
         for i in range(1, subscans.get(s.name, 1) + 1)
     ]
-    try:
-        f = None
-        print("Getting scan names from file ...")
-        with gevent.Timeout(60):
-            while True:
-                try:
-                    f = nexus.File(filename, mode="r")
-                    entrees = set(f.keys())
-                    break
-                except OSError:
-                    try:
-                        f.close()
-                    except (AttributeError, OSError):
-                        pass
-    finally:
-        try:
-            f.close()
-        except (AttributeError, OSError):
-            pass
+
+    print("Getting scan names from file ...")
     expected = set(titles)
+
+    for i in range(100):
+        entrees = get_scan_names(filename)
+        if expected == entrees:
+            break
+        gevent.sleep(0.1)
+
     unexpected = entrees - expected
     missing = expected - entrees
     err_msg = f"{filename}:\n missing: {missing}\n unexpected: {unexpected}\n expected: {expected}"
     assert entrees == expected, err_msg
 
     # Progress report
-    print("{} scans done.".format(len(titles)))
+    print(f"{len(titles)} scans done.")
+
+
+def get_scan_names(filename):
+    try:
+        f = None
+        with gevent.Timeout(60):
+            while True:
+                try:
+                    # Sometimes SEGFAULTS when enable_file_locking=False
+                    f = nexus.File(filename, mode="r", enable_file_locking=True)
+                    return set(f.keys())
+                except OSError:
+                    try:
+                        f.close()
+                    except (AttributeError, OSError):
+                        pass
+                gevent.sleep(0.1)
+    finally:
+        try:
+            f.close()
+        except (AttributeError, OSError):
+            pass
 
 
 def reader(filename, mode):
@@ -475,7 +523,7 @@ if __name__ == "__main__":
 
     # Select stress test
     if args.type == "many":
-        timeout = 60
+        timeout = None
         test_func = stress_many_parallel
     elif args.type == "big":
         timeout = None
@@ -498,9 +546,11 @@ if __name__ == "__main__":
     filename = prepare_saving(test_session, root=root)
 
     # Repeat stress test with HDF5 readers and tango clients
+    print("Start stress test")
     with client_context(args.tangoclients, tangoclient):
         keeprunning = True
         while keeprunning:
+            shutil.rmtree(test_session.scan_saving.root_path, ignore_errors=True)
             filename = next_file(test_session)
             with client_context(args.readers, reader, filename, "r"):
                 titles = []
@@ -508,9 +558,12 @@ if __name__ == "__main__":
                 while len(titles) < args.nscans_per_file:
                     with gevent.Timeout(timeout):
                         if test_func(test_session, filename, titles):
+                            print(f"{test_func} failed: end stress test")
                             keeprunning = False
                             break
                         if args.niter and n == args.niter:
+                            print("Maximal runs reached: end stress test")
                             keeprunning = False
                             break
                         n += 1
+                        print_resources()

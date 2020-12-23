@@ -530,7 +530,7 @@ def _get_beacon_config():
     return "{}:{}".format(beacon._host, beacon._port)
 
 
-def _get_flint_pid_from_redis(session_name):
+def _get_flint_pid_from_redis(session_name) -> typing.Optional[int]:
     """Check if an existing Flint process is running and attached to session_name.
 
     Returns:
@@ -566,7 +566,9 @@ def _get_cached_flint() -> typing.Optional[FlintClient]:
     return FLINT
 
 
-def get_flint(start_new=False, creation_allowed=True, mandatory=True):
+def get_flint(
+    start_new=False, creation_allowed=True, mandatory=True
+) -> typing.Optional[FlintClient]:
     """Get the running flint proxy or create one.
 
     Arguments:
@@ -641,7 +643,7 @@ def check_flint() -> bool:
     return flint is not None
 
 
-def attach_flint(pid: int):
+def attach_flint(pid: int) -> FlintClient:
     """Attach to an external flint process, make a RPC proxy and bind Flint to
     the current session and return the FLINT proxy
 

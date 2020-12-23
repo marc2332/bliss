@@ -193,6 +193,10 @@ class Aliases:
                     if len(found) == 1:
                         # Short name must not be ambiguous
                         original_object = found[0]
+                    elif len(found) > 1:
+                        raise RuntimeError(
+                            f"Cannot make alias '{alias_name}' from short name '{fullname}': ambiguous name"
+                        )
 
                 if original_object is not None:
                     alias_obj = CounterAlias(alias_name, original_object)

@@ -165,7 +165,8 @@ class Aliases:
         alias_obj = None
 
         if isinstance(obj_or_name, str):
-            fullname = obj_or_name  # can be a motor name or a counter fullname
+            # can be a motor name, a counter fullname or a session-exported, single counter object name
+            fullname = obj_or_name
 
             # check if object exists
             for obj in self.__map.get_axes_iter():
@@ -174,14 +175,31 @@ class Aliases:
                     alias_obj = ObjectAlias(alias_name, obj)
                     break
             else:
-                # counter
-                try:
-                    obj = self.__map.get_counter_from_fullname(fullname)
-                except AttributeError:
-                    pass
+                # is that a counter name?
+                if ":" in fullname:
+                    # The full name is really a full name
+                    for obj in self.__map.get_counters_iter():
+                        if obj.fullname == fullname:
+                            original_object = obj
+                            break
                 else:
-                    original_object = obj
-                    alias_obj = CounterAlias(alias_name, obj)
+                    # That's a short name
+                    # which is the last part of the fullname
+                    shortname = f":{fullname}"
+                    found = []
+                    for obj in self.__map.get_counters_iter():
+                        if obj.fullname.endswith(shortname):
+                            found.append(obj)
+                    if len(found) == 1:
+                        # Short name must not be ambiguous
+                        original_object = found[0]
+                    elif len(found) > 1:
+                        raise RuntimeError(
+                            f"Cannot make alias '{alias_name}' from short name '{fullname}': ambiguous name"
+                        )
+
+                if original_object is not None:
+                    alias_obj = CounterAlias(alias_name, original_object)
             if alias_obj is None:
                 raise RuntimeError(
                     f"Cannot make alias '{alias_name}' for '{fullname}': object does not exist, or has an invalid type"

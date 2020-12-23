@@ -165,9 +165,8 @@ class Aliases:
         alias_obj = None
 
         if isinstance(obj_or_name, str):
-            fullname = (
-                obj_or_name
-            )  # can be a motor name, a counter fullname or a session-exported, single counter object name
+            # can be a motor name, a counter fullname or a session-exported, single counter object name
+            fullname = obj_or_name
 
             # check if object exists
             for obj in self.__map.get_axes_iter():

@@ -117,6 +117,30 @@ def rpc_server(bind="inproc://test", heartbeat=1.0):
     task.kill()
 
 
+def test_equality(caplog):
+    url = "inproc://test"
+
+    with rpc_server(url) as (server, car):
+        client_car = Client(url)
+        client_car2 = Client(url)
+        debugon(client_car)
+        debugon(client_car2)
+
+        client_car.connect()
+        client_car2.connect()
+
+        assert {}.get(client_car) is None
+        assert not client_car in (None, "bla")
+        assert not "__eq__" in caplog.text
+        assert not "__hash__" in caplog.text
+
+        assert client_car != client_car2
+        assert hash(client_car) != hash(client_car2)
+
+    client_car.close()
+    client_car2.close()
+
+
 def test_api():
     url = "inproc://test"
 

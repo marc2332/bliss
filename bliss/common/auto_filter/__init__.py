@@ -25,8 +25,8 @@ Yaml config may look like this:
       tag: fiteridx
     - counter_name: transm
       tag: transmission
-   - counter_name: ratio
-     tag: ratio
+    - counter_name: ratio
+      tag: ratio
   suffix_for_corr_counter: "_corr"
   counters_for_correction:
     - det
@@ -109,6 +109,13 @@ class CorrCounterController(CalcCounterController):
                 f"Ratio counter missing from configuration of {repr(autof.name)}"
             )
 
+        for cnt in self._autof._cc.counters:
+            if cnt.tag == "transmission":
+                self._transmission_counter = cnt
+                break
+        else:
+            raise RuntimeError("No transmission counter, cannot calculate correction")
+
     def build_counters(self, config):
         pass
 
@@ -118,7 +125,9 @@ class CorrCounterController(CalcCounterController):
         self.tags[mon.name] = "monitor"
         det = self._autof.detector_counter
         self.tags[det.name] = "detector"
-        return counter_namespace([mon, det])
+        transm = self._transmission_counter
+        self.tags[transm.name] = "transmission"
+        return counter_namespace([mon, det, transm])
 
     @property
     def outputs(self):
@@ -136,10 +145,11 @@ class CorrCounterController(CalcCounterController):
     def calc_function(self, input_dict):
         monitor_values = input_dict.get("monitor", [])
         detector_values = input_dict.get("detector", [])
+        transmission_values = input_dict.get("transmission", [])
+
         if len(monitor_values) and len(detector_values):
-            transmission = self._autof.transmission
             # calc the corrected counters
-            detector_corr_values = detector_values / transmission
+            detector_corr_values = detector_values / transmission_values
             # calc the ration counter
             ratio_values = detector_corr_values / monitor_values
 
@@ -688,8 +698,6 @@ class AutoFilter(BeaconObject):
 
         # create the sampling counters for transm and currfilter
         self._cc = AutoFilterCounterController(self.name, self)
-        # create calc counters for det_corr and ratio
-        self._calc_counter = CorrCounterController(self, config)
 
         for conf in cnts_conf:
             name = conf["counter_name"].strip()
@@ -710,6 +718,9 @@ class AutoFilter(BeaconObject):
                         )
 
                     current_session.env_dict[name] = cnt
+
+        # create calc counters for det_corr and ratio
+        self._calc_counter = CorrCounterController(self, config)
 
     def corr_func(self, point_nb, name, data):
         """

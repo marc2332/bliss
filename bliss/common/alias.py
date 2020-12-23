@@ -190,7 +190,7 @@ class Aliases:
                         candidates = [
                             obj
                             for obj_fullname, obj in all_counters.items()
-                            if ":" + name in obj_fullname
+                            if obj_fullname.endswith(":" + name)
                         ]
                         if len(candidates) == 1:
                             obj = candidates.pop()

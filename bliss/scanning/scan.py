@@ -33,7 +33,7 @@ from bliss.common.utils import Null, update_node_info, round
 from bliss.common.profiling import SimpleTimeStatistics
 from bliss.common.profiling import simple_time_profile as time_profile
 from bliss.controllers.motor import Controller
-from bliss.config.conductor.client import get_caching_redis_proxy
+from bliss.config.conductor.client import get_redis_proxy
 from bliss.data.node import create_node
 from bliss.data.nodes import channel as channelnode
 from bliss.data.node import DataNodeAsyncHelper
@@ -765,7 +765,7 @@ class Scan:
     def root_connection(self):
         """Redis connection of the root node (parent of the scan).
 
-        :returns SafeRedisDbProxy:
+        :returns RedisDbProxy:
         """
         return self.root_node.db_connection
 
@@ -773,13 +773,13 @@ class Scan:
     def scan_connection(self):
         """Redis connection of the scan node and its children.
 
-        :returns SafeRedisDbProxy or CachingRedisDbProxy:
+        :returns RedisDbProxy or CachingRedisDbProxy:
         """
         return self._scan_connection
 
     def _disable_caching(self):
         """After this, the `scan_connection` behaves like a normal
-        SafeRedisDbProxy without caching
+        RedisDbProxy without caching
         """
         if self._REDIS_CACHING and self.scan_connection is not None:
             self.scan_connection.disable_caching()
@@ -791,9 +791,9 @@ class Scan:
         self.root_node = self.__scan_saving.get_parent_node()
         # The scan node and its children will have caching
         if self._REDIS_CACHING:
-            self._scan_connection = get_caching_redis_proxy(db=1, shared_cache=False)
+            self._scan_connection = get_redis_proxy(db=1, caching=True, shared=False)
         else:
-            self._scan_connection = self.root_node.db_connection
+            self._scan_connection = self.root_connection
 
         ### order is important in the next lines...
         self.writer.template.update(
@@ -1445,8 +1445,10 @@ class Scan:
                         # and end the scan node
                         self._end_node()
                         self._set_state(ScanState.KILLED)
-                        # disable connection caching
-                        if self._REDIS_CACHING:
+
+                        with time_profile(
+                            self._stats_dict, "scan.finalize.caching", logger=logger
+                        ):
                             self._disable_caching()
                         return
                     self._data_watch_running = False
@@ -1615,7 +1617,7 @@ class Scan:
             if self.writer:
                 # write scan_info to file
                 with time_profile(
-                    self._stats_dict, "scan.finalize_writer", logger=logger
+                    self._stats_dict, "scan.finalize.writer", logger=logger
                 ):
                     with capture():
                         self.writer.finalize_scan_entry(self)
@@ -1623,7 +1625,8 @@ class Scan:
                         self.writer.close()
 
             # disable connection caching
-            self._disable_caching()
+            with time_profile(self._stats_dict, "scan.finalize.caching", logger=logger):
+                self._disable_caching()
 
     def add_comment(self, comment):
         """

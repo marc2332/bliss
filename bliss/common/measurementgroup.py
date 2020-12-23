@@ -14,7 +14,7 @@ from sortedcontainers import SortedKeyList
 from collections.abc import MutableSequence
 
 from bliss.config import settings
-from bliss.config.conductor.client import get_caching_redis_proxy
+from bliss.config.conductor.client import get_redis_proxy
 from bliss import current_session
 from bliss import global_map
 from bliss.common.proxy import Proxy
@@ -77,7 +77,7 @@ def get_active_name():
     session_name = current_session.name
     active_mg_name = settings.SimpleSetting(
         "%s:active_measurementgroup" % session_name,
-        connection=get_caching_redis_proxy(),
+        connection=get_redis_proxy(caching=True),
     )
     return active_mg_name.get()
 
@@ -99,7 +99,7 @@ def set_active_name(name):
     session_name = current_session.name
     active_mg_name = settings.SimpleSetting(
         "%s:active_measurementgroup" % session_name,
-        connection=get_caching_redis_proxy(),
+        connection=get_redis_proxy(caching=True),
     )
     active_mg_name.set(name)
 
@@ -289,12 +289,14 @@ class MeasurementGroup:
 
         # Current State
         self._current_state = settings.SimpleSetting(
-            "%s" % name, default_value="default", connection=get_caching_redis_proxy()
+            "%s" % name,
+            default_value="default",
+            connection=get_redis_proxy(caching=True),
         )
 
         # list of states ; at least one "default" state
         self._all_states = settings.QueueSetting(
-            "%s:MG_states" % name, connection=get_caching_redis_proxy()
+            "%s:MG_states" % name, connection=get_redis_proxy(caching=True)
         )
         self._all_states.set(["default"])
 
@@ -351,7 +353,7 @@ class MeasurementGroup:
     def _disabled_setting(self):
         # key is : "<MG name>:<state_name>"  ex : "MG1:default"
         _key = "%s:%s" % (self.name, self._current_state.get())
-        return settings.QueueSetting(_key, connection=get_caching_redis_proxy())
+        return settings.QueueSetting(_key, connection=get_redis_proxy(caching=True))
 
     @_check_counter_name
     def disable(self, *counter_patterns):

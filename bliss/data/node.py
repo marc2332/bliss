@@ -933,11 +933,11 @@ class DataNode(metaclass=DataNodeMetaClass):
         dispatcher.connect(callback, signal, self)
 
     @protect_from_kill
-    def set_ttl(self):
+    def set_ttl(self, include_parents=True):
         """Set the time-to-live for all Redis objects associated to this node
         """
         if self._TIMETOLIVE is not None:
-            self.apply_ttl(set(self.get_db_names()))
+            self.apply_ttl(set(self.get_db_names(include_parents=include_parents)))
         self.detach_ttl_setter()
 
     def detach_ttl_setter(self):
@@ -960,14 +960,15 @@ class DataNode(metaclass=DataNodeMetaClass):
         finally:
             p.execute()
 
-    def get_db_names(self):
+    def get_db_names(self, include_parents=True):
         """All associated Redis keys, including the associated keys of the parents.
         """
         db_name = self.db_name
         db_names = [db_name, "%s_info" % db_name]
-        parent = self.parent
-        if parent:
-            db_names.extend(parent.get_db_names())
+        if include_parents:
+            parent = self.parent
+            if parent:
+                db_names.extend(parent.get_db_names())
         return db_names
 
     def get_settings(self):
@@ -1389,8 +1390,8 @@ class DataNodeContainer(DataNode):
             f"{db_name}_children_list"
         )
 
-    def get_db_names(self):
-        db_names = super().get_db_names()
+    def get_db_names(self, **kw):
+        db_names = super().get_db_names(**kw)
         db_names.append("%s_children_list" % self.db_name)
         return db_names
 

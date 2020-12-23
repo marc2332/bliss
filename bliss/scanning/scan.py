@@ -1226,15 +1226,17 @@ class Scan:
             return self._stream_pipeline_task
 
     def set_ttl(self):
-        db_names = set()
-        nodes = list(self.nodes.values())
-        for node in nodes:
-            db_names |= set(node.get_db_names())
-        db_names |= set(self.node.get_db_names())
-        self.node.apply_ttl(db_names)
-        for node in nodes:
-            node.detach_ttl_setter()
-        self.node.detach_ttl_setter()
+        with time_profile(self._stats_dict, "scan.finalize.set_ttl", logger=logger):
+            # node.get_db_names takes the most time
+            db_names = set()
+            nodes = list(self.nodes.values())
+            for node in nodes:
+                db_names |= set(node.get_db_names(include_parents=False))
+            db_names |= set(self.node.get_db_names())
+            self.node.apply_ttl(db_names)
+            for node in nodes:
+                node.detach_ttl_setter()
+            self.node.detach_ttl_setter()
 
     def _device_event(self, event_dict=None, signal=None, sender=None):
         with time_profile(self._stats_dict, "scan.events.device", logger=logger):
@@ -1443,7 +1445,11 @@ class Scan:
                         # if the data watch callback for "new" scan failed,
                         # better to not continue: let's put the final state
                         # and end the scan node
-                        self._end_node()
+                        with time_profile(
+                            self._stats_dict, "scan.finalize.node", logger=logger
+                        ):
+                            self._end_node()
+
                         self._set_state(ScanState.KILLED)
 
                         with time_profile(
@@ -1559,9 +1565,10 @@ class Scan:
             # Disconnect events
             self.disconnect_all()
 
-            # counterpart of "_create_node"
-            with capture():
-                self._end_node()
+            with time_profile(self._stats_dict, "scan.finalize.node", logger=logger):
+                # counterpart of "_create_node"
+                with capture():
+                    self._end_node()
 
             with capture():
                 # Close nodes

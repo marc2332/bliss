@@ -53,8 +53,8 @@ class ScanNode(DataNodeContainer):
             first_index=first_index, data=ev.TYPE.decode(), description=ev.exception
         )
 
-    def get_db_names(self):
-        db_names = super().get_db_names()
+    def get_db_names(self, **kw):
+        db_names = super().get_db_names(**kw)
         db_names.append(self.db_name + "_data")
         return db_names
 

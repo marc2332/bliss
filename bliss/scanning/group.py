@@ -312,14 +312,16 @@ class GroupingMaster(AcquisitionMaster):
             if isinstance(scan, Scan):
                 scan = scan.node
 
+            # Emit sequence events
             self._number_channel.emit(int(scan.info["scan_nb"]))
             self._node_channel.emit(scan.db_name)
 
-            # handling of ttl of subscan
+            # Reset the node TTL's
             if scan.connection.ttl(scan.db_name) > 0:
+                scan.set_ttl()
                 for n in scan.walk(wait=False):
                     if n.connection.ttl(n.db_name) > 0:
-                        n.set_ttl()
+                        n.set_ttl(include_parents=False)
         except BaseException:
             self.publish_success &= False
             raise

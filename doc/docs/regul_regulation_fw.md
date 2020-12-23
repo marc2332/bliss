@@ -34,6 +34,7 @@ See [Interacting with the Loop object](regul_regulation_fw.md#interacting-with-t
     - eurotherm nanodac
     - lakeshore 331/332/335/336/340
     - linkam TMS94/T95
+    - oxford cryosrtream 700/800
 
     In addition to the management of a regulation hardware, this new framework brings solutions to:
 
@@ -631,6 +632,8 @@ class MyCustomController(Controller):
     def set_setpoint(self, tloop, sp, **kwargs):
 
     def get_setpoint(self, tloop):
+
+    def get_working_setpoint(self, tloop):
 
     # ------ setpoint ramping methods (optional) ------------------------
 

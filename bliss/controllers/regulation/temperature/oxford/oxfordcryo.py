@@ -155,32 +155,63 @@ class StatusPacket:
         "Hold",
         "End",
         "Purge",
-        "DeletePhase",  # different from doc ?
-        "LoadProgram",  # different from doc ?
-        "SaveProgram",  # different from doc ?
-        "Soak",  # different from doc ?
-        "Wait",  # different from doc ?
+        "DeletePhase",
+        "LoadProgram",
+        "SaveProgram",
+        "Soak",
+        "Wait",
     ]
 
     ALARM_CODES = [
-        "AlarmConditionNone",
-        "AlarmConditionStopPressed",
-        "AlarmConditionStopCommand",
-        "AlarmConditionEnd",
-        "AlarmConditionPurge",
-        "AlarmConditionTempWarning",
-        "AlarmConditionHighPressure",
-        "AlarmConditionVacuum",
-        "AlarmConditionStartUpFail",
-        "AlarmConditionLowFlow",
-        "AlarmConditionTempFail",
-        # "AlarmConditionGasTypeError",  #11  differences from doc starts here!
-        "AlarmConditionTempReadingError",
-        "AlarmConditionSensorFail",
-        "AlarmConditionBrownOut",
-        "AlarmConditionHeatsinkOverheat",
-        "AlarmConditionPsuOverheat",
-        "AlarmConditionPowerLoss",
+        "No errors or warnings",
+        "Stop pressed",
+        "Stop command",
+        "End complete",
+        "Purge complete",
+        "Temp warning",
+        "Pressure warning",
+        "Check vacuum?",
+        "Self-check fail",
+        "Flow rate fail",
+        "Temp control err",
+        "Gas type err",
+        "Temp reading err",
+        "Suct temp err",
+        "Sensor fail",
+        "Brownout",
+        "Sink overheat",
+        "PSU overheat",
+        "Power loss",
+        "Refr too cold",
+        "Refr time out",
+        "Cryodrive connected?",
+        "Cryodrive error",
+        "No nitrogen",
+        "No helium",
+        "Vac gauge fail",
+        "Vac reading error",
+        "RS232 error",
+        "Coldhead temp warning",
+        "Coldhead temp error",
+        "Wait for End",
+        "Do not open",
+        "Unplug Xtal sensor",
+        "Cryostat open",
+        "Cryostat open timeout",
+        "High temp warning",
+        "High temp error",
+        "Cryodrive temp sensor fault",
+        "Cryodrive pressure sensor fault",
+        "Cryodrive low temp trip",
+        "Cryodrive high temp trip",
+        "Cryodrive low pressure trip",
+        "Cryodrive high temp warning",
+        "Cryodrive low pressure warning",
+        "Gas supply connected?",
+        "Autofill fault",
+        "Autofill about to fill",
+        "Autofill filling",
+        "Collar temp err",
     ]
 
     def __init__(self, data, timestamp=None):
@@ -330,17 +361,6 @@ class CSCMDSIZE(enum.IntEnum):
     TURBO = 3
 
 
-def split_bytes(number):
-    """splits high and low byte (two less significant bytes)
-       of an integer, and returns them as chars
-    """
-    if not isinstance(number, int):
-        raise Exception("split_bytes: Wrong imput - should be an integer.")
-    low = number & 0b11111111
-    high = (number >> 8) & 0b11111111
-    return bytes([high]), bytes([low])
-
-
 class OxfordCryostream:
     """
     OXCRYO_ALARM = {0:"No Alarms",
@@ -427,12 +447,12 @@ class OxfordCryostream:
         """
         self.send_cmd(CSCMDSIZE.RESUME.value, CSCOMMAND.RESUME.value)
 
-    def turbo(self, flow):
-        """Switch on/off the turbo gas flow
-           Args:
-              flow (bool): True when turbo is on (gas flow 10 l/min)
+    def turbo(self, enable):
+        """ Switch on/off the turbo gas flow
+            Args:
+              enable (bool): True when turbo is on (gas flow 10 l/min)
         """
-        self.send_cmd(CSCMDSIZE.TURBO.value, CSCOMMAND.TURBO.value, int(flow))
+        self.send_cmd(CSCMDSIZE.TURBO.value, CSCOMMAND.TURBO.value, int(enable))
 
     def cool(self, temp):
         """Make gas temperature decrease to a set value as quickly as possible
@@ -443,23 +463,28 @@ class OxfordCryostream:
         self.send_cmd(CSCMDSIZE.COOL.value, CSCOMMAND.COOL.value, temp)
 
     def plat(self, duration):
-        """Maintain temperature fixed for a certain time.
-           Args:
-              duration (int): time [minutes]
+        """ Maintain temperature fixed for a certain time.
+            Args:
+              duration (int): time [minutes] in range [1, 1440]
         """
+        if duration < 1 or duration > 1440:
+            raise ValueError("duration must be in range [1, 1440] [minutes]")
         self.send_cmd(CSCMDSIZE.PLAT.value, CSCOMMAND.PLAT.value, int(duration))
 
     def end(self, rate):
-        """System shutdown with Ramp Rate to go back to temperature of 300K
-           Args:
-              rate (int): ramp rate [K/hour]
+        """ System shutdown with a ramprate to go back to temperature of 300K
+            Args:
+              rate (int): ramp rate [K/hour] in range [1, 360]
         """
+        if rate < 1 or rate > 360:
+            raise ValueError("ramprate must be in range [1, 360] [K/hour]")
+
         self.send_cmd(CSCMDSIZE.END.value, CSCOMMAND.END.value, int(rate))
 
     def ramp(self, rate, temp):
         """Change gas temperature to a set value at a controlled rate
            Args:
-              rate (int): ramp rate [K/hour], values 1 to 360
+              rate (int): ramp rate [K/hour] in range [1, 360]
               temp (float): target temperature [K]
         """
         if rate < 1 or rate > 360:
@@ -469,10 +494,7 @@ class OxfordCryostream:
         self.send_cmd(CSCMDSIZE.RAMP.value, CSCOMMAND.RAMP.value, int(rate), temp)
 
     def is_ramping(self):
-        return self.statusPacket.phase in ["Ramp", "Wait"]
-
-    def is_paused(self):
-        return self.statusPacket.phase == "Hold"
+        return self.statusPacket.phase in ["Ramp", "Wait", "Cool"]
 
     def read_gas_setpoint(self):
         """ Read gas setpoint.
@@ -525,6 +547,8 @@ class OxfordCryostream:
         return self.statusPacket.suct_temp
 
     def read_remaining_duration(self):
+        """ Read the remaining time of current phase (see cmd 'plat')
+        """
         return self.statusPacket.remaining
 
     def read_gas_flow(self):
@@ -569,23 +593,27 @@ class OxfordCryostream:
         self._event.clear()
         self._event.wait()
         data = [bytes([size]), bytes([command])]
-        if size == 3:
+
+        if command == CSCOMMAND.TURBO.value:
             data.append(str(args[0]).encode())
-        elif size > 3:
-            hbyte, lbyte = split_bytes(args[0])
-            data.append(hbyte)
-            data.append(lbyte)
-            try:
-                hbyte, lbyte = split_bytes(args[1])
+        elif len(args) > 0:
+            for arg in args:
+                hbyte, lbyte = self._split_bytes(arg)
                 data.append(hbyte)
                 data.append(lbyte)
-            except Exception as e:
-                print(e)
 
         data_str = b"".join(data)
-        # print([ d.hex() for d in data ])
-        # print(data_str.hex())
         self.serial.write(data_str)
+
+    def _split_bytes(self, number):
+        """ splits high and low byte (two less significant bytes)
+            of an integer, and returns them as bytes
+        """
+        if not isinstance(number, int):
+            raise Exception("_split_bytes: Wrong input - should be an integer.")
+        low = number & 0b11111111
+        high = (number >> 8) & 0b11111111
+        return bytes([high]), bytes([low])
 
     @property
     def statusPacket(self):

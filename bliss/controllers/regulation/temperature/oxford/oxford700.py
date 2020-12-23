@@ -21,14 +21,16 @@ from bliss.controllers.regulation.temperature.oxford import OxfordLoop as Loop
      module: temperature.oxford.oxford700
      serial:
         url: rfc2217://lid032:28008
+        
      inputs:
         - name: ox_in
-    outputs:
+     outputs:
         - name: ox_out
-    ctrl_loops:
+     ctrl_loops:
         - name: ox_loop
           input: $ox_in
           output: $ox_out
+          ramprate: 350   # (optional) default/starting ramprate [K/hour]
 """
 
 
@@ -48,8 +50,8 @@ class Oxford700(Controller):
 
         self.hw_controller = None
         self._ramp_rate = None
-        # self._setpoint = None
-        self._is_paused = False
+        self._ramprate_min = 1
+        self._ramprate_max = 360
 
     def __info__(self):
         return self.hw_controller.statusPacket.__info__()
@@ -63,21 +65,14 @@ class Oxford700(Controller):
 
         self.hw_controller = OxfordCryostream(self.config)
 
-        self._ramp_rate = self.hw_controller.read_ramprate()
-        # self._setpoint = self.hw_controller.read_target_temperature()
-        self._is_paused = self.hw_controller.is_paused()
-
     def initialize_input(self, tinput):
         """
         Initializes an Input class type object
-
-        Args:
-           tinput:  Input class type object          
         """
         if tinput.channel is None:
             tinput._channel = 1
 
-        if tinput.channel not in list(self.TAGTOCHAN):
+        elif tinput.channel not in list(self.TAGTOCHAN):
             raise ValueError(
                 f"wrong channel '{tinput.channel}' for the input {tinput}. Should be in {list(self.TAGTOCHAN)}"
             )
@@ -85,14 +80,11 @@ class Oxford700(Controller):
     def initialize_output(self, toutput):
         """
         Initializes an Output class type object
-
-        Args:
-           toutput:  Output class type object          
         """
         if toutput.channel is None:
             toutput._channel = 1
 
-        if toutput.channel not in list(self.TAGTOCHAN):
+        elif toutput.channel not in list(self.TAGTOCHAN):
             raise ValueError(
                 f"wrong channel '{toutput.channel}' for the input {toutput}. Should be in {list(self.TAGTOCHAN)}"
             )
@@ -100,9 +92,6 @@ class Oxford700(Controller):
     def initialize_loop(self, tloop):
         """
         Initializes a Loop class type object
-
-        Args:
-           tloop:  Loop class type object          
         """
         pass
 
@@ -111,13 +100,6 @@ class Oxford700(Controller):
     def read_input(self, tinput):
         """
         Reads an Input class type object
-        Raises NotImplementedError if not defined by inheriting class
-
-        Args:
-           tinput:  Input class type object 
-
-        Returns:
-           read value  (in input unit)    
         """
         log_info(self, "Controller:read_input: %s" % (tinput))
 
@@ -131,13 +113,6 @@ class Oxford700(Controller):
     def read_output(self, toutput):
         """
         Reads an Output class type object
-        Raises NotImplementedError if not defined by inheriting class
-
-        Args:
-           toutput:  Output class type object 
-
-        Returns:
-           read value (in output unit)         
         """
         log_info(self, "Controller:read_output: %s" % (toutput))
 
@@ -152,28 +127,14 @@ class Oxford700(Controller):
 
     def state_input(self, tinput):
         """
-        Return a string representing state of an Input object.
-        Raises NotImplementedError if not defined by inheriting class
-
-        Args:
-           tinput:  Input class type object
-
-        Returns:
-           object state string. This is one of READY/RUNNING/ALARM/FAULT
+        Return a string representing state of an Input object
         """
         log_info(self, "Controller:state_input: %s" % (tinput))
         return self.hw_controller.read_alarm()
 
     def state_output(self, toutput):
         """
-        Return a string representing state of an Output object.
-        Raises NotImplementedError if not defined by inheriting class
-
-        Args:
-           toutput:  Output class type object
-
-        Returns:
-           object state string. This is one of READY/RUNNING/ALARM/FAULT
+        Return a string representing state of an Output object
         """
         log_info(self, "Controller:state_output: %s" % (toutput))
         rmode = self.hw_controller.read_run_mode()
@@ -185,11 +146,6 @@ class Oxford700(Controller):
     def set_kp(self, tloop, kp):
         """
         Set the PID P value
-        Raises NotImplementedError if not defined by inheriting class
-
-        Args:
-           tloop:  Loop class type object 
-           kp: the kp value
         """
         log_info(self, "Controller:set_kp: %s %s" % (tloop, kp))
         pass
@@ -197,13 +153,6 @@ class Oxford700(Controller):
     def get_kp(self, tloop):
         """
         Get the PID P value
-        Raises NotImplementedError if not defined by inheriting class
-
-        Args:
-           tloop:  Loop class type object 
-        
-        Returns:
-           kp value
         """
         log_info(self, "Controller:get_kp: %s" % (tloop))
         return "N/A"
@@ -211,11 +160,6 @@ class Oxford700(Controller):
     def set_ki(self, tloop, ki):
         """
         Set the PID I value
-        Raises NotImplementedError if not defined by inheriting class
-
-        Args:
-           tloop:  Loop class type object 
-           ki: the ki value
         """
         log_info(self, "Controller:set_ki: %s %s" % (tloop, ki))
         pass
@@ -223,13 +167,6 @@ class Oxford700(Controller):
     def get_ki(self, tloop):
         """
         Get the PID I value
-        Raises NotImplementedError if not defined by inheriting class
-
-        Args:
-           tloop:  Loop class type object 
-        
-        Returns:
-           ki value
         """
         log_info(self, "Controller:get_ki: %s" % (tloop))
         return "N/A"
@@ -237,11 +174,6 @@ class Oxford700(Controller):
     def set_kd(self, tloop, kd):
         """
         Set the PID D value
-        Raises NotImplementedError if not defined by inheriting class
-
-        Args:
-           tloop:  Loop class type object 
-           kd: the kd value
         """
         log_info(self, "Controller:set_kd: %s %s" % (tloop, kd))
         pass
@@ -249,37 +181,20 @@ class Oxford700(Controller):
     def get_kd(self, tloop):
         """
         Reads the PID D value
-        Raises NotImplementedError if not defined by inheriting class
-
-        Args:
-           tloop:  Output class type object 
-        
-        Returns:
-           kd value
         """
         log_info(self, "Controller:get_kd: %s" % (tloop))
         return "N/A"
 
     def start_regulation(self, tloop):
         """
-        Starts the regulation process.
-        It must NOT start the ramp, use 'start_ramp' to do so.
-        Raises NotImplementedError if not defined by inheriting class
-
-        Args: 
-           tloop:  Loop class type object
+        Starts the regulation process
         """
         log_info(self, "Controller:start_regulation: %s" % (tloop))
         pass
 
     def stop_regulation(self, tloop):
         """
-        Stops the regulation process.
-        It must NOT stop the ramp, use 'stop_ramp' to do so.
-        Raises NotImplementedError if not defined by inheriting class
-
-        Args: 
-           tloop:  Loop class type object
+        Stops the regulation process
         """
         log_info(self, "Controller:stop_regulation: %s" % (tloop))
         pass
@@ -288,32 +203,23 @@ class Oxford700(Controller):
 
     def set_setpoint(self, tloop, sp, **kwargs):
         """
-        Set the current setpoint (target value).
-        It must NOT start the PID process, use 'start_regulation' to do so.
-        
-        Args:
-           tloop:  Loop class type object
-           sp:     setpoint (in tloop.input unit)
-           **kwargs: auxilliary arguments
+        Set the current setpoint (target value)
         """
+        # with oxford the setpoint is given through ramp and cool cmds only
         log_info(self, "Controller:set_setpoint: %s %s" % (tloop, sp))
         pass
 
     def get_setpoint(self, tloop):
         """
         Get the current setpoint (target value)
-        Raises NotImplementedError if not defined by inheriting class
-
-        Args:
-           tloop:  Loop class type object
-
-        Returns:
-           (float) setpoint value (in tloop.input unit).
         """
         log_info(self, "Controller:get_setpoint: %s" % (tloop))
         return self.hw_controller.read_target_temperature()
 
     def get_working_setpoint(self, tloop):
+        """
+        Get the current working setpoint (setpoint along the ramp)
+        """
         return self.hw_controller.read_gas_setpoint()
 
     # ------ setpoint ramping methods (optional) ------------------------
@@ -321,81 +227,63 @@ class Oxford700(Controller):
     def start_ramp(self, tloop, sp, **kwargs):
         """
         Start ramping to a setpoint
-        It must NOT start the PID process, use 'start_regulation' to do so.
-        Raises NotImplementedError if not defined by inheriting class
-
-        Replace 'Raises NotImplementedError' by 'pass' if the controller has ramping but doesn't have a method to explicitly starts the ramping.
-        Else if this function returns 'NotImplementedError', then the Loop 'tloop' will use a SoftRamp instead.
-
-        Args:
-           tloop:  Loop class type object
-           sp:       setpoint (in tloop.input unit)
-           **kwargs: auxilliary arguments
         """
         log_info(self, "Controller:start_ramp: %s %s" % (tloop, sp))
 
         rate = self.get_ramprate(tloop)
 
         if rate == 0:
-            self.hw_controller.cool(sp)
+            if sp < self.get_setpoint(tloop):
+                self.hw_controller.cool(sp)
+            else:
+                self.hw_controller.ramp(self._ramprate_max, sp)
         else:
             self.hw_controller.ramp(rate, sp)
 
     def stop_ramp(self, tloop):
         """
-        Stop the current ramping to a setpoint
-        It must NOT stop the PID process, use 'stop_regulation' to do so.
-        Raises NotImplementedError if not defined by inheriting class
-
-        Args:
-           tloop:  Loop class type object
+        Stop the current ramping
         """
         log_info(self, "Controller:stop_ramp: %s" % (tloop))
-        # if not self._is_paused:  # self.hw_controller.is_paused()
-        #     self._is_paused = True
         self.hw_controller.pause()
 
     def is_ramping(self, tloop):
         """
-        Get the ramping status.
-        Raises NotImplementedError if not defined by inheriting class
-
-        Args:
-           tloop:  Loop class type object
-
-        Returns:
-           (bool) True if ramping, else False.
+        Get the ramping status
         """
         log_info(self, "Controller:is_ramping: %s" % (tloop))
         return self.hw_controller.is_ramping()
 
     def set_ramprate(self, tloop, rate):
         """
-        Set the ramp rate
-        Args:
-           tloop:  Loop class type object
-           rate:   ramp rate (in input unit per second)
+        Set the ramp rate in [K/hr]
         """
         log_info(self, "Controller:set_ramprate: %s %s" % (tloop, rate))
 
-        sp = self.get_setpoint(tloop)
-        self._ramp_rate = int(rate)
+        if rate == 0:
+            self._ramp_rate = 0
+        else:
+            rate = max(rate, self._ramprate_min)
+            self._ramp_rate = min(rate, self._ramprate_max)
 
-        self.hw_controller.ramp(self._ramp_rate, sp)
+        # ramp to current setpoint with the new ramprate
+        sp = self.get_setpoint(tloop)
+        self.start_ramp(tloop, sp)
 
     def get_ramprate(self, tloop):
         """
-        Get the ramp rate
-        Raises NotImplementedError if not defined by inheriting class
-
-        Args:
-           tloop:  Loop class type object
-        
-        Returns:
-           ramp rate (in input unit per second)
+        Get the ramp rate in [K/hr]
         """
         log_info(self, "Controller:get_ramprate: %s" % (tloop))
-        # self._ramp_rate = self.hw_controller.read_ramprate()
+
+        if self._ramp_rate is None:
+            cur_rate = self.hw_controller.read_ramprate()
+            self._ramp_rate = (
+                cur_rate
+                if cur_rate != 0
+                else tloop.config.get("ramprate", self._ramprate_max)
+            )
+
         return self._ramp_rate
 
     # --- controller method to set the Output to a given value (optional) -----------
@@ -415,31 +303,52 @@ class Oxford700(Controller):
     # --- Custom methods ------------------------------
 
     def turbo(self, enable):
+        """ Switch on/off the turbo gas flow"""
         self.hw_controller.turbo(bool(enable))
 
     def cool(self, temp):
+        """ Make gas temperature decrease to a set value as quickly as possible
+            Args:
+              temp (float): final temperature [K]
+        """
         self.hw_controller.cool(temp)
 
     def plat(self, duration):
+        """ Maintain temperature fixed for a certain time.
+            Args:
+              duration (int): time [minutes]
+        """
         self.hw_controller.plat(duration)
 
     def pause(self):
+        """ Start temporary hold """
         self.hw_controller.pause()
 
     def resume(self):
+        """Exit temporary hold """
         self.hw_controller.resume()
 
     def end(self, rate):
+        """ System shutdown with Ramp Rate to go back to temperature of 300K
+            Args:
+              rate (int): ramp rate [K/hour]
+        """
         self.hw_controller.end(rate)
 
     def hold(self):
+        """ Maintain temperature fixed indefinitely, until start issued """
         self.hw_controller.hold()
 
     def stop(self):
+        """ Immediately halt the Cryostream Cooler,turning off the pump and
+            all the heaters - used for emergency only
+        """
         self.hw_controller.stop()
 
     def purge(self):
+        """ Warm up the Coldhead as quickly as possible """
         self.hw_controller.purge()
 
     def restart(self):
+        """ Restart a Cryostream which has shutdown """
         self.hw_controller.restart()

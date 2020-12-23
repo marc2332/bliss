@@ -94,6 +94,8 @@ nav:
                             - Lakeshore: config_lakeshore.md
                             - Linkam: config_linkam.md
                             - Eurotherm Nanodac: config_nanodac.md
+                            - Oxford700: config_oxford700.md
+                            - Oxford800: config_oxford800.md
                       - SCA:
                             - Ace: config_ace.md
                             - Cyberstar: config_cyberstar.md
@@ -105,8 +107,6 @@ nav:
                       - Temperature framework:
                             - Eurotherm2000: config_eurotherm.md
                             - Meerstetter: config_meerstetter.md
-                            - Oxford700: config_oxford700.md
-                            - Oxford800: config_oxford800.md
                             - PACE: config_pace.md
                       - TFG: config_tango_tfg.md
                       - Transfocators: config_transfocator.md

@@ -10,7 +10,6 @@
     - eurotherm2000
     - pace
     - meerstetter ltr1200
-    - oxfordcryo 700/800
 
 
 A generic python library to access temperature controllers in a uniform manner has been developed inside the BLISS framework (plugin Temperature).

@@ -8,26 +8,25 @@
 
 from functools import wraps
 import liboxford800
+from liboxford800 import ls_oxford800
 from .oxford700 import Oxford700
 
 
 """
   - class: oxford800
     plugin: regulation
-    module: temperature.oxford.oxford700
+    module: temperature.oxford.oxford800
     cryoname: id10oxford800
 
     inputs:
         - name: ox_in
     outputs:
         - name: ox_out
-          low_limit:  80
-          high_limit: 500
-          unit: K
     ctrl_loops:
         - name: ox_loop
           input: $ox_in
           output: $ox_out
+          ramprate: 350   # (optional) default/starting ramprate [K/hour]
 """
 
 
@@ -47,86 +46,124 @@ class Handler(object):
         self._loop = liboxford800.loop()
         self._cryoname = cryoname
 
-    def __dir__(self):
-        l = [
-            "read_temperature",
-            "ramp",
-            "plat",
-            "plat",
-            "hold",
-            "turbo",
-            "resume",
-            "pause",
-            "restart",
-            "end",
-            "cool",
-            "state_output",
-            "status",
-        ]
-        cryo = liboxford800.get_handle(self._cryoname)
-        if cryo is not None:
-            l.extend(cryo.__dir__())
-        return l
+    # def __dir__(self):
+    #     l = [
+    #         "read_temperature",
+    #         "ramp",
+    #         "plat",
+    #         "plat",
+    #         "hold",
+    #         "turbo",
+    #         "resume",
+    #         "pause",
+    #         "restart",
+    #         "end",
+    #         "cool",
+    #         "state_output",
+    #         "status",
+    #     ]
+    #     cryo = liboxford800.get_handle(self._cryoname)
+    #     if cryo is not None:
+    #         l.extend(cryo.__dir__())
+    #     return l
 
-    def __getattr__(self, name):
-        cryo = liboxford800.get_handle(self._cryoname)
-        if cryo is not None:
-            return getattr(cryo, name)
-        raise AttributeError(name)
+    # def __getattr__(self, name):
+    #     cryo = liboxford800.get_handle(self._cryoname)
+    #     if cryo is not None:
+    #         return getattr(cryo, name)
+    #     raise AttributeError(name)
 
     @get_cryo
     def restart(self, cryo):
+        """Restart a Cryostream which has shutdown
+        """
         cryo.restart()
 
     @get_cryo
     def purge(self, cryo):
+        """Warm up the Coldhead as quickly as possible
+        """
         cryo.purge()
 
     @get_cryo
     def stop(self, cryo):
+        """Immediately halt the Cryostream Cooler,turning off the pump and
+           all the heaters - used for emergency only
+        """
         cryo.stop()
 
     @get_cryo
     def hold(self, cryo):
-        return cryo.hold()
+        """Maintain temperature fixed indefinitely, until start issued.
+        """
+        cryo.hold()
 
     @get_cryo
     def pause(self, cryo):
+        """Start temporary hold
+        """
         cryo.pause()
 
     @get_cryo
     def resume(self, cryo):
+        """Exit temporary hold
+        """
         cryo.resume()
 
     @get_cryo
     def turbo(self, cryo, on_off):
+        """ Switch on/off the turbo gas flow
+            Args:
+              on_off (bool): True when turbo is on (gas flow 10 l/min)
+        """
         cryo.turbo(on_off)
 
     @get_cryo
     def cool(self, cryo, temp):
+        """Make gas temperature decrease to a set value as quickly as possible
+           Args:
+              temp (float): final temperature [K]
+        """
         cryo.cool(temp)
 
     @get_cryo
     def plat(self, cryo, duration):
+        """ Maintain temperature fixed for a certain time.
+            Args:
+              duration (int): time [minutes] in range [1, 1440]
+        """
+        if duration < 1 or duration > 1440:
+            raise ValueError("duration must be in range [1, 1440] [minutes]")
+
         cryo.plat(duration)
 
     @get_cryo
     def end(self, cryo, rate):
+        """ System shutdown with a ramprate to go back to temperature of 300K
+            Args:
+              rate (int): ramp rate [K/hour] in range [1, 360]
+        """
+        if rate < 1 or rate > 360:
+            raise ValueError("ramprate must be in range [1, 360] [K/hour]")
+
         cryo.end(rate)
 
     @get_cryo
-    def ramp(self, cryo, rate, sp):
-        return cryo.ramp(rate, sp)
+    def ramp(self, cryo, rate, temp):
+        """Change gas temperature to a set value at a controlled rate
+           Args:
+              rate (int): ramp rate [K/hour] in range [1, 360]
+              temp (float): target temperature [K]
+        """
+        if rate < 1 or rate > 360:
+            raise ValueError("ramprate must be in range [1, 360] [K/hour]")
+
+        return cryo.ramp(rate, temp)
 
     @get_cryo
     def is_ramping(self, cryo):
         cryo.wait_new_status()
-        return cryo.Phase_id[1] in ["Ramp", "Wait"]
-
-    @get_cryo
-    def is_paused(self, cryo):
-        cryo.wait_new_status()
-        return cryo.Phase_id[1] == "Hold"
+        return cryo.Phase_id[1] in ["Ramp", "Wait", "Cool"]
 
     @get_cryo
     def read_gas_setpoint(self, cryo):
@@ -138,6 +175,9 @@ class Handler(object):
 
     @get_cryo
     def read_gas_temperature(self, cryo):
+        """ Read gas temperature.
+            Return a value in Kelvin
+        """
         cryo.wait_new_status()
         return cryo.Sample_temp
 

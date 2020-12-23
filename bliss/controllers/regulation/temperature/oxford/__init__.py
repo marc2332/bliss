@@ -14,28 +14,28 @@ class OxfordInput(Input):
         self.create_counter(
             SamplingCounter,
             self.name + "_gas_temp",
-            unit=self._config.get("unit", "N/A"),
+            unit=self._config.get("unit", "K"),
             mode=self._config.get("sampling-counter-mode", "SINGLE"),
         )
 
         self.create_counter(
             SamplingCounter,
             self.name + "_evap_temp",
-            unit=self._config.get("unit", ""),
+            unit=self._config.get("unit", "K"),
             mode=self._config.get("sampling-counter-mode", "SINGLE"),
         )
 
         self.create_counter(
             SamplingCounter,
             self.name + "_suct_temp",
-            unit=self._config.get("unit", ""),
+            unit=self._config.get("unit", "K"),
             mode=self._config.get("sampling-counter-mode", "SINGLE"),
         )
 
         self.create_counter(
             SamplingCounter,
             self.name + "_gas_error",
-            unit=self._config.get("unit", ""),
+            unit=self._config.get("unit", "K"),
             mode=self._config.get("sampling-counter-mode", "SINGLE"),
         )
 
@@ -69,7 +69,7 @@ class OxfordInput(Input):
         val = self.controller.hw_controller.read_suct_temperature()
         lines.append(f"current suct temperature: {val:.3f} K")
         val = self.controller.hw_controller.read_gas_error()
-        lines.append(f"current gas error: {val:.3f}")
+        lines.append(f"current gas error: {val:.3f} K")
 
         return "\n".join(lines)
 
@@ -80,28 +80,28 @@ class OxfordOutput(Output):
         self.create_counter(
             SamplingCounter,
             self.name + "_gas_heat",
-            unit=self._config.get("unit", "N/A"),
+            unit=self._config.get("unit", "%"),
             mode=self._config.get("sampling-counter-mode", "SINGLE"),
         )
 
         self.create_counter(
             SamplingCounter,
             self.name + "_evap_heat",
-            unit=self._config.get("unit", ""),
+            unit=self._config.get("unit", "%"),
             mode=self._config.get("sampling-counter-mode", "SINGLE"),
         )
 
         self.create_counter(
             SamplingCounter,
             self.name + "_suct_heat",
-            unit=self._config.get("unit", ""),
+            unit=self._config.get("unit", "%"),
             mode=self._config.get("sampling-counter-mode", "SINGLE"),
         )
 
         self.create_counter(
             SamplingCounter,
             self.name + "_gas_flow",
-            unit=self._config.get("unit", ""),
+            unit=self._config.get("unit", "l/min"),
             mode=self._config.get("sampling-counter-mode", "SINGLE"),
         )
 
@@ -130,19 +130,19 @@ class OxfordOutput(Output):
 
         lines.append("")
         val = self.controller.hw_controller.read_gas_heat()
-        lines.append(f"current gas heat: {val:.3f}")
+        lines.append(f"current gas heat: {val:.3f} %")
 
         val = self.controller.hw_controller.read_evap_heat()
-        lines.append(f"current evap heat: {val:.3f}")
+        lines.append(f"current evap heat: {val:.3f} %")
 
         val = self.controller.hw_controller.read_suct_heat()
-        lines.append(f"current suct heat: {val:.3f}")
+        lines.append(f"current suct heat: {val:.3f} %")
 
         val = self.controller.hw_controller.read_gas_flow()
-        lines.append(f"current gas flow: {val:.3f}")
+        lines.append(f"current gas flow: {val:.3f} l/min")
         lines.append("")
 
-        lines.append(f"output ramprate: {self.ramprate}")
+        lines.append(f"output ramprate: {self.ramprate} K/hour")
         lines.append(f"ramping: {self.is_ramping()}")
         lines.append(f"limits: {self._limits}")
         return "\n".join(lines)
@@ -154,14 +154,14 @@ class OxfordLoop(Loop):
         self.create_counter(
             SamplingCounter,
             self.name + "_gas_setpoint",
-            unit=self.input.config.get("unit", "N/A"),
+            unit=self.input.config.get("unit", "K"),
             mode="SINGLE",
         )
 
         self.create_counter(
             SamplingCounter,
             self.name + "_target_temp",
-            unit=self.input.config.get("unit", "N/A"),
+            unit=self.input.config.get("unit", "K"),
             mode="SINGLE",
         )
 
@@ -203,17 +203,17 @@ class OxfordLoop(Loop):
         val = self.controller.hw_controller.read_suct_temperature()
         lines.append(f"current suct temperature: {val:.3f} K")
         val = self.controller.hw_controller.read_gas_error()
-        lines.append(f"current gas error: {val:.3f}")
+        lines.append(f"current gas error: {val:.3f} K")
         lines.append("")
 
         lines.append(f"=== Output: {self.output.name} ===")
         val = self.controller.hw_controller.read_gas_heat()
-        lines.append(f"current gas heat: {val:.3f}")
+        lines.append(f"current gas heat: {val:.3f} %")
         val = self.controller.hw_controller.read_evap_heat()
-        lines.append(f"current evap heat: {val:.3f}")
+        lines.append(f"current evap heat: {val:.3f} %")
         val = self.controller.hw_controller.read_suct_heat()
-        lines.append(f"current suct heat: {val:.3f}")
+        lines.append(f"current suct heat: {val:.3f} %")
         val = self.controller.hw_controller.read_gas_flow()
-        lines.append(f"current gas flow: {val:.3f}")
+        lines.append(f"current gas flow: {val:.3f} l/min")
 
         return "\n".join(lines)

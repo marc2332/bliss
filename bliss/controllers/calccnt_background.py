@@ -1,16 +1,26 @@
+# -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2015-2020 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.config import settings
 
 from bliss.common.scans import ct
+from bliss.common.cleanup import cleanup
 from bliss.controllers.counter import CalcCounterController
 from bliss.common.counter import IntegratingCounter
 from bliss.scanning.acquisition.calc import CalcCounterAcquisitionSlave
+from bliss.common.logtools import user_print
 
 
 class BackgroundCalcCounterController(CalcCounterController):
     def __init__(self, name, config):
 
         self.background_object = config.get("open_close", None)
+
+        self.background_object_initial_state = "UNKNOWN"
 
         CalcCounterController.__init__(self, name, config)
 
@@ -76,19 +86,25 @@ class BackgroundCalcCounterController(CalcCounterController):
             if self.background_object is None:
                 self.take_background_data(time)
             else:
-                # Close beam
-                background_object_state = self.background_object.state
+                # Store initial state.
+                self.background_object_initial_state = self.background_object.state
+
+                # Close beam.
                 self.background_object.close()
 
-                # take background
+                # Take background.
                 if self.background_object.state == "CLOSED":
-                    self.take_background_data(time)
-                    if background_object_state == "OPEN":
-                        self.background_object.open()
+                    with cleanup(self._close):
+                        self.take_background_data(time)
                 else:
-                    print(
+                    user_print(
                         "Close functions did not succeed, Backgrounds have not been changed !!!"
                     )
+
+    def _close(self):
+        """ Re-open if initial state was OPEN"""
+        if self.background_object_initial_state == "OPEN":
+            self.background_object.open()
 
     def take_background_data(self, time):
         scan_ct = ct(time, self.inputs, run=False)
@@ -100,6 +116,7 @@ class BackgroundCalcCounterController(CalcCounterController):
             background = data_background[cnt.name][0]
             self.background_setting[tag] = data_background[cnt.name][0]
             self.background_setting["background_time"] = time
+            user_print(f"{cnt.name} - {background}")
 
     def calc_function(self, input_dict):
         value = {}

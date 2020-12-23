@@ -14,6 +14,8 @@ controller:
   axes:
   - name: robz
     steps_per_unit: 10000
+    velocity_high_limit: 1500
+    velocity_low_limit: 10 
     velocity: 100
     acceleration: 300
     low_limit: -1000

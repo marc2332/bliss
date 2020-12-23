@@ -60,6 +60,8 @@ class ControllerAxisSettings:
         self.add("low_limit", floatOrNone)
         self.add("high_limit", floatOrNone)
         self.add("velocity", float, config=True, hardware=True)
+        self.add("velocity_high_limit", floatOrNone)
+        self.add("velocity_low_limit", floatOrNone)
         self.add("jog_velocity", float, hardware=True)
         self.add("acceleration", float, config=True, hardware=True)
         self.add("dial_position", float, hardware=True)
@@ -247,12 +249,17 @@ class AxisSettings:
         self.set("low_limit", low_limit_dial)
         self.set("high_limit", high_limit_dial)
 
+        vel_low_limit = self._get_setting_or_config_value("velocity_low_limit")
+        vel_high_limit = self._get_setting_or_config_value("velocity_high_limit")
+        self.set("velocity_low_limit", vel_low_limit)
+        self.set("velocity_high_limit", vel_high_limit)
+
         for setting_name in config_settings:
             value = self._get_setting_or_config_value(setting_name)
             setattr(axis, setting_name, value)
 
     def set(self, setting_name, value):
-        # the last 3 tests prevent recursion when getting one of those
+        # the next 3 tests prevent recursion when getting one of those
         # settings, that can do a set in some circumstances (first time or
         # 'no settings axis' for example), that emit a new setting event,
         # that can execute a callback that can get state or position...
@@ -289,7 +296,10 @@ class AxisSettings:
         else:
             if axis_settings.persistent_setting[setting_name]:
                 with KillMask():
-                    self._hash[setting_name] = value
+                    if value is None:
+                        self._hash[setting_name] = "None"
+                    else:
+                        self._hash[setting_name] = value
 
             self._beacon_channels[setting_name].value = value
 
@@ -316,6 +326,8 @@ class AxisSettings:
         if axis_settings.persistent_setting[setting_name]:
             with KillMask():
                 value = self._hash.get(setting_name)
+            if value == "None":
+                value = None
         else:
             chan = self._beacon_channels.get(setting_name)
             if chan:

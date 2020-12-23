@@ -65,6 +65,8 @@ def test_info(robz, capsys):
     output += "     acceleration (RW):  300.00000  (config:  300.00000)\n"
     output += "     acctime (RW):         0.33333  (config:    0.33333)\n"
     output += "     velocity (RW):      100.00000  (config:  100.00000)\n"
+    output += "     velocity_low_limit (RW):       10.00000  (config: 10.0)\n"
+    output += "     velocity_high_limit (RW):     1500.00000  (config: 1500.0)\n"
     output += "Controller name: test\n"
     output += "MOCKUP AXIS:\n"
     output += "    this axis (robz) is a simulation axis\n"
@@ -281,6 +283,7 @@ def test_stop(robz):
 
 @pytest.mark.flaky(reruns=3, reason="issue2353")
 def test_asynchronous_stop(robz):
+    robz.velocity_low_limit = 1
     robz.velocity = 1
 
     robz.move(180, wait=False)
@@ -765,26 +768,31 @@ def test_sign_property(beacon, motor_name):
     assert mot.limits == (-dll, -dhl)
 
 
-@pytest.mark.parametrize("motor_name", ["roby", "nsa"])
+@pytest.mark.parametrize("motor_name", ["robz", "nsa"])
 def test_settings_to_config(beacon, motor_name):
     mot = beacon.get(motor_name)
     cfg = beacon.get_config(motor_name)
     cfg_acc = cfg.get("acceleration")
     cfg_vel = cfg.get("velocity")
-    cfg_ll = cfg.get("low_limit")
-    cfg_hl = cfg.get("high_limit")
+    cfg_ll = cfg.get("low_limit", float("-inf"))
+    cfg_hl = cfg.get("high_limit", float("inf"))
+    cfg_vel_ll = cfg.get("velocity_low_limit", float("inf"))
+    cfg_vel_hl = cfg.get("velocity_high_limit", float("inf"))
 
-    mot.velocity = 3
+    mot.velocity = 10
     mot.acceleration = 10
     mot.limits = None, None
+    mot.velocity_limits = None, None
     assert mot.config_velocity == cfg_vel
     assert mot.config_acceleration == cfg_acc
     assert mot.config_limits == (cfg_ll, cfg_hl)
+    assert mot.config_velocity_limits == (cfg_vel_ll, cfg_vel_hl)
     mot.settings_to_config()
     try:
-        assert mot.config_velocity == 3
+        assert mot.config_velocity == 10
         assert mot.config_acceleration == 10
         assert mot.config_limits == (float("-inf"), float("inf"))
+        assert mot.config_velocity_limits == (float("inf"), float("inf"))
     finally:
         # put back config files as they were,
         # since the fixture that starts
@@ -794,27 +802,35 @@ def test_settings_to_config(beacon, motor_name):
         mot.acceleration = cfg_acc
         mot.low_limit = cfg_ll
         mot.high_limit = cfg_hl
+        mot.velocity_low_limit = cfg_vel_ll
+        mot.velocity_high_limit = cfg_vel_hl
         mot.settings_to_config()
 
 
-@pytest.mark.parametrize("motor_name", ["roby", "nsa"])
+@pytest.mark.parametrize("motor_name", ["robz", "nsa"])
 def test_apply_config(beacon, motor_name):
     mot = beacon.get(motor_name)
     cfg = beacon.get_config(motor_name)
     cfg_acc = cfg.get("acceleration")
     cfg_vel = cfg.get("velocity")
+    cfg_vel_limits = (
+        cfg.get("velocity_low_limit", float("inf")),
+        cfg.get("velocity_high_limit", float("inf")),
+    )
     cfg_limits = (
         cfg.get("low_limit", float("-inf")),
         cfg.get("high_limit", float("+inf")),
     )
 
-    mot.velocity = 1
+    mot.velocity = 10
     mot.acceleration = 2
     mot.limits = 0, 10
+    mot.velocity_limits = 1, 1000
     mot.apply_config()
     assert mot.velocity == cfg_vel
     assert mot.acceleration == cfg_acc
     assert mot.limits == cfg_limits
+    assert mot.velocity_limits == cfg_vel_limits
 
 
 @pytest.mark.flaky(reruns=3, reason="issue2353")
@@ -876,9 +892,9 @@ def test_jog2(jogger):
 
 def test_jog3(robz):
     robz.jog_velocity = 100
-    robz.velocity = 1
+    robz.velocity = 10
     saved_velocity = robz.velocity
-    assert robz.acctime / robz.jog_acctime == pytest.approx(1 / robz.jog_velocity)
+    assert robz.acctime / robz.jog_acctime == pytest.approx(10 / robz.jog_velocity)
     robz.jog()
     time.sleep(0.2 + robz.jog_acctime)
     robz.jog_velocity = 300
@@ -1096,3 +1112,31 @@ def test_no_settings_hw_read_acc_vel_pos_state(nsa):
         assert nsa.settings.get("position") is None
         assert nsa.settings.get("dial_position") is None
         assert nsa.position == pytest.approx(888 / nsa.steps_per_unit)
+
+
+def test_velocity_limits_defined_in_config(robz, roby):
+    max_velocity = robz.velocity_high_limit
+    min_velocity = robz.velocity_low_limit
+    with pytest.raises(ValueError, match="exceeds"):
+        robz.velocity = max_velocity + 1
+    with pytest.raises(ValueError, match="is below"):
+        robz.velocity = min_velocity - 1
+    assert roby.velocity_low_limit == float("inf")
+    assert roby.velocity_high_limit == float("inf")
+
+
+def test_change_velocity_limits(robz):
+    old_max_velocity = robz.velocity_high_limit
+    robz.velocity_high_limit = old_max_velocity + 100
+
+    robz.velocity = old_max_velocity + 50
+
+    with pytest.raises(ValueError, match="exceeds"):
+        robz.velocity = old_max_velocity + 101
+
+    old_min_velocity = robz.velocity_low_limit
+    robz.velocity_low_limit = old_min_velocity - 5
+    robz.velocity = old_min_velocity - 2
+
+    with pytest.raises(ValueError, match="is below"):
+        robz.velocity = old_min_velocity - 6

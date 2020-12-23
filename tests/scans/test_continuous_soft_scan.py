@@ -136,6 +136,7 @@ def test_multi_top_master(session, diode_acq_device_factory, diode):
 
 def test_interrupted_scan(session, diode_acq_device_factory):
     robz = session.config.get("robz")
+    robz.velocity_low_limit = 1
     robz.velocity = 1
     chain = AcquisitionChain()
     acquisition_device_1, _ = diode_acq_device_factory.get(count_time=0.1, npoints=5)
@@ -177,6 +178,7 @@ def test_scan_too_fast(session, diode_acq_device_factory):
 
 def test_scan_failure(session, diode_acq_device_factory):
     robz = session.config.get("robz")
+    robz.velocity_low_limit = 1
     robz.velocity = 2
     chain = AcquisitionChain()
     acquisition_device_1, diode1 = diode_acq_device_factory.get(

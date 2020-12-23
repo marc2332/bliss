@@ -626,7 +626,9 @@ def __initialize(args, db=None):
                         mod_klasses = module.initialize_bliss(info, db=db)
                         klasses.extend(mod_klasses)
                     except Exception as e:
-                        _log.warning("failed to initialize %s: %s", module_name, str(e))
+                        _log.exception(
+                            "failed to initialize %s: %s", module_name, str(e)
+                        )
                         _log.debug("details:", exc_info=1)
     return klasses
 

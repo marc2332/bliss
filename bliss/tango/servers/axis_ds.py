@@ -23,6 +23,7 @@ from gevent.backdoor import BackdoorServer
 
 from bliss.common import event
 from bliss.common.utils import grouped
+from bliss.common.motor_settings import floatOrNone
 from bliss.config.static import get_config as beacon_get_config
 from bliss.common.motor_group import Group
 from bliss.common.axis import Axis
@@ -83,6 +84,7 @@ types_conv_tab.update(
         str: tango.DevString,
         int: tango.DevLong,
         float: tango.DevDouble,
+        floatOrNone: tango.DevDouble,
         bool: tango.DevBoolean,
     }
 )

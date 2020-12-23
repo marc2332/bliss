@@ -844,7 +844,6 @@ def tcp_server_main(sock):
 
 def ensure_global_beacon_connection(beacon_port):
     """Avoid auto-discovery of port for the global connection object.
-    Ensures the global connection is too Beacon and not Redis.
     """
     if client._default_connection is None:
         client._default_connection = connection.Connection("localhost", beacon_port)

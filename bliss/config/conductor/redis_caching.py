@@ -50,15 +50,13 @@ class CachingConnectionGreenlet(gevent.Greenlet):
         self._close_pipe = None
         super().__init__()
 
-    def stop(self, block=True, timeout=None):
-        """Stop the greenlet through the pipe. Like `kill` this doesn't
-        raise an exception when it times out.
+    def stop(self):
+        """Like `kill` but through the closing pipe. It does not raise
+        an exception on timeout.
 
         Calling `kill` might not return the pubsub connection to the pool.
         """
-        os.write(self._close_pipe, b"X")
-        if block:
-            self.join(timeout=timeout)
+        self._send_fd(self._close_pipe, b"X")
 
     def _run(self):
         with ExitStack() as stack:
@@ -100,6 +98,16 @@ class CachingConnectionGreenlet(gevent.Greenlet):
             return
         try:
             os.close(fd)
+        except OSError:
+            # already closed
+            pass
+
+    @staticmethod
+    def _send_fd(fd, msg):
+        if fd is None:
+            return
+        try:
+            os.write(fd, msg)
         except OSError:
             # already closed
             pass
@@ -188,7 +196,7 @@ class CachingConnectionGreenlet(gevent.Greenlet):
                 except ValueError:
                     # One of the sockets was closed (file descriptor -1)
                     break
-                except OSError as e:
+                except OSError:
                     # One of the sockets was closed (bad file descriptor)
                     break
                 if rp in read_event:
@@ -359,11 +367,19 @@ class RedisCache(MutableMapping):
             raise RedisCacheError("Failed to establish the Redis connections")
 
     def _stop_connection_greenlet(self, timeout=None):
-        if self._connection_greenlet:
-            self._connection_greenlet.stop(timeout=10)
-        if self._connection_greenlet:
-            # This may cause Redis connection and file descriptor leaks
-            self._connection_greenlet.kill(timeout=timeout)
+        if not self._connection_greenlet:
+            self._connection_greenlet = None
+            return
+        try:
+            with gevent.Timeout(timeout):
+                self._connection_greenlet.stop()
+                self._connection_greenlet.join(timeout=10)
+                # This may cause Redis connection and file descriptor leaks
+                if self._connection_greenlet:
+                    self._connection_greenlet.kill()
+                    self._connection_greenlet.join()
+        except gevent.Timeout:
+            pass
         if self._connection_greenlet:
             raise RedisCacheError("Failed to close the Redis connections")
         self._connection_greenlet = None

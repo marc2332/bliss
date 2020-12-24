@@ -56,7 +56,7 @@ class CachingConnectionGreenlet(gevent.Greenlet):
 
         Calling `kill` might not return the pubsub connection to the pool.
         """
-        self._close_fd(self._close_pipe)
+        os.write(self._close_pipe, b"X")
         if block:
             self.join(timeout=timeout)
 

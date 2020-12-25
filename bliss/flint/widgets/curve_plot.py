@@ -565,6 +565,7 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         self.scanModelUpdated.emit(scan)
         self.__updateTitle(scan)
         self.__redrawAllScans()
+        self.__syncAxisTitle.trigger()
 
     def __cleanScanIfNeeded(self, scan):
         plotModel = self.__plotModel

@@ -14,6 +14,9 @@ from bliss.config.conductor.redis_caching import RedisCacheError
 
 
 def test_redis_connections(new_beacon_connection):
+    # This test checks with the Redis server how many clients are connected.
+    # Note that to ask for the clients, you need to make a connection as well.
+
     client_name = f"{socket.gethostname()}:{os.getpid()}"
     assert new_beacon_connection.get_client_name() == client_name
 
@@ -24,7 +27,7 @@ def test_redis_connections(new_beacon_connection):
             [client for client in proxy.client_list() if client["name"] == client_name]
         )
 
-    proxy1 = new_beacon_connection.get_redis_proxy(db=0)
+    proxy1 = new_beacon_connection.get_redis_proxy()
     nconnections = 1
     assert proxy1.client_getname() == client_name
     assert count_clients(proxy1) == nconnections
@@ -35,11 +38,11 @@ def test_redis_connections(new_beacon_connection):
     nconnections += 1
     assert count_clients(proxy1) == nconnections
 
-    proxy2 = new_beacon_connection.get_redis_proxy(db=0)
+    proxy2 = new_beacon_connection.get_redis_proxy()
     assert proxy2.client_getname() == client_name
     assert count_clients(proxy2) == nconnections
     assert proxy1 is not proxy2
-    assert proxy2 is new_beacon_connection.get_redis_proxy(db=0)
+    assert proxy2 is new_beacon_connection.get_redis_proxy()
 
     # The Beacon connection manages Redis connection cleanup but after
     # calling `close_all_redis_connections` any existing proxy that makes
@@ -51,14 +54,15 @@ def test_redis_connections(new_beacon_connection):
     nconnections -= 1
     del proxy1
 
-    proxy3 = proxy2.connection_pool.create_single_connection_proxy()
+    proxy3 = new_beacon_connection.get_redis_proxy(shared=False)
     nconnections += 1
     assert proxy3.client_getname() == client_name
     assert count_clients(proxy3) == nconnections
     assert proxy2 is not proxy3
 
-    proxy4 = proxy2.connection_pool.create_single_connection_proxy()
-    nconnections += 1
+    proxy4 = new_beacon_connection.get_redis_proxy(caching=True)
+    nconnections += 2  # a caching proxy holds a 1 pubsub and 1 tracking connection
+    # For the `client_getname` it reuses a connection from the pool
     assert proxy4.client_getname() == client_name
     assert count_clients(proxy4) == nconnections
     assert proxy3 is not proxy4
@@ -70,6 +74,34 @@ def test_redis_connections(new_beacon_connection):
     assert proxy2 is not proxy5
 
 
+@pytest.mark.parametrize("caching", [False, True])
+def test_redis_connection_pool(new_beacon_connection, caching):
+    proxy = new_beacon_connection.get_redis_proxy(caching=caching)
+
+    used_before = proxy.connection_pool._in_use_connections
+
+    def make_connections(nconnections=10):
+        connections = []
+        for _ in range(nconnections // 2):
+            connections.append(proxy.connection_pool.get_connection(None))
+            # gevent.sleep()  # commenting this line produces #2428
+        proxy.connection_pool.safe_disconnect()
+        for _ in range(nconnections // 2):
+            connections.append(proxy.connection_pool.get_connection(None))
+            gevent.sleep()
+        for connection in connections:
+            proxy.connection_pool.release(connection)
+            gevent.sleep()
+        connections = None
+
+    glts = [gevent.spawn(make_connections) for _ in range(50)]
+    gevent.joinall(glts, timeout=10, raise_error=True)
+    new_used = proxy.connection_pool._in_use_connections - used_before
+    assert not new_used
+    if not caching:
+        assert not proxy.connection_pool._closing_connections
+
+
 def test_redis_proxy_concurrancy(new_beacon_connection):
     proxy = new_beacon_connection.get_redis_proxy()
     proxy.set("dbkey", 0)
@@ -78,13 +110,12 @@ def test_redis_proxy_concurrancy(new_beacon_connection):
         proxy.incr("dbkey")
 
     glts = [gevent.spawn(modify_value) for _ in range(100)]
-    gevent.joinall(glts, raise_error=True)
+    gevent.joinall(glts, timeout=10, raise_error=True)
     assert proxy.get("dbkey") == b"100"
 
 
 def test_async_proxy(new_beacon_connection):
     proxy = new_beacon_connection.get_redis_proxy()
-    proxy.delete("dbkey")
 
     async_proxy = proxy.pipeline()
     async_proxy.set("dbkey", 0)
@@ -107,78 +138,84 @@ def test_async_proxy(new_beacon_connection):
 
 
 def test_caching_proxy(new_beacon_connection):
-    proxy = new_beacon_connection.get_caching_redis_proxy()
-    assert proxy.connection_pool.db_cache.enabled
-    assert len(proxy.connection_pool.db_cache) == 0
+    proxy = new_beacon_connection.get_redis_proxy(caching=True)
+    assert proxy.db_cache.connected
+    assert len(proxy.db_cache) == 0
 
     proxy.set("dbkey", 1)
-    assert proxy.connection_pool.db_cache.enabled
-    assert len(proxy.connection_pool.db_cache) == 1
+    assert len(proxy.db_cache) == 1
+    assert proxy.get("dbkey") == 1
+
+    proxy.disable_caching()
+    assert proxy.get("dbkey") == b"1"
+    assert not proxy.db_cache.connected
+    with pytest.raises(RedisCacheError):
+        len(proxy.db_cache)
+
+    proxy.enable_caching()
+    assert proxy.db_cache.connected
+    assert len(proxy.db_cache) == 0
+    assert proxy.get("dbkey") == b"1"
+    assert len(proxy.db_cache) == 1
+
+    proxy.db_cache.connection.disconnect()
+    assert proxy.db_cache.connected
+    assert len(proxy.db_cache) == 1
+    assert proxy.get("dbkey") == b"1"
+
+    proxy.db_cache.disconnect()
+    assert not proxy.db_cache.connected
+    with pytest.raises(RedisCacheError):
+        len(proxy.db_cache) == 1
+
+    proxy.enable_caching()
+    assert proxy.get("dbkey") == b"1"
+    assert len(proxy.db_cache) == 1
 
     proxy.connection_pool.disconnect()
-    assert not proxy.connection_pool.db_cache.enabled
+    with gevent.Timeout(3):
+        while proxy.db_cache.connected:
+            gevent.sleep(0.1)
     with pytest.raises(RedisCacheError):
-        len(proxy.connection_pool.db_cache)
-
-    assert proxy.get("dbkey") == b"1"
-    assert not proxy.connection_pool.db_cache.enabled
-    with pytest.raises(RedisCacheError):
-        len(proxy.connection_pool.db_cache)
-
-    proxy.connection_pool.db_cache.enable()
-    assert proxy.connection_pool.db_cache.enabled
-    assert len(proxy.connection_pool.db_cache) == 0
-
-    proxy.get("dbkey")
-    assert proxy.connection_pool.db_cache.enabled
-    assert len(proxy.connection_pool.db_cache) == 1
+        len(proxy.db_cache)
 
 
 def test_caching_proxy_concurrancy(new_beacon_connection):
-    proxy = new_beacon_connection.get_caching_redis_proxy()
+    proxy = new_beacon_connection.get_redis_proxy(caching=True)
     proxy.set("dbkey", 0)
 
     def modify_value():
         proxy.testincr("dbkey")
 
     glts = [gevent.spawn(modify_value) for _ in range(100)]
-    gevent.joinall(glts, raise_error=True)
+    gevent.joinall(glts, timeout=10, raise_error=True)
     assert proxy.get("dbkey") == b"100"
 
 
 def test_async_caching_proxy_concurrancy(new_beacon_connection):
-    proxy = new_beacon_connection.get_caching_redis_proxy().pipeline()
+    proxy = new_beacon_connection.get_redis_proxy(caching=True)
 
-    for i in range(5):
-        proxy.set("dbkey" + str(i), i)
-    assert len(proxy.connection_pool.db_cache) == 0
-    proxy.execute()
-    assert len(proxy.connection_pool.db_cache) == 5
+    async_proxy = proxy.pipeline()
 
+    for i in range(50):
+        async_proxy.set("dbkey" + str(i), i)
+    assert len(proxy.db_cache) == 0
 
-def test_caching_proxy_concurrency_shared_pool(new_beacon_connection):
-    proxy = new_beacon_connection.get_caching_redis_proxy()
-    proxy.set("dbkey", 0)
-    proxies = [proxy.connection_pool.create_proxy() for _ in range(100)]
-    assert proxies[0] is not proxies[1]
-    assert proxies[0].connection_pool is proxies[1].connection_pool
+    async_proxy.execute()
 
-    def modify_value(proxy):
-        proxy.testincr("dbkey")
+    # There shouldn't be any key invalidation but wait a bit to make sure
+    gevent.sleep(1)
 
-    glts = [gevent.spawn(modify_value, proxy) for proxy in proxies]
-    gevent.joinall(glts, raise_error=True)
-    for proxy in proxies:
-        assert proxy.get("dbkey") == b"100"
+    assert len(proxy.db_cache) == 50
 
 
-def test_caching_proxy_concurrency_multi_pool(new_beacon_connection):
+def test_caching_proxy_concurrency_multi_cache(new_beacon_connection):
     proxies = [
-        new_beacon_connection.get_caching_redis_proxy(shared_cache=False)
+        new_beacon_connection.get_redis_proxy(caching=True, shared=False)
         for _ in range(100)
     ]
     assert proxies[0] is not proxies[1]
-    assert proxies[0].connection_pool is not proxies[1].connection_pool
+    assert proxies[0].connection_pool is proxies[1].connection_pool
     try:
         proxies[0].set("dbkey", 0)
 
@@ -186,13 +223,13 @@ def test_caching_proxy_concurrency_multi_pool(new_beacon_connection):
             proxy.incr("dbkey")
 
         glts = [gevent.spawn(modify_value, proxy) for proxy in proxies]
-        gevent.joinall(glts, raise_error=True)
+        gevent.joinall(glts, timeout=10, raise_error=True)
         for proxy in proxies:
             with gevent.Timeout(3):
                 # Wait for Redis key invalidation
                 while proxy.get("dbkey") != b"100":
                     gevent.sleep(0.1)
-            assert len(proxy.connection_pool.db_cache) == 1
+            assert len(proxy.db_cache) == 1
     finally:
         # Close while we still have references to the proxies so
         # that the beacon connection can do its job cleaning them up
@@ -201,36 +238,40 @@ def test_caching_proxy_concurrency_multi_pool(new_beacon_connection):
 
 def test_caching_proxy_key_invalidation(new_beacon_connection):
     proxy = new_beacon_connection.get_redis_proxy()
-    caching_proxy = new_beacon_connection.get_caching_redis_proxy()
+    caching_proxy = new_beacon_connection.get_redis_proxy(caching=True)
 
     proxy.set("dbkey", 1)
     assert caching_proxy.get("dbkey") == b"1"
-    assert len(caching_proxy.connection_pool.db_cache) == 1
+    assert len(caching_proxy.db_cache) == 1
 
     proxy.set("dbkey", 2)
     with gevent.Timeout(3):
         # Wait for Redis key invalidation
-        while caching_proxy.connection_pool.db_cache:
+        while caching_proxy.db_cache:
             gevent.sleep(0.1)
     assert caching_proxy.get("dbkey") == b"2"
 
-    caching_proxy.connection_pool.disable_caching()
+    caching_proxy.disable_caching()
     assert caching_proxy.get("dbkey") == b"2"
 
     proxy.set("dbkey", 3)
     assert caching_proxy.get("dbkey") == b"3"
 
-    caching_proxy.connection_pool.disable_caching()
+    caching_proxy.disable_caching()
     proxy.set("dbkey", 4)
     assert caching_proxy.get("dbkey") == b"4"
 
     proxy.set("dbkey", 5)
-    caching_proxy.connection_pool.enable_caching()
+    caching_proxy.enable_caching()
     assert caching_proxy.get("dbkey") == b"5"
 
 
-def test_rotating_async_proxy(new_beacon_connection):
-    proxy = new_beacon_connection.get_redis_proxy()
+@pytest.mark.parametrize("caching", [False, True])
+def test_rotating_async_proxy(new_beacon_connection, caching):
+    if caching:
+        proxy = new_beacon_connection.get_redis_proxy(caching=caching)
+    else:
+        proxy = new_beacon_connection.get_redis_proxy()
     unlimited = 1e10
     event = {"field": "value"}
 

@@ -19,6 +19,7 @@ import logging
 import json
 import pytest
 import redis
+import redis.connection
 import collections.abc
 import numpy
 from random import randint
@@ -135,31 +136,32 @@ class ResourcesContext:
         self.resources_before = weakref.WeakSet()
         self.all_resources_released = None
 
+    def _iter_referenced_resources(self):
+        for ob in gc.get_objects():
+            try:
+                if not isinstance(ob, self.resource_classes):
+                    continue
+            except ReferenceError:
+                continue
+            yield ob
+
     def __enter__(self):
         self.resources_before.clear()
         self.all_resources_released = None
-
-        for ob in gc.get_objects():
-            try:
-                if not isinstance(ob, self.resource_classes):
-                    continue
-            except ReferenceError:
-                continue
+        for ob in self._iter_referenced_resources():
             self.resources_before.add(ob)
+        return self
+
+    def resource_repr(self, ob):
+        return repr(ob)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         resources = []
-        for ob in gc.get_objects():
-            try:
-                if not isinstance(ob, self.resource_classes):
-                    continue
-            except ReferenceError:
-                continue
+        for ob in self._iter_referenced_resources():
             if ob in self.resources_before:
                 continue
-
             if not self.is_released(ob):
-                eprint(f"Resource not released: {ob}")
+                eprint(f"Resource not released: {self.resource_repr(ob)}")
             resources.append(ob)
 
         self.resources_before.clear()
@@ -182,6 +184,24 @@ class SocketsContext(ResourcesContext):
         super().__init__(
             lambda sock: sock.close(), lambda sock: sock.fileno() == -1, socket.socket
         )
+
+    def resource_repr(self, sock):
+        try:
+            return f"{repr(sock)} connected to {sock.getpeername()}"
+        except Exception:
+            return f"{repr(sock)} not connected"
+
+
+class RedisConnectionContext(ResourcesContext):
+    def __init__(self):
+        super().__init__(
+            lambda conn: conn.disconnect(),
+            lambda conn: conn._sock.fileno() == -1,
+            redis.connection.Connection,
+        )
+
+    def resource_repr(self, conn):
+        return f"{repr(conn)} connected to {conn._sock.getpeername()}"
 
 
 @pytest.fixture
@@ -209,8 +229,7 @@ def clean_gevent():
             ...
     """
     d = {"end-check": True}
-    context = GreenletsContext()
-    with context:
+    with GreenletsContext() as context:
         yield d
     end_check = d.get("end-check")
     if end_check:
@@ -242,8 +261,7 @@ def clean_socket():
             ...
     """
     d = {"end-check": True}
-    context = SocketsContext()
-    with context:
+    with SocketsContext() as context:
         yield d
     end_check = d.get("end-check")
     if end_check:

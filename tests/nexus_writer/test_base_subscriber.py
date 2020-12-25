@@ -7,6 +7,7 @@
 
 import gevent
 import logging
+import redis.connection
 from bliss.common import scans
 from nexus_writer_service.subscribers.base_subscriber import BaseSubscriber
 from nexus_writer_service.utils import process_utils
@@ -69,7 +70,9 @@ def test_base_subscriber(session):
     scan.run()
     wait_finished(subscriber, successfull=True)
     assert subscriber.progress == nnodes, msg
-    resources = process_utils.ResourceMonitor()
+    resources = process_utils.ResourceMonitor(
+        redis.connection.Connection, fds=False, sockets=False
+    )
     resources.start()
 
     # Listen after scan

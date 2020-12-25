@@ -15,7 +15,7 @@ from bliss.common import event
 from bliss.common.greenlet_utils import KillMask
 from bliss.config.channels import Channel
 from bliss.config import settings
-from bliss.config.conductor.client import get_caching_redis_proxy
+from bliss.config.conductor.client import get_redis_proxy
 
 
 def setting_update_from_channel(value, setting_name=None, axis=None):
@@ -107,7 +107,7 @@ class AxisSettings:
         self._disabled_settings = disabled_settings_namedtuple(
             set(), dict(axis.config.config_dict)
         )
-        cnx_cache = get_caching_redis_proxy()
+        cnx_cache = get_redis_proxy(caching=True)
         self._hash = settings.HashSetting(
             "axis.%s" % axis.name,
             default_values=axis.config.config_dict,

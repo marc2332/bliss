@@ -135,6 +135,15 @@ def sockets():
     return set(gc_collect(gevent.socket.socket, socket.socket))
 
 
+def resources(*classes):
+    """
+    All other resource of this process
+
+    :returns set:
+    """
+    return set(gc_collect(*classes))
+
+
 def threads(pid=None):
     """
     All threads of a process
@@ -447,16 +456,41 @@ def assert_thread_diff(old, prefix=""):
 
 
 class ResourceMonitor:
-    def __init__(self, *classes):
+    def __init__(self, *classes, greenlets=True, threads=True, fds=True, sockets=True):
         self.classes = classes
+        if classes:
+            self.others = set()
+        else:
+            self.others = None
+        if greenlets:
+            self.greenlets = set()
+        else:
+            self.greenlets = None
+        if threads:
+            self.threads = set()
+        else:
+            self.threads = None
+        if fds:
+            self.fds = set()
+        else:
+            self.fds = None
+        if sockets:
+            self.sockets = set()
+        else:
+            self.sockets = None
 
     def start(self):
         gevent.get_hub()
-        self.greenlets = greenlets()
-        self.threads = threads()
-        self.fds = file_descriptors()
-        self.sockets = sockets()
-        self.others = set(gc_collect(*self.classes))
+        if self.greenlets is not None:
+            self.greenlets = greenlets()
+        if self.threads is not None:
+            self.threads = threads()
+        if self.fds is not None:
+            self.fds = file_descriptors()
+        if self.sockets is not None:
+            self.sockets = sockets()
+        if self.others is not None:
+            self.others = resources(*self.classes)
 
     @contextmanager
     def check_leaks_context(self, msg=None):
@@ -473,11 +507,16 @@ class ResourceMonitor:
 
     def check_leaks(self, msg=None):
         self.wait_gc_collect()
-        assert_class_diff(self.others, self.classes, prefix=msg)
-        assert_socket_diff(self.sockets, prefix=msg)
-        assert_fd_diff(self.fds, prefix=msg)
-        assert_thread_diff(self.threads, prefix=msg)
-        assert_greenlet_diff(self.greenlets, prefix=msg)
+        if self.others is not None:
+            assert_class_diff(self.others, self.classes, prefix=msg)
+        if self.sockets is not None:
+            assert_socket_diff(self.sockets, prefix=msg)
+        if self.fds is not None:
+            assert_fd_diff(self.fds, prefix=msg)
+        if self.threads is not None:
+            assert_thread_diff(self.threads, prefix=msg)
+        if self.greenlets is not None:
+            assert_greenlet_diff(self.greenlets, prefix=msg)
 
 
 def gevent_thread_leak():
@@ -485,14 +524,14 @@ def gevent_thread_leak():
     return tuple(map(int, gevent.__version__.split(".")[:3])) < (20, 5, 1)
 
 
-def check_resource_leaks(*classes):
+def check_resource_leaks(*classes, **kw):
     """Decorator for function resource checking
     """
 
     def _check_resource_leaks(method):
         @functools.wraps(method)
         def inner(*args, **kwargs):
-            mon = ResourceMonitor(*classes)
+            mon = ResourceMonitor(*classes, **kw)
             with mon.check_leaks_context(msg=method.__name__):
                 method(*args, **kwargs)
 

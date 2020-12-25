@@ -20,7 +20,7 @@ def test_hash_command(beacon, redis_version):
     values = {"".join(k): i for i, k in enumerate(itertools.permutations(l, 2))}
     h.update(values)
 
-    cache = client.get_caching_redis_proxy()
+    cache = client.get_redis_proxy(caching=True)
     if redis_version < 6:
         cache.disable_caching()
 
@@ -90,7 +90,7 @@ def test_simple_key(beacon, redis_version):
     k = settings.SimpleSetting(key_name)
     k.set("hello")
 
-    cache = client.get_caching_redis_proxy()
+    cache = client.get_redis_proxy(caching=True)
     if redis_version < 6:
         cache.disable_caching()
 
@@ -102,7 +102,7 @@ def test_simple_key_synchronisation(beacon):
     k = settings.SimpleSetting(key_name)
     k.set("hello")
 
-    cache = client.get_caching_redis_proxy()
+    cache = client.get_redis_proxy(caching=True)
     k2 = settings.SimpleSetting(key_name, connection=cache)
     assert k.get() == k2.get()
 
@@ -123,7 +123,7 @@ def test_hash_synchronisation(beacon):
     s = "super mario"
     h.update({"l": l, "d": d, "s": s})
 
-    cache = client.get_caching_redis_proxy()
+    cache = client.get_redis_proxy(caching=True)
     h2 = settings.HashObjSetting(key_name, connection=cache)
     assert h2["l"] == l
     assert h2["d"] == d
@@ -142,7 +142,7 @@ def test_empty_hash_object(beacon):
     key_name = "what_ever2"
     h = settings.HashSetting(key_name)
 
-    cache = client.get_caching_redis_proxy()
+    cache = client.get_redis_proxy(caching=True)
     h2 = settings.HashSetting(key_name, connection=cache)
 
     # force synchronisation
@@ -157,7 +157,7 @@ def test_empty_key_object(beacon):
     key_name = "super_mario"
     k = settings.SimpleSetting(key_name)
 
-    cache = client.get_caching_redis_proxy()
+    cache = client.get_redis_proxy(caching=True)
     k2 = settings.SimpleSetting(key_name, connection=cache)
 
     # force synchronisation
@@ -172,7 +172,7 @@ def test_prefetch_key(beacon):
     keys = [f"val_{i}" for i in range(4)]
     k = [settings.SimpleSetting(name) for name in keys]
 
-    cache = client.get_caching_redis_proxy()
+    cache = client.get_redis_proxy(caching=True)
     k2 = [settings.SimpleSetting(name, connection=cache) for name in keys]
     cache.add_prefetch(*k2)
 
@@ -183,9 +183,9 @@ def test_prefetch_key(beacon):
     # generate first cache failed
     assert k2[0].get() == 0
     # check cache
-    assert not set(keys) - cache.connection_pool.db_cache.keys()
+    assert not set(keys) - cache.db_cache.keys()
 
     # remove prefetch
     # should remove cached values
     cache.remove_prefetch(*k2)
-    assert not cache.connection_pool.db_cache
+    assert not cache.db_cache

@@ -20,6 +20,7 @@ from gevent import subprocess
 from gevent import socket
 from gevent import sleep
 from contextlib import closing, contextmanager, ExitStack
+import redis
 import bliss
 from bliss.common.tango import DevState
 from bliss.tango.clients.utils import wait_tango_device, wait_tango_db
@@ -28,7 +29,7 @@ from nexus_writer_service.io.io_utils import temproot, tempname
 from nexus_writer_service.utils.logging_utils import getLogger, add_cli_args
 from nexus_writer_service.utils import log_levels
 
-logger = getLogger(__name__, __file__, default="INFO")
+logger = getLogger(__name__, __file__, default="ERROR")
 
 
 def find_free_port():
@@ -218,8 +219,16 @@ def testenv(root=None):
         print(e)
 
 
+def configure_redis(port, nosavedb=False):
+    if nosavedb:
+        # Disable saving (Bliss default when True)
+        proxy = redis.Redis(host=socket.gethostname(), port=port)
+        proxy.config_set("SAVE", "")
+        del proxy
+
+
 @contextmanager
-def beacon(tmpdir=None, freshdb=True):
+def beacon(tmpdir=None, freshdb=True, nosavedb=False):
     """Start beacon server (+ redis + tango db)
 
     :param str tmpdir:
@@ -252,6 +261,8 @@ def beacon(tmpdir=None, freshdb=True):
     with runcontext(cliargs, tmpdir=tmpdir, prefix="beacon"):
         beacon_online()
         wait_tango_db(port=params["tango_port"])
+        for port in ["redis_port", "redis-data-port"]:
+            configure_redis(params[port], nosavedb=nosavedb)
         yield env
 
 
@@ -408,15 +419,18 @@ if __name__ == "__main__":
         dest="freshdb",
         help="Copy the YAML files and delete beacon.rdb",
     )
+    parser.add_argument(
+        "--nosavedb", action="store_true", help="Disable saving beacon.rdb"
+    )
     parser.add_argument("--root", default="", help="Log root directory")
-    add_cli_args(parser, default="INFO")
+    add_cli_args(parser, default="ERROR")
     args, unknown = parser.parse_known_args()
 
     with ExitStack() as stack:
         ctx = testenv(root=args.root)
         tmpdir = stack.enter_context(ctx)
 
-        ctx = beacon(tmpdir=tmpdir, freshdb=args.freshdb)
+        ctx = beacon(tmpdir=tmpdir, freshdb=args.freshdb, nosavedb=args.nosavedb)
         env = stack.enter_context(ctx)
 
         ctx = metaexperiment(env=env, tmpdir=tmpdir, name="test")

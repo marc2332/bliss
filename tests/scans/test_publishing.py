@@ -99,7 +99,8 @@ def test_scan_node(session, redis_data_conn, enable_ttl):
     scan_info_dict = redis_data_conn.hgetall(s.node.db_name + "_info")
     assert pickle.loads(scan_info_dict[b"metadata"]) == 42
 
-    assert redis_data_conn.ttl(s.node.db_name) > 0
+    for db_name in redis_data_conn.keys("*"):
+        assert redis_data_conn.ttl(db_name) > 0
 
     roby_node_db_name = s.node.db_name + ":axis"
     scan_children_node = [roby_node_db_name]

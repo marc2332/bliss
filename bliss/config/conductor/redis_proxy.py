@@ -20,9 +20,10 @@ import redis
 import redis.client
 
 from bliss.common.utils import grouped
+from bliss.config.conductor import redis_caching
 
-"""Implementation of different Redis proxy. Note that a proxy does not
-hold any connections, except for AsyncRedisDbProxy and SingleRedisConnectionProxy.
+
+"""Implementation of different Redis proxy.
 """
 
 
@@ -52,15 +53,24 @@ class AsyncRedisDbProxy(redis.client.Pipeline):
     """
 
     def __init__(
-        self, connection_pool, response_callbacks, transaction=True, shard_hint=None
+        self,
+        connection_pool=None,
+        response_callbacks=None,
+        transaction=True,
+        shard_hint=None,
     ):
         if response_callbacks is None:
             response_callbacks = dict()
+        if connection_pool is None:
+            raise ValueError("connection_pool not provided")
         self._execute_callbacks = list()
         super().__init__(connection_pool, response_callbacks, transaction, shard_hint)
 
     def pipeline(self, **kw):
-        return self.__class__(self.connection_pool, self.response_callbacks, **kw)
+        kw.setdefault("connection_pool", self.connection_pool)
+        kw.setdefault("response_callbacks", self.response_callbacks)
+        # Do not use `super` here or you get an instance of the base class
+        return self.__class__(**kw)
 
     def reset(self):
         super().reset()
@@ -87,7 +97,7 @@ class MonitoringAsyncRedisDbProxy(AsyncRedisDbProxy):
     Use `maximum_is_reached` to manually say the maximum is reached.
     """
 
-    def __init__(self, *args, **kw):
+    def __init__(self, **kw):
         """
         :param int or None max_stream_events: maximum event per stream
         :param int or None max_bytes: maximum on the buffered commands
@@ -98,7 +108,7 @@ class MonitoringAsyncRedisDbProxy(AsyncRedisDbProxy):
         self._max_time = kw.pop("max_time", None)
         self._max_event = gevent.event.Event()
         self._reset_monitoring()
-        super().__init__(*args, **kw)
+        super().__init__(**kw)
 
     def wait_maximum_reached(self):
         """Wait until any of the resouce maxima is reached
@@ -174,14 +184,10 @@ class MonitoringAsyncRedisDbProxy(AsyncRedisDbProxy):
         return max(self._max_time - (time.time() - self._start_time), 0)
 
     def pipeline(self, **kw):
-        return self.__class__(
-            self.connection_pool,
-            self.response_callbacks,
-            max_stream_events=self._max_stream_events,
-            max_bytes=self._max_bytes,
-            max_time=self._max_time,
-            **kw,
-        )
+        kw.setdefault("max_stream_events", self._max_stream_events)
+        kw.setdefault("max_bytes", self._max_bytes)
+        kw.setdefault("max_time", self._max_time)
+        return super().pipeline(**kw)
 
 
 class MonitoringAsyncRedisDbProxyManager:
@@ -207,11 +213,11 @@ class MonitoringAsyncRedisDbProxyManager:
     def __init__(self, async_proxy: MonitoringAsyncRedisDbProxy):
         self._execution_task = None
         self._rotation_async_proxy = async_proxy
-        self._lock = gevent.lock.Semaphore()
+        self._rotating_lock = gevent.lock.Semaphore()
 
     @contextmanager
     def async_proxy(self):
-        with self._lock:
+        with self._rotating_lock:
             yield self._rotation_async_proxy
             self._ensure_execution_task()
 
@@ -219,7 +225,7 @@ class MonitoringAsyncRedisDbProxyManager:
         """Finish the execution task and thereby forcing execution of
         the pipeline.
         """
-        with self._lock:
+        with self._rotating_lock:
             self._rotation_async_proxy.maximum_is_reached()
             task = self._ensure_execution_task()
         if task is not None and blocking:
@@ -262,7 +268,7 @@ class MonitoringAsyncRedisDbProxyManager:
             async_proxy.execute()
 
 
-class RedisDbProxy(redis.Redis):
+class RedisDbProxyBase(redis.Redis):
     """A proxy to a particular Redis server and database as determined
     by the connection pool.
 
@@ -279,9 +285,18 @@ class RedisDbProxy(redis.Redis):
     The `AsyncRedisDbProxy` instance is NOT greenlet-safe.
     """
 
-    def __init__(self, pool, async_class=AsyncRedisDbProxy, **kw):
+    def __init__(
+        self,
+        connection_pool=None,
+        async_class=AsyncRedisDbProxy,
+        monitoring_async_class=MonitoringAsyncRedisDbProxy,
+        **kw,
+    ):
         self._async_class = async_class
-        super().__init__(connection_pool=pool, **kw)
+        self._monitoring_async_class = monitoring_async_class
+        if connection_pool is None:
+            raise ValueError("connection_pool not provided")
+        super().__init__(connection_pool=connection_pool, **kw)
 
     def hset(self, name, *key_value_list_or_mapping, mapping=None):
         """hset method, compatible with deprecated hmset
@@ -296,20 +311,21 @@ class RedisDbProxy(redis.Redis):
         return super().hset(name, mapping=mapping)
 
     def pipeline(self, **kw):
-        return self._async_class(self.connection_pool, self.response_callbacks, **kw)
+        kw.setdefault("connection_pool", self.connection_pool)
+        kw.setdefault("response_callbacks", self.response_callbacks)
+        return self._async_class(**kw)
 
     def rotating_pipeline(self, **kw):
-        return MonitoringAsyncRedisDbProxyManager(
-            MonitoringAsyncRedisDbProxy(
-                self.connection_pool, self.response_callbacks, **kw
-            )
-        )
+        kw.setdefault("connection_pool", self.connection_pool)
+        kw.setdefault("response_callbacks", self.response_callbacks)
+        async_proxy = self._monitoring_async_class(**kw)
+        return MonitoringAsyncRedisDbProxyManager(async_proxy)
 
 
-class SafeRedisDbProxy(RedisDbProxy):
+class RedisDbProxy(RedisDbProxyBase):
     """It gets a Connection from the pool every time it executes a command.
-    Therefore it is greenlet-safe: each concurrent command is executed using
-    a different connection.
+
+    This proxy is greenlet-safe although the connections are not.
     """
 
     def __init__(self, *args, **kw):
@@ -317,14 +333,13 @@ class SafeRedisDbProxy(RedisDbProxy):
         super().__init__(*args, **kw)
 
 
-class SingleRedisConnectionProxy(RedisDbProxy):
+class SingleConnectionRedisDbProxy(RedisDbProxyBase):
     """It gets a connection from the pool during instantiation and holds that
     connection until `close` is called (called upon garbage collection).
-    Since `redis.connection.Connection` is NOT greenlet-safe, neither is
-    `SingleRedisConnectionProxy`.
 
-    Warning: the `AsyncRedisDbProxy` instance gets a new connection
-    from the connection pool.
+    This proxy is not greenlet-safe.
+
+    The `AsyncRedisDbProxy` creates new connections.
     """
 
     def __init__(self, *args, **kw):
@@ -332,101 +347,69 @@ class SingleRedisConnectionProxy(RedisDbProxy):
         super().__init__(*args, **kw)
 
 
-def caching_command(func):
-    """Wraps all Redis commands that need caching and protects the cache
-    from concurrent access.
-
-    When the caching is disabled for CachingRedisDbProxy, this decorator
-    forwards all commands to the wrapper proxy.
-    """
-
-    @wraps(func)
-    def f(self, *args, **kwargs):
-        with self._cache_lock:
-            with self._proxy_lock:
-                if self.caching_is_enabled:
-                    return func(self, *args, **kwargs)
-        # Call the parent's method
-        return getattr(super(self.__class__, self), func.__name__)(*args, **kwargs)
-
-    return f
-
-
-def access_cache(func):
-    """To protects the cache from concurrent access.
-    """
-
-    @wraps(func)
-    def f(self, *args, **kwargs):
-        with self._cache_lock:
-            with self._proxy_lock:
-                return func(self, *args, **kwargs)
-
-    return f
-
-
-class CachedSettingsDict(MutableMapping):
-    """Dictionary of BaseSettings that are cached. This is used so that
-    the associated Redis keys are removed from the cache when the setting
-    is removed from CachedSettingsDict.
-    """
-
-    def __init__(self, db_cache):
-        self._cached_settings = weakref.WeakKeyDictionary()
-        self._db_cache = db_cache
-
-    def __setitem__(self, key, value):
-        self._cached_settings[key] = value
-
-    def __getitem__(self, key):
-        return self._cached_settings[key]
-
-    def __delitem__(self, key):
-        name, _ = self._cached_settings[key]
-        del self._cached_settings[key]
-        self._db_cache.pop(name, None)
-
-    def __iter__(self):
-        return iter(self._cached_settings)
-
-    def __len__(self):
-        return len(self._cached_settings)
-
-
 class CachingAsyncRedisDbProxy(AsyncRedisDbProxy):
     """Handle cache manipulation asynchronously, just like the Redis
     commands (i.e. execute upon calling `execute` and drop upon `reset`).
     """
 
-    def __init__(self, *args, **kw):
+    def __init__(self, root_proxy=None, **kw):
+        self._root_proxy = root_proxy
         self._db_cache_tasks = list()
-        super().__init__(*args, **kw)
+        self._connection = None
+        super().__init__(**kw)
 
-    def reset(self):
-        self._db_cache_tasks.clear()
-        super().reset()
+    def pipeline(self, **kw):
+        kw.setdefault("root_proxy", self._root_proxy)
+        return super().pipeline(**kw)
 
     @property
-    def _db_cache(self):
-        return self.connection_pool.db_cache
+    def connection(self):
+        if self._connection is None:
+            return self._root_proxy.connection
+        else:
+            return self._connection
+
+    @connection.setter
+    def connection(self, value):
+        self._connection = value
+
+    @property
+    def _caching_lock(self):
+        return self._root_proxy._caching_lock
+
+    @property
+    def db_cache(self):
+        return self._root_proxy.db_cache
+
+    @property
+    def _enable_caching(self):
+        return self._root_proxy._enable_caching
+
+    @property
+    def _use_caching(self):
+        return self._enable_caching and self._db_cache_tasks
+
+    def reset(self):
+        super().reset()
+        self._db_cache_tasks.clear()
 
     def delete(self, name):
         def delete_func():
-            self._db_cache.pop(name, None)
+            self.db_cache.pop(name, None)
 
         self._db_cache_tasks.append(delete_func)
         return super().delete(name)
 
     def set(self, name, value, *args, **kwargs):
         def set_func():
-            self._db_cache[name] = value
+            self.db_cache[name] = value
 
         self._db_cache_tasks.append(set_func)
         return super().set(name, value, *args, **kwargs)
 
     def hdel(self, name, *keys):
         def hdel_func():
-            cached_dict = self._db_cache.get(name)
+            cached_dict = self.db_cache.get(name)
             if cached_dict is not None:
                 for k in keys:
                     cached_dict.pop(k.encode(), None)
@@ -439,7 +422,7 @@ class CachingAsyncRedisDbProxy(AsyncRedisDbProxy):
             mapping = key_value_list_or_mapping_to_dict(key_value_list_or_mapping)
 
         def hset_func():
-            cached_dict = self._db_cache.get(name)
+            cached_dict = self.db_cache.get(name)
             if cached_dict is not None:
                 for key, value in mapping.items():
                     cached_dict[key.encode()] = value
@@ -449,7 +432,7 @@ class CachingAsyncRedisDbProxy(AsyncRedisDbProxy):
 
     def lpop(self, name, *values):
         def lpop_func():
-            cached_list = self._db_cache.get(name)
+            cached_list = self.db_cache.get(name)
             if cached_list is not None:
                 try:
                     cached_list.pop(0)
@@ -461,7 +444,7 @@ class CachingAsyncRedisDbProxy(AsyncRedisDbProxy):
 
     def lpush(self, name, *values):
         def lpush_func():
-            cache_list = self._db_cache.get(name)
+            cache_list = self.db_cache.get(name)
             if cache_list is not None:
                 for v in values:
                     cache_list.insert(0, v)
@@ -471,7 +454,7 @@ class CachingAsyncRedisDbProxy(AsyncRedisDbProxy):
 
     def rpush(self, name, *values):
         def rpush_func():
-            cache_list = self._db_cache.get(name)
+            cache_list = self.db_cache.get(name)
             if cache_list is not None:
                 cache_list.extend(values)
 
@@ -480,7 +463,7 @@ class CachingAsyncRedisDbProxy(AsyncRedisDbProxy):
 
     def rpop(self, name):
         def rpop_func():
-            cache_list = self._db_cache.get(name)
+            cache_list = self.db_cache.get(name)
             if cache_list is not None:
                 try:
                     cache_list.pop(-1)
@@ -492,21 +475,123 @@ class CachingAsyncRedisDbProxy(AsyncRedisDbProxy):
 
     def lrem(self, name, *args):
         def clear_cache():
-            self._db_cache.pop(name, None)
+            self.db_cache.pop(name, None)
 
         self._db_cache_tasks.append(clear_cache)
         return super().lrem(name, *args)
 
-    def execute(self, **kw):
-        # Apply all commands on the cached database
+    def _execute_cache_tasks(self):
         for task in self._db_cache_tasks:
             task()
         self._db_cache_tasks.clear()
-        # Apply all commands to the server database
-        return super().execute(**kw)
+
+    def immediate_execute_command(self, *args, **kw):
+        if self._use_caching:
+            with self._caching_lock:
+                self._execute_cache_tasks()
+                return super().immediate_execute_command(*args, **kw)
+        else:
+            return super().immediate_execute_command(*args, **kw)
+
+    def execute(self, **kw):
+        if self._use_caching:
+            with self._caching_lock:
+                self._execute_cache_tasks()
+                return super().execute(**kw)
+        else:
+            return super().execute(**kw)
 
 
-class CachingRedisDbProxy(SafeRedisDbProxy):
+class MonitoringCachingAsyncRedisDbProxy(
+    CachingAsyncRedisDbProxy, MonitoringAsyncRedisDbProxy
+):
+    pass
+
+
+class CachedSettingsDict(MutableMapping):
+    """Dictionary of BaseSettings that are cached. This is used so that
+    the associated Redis keys are removed from the cache when the setting
+    is removed from CachedSettingsDict.
+    """
+
+    def __init__(self, db_cache):
+        self._cached_settings = weakref.WeakKeyDictionary()
+        self.db_cache = db_cache
+
+    def __setitem__(self, key, value):
+        self._cached_settings[key] = value
+
+    def __getitem__(self, key):
+        return self._cached_settings[key]
+
+    def __delitem__(self, key):
+        name, _ = self._cached_settings[key]
+        del self._cached_settings[key]
+        try:
+            self.db_cache.pop(name, None)
+        except redis_caching.RedisCacheError:
+            pass  # Not cached anyway
+
+    def __iter__(self):
+        return iter(self._cached_settings)
+
+    def __len__(self):
+        return len(self._cached_settings)
+
+
+def lock_proxy(method):
+    """To protect the proxy from concurrent access.
+    """
+
+    @wraps(method)
+    def _lock_proxy(self, *args, **kwargs):
+        with self._caching_lock:
+            return method(self, *args, **kwargs)
+
+    return _lock_proxy
+
+
+def assert_tracking(method):
+    """Raise exception when we cannot use the tracking connection.
+    """
+
+    @wraps(method)
+    def _assert_tracking(self, *args, **kwargs):
+        if not self._use_tracking_connection():
+            raise redis_caching.RedisCacheError(
+                f"{repr(method)} can only be executed when we are allowed to use the tracking connection"
+            )
+        return method(self, *args, **kwargs)
+
+    return _assert_tracking
+
+
+def caching_command(method):
+    """This waits until we are allowed to use the tracking connection
+    and prevents other greenlets from using that connection until we
+    are done with it.
+
+    When caching is disabled however, we will not use the tracking
+    connection (in fact their is None). As a result we will executed
+    the Redis command non-cached over a Connection it gets from the
+    Redis connection pool.
+    """
+
+    @wraps(method)
+    def _caching_command(self, *args, **kw):
+        if self._use_caching:
+            with self._caching_lock:
+                return method(self, *args, **kw)
+        else:
+            # WARNING: this only works for the current inheritance structure.
+            # If you derive a class from CachingRedisDbProxy it will not work.
+            parent_method = getattr(super(CachingRedisDbProxy, self), method.__name__)
+            return parent_method(*args, **kw)
+
+    return _caching_command
+
+
+class CachingRedisDbProxy(RedisDbProxyBase):
     """Setting/getting Redis keys through this proxy will cache them in
     the connection pool's cache.
 
@@ -520,40 +605,66 @@ class CachingRedisDbProxy(SafeRedisDbProxy):
 
     TYPE = enum.Enum("TYPE", "HASH KEY QUEUE ZSET")
 
-    def __init__(self, connection_pool):
-        self._proxy_lock = gevent.lock.RLock()
+    def __init__(self, connection_pool=None, **kw):
+        self.db_cache = redis_caching.RedisCache(connection_pool=connection_pool)
+        self._caching_lock = gevent.lock.RLock()
         self._enable_caching = True
-        self._cached_settings = CachedSettingsDict(connection_pool.db_cache)
-        super().__init__(connection_pool, async_class=CachingAsyncRedisDbProxy)
+        self._cached_settings = CachedSettingsDict(self.db_cache)
+        kw.setdefault("async_class", CachingAsyncRedisDbProxy)
+        kw.setdefault("monitoring_async_class", MonitoringCachingAsyncRedisDbProxy)
+        super().__init__(connection_pool=connection_pool, **kw)
+        self.enable_caching()
+
+    def pipeline(self, **kw):
+        kw.setdefault("root_proxy", self)
+        return super().pipeline(**kw)
+
+    def rotating_pipeline(self, **kw):
+        kw.setdefault("root_proxy", self)
+        return super().rotating_pipeline(**kw)
+
+    def _use_tracking_connection(self):
+        return self._caching_lock._is_owned()
 
     @property
-    def _db_cache(self):
-        return self.connection_pool.db_cache
+    def connection(self):
+        """Use the caching connection when RedisCache is connected and
+        when we hold the proxy lock.
+        """
+        if self._use_tracking_connection():
+            # Returns None when cache is disabled
+            return self.db_cache.connection
+        else:
+            # A connection will be taken from the pool
+            return None
+
+    @connection.setter
+    def connection(self, value):
+        # This proxy should never own a connection
+        pass
+
+    def close(self):
+        self.disable_caching()
 
     @property
-    def _cache_lock(self):
-        return self._db_cache.cache_lock
+    def _use_caching(self):
+        return self._enable_caching
 
-    @property
-    def ncached(self):
-        return len(self._cached_settings)
-
-    @property
-    def caching_is_enabled(self):
-        return self._enable_caching and self._db_cache.enabled
-
-    def disable_caching(self, disable_pool=True):
-        """After this command, the proxy behaves like `SafeRedisDbProxy`.
+    @lock_proxy
+    def disable_caching(self):
+        """After this command, the proxy behaves like `RedisDbProxy`.
         All pre-fetched objects will be removed.
-
-        When disable_pool=True caching will be disabled for all proxies
-        to the connection pool we have a reference too.
         """
         self._enable_caching = False
         self.clear_all_prefetch()
-        if disable_pool:
-            self.connection_pool.disable_caching()
+        self.db_cache.disconnect()
 
+    @lock_proxy
+    def enable_caching(self):
+        self._enable_caching = True
+        self.db_cache.connect()
+
+    @lock_proxy
     def add_prefetch(self, *objects):
         """Adds object to be pre-fetched in block in case of any cache failed.
         Objects will be always kept in memory even if they are not accessed.
@@ -579,10 +690,12 @@ class CachingRedisDbProxy(SafeRedisDbProxy):
             else:
                 raise ValueError(f"Type not yet managed {obj}")
 
+    @lock_proxy
     def remove_prefetch(self, *objects):
         for obj in objects:
             self._cached_settings.pop(obj, None)
 
+    @lock_proxy
     def clear_all_prefetch(self):
         self._cached_settings.clear()
 
@@ -592,11 +705,11 @@ class CachingRedisDbProxy(SafeRedisDbProxy):
         super().evalsha(script_name, n, *args)
         # invalidate cache for those keys
         for k in keys:
-            self._db_cache.pop(k, None)
+            self.db_cache.pop(k, None)
 
     @caching_command
     def delete(self, name):
-        self._db_cache.pop(name, None)
+        self.db_cache.pop(name, None)
         super().delete(name)
 
     # KEY
@@ -607,7 +720,7 @@ class CachingRedisDbProxy(SafeRedisDbProxy):
     @caching_command
     def set(self, name, value, ex=None, px=None, nx=False, xx=False):
         return_val = super().set(name, value, ex, px, nx, xx)
-        self._db_cache[name] = value
+        self.db_cache[name] = value
         return return_val
 
     @caching_command
@@ -751,7 +864,7 @@ class CachingRedisDbProxy(SafeRedisDbProxy):
                 except ValueError:  # already removed
                     pass
         else:  # re-synchronization on next get
-            self._db_cache.pop(name, None)
+            self.db_cache.pop(name, None)
 
     # SORTED SET COMMANDS
     @caching_command
@@ -772,34 +885,38 @@ class CachingRedisDbProxy(SafeRedisDbProxy):
             return list(items[start:end])
         return list(x for x, y in items)
 
+    @assert_tracking
     def _get_cache_dict(self, name):
-        cached_dict = self._db_cache.get(name)
+        cached_dict = self.db_cache.get(name)
         if cached_dict is None:
             cached_dict = self._fill_cache(name, self.TYPE.HASH)
         return cached_dict
 
+    @assert_tracking
     def _get_cache_key(self, name):
-        value = self._db_cache.get(name)
-        if value is None and name not in self._db_cache:
+        value = self.db_cache.get(name)
+        if value is None and name not in self.db_cache:
             value = self._fill_cache(name, self.TYPE.KEY)
         return value
 
+    @assert_tracking
     def _get_cache_list(self, name):
-        values = self._db_cache.get(name)
+        values = self.db_cache.get(name)
         if values is None:
             values = self._fill_cache(name, self.TYPE.QUEUE)
         return values
 
+    @assert_tracking
     def _get_cache_sorted_set(self, name):
-        values = self._db_cache.get(name)
+        values = self.db_cache.get(name)
         if values is None:
             # return a list with name and score
             # change it to dict
             values = dict(self._fill_cache(name, self.TYPE.ZSET))
-            self._db_cache[name] = values
+            self.db_cache[name] = values
         return values
 
-    @access_cache
+    @assert_tracking
     def _fill_cache(self, name, object_type):
         """This method gets the value of Redis key "name" from the Redis
         database and caches it. In addition we will fetch all the
@@ -816,7 +933,7 @@ class CachingRedisDbProxy(SafeRedisDbProxy):
         cached_settings.update(
             {name: obj_type for name, obj_type in self._cached_settings.values()}
         )
-        fetch_names.update(cached_settings.keys() - self._db_cache.keys())
+        fetch_names.update(cached_settings.keys() - self.db_cache.keys())
 
         # Fetch all values from Redis
         pipeline = self.pipeline()
@@ -834,7 +951,7 @@ class CachingRedisDbProxy(SafeRedisDbProxy):
 
         # Fill the cache with those values
         for obj_name, result in zip(fetch_names, pipeline_result):
-            self._db_cache[obj_name] = result
+            self.db_cache[obj_name] = result
 
         # Return the value of the key we actually asked for
-        return self._db_cache[name]
+        return self.db_cache[name]

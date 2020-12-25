@@ -111,28 +111,20 @@ def get_redis_connection(**kw):
 
 
 @check_connection
-def get_redis_proxy(db=0, connection=None):
-    """Greenlet-safe proxy.
+def get_redis_proxy(db=0, connection=None, caching=False, shared=True):
+    """Get a greenlet-safe proxy to a Redis database.
 
-    :returns SafeRedisDbProxy:
+    :param int db: Redis database too which we need a proxy
+    :param bool caching: client-side caching
+    :param bool shared: use a shared proxy held by the Beacon connection
     """
-    return connection.get_redis_proxy(db=db)
-
-
-@check_connection
-def get_caching_redis_proxy(db=0, connection=None, shared_cache=True):
-    """Greenlet-safe proxy.
-
-    :param bool shared_cache:
-    :returns CachingRedisDbProxy:
-    """
-    return connection.get_caching_redis_proxy(db=db, shared_cache=shared_cache)
+    return connection.get_redis_proxy(db=db, caching=caching, shared=shared)
 
 
 def get_existing_redis_proxy(db=0, timeout=None):
     """Greenlet-safe proxy.
 
-    :returns None or SafeRedisDbProxy:
+    :returns None or RedisDbProxy:
     """
     if _default_connection is None:
         return None

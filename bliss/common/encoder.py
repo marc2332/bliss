@@ -8,25 +8,41 @@
 from bliss.common.motor_config import MotorConfig
 from bliss.common.counter import SamplingCounter
 from bliss.controllers.counter import CalcCounterController
+from bliss.comm.exceptions import CommunicationError
 
 from functools import wraps
 import weakref
 
 
-class Encoder(SamplingCounter):
-    def lazy_init(func):
-        @wraps(func)
-        def func_wrapper(self, *args, **kwargs):
+def lazy_init(func):
+    @wraps(func)
+    def func_wrapper(self, *args, **kwargs):
+        if self.disabled:
+            raise RuntimeError(f"Encoder {self.name} is disabled")
+        try:
             self.controller._initialize_encoder(self)
-            return func(self, *args, **kwargs)
+        except Exception as e:
+            if isinstance(e, CommunicationError):
+                # also disable the controller
+                self.controller._disabled = True
+            self._disabled = True
+            raise
+        else:
+            if not self.controller.encoder_initialized(self):
+                # failed to initialize
+                self._disabled = True
+        return func(self, *args, **kwargs)
 
-        return func_wrapper
+    return func_wrapper
 
+
+class Encoder(SamplingCounter):
     def __init__(self, name, controller, motor_controller, config):
         super().__init__(name, controller, unit=config.get("unit"))
         self.__controller = motor_controller
         self.__config = MotorConfig(config)
         self.__axis_ref = None
+        self._disabled = False
 
     @property
     def controller(self):
@@ -43,6 +59,19 @@ class Encoder(SamplingCounter):
             self.__axis_ref = weakref.ref(axis)
 
     @property
+    def disabled(self):
+        return self._disabled
+
+    def enable(self):
+        self._disabled = False
+        self.raw_read
+
+    @property
+    @lazy_init
+    def raw_read(self):
+        return super().raw_read
+
+    @property
     def counter(self):
         # TODO: deprecate this
         """Convenience access to the counter object
@@ -56,6 +85,7 @@ class Encoder(SamplingCounter):
         return self.__config
 
     @property
+    @lazy_init
     def steps_per_unit(self):
         return self.config.get("steps_per_unit", float, 1)
 
@@ -66,7 +96,6 @@ class Encoder(SamplingCounter):
         """
         return self.config.get("tolerance", float, 0)
 
-    @lazy_init
     def read(self):
         """
         Returns encoder value *in user units*.
@@ -79,7 +108,7 @@ class Encoder(SamplingCounter):
         <new_value> is in *user units*.
         """
         self.controller.set_encoder(self, new_value * self.steps_per_unit)
-        return self.read()
+        return self.raw_read
 
     @lazy_init
     def set_event_positions(self, positions):
@@ -93,7 +122,7 @@ class Encoder(SamplingCounter):
     def __info__(self):
         info_str = "ENCODER:\n"
         info_str += f"     tolerance (to check pos at end of move): {self.tolerance}\n"
-        info_str += f"     dial_measured_position: {self.read():10.5f}\n"
+        info_str += f"     dial_measured_position: {self.raw_read:10.5f}\n"
         return info_str
 
 

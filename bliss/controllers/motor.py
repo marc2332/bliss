@@ -31,6 +31,7 @@ class EncoderCounterController(SamplingCounterController):
         self.max_sampling_frequency = None
 
     def read_all(self, *encoders):
+        steps_per_unit = numpy.array([enc.steps_per_unit for enc in encoders])
         try:
             positions_array = numpy.array(
                 self.motor_controller.read_encoder_multiple(*encoders)
@@ -39,7 +40,6 @@ class EncoderCounterController(SamplingCounterController):
             positions_array = numpy.array(
                 list(map(self.motor_controller.read_encoder, encoders))
             )
-        steps_per_unit = numpy.array([enc.steps_per_unit for enc in encoders])
         return positions_array / steps_per_unit
 
 
@@ -189,14 +189,36 @@ class Controller:
     def finalize(self):
         pass
 
+    @check_disabled
+    def encoder_initialized(self, encoder):
+        return self.__initialized_encoder[encoder]
+
+    @check_disabled
     def _initialize_encoder(self, encoder):
-        if not self.__initialized_encoder.get(encoder):
-            self.initialize_encoder(encoder)
+        with self.__lock:
+            if self.__initialized_encoder[encoder]:
+                return
             self.__initialized_encoder[encoder] = True
+            self._initialize_hardware()
+            try:
+                self.initialize_encoder(encoder)
+            except BaseException:
+                self.__initialized_encoder[encoder] = False
+                raise
 
     @check_disabled
     def axis_initialized(self, axis):
         return self.__initialized_axis[axis]
+
+    def _initialize_hardware(self):
+        # initialize controller hardware only once.
+        if not self.__initialized_hw.value:
+            try:
+                self.initialize_hardware()
+            except BaseException:
+                self._disabled = True
+                raise
+            self.__initialized_hw.value = True
 
     @check_disabled
     def _initialize_axis(self, axis, *args, **kwargs):
@@ -206,14 +228,7 @@ class Controller:
             if self.__initialized_axis[axis]:
                 return
 
-            # Initialize controller hardware only once.
-            if not self.__initialized_hw.value:
-                try:
-                    self.initialize_hardware()
-                except BaseException:
-                    self._disabled = True
-                    raise
-                self.__initialized_hw.value = True
+            self._initialize_hardware()
 
             # Consider axis is initialized => prevent re-entering
             # _initialize_axis in lazy_init
@@ -308,6 +323,7 @@ class Controller:
                 config=encoder_config,
             )
             self._encoders[encoder_name] = encoder
+            self.__initialized_encoder[encoder] = False
 
         return encoder
 

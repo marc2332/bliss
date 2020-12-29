@@ -43,7 +43,7 @@ def _test_nxw_tango_api(session=None, tmpdir=None, writer=None, **kwargs):
         proxy = writer.proxy
         nclients = 1
         pollinterval = 0.010
-        proxy.set_timeout_millis(3000)
+        proxy.set_timeout_millis(10000)
 
         print("Wait until the scan is being written ...")
         with gevent.Timeout(10):

@@ -104,6 +104,7 @@ nav:
                       - Slits: config_slits.md
                       - Tripod: config_tab3.md
                       - Tango attribute as counters: config_taac.md
+                      - Tango gauges: config_tg_gauges.md
                       - Temperature framework:
                             - Eurotherm2000: config_eurotherm.md
                             - Meerstetter: config_meerstetter.md

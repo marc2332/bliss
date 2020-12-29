@@ -128,34 +128,34 @@ def test_encoder_filter(default_session, mot_maxee):
     encoder = encoder_filter.encoder
     assert encoder.axis == mot_maxee
 
-    enc_pos = 6.0  # big difference compared to motor pos.
-    encoder.controller.set_encoder(encoder, enc_pos * encoder.steps_per_unit)
+    mot_maxee.custom_set_measured_noise(6.0)  # big difference compared to motor pos.
     mot_maxee._set_position = 0
-    expected_value = encoder_noise_round(
-        enc_pos,
-        mot_maxee._set_position,
-        encoder.steps_per_unit,
-        encoder_filter.encoder_precision,
-    )
 
     ct = scans.ct(0, encoder_filter)
     data = ct.get_data()
-    corrected_value = data["encfilter1:position"]
-    assert corrected_value == pytest.approx(expected_value)
-    assert data["encfilter1:position_error"] == mot_maxee._set_position - enc_pos
-
-    enc_pos = 0.1  # small difference compared to motor pos.
-    encoder.controller.set_encoder(encoder, enc_pos * encoder.steps_per_unit)
-    mot_maxee._set_position = 0
+    enc_raw_value = data["encoder:" + encoder.name]
     expected_value = encoder_noise_round(
-        enc_pos,
+        enc_raw_value,
         mot_maxee._set_position,
         encoder.steps_per_unit,
         encoder_filter.encoder_precision,
     )
+    corrected_value = data["encfilter1:position"]
+    assert corrected_value == pytest.approx(expected_value)
+    assert data["encfilter1:position_error"] == mot_maxee._set_position - enc_raw_value
 
+    mot_maxee.custom_set_measured_noise(0.1)  # small difference compared to motor pos.
+    mot_maxee._set_position = 0
     ct = scans.ct(0, encoder_filter)
-    corrected_value = ct.get_data()["encfilter1:position"]
+    data = ct.get_data()
+    enc_raw_value = data["encoder:" + encoder.name]
+    expected_value = encoder_noise_round(
+        enc_raw_value,
+        mot_maxee._set_position,
+        encoder.steps_per_unit,
+        encoder_filter.encoder_precision,
+    )
+    corrected_value = data["encfilter1:position"]
     assert (
         corrected_value
         == pytest.approx(expected_value)

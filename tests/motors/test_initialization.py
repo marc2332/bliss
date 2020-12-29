@@ -142,3 +142,33 @@ def test_broken_controller_init(default_session):
 
     with pytest.raises(RuntimeError, match="Controller is disabled"):
         roby.enable()
+
+
+def test_encoder_disable_broken_init(default_session):
+    def faulty_initialize(*args, **kwargs):
+        raise RuntimeError("FAILED TO INITIALIZE")
+
+    with mock.patch(
+        "bliss.controllers.motors.mockup.Mockup.initialize_encoder",
+        wraps=faulty_initialize,
+    ):
+        m1 = default_session.config.get(
+            "m1"
+        )  # have to get axis first, because mockup does not know how to retrieve axis from encoder, if there is no axis there is no encoder pos. unless explicitely set
+        enc = default_session.config.get("m1enc")
+        with pytest.raises(RuntimeError):
+            enc.raw_read
+        assert enc.disabled
+
+        # try to enable while motor cannot be initialized still
+        with pytest.raises(RuntimeError):
+            enc.enable()
+        assert enc.disabled
+
+    assert enc.disabled
+    # encoder stays disabled until .enable() is called
+    # all calls doing a lazy init will fail immediately
+    # without accessing hw
+    enc.enable()
+    assert enc.raw_read == 0.0
+    assert not enc.disabled

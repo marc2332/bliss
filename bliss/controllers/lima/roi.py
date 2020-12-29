@@ -11,6 +11,7 @@ import functools
 import numpy
 
 from bliss.config import settings
+from bliss.common.tango import DevFailed
 from bliss.common.counter import IntegratingCounter
 from bliss.controllers.counter import IntegratingCounterController
 from bliss.controllers.counter import counter_namespace
@@ -746,7 +747,10 @@ class RoiCounters(IntegratingCounterController):
 
     def get_values(self, from_index, *counters):
         roi_counter_size = len(RoiStat)
-        raw_data = self._proxy.readCounters(from_index)
+        try:
+            raw_data = self._proxy.readCounters(from_index)
+        except DevFailed:
+            return [numpy.array(-1)] * len(counters)
         if not raw_data.size:
             return len(counters) * (numpy.array(()),)
         raw_data.shape = (raw_data.size) // roi_counter_size, roi_counter_size
@@ -1026,7 +1030,10 @@ class RoiProfileController(IntegratingCounterController):
         for i, cnt in enumerate(counters):
             size = cnt.shape[0]
             cid = self._roi_ids[cnt.name]
-            spec = self._proxy.readImage([int(cid), int(from_index)])
+            try:
+                spec = self._proxy.readImage([int(cid), int(from_index)])
+            except DevFailed:
+                return blank
 
             if len(spec):
                 num_of_spec = len(spec) // size

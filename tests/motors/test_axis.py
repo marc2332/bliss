@@ -1067,15 +1067,16 @@ def test_invalid_config(beacon):
 
     invalid_cfg["velocity"] = 1
     with pytest.raises(RuntimeError) as exc:
-        invalid_mot.position  # lazy init
+        invalid_mot.enable()  # lazy init
     assert "acceleration" in str(exc.value)
 
     invalid_cfg["acceleration"] = 1
     with pytest.raises(RuntimeError) as exc:
-        invalid_mot.position  # lazy init
+        invalid_mot.enable()  # lazy init
     assert "steps_per_unit" in str(exc.value)
 
     invalid_cfg["steps_per_unit"] = 1
+    invalid_mot.enable()
     assert invalid_mot.position == 0
 
 

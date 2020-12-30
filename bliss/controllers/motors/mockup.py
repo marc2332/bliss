@@ -101,10 +101,6 @@ class Mockup(Controller):
             f"motor_mockup:{axis.name}:curr_velocity", default_value=0
         )
 
-        encoder = axis.config.get("encoder", converter=None, default=None)
-        if encoder:
-            self.initialize_encoder(encoder)
-            self.__encoders[encoder]["axis"] = axis.name
         self._axis_moves[axis] = {"motion": None}
         if self.read_hw_position(axis) is None:
             self.set_hw_position(axis, 0)
@@ -226,28 +222,20 @@ class Mockup(Controller):
         Return encoder position.
         unit : 'encoder steps'
         """
-        if self.__encoders[encoder]["steps"] is not None:
-            enc_steps = self.__encoders[encoder]["steps"]
+        amplitude = self.__encoders[encoder]["measured_noise"]
+        if amplitude is not None and amplitude > 0:
+            # Simulates noisy encoder.
+            noise_mm = random.uniform(-amplitude, amplitude)
         else:
-            axis_name = self.__encoders[encoder]["axis"]
-            axis = get_config().get(axis_name)
-
-            _pos = self.read_position(axis) / float(axis.steps_per_unit)
-
-            amplitude = self.__encoders[encoder]["measured_noise"]
-            if amplitude is not None and amplitude > 0:
-                # Simulates noisy encoder.
-                noise_mm = random.uniform(-amplitude, amplitude)
-
-                _pos += noise_mm
-
+            noise_mm = 0
+        enc_steps = self.__encoders[encoder]["steps"]
+        axis = encoder.axis
+        if axis:
+            if enc_steps is None:
+                _pos = self.read_position(axis) / float(axis.steps_per_unit)
+                if noise_mm:
+                    _pos += noise_mm
                 enc_steps = _pos * encoder.steps_per_unit
-            else:
-                # "Perfect" encoder
-                enc_steps = _pos * encoder.steps_per_unit
-
-        self.__encoders[encoder]["steps"] = None
-
         return enc_steps
 
     def read_encoder_multiple(self, *encoder_list):
@@ -527,8 +515,7 @@ class Mockup(Controller):
         position equal to target position.
         By the way we add a ref to the coresponding axis.
         """
-        self.__encoders[axis.encoder]["measured_noise"] = noise
-        self.__encoders[axis.encoder]["axis"] = axis.name
+        self.__encoders.setdefault(axis.encoder, {})["measured_noise"] = noise
 
     """
     Custom attributes methods

@@ -455,7 +455,7 @@ class Command:
         host,
         port,
         eol=b"\n",  # end of line for each rx message
-        timeout=5.,  # default timeout for read write
+        timeout=3.,  # default timeout for read write
     ):
         self._host = host
         self._port = port

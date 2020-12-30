@@ -13,6 +13,7 @@ import functools
 from collections import namedtuple
 from bliss.common.greenlet_utils import protect_from_kill
 from bliss.comm.tcp import Command
+from bliss.comm.exceptions import CommunicationError
 import struct
 import numpy
 import sys
@@ -83,18 +84,18 @@ def _command(cnx, cmd, data=None, pre_cmd=None, timeout=None):
             _msg = f"IOError {ioex.errno}:{errno.errorcode[ioex.errno]}"
             _msg += f"\nmessage={os.strerror(ioex.errno)} "
             _msg += f"\nPlease check that icepap controller '{cnx._host}' is ON"
-            raise RuntimeError(_msg)
+            raise CommunicationError(_msg)
         elif ioex.errno == -2:
             _msg = f"IOError {ioex.errno}"
             _msg += f"\nPlease check icepap controller: '{cnx._host}'"
-            raise RuntimeError(_msg)
+            raise CommunicationError(_msg)
         else:
             raise ioex
     except OSError as osex:
         _msg = f"OSError no:{osex.errno}"
         _msg += f"err code:{errno.errorcode[osex.errno]}"
         _msg += f"err message:{os.strerror(osex.errno)}"
-        raise RuntimeError(_msg)
+        raise CommunicationError(_msg)
 
 
 def _command_raw(cnx, cmd, data=None, pre_cmd=None, timeout=None):

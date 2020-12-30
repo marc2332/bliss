@@ -174,7 +174,7 @@ def iter_axes_position(*axes, **kwargs):
         # get limits in USER units.
         axis_name = global_map.alias_or_name(axis)
         axis_state = safe_get(axis, "state", on_error=err)
-        if "DISABLED" in axis_state:
+        if axis.disabled or "DISABLED" in axis_state:
             axis_name += " *DISABLED*"
         user_low_limit, user_high_limit = safe_get(axis, "limits", on_error=(err, err))
         user_position = get(axis, "position")

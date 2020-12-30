@@ -18,6 +18,7 @@ from bliss.common.axis import AxisState, Axis
 from bliss.common.utils import object_method
 from bliss import global_map
 from bliss.comm.tcp import Command
+from bliss.comm.exceptions import CommunicationError
 import numpy
 import sys
 from bliss.controllers.motors.icepap.comm import _command, _ackcommand, _vdata_header
@@ -209,12 +210,17 @@ class Icepap(Controller):
         future_acc_time = new_velocity / (current_acc * axis.steps_per_unit)
         try:
             _command(self._cnx, "ACCTIME %s %f" % (axis.address, future_acc_time))
-            _ackcommand(self._cnx, "VELOCITY %s %f" % (axis.address, new_velocity))
-        except:
-            future_acc_time = current_acc_time
+        except CommunicationError:
             raise
-        finally:
-            _command(self._cnx, "ACCTIME %s %f" % (axis.address, future_acc_time))
+        except BaseException:
+            # ensure acctime is set to the previous value
+            _command(self._cnx, "ACCTIME %s %f" % (axis.address, current_acc_time))
+            raise
+        else:
+            try:
+                _ackcommand(self._cnx, "VELOCITY %s %f" % (axis.address, new_velocity))
+            finally:
+                _command(self._cnx, "ACCTIME %s %f" % (axis.address, future_acc_time))
 
         return self.read_velocity(axis)
 

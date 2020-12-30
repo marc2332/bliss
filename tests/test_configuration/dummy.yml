@@ -9,7 +9,7 @@
 
 - plugin: emotion
   class: DummyCtrl
-  package: test_motor_initialization
+  package: test_initialization
   axes:
     - name: dummy_axis_1
       steps_per_unit: 1

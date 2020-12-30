@@ -10,7 +10,7 @@ greenlet >= 0.4.17
 gxx_linux-64
 h5py == 2.10
 hiredis
-jedi >= 0.17.1
+jedi == 0.17.2
 jinja2 >= 2.7
 louie >= 2.0
 mendeleev

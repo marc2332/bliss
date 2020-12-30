@@ -78,7 +78,6 @@ class BeaconObject:
                                 f"parameter {fset.__name__} is read only."
                             )
                         rvalue = fset(self, value)
-                        set_value = rvalue if rvalue is not None else value
                         self._event_channel.post(fset.__name__)
 
                     set.__name__ = fset.__name__
@@ -118,17 +117,18 @@ class BeaconObject:
 
     def __init__(self, config, name=None, path=None, share_hardware=True):
         """
-        config -- a configuration node
-        share_hardware -- mean that several instances of bliss share the same hardware
-        and need to initialize it with the configuration if no other peer has done it.
-        if share_hardware is False initialization of parameters will be done once per peer.
-        path (list) can be used to define a offset inside the config that is supposed to be used as
-        config for this object.
-        if name is supplied the config name is ignored and the provided name is used instead.
+        * <config>: a configuration node
+        * <name>: if supplied, used instead of the config name.
+        * <path> (list): can be used to define an offset inside the config that
+          is supposed to be used as config for this object.
+        * <share_hardware>: means that several instances of bliss share the same hardware
+          and need to initialize it with the configuration if no other peer has done it.
+          If share_hardware is False, initialization of parameters will be done once per peer.
         """
 
         self._path = path
         self._config_name = config.get("name")
+        self._share_hardware = share_hardware
 
         if path and type(path) != list:
             raise RuntimeError("path has to be provided as list!")
@@ -180,8 +180,31 @@ class BeaconObject:
 
             self.__initialized = Local(self)
         self._in_initialize_with_setting = False
+
         self._event_channel = EventChannel(f"__EVENT__:{self.name}")
         self._event_channel.register_callback(self.__event_handler)
+
+    def __info__(self):
+        """ Return info about beaconObject:
+        * list of properties + values
+        * settings etc.
+        * name / path / share_hwd
+        * status: is_init etc.
+        """
+
+        info_str = "BeaconObject:\n"
+        info_str += f"    path={self._path}\n"
+        info_str += f"    config_name={self._config_name}\n"
+        info_str += f"    name={self.name}\n"
+        info_str += f"    share_hardware={self._share_hardware}\n"
+        info_str += f"    \n"
+        info_str += f"    _local_initialized={self._local_initialized}\n"
+        info_str += f"    __initialized (type:{self.__initialized.__class__.__name__}) val={self.__initialized.value}\n"
+        info_str += f"    __settings_properties={self.__settings_properties()}\n"
+        #        info_str += f"    settings={self.settings.get_all()}\n"   # only after apply_config ?
+        #        info_str += f"    _disabled_settings={self._disabled_settings}\n"
+
+        return info_str
 
     def __close__(self):
         self._event_channel.unregister_callback(self.__event_handler)
@@ -232,10 +255,16 @@ class BeaconObject:
                 )
 
             self.config.reload()
+
         try:
             self._settings.remove(*self.__settings_properties().keys())
         except AttributeError:  # apply config before init
             pass
+
+        self.__initialized.value = False
+        self._initialize_with_setting()
+
+    def force_init(self):
         self.__initialized.value = False
         self._initialize_with_setting()
 
@@ -269,10 +298,12 @@ class BeaconObject:
             return
         try:
             self._in_initialize_with_setting = True
+
             if not self._local_initialized:
                 self.__update_settings()
                 self._init()
                 self._local_initialized = True
+
             if not self.__initialized.value:
                 values = self._settings.get_all()
                 error_messages = []

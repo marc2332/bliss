@@ -10,9 +10,9 @@ import time
 import pytest
 
 from bliss.common.axis import Motion, Axis
-from bliss.common.standard import Group, mvr
-from bliss.controllers.motors.mockup import Mockup
-from bliss.controllers.motors.mockup import MockupHook
+from bliss.common.standard import Group, mvr, ascan, d2scan
+from bliss.scanning.scan import ScanState, ScanAbort
+from bliss.controllers.motors.mockup import Mockup, MockupHook
 from bliss.common.hook import MotionHook
 from bliss.config.static import ConfigNode
 
@@ -104,7 +104,7 @@ def test_axis_move(hooked_m0):
     assert isinstance(hook0.last_post_move_args[0], Motion)
 
 
-def test_axis_move_multiple(hooked_m0, hooked_m1):
+def test_axis_single_motion_hook_for_multiple_axes(hooked_m0, hooked_m1):
     """test single motion hook works with multiple axes motion"""
     assert hooked_m0.state.READY
 
@@ -168,11 +168,11 @@ def test_axis_move2(hooked_m1):
     assert hooked_m1._set_position == 180
 
 
-def test_axis_multiple_move(hooked_m0):
+def test_axis_single_motion_hook_multiple_move(hooked_m0):
     """test single motion hook works in multiple single axis motion"""
     hook0 = hooked_m0.motion_hooks[0]
 
-    for i in range(100):
+    for i in range(3):
         assert hooked_m0.state.READY
         assert hook0.nb_pre_move == i
         assert hook0.nb_post_move == i
@@ -382,3 +382,92 @@ def test_check_ready_exception(hooked_m0):
 
     # test for issue 1779
     assert hooked_m0._set_position == 0
+
+
+class MyScanHook(MotionHook):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._pre_scan_called = 0
+        self._post_scan_called = 0
+        self._pre_scan_axes = []
+        self._post_scan_axes = []
+        self._raise_exception = 0  # 1: in pre_scan, 2: in post_scan
+
+    def pre_scan(self, axes):
+        self._pre_scan_called += 1
+        self._pre_scan_axes = [axis.name for axis in axes]
+        if self._raise_exception == 1:
+            raise RuntimeError("Exception in pre scan")
+
+    def post_scan(self, axes):
+        self._post_scan_called += 1
+        self._post_scan_axes = [axis.name for axis in axes]
+        if self._raise_exception == 2:
+            raise RuntimeError("Exception in post scan")
+
+
+def test_prescan_postscan(default_session, roby, robz, s1vg, s1u):
+    diode = default_session.config.get("diode")
+    hook = MyScanHook()
+
+    roby.motion_hooks.append(hook)
+    robz.motion_hooks.append(hook)
+
+    ascan(roby, 0, 1, 3, 0.1, diode)
+
+    assert hook._pre_scan_called == 1
+    assert roby.name in hook._pre_scan_axes
+    assert hook._post_scan_called == 1
+    assert roby.name in hook._post_scan_axes
+    hook._pre_scan_axes.clear()
+    hook._post_scan_axes.clear()
+
+    d2scan(roby, 0, 1, robz, 0, 1, 3, 0.1, diode)
+
+    assert hook._pre_scan_called == 2
+    assert roby.name in hook._pre_scan_axes
+    assert robz.name in hook._pre_scan_axes
+    assert hook._post_scan_called == 2
+    assert roby.name in hook._post_scan_axes
+    assert robz.name in hook._post_scan_axes
+    hook._pre_scan_axes.clear()
+    hook._post_scan_axes.clear()
+
+    d2scan(roby, 0, 1, s1vg, 0, 1, 3, 0.1, diode)
+    assert s1vg.name in hook._pre_scan_axes
+    for s1vg_real_axis in s1vg.controller.reals:
+        assert s1vg_real_axis.name in hook._post_scan_axes
+
+    hook2 = MyScanHook()
+    s1u.motion_hooks.append(hook2)
+    hook2._raise_exception = 1
+
+    s = d2scan(roby, 0, 1, s1vg, 0, 1, 3, 0.1, diode, run=False)
+    with pytest.raises(RuntimeError):
+        s.run()
+    assert hook._pre_scan_called == 4
+    assert hook._post_scan_called == 4
+    assert hook2._pre_scan_called == 1
+    assert hook2._post_scan_called == 1
+    assert s.state == ScanState.KILLED  # scan is killed because it failed in "prepare"
+
+    hook2._raise_exception = 0
+    hook3 = MyScanHook()
+    s1vg.motion_hooks.append(hook3)
+    hook3._raise_exception = 2
+    roby_pos = roby.position
+    s1vg_pos = s1vg.position
+    s = d2scan(roby, 0, 1, s1vg, 0, 1, 3, 0.1, diode, run=False)
+    with pytest.raises(RuntimeError):
+        s.run()
+    assert s.state == ScanState.DONE  # scan is done because it failed in finalization
+    assert hook._pre_scan_called == 5
+    assert hook._post_scan_called == 5
+    assert hook2._pre_scan_called == 2
+    assert hook2._post_scan_called == 2
+    assert hook3._pre_scan_called == 1
+    assert hook3._post_scan_called == 1
+    # check that motors have moved, and are back to the original pos. (dscan)
+    assert len(s.get_data()["s1vg"]) == 4
+    assert roby.position == roby_pos
+    assert s1vg.position == s1vg_pos

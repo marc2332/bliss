@@ -54,7 +54,7 @@ def validate_scan_data(
     """
     :param bliss.scanning.scan.Scan scan:
     :param int subscan:
-    :param list positioners: fast axis first
+    :param list(list(str)) positioners: fast axis first
     :param list(str) detectors: expected detectors (derived from technique when missing)
     :param list(str) notes:
     :param str master_name: chain master name
@@ -162,7 +162,7 @@ def assert_scan_nxdata(
     :param bliss.scanning.scan.Scan scan:
     :param dict plots:
     :param int subscan:
-    :param list positioners: fast axis first
+    :param list(list(str)) positioners: fast axis first
     :param str master_name: chain master name
     :param tuple scan_shape: fast axis first 0D scan by default
     :param bool config: configurable writer
@@ -325,7 +325,7 @@ def validate_measurement(
     """
     :param h5py.Group nxentry:
     :param tuple scan_shape: fast axis first
-    :param list positioners: fast axis first
+    :param list(list(str)) positioners: fast axis first
     :param bool config: configurable writer
     :param str technique:
     :param dict save_options:
@@ -342,6 +342,7 @@ def validate_measurement(
         detectors=detectors,
         master_name=master_name,
         softtimer=softtimer,
+        positioners=positioners,
     )
     # Positioners
     pos_instrument, pos_meas, pos_pgroup = expected_positioners(
@@ -402,7 +403,7 @@ def validate_instrument(
     :param h5py.Group nxentry:
     :param tuple scan_shape: fast axis first
     :param bool config: configurable writer
-    :param list positioners:
+    :param list(list(str)) positioners:
     :param bool policy: data policy
     :param str technique:
     :param dict save_options:
@@ -426,6 +427,7 @@ def validate_instrument(
         detectors=detectors,
         master_name=master_name,
         softtimer=softtimer,
+        positioners=positioners,
     )
     # Positioners
     pos_instrument, _, pos_positioners = expected_positioners(
@@ -503,7 +505,7 @@ def validate_plots(
     :param str technique:
     :param list(str) detectors:
     :param tuple scan_shape: fast axis first
-    :param list positioners: fast axis first
+    :param list(list(str)) positioners: fast axis first
     :param str master_name:
     :param str softtimer:
     :param dict save_options:
@@ -516,6 +518,7 @@ def validate_plots(
         detectors=detectors,
         master_name=master_name,
         softtimer=softtimer,
+        positioners=positioners,
     )
     for name, info in plots.items():
         if info["signals"]:
@@ -615,7 +618,7 @@ def validate_nxdata(
     :param str ptype:
     :param list expected_signals:
     :param tuple scan_shape: fast axis first
-    :param list positioners: fast axis first
+    :param list(list(str)) positioners: fast axis first
     :param str master_name:
     :param dict save_options:
     :param bool save_images:
@@ -700,6 +703,7 @@ def expected_plots(
     detectors=None,
     master_name=None,
     softtimer=None,
+    positioners=None,
 ):
     """
     All expected plots for this technique (see nexus_definitions.yml)
@@ -710,6 +714,7 @@ def expected_plots(
     :param list(str) detectors:
     :param str master_name:
     :param str softtimer:
+    :param list(list(str)) positioners:
     :returns dict: grouped by detector dimension and flat/grid
     """
     plots = dict()
@@ -719,6 +724,7 @@ def expected_plots(
         detectors=detectors,
         master_name=master_name,
         softtimer=softtimer,
+        positioners=positioners,
     )
 
     def ismca1d(name):
@@ -871,7 +877,7 @@ def expected_positioners(
     Expected positioners
 
     :param str master_name:
-    :param list(str) positioners:
+    :param list(list(str)) positioners:
     :param str softtimer:
     :param dict save_options:
     :returns dict, set, set: content, measurement, positioners
@@ -910,7 +916,12 @@ def expected_positioners(
 
 
 def expected_detectors(
-    config=True, technique=None, detectors=None, master_name=None, softtimer=None
+    config=True,
+    technique=None,
+    detectors=None,
+    master_name=None,
+    softtimer=None,
+    positioners=None,
 ):
     """
     Expected detectors
@@ -920,6 +931,7 @@ def expected_detectors(
     :param list(str) detectors:
     :param str master_name:
     :param str softtimer:
+    :param list(list(str)) positioners:
     :returns set:
     """
     if config:
@@ -961,6 +973,8 @@ def expected_detectors(
         expected = detectors_filter(expected, detectors)
         if softtimer == "detector":
             expected |= {"elapsed_time", "epoch"}
+        if positioners and any("robx" in axes for axes in positioners):
+            expected.add("robxenc")
     else:
         # Each data channel is a detector
         expected = set()
@@ -970,6 +984,7 @@ def expected_detectors(
             detectors=detectors,
             master_name=master_name,
             softtimer=softtimer,
+            positioners=positioners,
         )
         for names in channels.values():
             expected |= names
@@ -1049,7 +1064,7 @@ def expected_detector_content(name, config=True):
                 datasets |= {"samples"}
             elif name == "diode7":
                 datasets |= {"N", "max", "min", "p2v", "std", "var"}
-        elif name == "thermo_sample":
+        elif name in ("thermo_sample", "robxenc"):
             datasets = {"data", "mode", "type"}
         elif name.startswith("simu"):
             datasets = {"type", "roi1", "roi2", "roi3"}
@@ -1107,7 +1122,12 @@ def expected_detector_content(name, config=True):
 
 
 def expected_channels(
-    config=True, technique=None, detectors=None, master_name=None, softtimer=None
+    config=True,
+    technique=None,
+    detectors=None,
+    master_name=None,
+    softtimer=None,
+    positioners=None,
 ):
     """
     Expected channels grouped per dimension
@@ -1117,6 +1137,7 @@ def expected_channels(
     :param list(str) detectors:
     :param str master_name:
     :param str softtimer:
+    :param list(list(str)) positioners:
     :returns dict: key are the unique names (used in plots and measurement)
     """
     datasets = {0: set(), 1: set(), 2: set()}
@@ -1256,6 +1277,8 @@ def expected_channels(
         datasets[k] = detectors_filter(datasets[k], detectors, removeprefix=not config)
     if softtimer == "detector":
         datasets[0] |= {"elapsed_time", "epoch"}
+    if positioners and any("robx" in axes for axes in positioners):
+        datasets[0].add("robxenc")
     return datasets
 
 

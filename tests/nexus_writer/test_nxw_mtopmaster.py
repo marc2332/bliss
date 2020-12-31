@@ -41,7 +41,7 @@ def _test_nxw_mtopmaster(**kwargs):
 
 
 def _test_aloopscan(session=None, tmpdir=None, writer=None, **kwargs):
-    mot = "robx"
+    mot = "roby"  # When scanning with "robx", the encoder will not be there
     expo1 = 0.1
     npoints1 = 20
     expo2 = 0.5

@@ -917,3 +917,13 @@ class CalcController(Controller):
                 ctrl._get_real_position(
                     dep_real_axes, dep_real_position, final_real_axes_position
                 )
+
+
+def get_real_axes(*axes):
+    """Return real axes from given axis objects"""
+    real_axes_list = []
+    for axis in axes:
+        real_axes_list.append(axis)
+        if isinstance(axis.controller, CalcController):
+            real_axes_list += get_real_axes(*axis.controller.reals)
+    return real_axes_list

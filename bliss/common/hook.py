@@ -66,6 +66,16 @@ def execute_pre_move_hooks(motions):
     with execute_pre_hooks(hooks, "pre_move", "post_move"):
         yield
 
+
+@contextlib.contextmanager
+def execute_pre_scan_hooks(axes):
+    hooks = {hook: axes[:] for hook, _ in group_hooks(axes).items()}
+    with execute_pre_hooks(
+        hooks, "pre_scan", None
+    ):  # for scan hooks, "post" is always executed in scan finalization
+        yield
+
+
 class MotionHook:
     """
     Base motion hook. Executed before a motion starts and after motion ends.
@@ -111,4 +121,14 @@ class MotionHook:
         """
         Called after motion ends. Overwrite in your sub-class.
         Default implementation does nothing.
+        """
+
+    def pre_scan(self, axes_list):
+        """
+        Called before scan starts
+        """
+
+    def post_scan(self, axes_list):
+        """
+        Called after scan end
         """

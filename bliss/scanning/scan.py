@@ -22,6 +22,9 @@ import numpy
 
 from bliss.common.types import _countable
 from bliss import current_session, is_bliss_shell
+from bliss.common.axis import Axis
+from bliss.common.motor_group import is_motor_group
+from bliss.common.hook import group_hooks, execute_pre_scan_hooks
 from bliss.common.event import connect, disconnect
 from bliss.common.cleanup import error_cleanup, axis as cleanup_axis, capture_exceptions
 from bliss.common.greenlet_utils import KillMask
@@ -32,7 +35,7 @@ from bliss.common.motor_group import is_motor_group
 from bliss.common.utils import Null, update_node_info, round
 from bliss.common.profiling import SimpleTimeStatistics
 from bliss.common.profiling import simple_time_profile as time_profile
-from bliss.controllers.motor import Controller
+from bliss.controllers.motor import Controller, get_real_axes
 from bliss.config.conductor.client import get_redis_proxy
 from bliss.data.node import create_node
 from bliss.data.nodes import channel as channelnode
@@ -620,6 +623,7 @@ class Scan:
 
         self.__nodes = dict()
         self._devices = []
+        self._axes_in_scan = []  # for pre_scan, post_scan in axes hooks
 
         self._data_watch_task = None
         self._data_watch_callback = data_watch_callback
@@ -962,7 +966,7 @@ class Scan:
         else:
             self._watchdog_task = None
 
-    def _get_data_axes(self):
+    def _get_data_axes(self, include_calc_reals=False):
         """
         Return all axes objects in this scan
         """
@@ -971,9 +975,15 @@ class Scan:
             if not isinstance(node, AcquisitionMaster):
                 continue
             if isinstance(node.device, Controller):
-                master_axes.append(node.device)
+                if include_calc_reals:
+                    master_axes += get_real_axes(node.device)
+                else:
+                    master_axes.append(node.device)
             if is_motor_group(node.device):
-                master_axes.extend(node.device.axes.values())
+                if include_calc_reals:
+                    master_axes += get_real_axes(*node.device.axes.values())
+                else:
+                    master_axes += node.device.axes.values()
 
         return master_axes
 
@@ -1256,6 +1266,11 @@ class Scan:
             self._prepare_devices(devices_tree)
         with time_profile(self._stats_dict, "scan.prepare.writer", logger=logger):
             self.writer.prepare(self)
+
+        with time_profile(self._stats_dict, "scan.prepare.motion_hooks", logger=logger):
+            self._axes_in_scan = self._get_data_axes(include_calc_reals=True)
+            with execute_pre_scan_hooks(self._axes_in_scan):
+                pass
 
     def _prepare_devices(self, devices_tree):
         nodes = dict()
@@ -1594,6 +1609,12 @@ class Scan:
                         killed_by_user = True
                         raise ScanAbort
                     raise e
+
+            # execute post scan hooks
+            hooks = group_hooks(self._axes_in_scan)
+            for hook in reversed(list(hooks)):
+                with capture():
+                    hook.post_scan(self._axes_in_scan[:])
 
             # put final state
             with capture():

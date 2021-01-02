@@ -11,6 +11,7 @@ Axis related classes (:class:`~bliss.common.axis.Axis`, \
 and :class:`~bliss.common.axis.GroupMove`)
 """
 from bliss import global_map
+from bliss.common.hook import execute_pre_move_hooks
 from bliss.common.protocols import Scannable
 from bliss.common.cleanup import capture_exceptions
 from bliss.common.motor_config import MotorConfig
@@ -31,6 +32,7 @@ import sys
 import math
 import functools
 import collections
+import itertools
 import numpy
 from unittest import mock
 import warnings
@@ -114,55 +116,11 @@ class GroupMove:
         self._stop_motion = stop_motion
         self._interrupted_move = False
 
-        hooks = collections.defaultdict(list)
-        executed_hooks = dict()
-        axes = set()
-        hooked_axes = set()
-        for motions in motions_dict.values():
-            for motion in motions:
-                axis = motion.axis
-                axes.add(axis)
-
-                # group motion hooks
-                for hook in axis.motion_hooks:
-                    hooks[hook].append(motion)
-
-        with capture_exceptions(raise_index=0) as capture:
-            for hook, motions in hooks.items():
-                hooked_axes.union({m.axis for m in motions})
-
-                with capture():
-                    hook._init()
-                    hook.pre_move(motions)
-
-                executed_hooks[hook] = motions
-
-                if capture.failed:
-                    # something wrong happened with this hook:
-                    # let's call post_move for all executed hooks so far
-                    # (including this one), in reversed order
-                    for hook, motions in reversed(list(executed_hooks.items())):
-                        with capture():
-                            hook.post_move(motions)
-                    return
-
-        # now check if axes are ready ;
-        # the check happens after pre_move hooks execution,
-        # some axes can **become** ready thanks to the hook
-        with capture_exceptions(raise_index=0) as capture:
-            for axis in axes:
-                with capture():
-                    axis._check_ready()
-                if capture.failed:
-                    # this axis _check_ready() had a problem:
-                    # need to ensure post_move hook is called,
-                    # if the pre_move was executed
-                    for hook in reversed(axis.motion_hooks):
-                        motions = executed_hooks.get(hook)
-                        if motions:
-                            with capture():
-                                hook.post_move(motions)
-                    return
+        # motions_dict is { controller: [motion, ...] }
+        all_motions = list(itertools.chain(*motions_dict.values()))
+        with execute_pre_move_hooks(all_motions):
+            for axis in (m.axis for m in all_motions):
+                axis._check_ready()
 
         for controller, motions in motions_dict.items():
             if prepare_motion is not None:

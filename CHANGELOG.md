@@ -9,7 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Flint:
+### Changed
+
+### Fixed
+
+### Removed
+
+## [1.7.0 - 2021-01-04]
+
+### Added
+
+- Axis
+    - new `velocity_low_limit` and `velocity_high_limit` settings
+    - disable (= no communication at all) if controller cannot initialize, or if axis cannot initialize
+        - call `enable()` to try again when problem is solved
+- Controllers
+    - Tektronix oscilloscope support
+    - Vacuum gauge
+- Documentation    
+    - added info on "tcp proxy" (for PI piezos in multiple sessions, for example)
+    - PEPU documentation
+- Controllers
+    - attocube AMC 100
+    - icepap: multiple encoders reading optimization
+- Core
+    - frequency option to sampling counters, and reasonable defaults (1 Hz, or more depending on the controller)
+- Flint
     - Display ROI geometries with the detector image widget during a scan
     - Allow to switch OpenGL/matplotlib from "Display" menu
         - This setting is saved in a config file in the computer per user
@@ -31,25 +56,111 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
       scans from a sequence
     - Creates a `channels` structure for metadata like `display_name` and `unit`
     - Provides ROI geometry
+- Standard functions
+    - timestamp for `last_error()`
+- Motion hooks
+    - new `pre_scan`, `post_scan` methods
+- Nexus Writer
+    - profiling using yappi
+- Wago hook: added `__info__`
 
 ### Changed
 
-- Flint:
+- aliases can now be created in YML config files, directly from object if it has only 1 counter
+- Controllers
+    - actuators: handle devices with no state reading (in/out)
+    - CT2: configuration is loaded on the server side
+    - new KB controller (focusing procedure)
+    - NewFocus controller refurb.
+    - multiple positions controller: show positions while moving
+    - Wago: show host in connection error message
+- Scanning
+    - automatically add encoders, if any, for axes in for standard scans
+- Documentation
+    - regulation and temperature frameworks clearly separated
+    - MCA documentation update
+- Flint
     - Skip warning about missing elogbook when BLISS is used as library
     - Workspaces are not anymore automatically saved between Flint executions,
       and explicit "save" action is provided in the "workspace" menu
+- Nexus Writer
+    - better error message when file is locked
+    - pin-point h5py library to version 2.10
+- Standard functions
+    - better output for `ct()`
+    - disable soft axes from positioners and axes displayed with `wa()` by default
+- Temperature => Regulation
+    - nanodac fully integrated in regulation framework
+    - oxford controllers
 
 ### Fixed
 
-- Flint:
+- Beacon web portal
+    - buttons to work outside ESRF
+- Beacon channels
+    - initialization optimisation (via pipeline)
+- Controllers
+    - Beam shutter `close` error if hutch is not searched
+    - CT2
+        - too many RPC calls for `__info__`
+        - allow channel 10 to be used as a counter
+        - blocking acquisition loop
+    - icepap shutter: initialization blocks forever
+    - lakeshore: "EOL" fix
+    - Machine Current: makes Tango proxies too often, SR_mode can return -1
+    - MUSST: wrong channel for icepap switch
+    - PI-E517 error when closing loop
+    - PM600: serial communication fix
+    - Wago: interlock fixes, allow FS for analog output channels
+    - xia: decouple sending current pixel data and acquisition polling
+- Core
+    - remove invalid use of runtime interface discovery (protocol), that is doing hw access when traversing devices map
+- Data publishing
+    - synchronization issue with streams
+    - change `idle` to `sleep(0)`: ensure data to be published when CPU usage is high
+    - scan groups and caching race condition
+    - optimisation of devices preparation in scans
+    - CPU intensive publishing
+- elogbook
+    - do not show error message when there is no metadata server
+- Flint
     - Data from Lima detectors and MCAs are not anymore hidden on a `amesh` scan
     - Data from MCAs are again displayed inside an MCA widget
     - Data from Lima detectors and MCAs from a sub scan of a sequence are not
       anymore hidden
-    - Fixed vmax on set_plot_colormap remote API
+    - Fixed vmax on `set_plot_colormap` remote API
     - Fixed initial ROIs provided as a dict
+- ICAT
+    - allow single motors in "positioners" group
+    - fix race condition with metadata gathering and parallel scans
+    - attenuator metadata compliant with ICAT
+- Lima
+    - dexela: use "image" synchro
+    - frelon: update size
+- Nexus Writer
+    - fix wrong timestamp (+1 hour)
+    - scan info can contain npoints and data_dim while missing npoints{i}
+    - inconsistency in ROI naming
+    - fix Tango timeouts
+    - "DIS" positions reported in positioners
+- Regulation framework
+    - start ramping from current input value
+    - less hardware calls when ramping
+- RPC
+    - extend read buffer to 128 KB
+    - service: load the package in case of local beamline controllers
+    - unneeded calls to `__eq__`, `__hash__`, `__neq__`
+- Shell
+    - progress bar synchronization problem
+    - step scan data watch optimization
+- Standard functions
+    - `goto_cen()` fix for "step"-like data (#2230)
+    - `umv`: fixed error message when move fails
 
 ### Removed
+
+- ID31 specific controller (fuelcell)
+- MX-specific Flex controller
 
 ## [1.6.0 - 2020-10-25]
 
@@ -179,7 +290,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed first motor position for `amesh` with backnforth enabled
 - Fixed memory leak on Tango DeviceProxy
     - Used by Redis stream client retrieving image from node (like Flint)
-- user_script_load now really reloads the script file
+- `user_script_load` now really reloads the script file
 - aliases: avoid object comparisons with == as it calls __eq__
     - potentially on remote objects
 - modbus communication fix

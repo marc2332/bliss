@@ -10,7 +10,7 @@ from bliss.common.axis import AxisState
 from bliss.common.greenlet_utils import KillMask
 from bliss.config.channels import Channel, Cache
 
-from .sdk import AMC
+from attocube_sdk import AMC
 
 
 class AMC100(Controller):

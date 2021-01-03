@@ -8,12 +8,72 @@
 """Base hook system. Check the doc to find
 how to use motion hooks in your system"""
 
+import sys
 import weakref
 import functools
+import itertools
+import collections
+import contextlib
 from bliss.common.logtools import *
 from bliss import global_map
 
 __all__ = ["MotionHook"]
+
+
+def group_hooks(axes):
+    hooks = collections.defaultdict(list)
+    for axis in axes:
+        for hook in axis.motion_hooks:
+            hooks[hook].append(axis)
+    return hooks
+
+
+@contextlib.contextmanager
+def execute_pre_hooks(hooks_dict, pre_method_name, post_method_name):
+    # hooks_dict is { hook: [item, ...] }
+    # each hook is executed by calling its "pre" method, with item list as argument ;
+    # in case of error "post" methods are executed with same arguments
+    executed_hooks = {}
+    try:
+        for hook, arg in hooks_dict.items():
+            try:
+                hook._init()
+                getattr(hook, pre_method_name)(arg)
+            except BaseException:
+                raise
+            finally:
+                executed_hooks[hook] = arg
+
+        yield
+    except BaseException:
+        if post_method_name:
+            # let's call post_move for all executed hooks so far
+            # (including this one), in reversed order
+            for hook, arg in reversed(list(executed_hooks.items())):
+                try:
+                    getattr(hook, post_method_name)(arg)
+                except BaseException:
+                    sys.excepthook(*sys.exc_info())
+        raise
+
+
+@contextlib.contextmanager
+def execute_pre_move_hooks(motions):
+    hooks = {
+        hook: [m for m in motions if m.axis in hook_axes]
+        for hook, hook_axes in group_hooks(m.axis for m in motions).items()
+    }
+    with execute_pre_hooks(hooks, "pre_move", "post_move"):
+        yield
+
+
+@contextlib.contextmanager
+def execute_pre_scan_hooks(axes):
+    hooks = {hook: axes[:] for hook, _ in group_hooks(axes).items()}
+    with execute_pre_hooks(
+        hooks, "pre_scan", None
+    ):  # for scan hooks, "post" is always executed in scan finalization
+        yield
 
 
 class MotionHook:
@@ -61,4 +121,14 @@ class MotionHook:
         """
         Called after motion ends. Overwrite in your sub-class.
         Default implementation does nothing.
+        """
+
+    def pre_scan(self, axes_list):
+        """
+        Called before scan starts
+        """
+
+    def post_scan(self, axes_list):
+        """
+        Called after scan end
         """

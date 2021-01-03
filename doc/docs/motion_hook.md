@@ -6,37 +6,46 @@ a list of motors and executed at particular moments.
 !!! note
     For brave old users of SPEC, motion hooks can replace `cdef()`
 
+To link an axis with a specific hook a `motion_hooks` section has to
+be added to an axis *YAML* configuration. It should be a list of
+references to hooks defined somewhere else (see example below).
+
+One hook can be associated with multiple axes.
+One axis can have multiple hooks.
+
 A new motion hook definition is a python class which inherits from the
-base hook class `bliss.common.hook.MotionHook` and implements the
-`bliss.common.hook.MotionHook.pre_move` and
-`bliss.common.hook.MotionHook.post_move` methods. The base
-implementation of both methods does nothing so you may implement only
-what you need.
+base hook class `bliss.common.hook.MotionHook`.
 
-Both methods receive a motion argument. It is a list of
-`bliss.common.axis.Motion` objects representing the current motion.
+The `MotionHook` class has 5 methods that can be overwritten:
 
-Motion hook objects also have an `init()` method that can be overwritten:
-it is called once, when the motion hook is activated for the first time.
-Its goal is to allow some initialization before `pre_move` and `post_move`
-are called.
-For example, it is allowed to iterate through the `.axes` dictionary, and
-to 
+* `pre_move`
+* `post_move`
+* `pre_scan`
+* `post_scan`
+* `init`
+
+The `init` method is called once, when the motion hook is activated for the first time.
+`pre_move` and `post_move` receive a list of `bliss.common.axis.Motion`
+objects, each `Motion` corresponds to an axis being moved, for the
+corresponding hook.
+`post_move()` works in pair with `pre_move`: it is called for each
+`pre_move` call, even if `pre_move` fails.
+`pre_move()` can be used to prevent a motion from occuring if a certain
+condition is not satisfied. In this case `pre_move()` should raise an
+exception explaining the reason.
 
 !!! warning
     Care has to be taken not to trigger a movement of a motor which
     is being moved in one of the `init()`, `pre_move()` or `post_move()`
     method. Doing so will most likely result in an infinite recursion error.
 
-You can use `pre_move()` to prevent a motion from occuring if a certain
-condition is not satisfied. In this case `pre_move()` should raise an
-exception explaining the reason.
+`pre_scan` and `post_scan` are called at beginning of a scan ("prepare" phase)
+and at the end of a scan (after scan is done), respectively, for each hooked
+axis involved **in a scan**. `pre_scan` and `post_scan` receive the list of
+axes of the scan.
+In the case of a virtual axis, both the virtual axis and corresponding real
+axes are passed.
 
-A hook is configured using the bliss *YAML* static configuration.
-
-To link an axis with a specific hook you need to add a `motion_hooks`
-key to your axis *YAML* configuration. It should be a list of
-references to hooks defined somewhere else (see example below).
 
 ## Example use case: motor with air-pad
 

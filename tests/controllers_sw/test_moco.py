@@ -12,4 +12,7 @@ def test_moco(dummy_tango_server, session):
     mymoco = session.config.get("mymoco")
     mg = measurementgroup.MeasurementGroup("local", {"counters": ["mymoco"]})
 
-    assert mg.available == {mymoco.counters.outm.fullname, mymoco.counters.inm.fullname}
+    assert set(mg.available) == {
+        mymoco.counters.outm.fullname,
+        mymoco.counters.inm.fullname,
+    }

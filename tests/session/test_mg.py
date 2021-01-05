@@ -194,7 +194,9 @@ def test_add_remove(session):
             ]
         )
         default_mg.remove(session.env_dict["diode2"])
-        assert default_mg.available == {"simulation_diode_sampling_controller:diode"}
+        assert set(default_mg.available) == {
+            "simulation_diode_sampling_controller:diode"
+        }
         default_mg.add(session.env_dict["diode2"])
         default_mg.disable("diode2")
         assert set(default_mg.disabled) == {
@@ -202,7 +204,9 @@ def test_add_remove(session):
         }
         default_mg.remove(session.env_dict["diode2"])
         assert not default_mg.disabled
-        assert default_mg.available == {"simulation_diode_sampling_controller:diode"}
+        assert set(default_mg.available) == {
+            "simulation_diode_sampling_controller:diode"
+        }
 
         with pytest.raises(ValueError):
             # it is forbidden to remove counter added from config
@@ -487,7 +491,7 @@ def test_mg_with_encoder(default_session):
     m1enc = default_session.config.get("m1enc")
     test_mg = default_session.config.get("test_mg_enc")
 
-    assert test_mg.available == {diode.fullname, m1enc.fullname}
+    assert set(test_mg.available) == {diode.fullname, m1enc.fullname}
 
 
 def test_mg_restart_with_lima_disabled_counters(beacon, lima_simulator):
@@ -508,9 +512,9 @@ def test_mg_restart_with_lima_disabled_counters(beacon, lima_simulator):
         lima1_mg = session.config.get("test_lima1_mg")
         lima_simulator = session.config.get("lima_simulator")
 
-        assert lima1_mg.enabled == set(mg_lima_counters)
+        assert set(lima1_mg.enabled) == set(mg_lima_counters)
         lima1_mg.disable("lima_simulator:bpm*")
-        assert lima1_mg.enabled == {"lima_simulator:image"}
+        assert set(lima1_mg.enabled) == {"lima_simulator:image"}
     finally:
         session.close()
 
@@ -523,9 +527,9 @@ def test_mg_restart_with_lima_disabled_counters(beacon, lima_simulator):
         session.setup()
 
         lima1_mg = session.config.get("test_lima1_mg")
-        assert lima1_mg.available == lima1_mg.enabled == lima1_mg.disabled == set()
+        assert lima1_mg.available == lima1_mg.enabled == lima1_mg.disabled == []
         lima_simulator = session.config.get("lima_simulator")
-        assert lima1_mg.enabled == {"lima_simulator:image"}
+        assert set(lima1_mg.enabled) == {"lima_simulator:image"}
     finally:
         session.close()
 

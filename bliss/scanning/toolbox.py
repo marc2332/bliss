@@ -31,6 +31,7 @@ def get_all_counters(counter_args):
                 all_counters += _get_counters_from_measurement_group(obj)
             else:
                 all_counters += _get_counters_from_object(obj)
+
         except AttributeError as exc:
             missing += exc.args
 

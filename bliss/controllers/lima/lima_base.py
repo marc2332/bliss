@@ -712,45 +712,53 @@ class Lima(CounterController):
 
     @autocomplete_property
     def counters(self):
-        all_counters = [self.image]
-        all_counters += list(self.roi_counters.counters)
-        all_counters += list(self.roi_profiles.counters)
-        try:
-            all_counters += list(self.bpm.counters)
-        except RuntimeError:
-            pass
-        return counter_namespace(all_counters)
+        counter_groups = self.counter_groups
+        return counter_namespace(
+            list(self.counter_groups.images)
+            + list(self.counter_groups.bpm)
+            + list(self.counter_groups.roi_counters)
+            + list(self.counter_groups.roi_profiles)
+        )
 
     @autocomplete_property
     def counter_groups(self):
         dct = {}
 
         # Image counter
-        dct["images"] = counter_namespace([self.image])
+        try:
+            dct["images"] = counter_namespace([self.image])
+        except (RuntimeError, DevFailed):
+            dct["images"] = counter_namespace([])
 
         # BPM counters
         try:
             dct["bpm"] = counter_namespace(self.bpm.counters)
-        except RuntimeError:
-            pass
-
-        # Specific ROI counters  ( => cnt = cam.counter_groups['r1']['r1_sum'], i.e counters per roi)
-        for single_roi_counters in self.roi_counters.iter_single_roi_counters():
-            dct[single_roi_counters.name] = counter_namespace(single_roi_counters)
+        except (RuntimeError, DevFailed):
+            dct["bpm"] = counter_namespace([])
 
         # All ROI counters ( => cnt = cam.counter_groups['roi_counters']['r1_sum'], i.e all counters of all rois)
-        dct["roi_counters"] = counter_namespace(self.roi_counters.counters)
-
-        # Specific roi_profiles counters
-        for counter in self.roi_profiles.counters:
-            dct[
-                counter.name
-            ] = (
-                counter
-            )  # ??? or (for symmetry) counter_namespace([counter]) => cnt = cam.counter_groups['s2']['s2'] ???
+        try:
+            dct["roi_counters"] = counter_namespace(self.roi_counters.counters)
+        except (RuntimeError, DevFailed):
+            dct["roi_counters"] = counter_namespace([])
+        else:
+            # Specific ROI counters  ( => cnt = cam.counter_groups['r1']['r1_sum'], i.e counters per roi)
+            for single_roi_counters in self.roi_counters.iter_single_roi_counters():
+                dct[single_roi_counters.name] = counter_namespace(single_roi_counters)
 
         # All roi_profiles counters
-        dct["roi_profiles"] = counter_namespace(self.roi_profiles.counters)
+        try:
+            dct["roi_profiles"] = counter_namespace(self.roi_profiles.counters)
+        except (RuntimeError, DevFailed):
+            dct["roi_profiles"] = counter_namespace([])
+        else:
+            # Specific roi_profiles counters
+            for counter in self.roi_profiles.counters:
+                dct[
+                    counter.name
+                ] = (
+                    counter
+                )  # ??? or (for symmetry) counter_namespace([counter]) => cnt = cam.counter_groups['s2']['s2'] ???
 
         # Default grouped
         default_counters = (

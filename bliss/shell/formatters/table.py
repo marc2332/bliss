@@ -11,6 +11,8 @@
 class IncrementalTable:
     """Manage a table of row data created incrementally.
 
+    Previously known as: FormatedTab
+
     The row data is not fully available, and the display have to be progressive.
 
     Arguments:

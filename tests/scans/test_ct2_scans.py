@@ -29,7 +29,6 @@ def ct2(mocker):
         event.send(ct2, DataSignal, [(x + x / 10.) for x in range(1, 10)])
 
     # Patch ct2
-    del ct2.counter_groups
     ct2.start_acq.side_effect = start_acq
     yield ct2
 

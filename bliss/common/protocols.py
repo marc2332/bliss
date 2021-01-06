@@ -72,6 +72,10 @@ class CounterContainer(ABC):
         """
         raise NotImplementedError
 
+    @property
+    def counter_groups(self) -> IterableNamespace:
+        return IterableNamespace()
+
 
 class Scannable(ABC):
     """

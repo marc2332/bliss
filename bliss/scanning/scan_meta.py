@@ -21,7 +21,7 @@ import enum
 from bliss import global_map
 
 USER_SCAN_META = None
-CATEGORIES = enum.Enum("categories", "INSTRUMENT POSITIONERS NEXUSWRITER")
+CATEGORIES = enum.Enum("categories", "INSTRUMENT POSITIONERS NEXUSWRITER TECHNIQUE")
 
 
 class META_TIMING(enum.Flag):
@@ -41,6 +41,7 @@ def get_user_scan_meta():
         USER_SCAN_META.positioners.timing = META_TIMING.START | META_TIMING.END
         USER_SCAN_META.instrument.set("@NX_class", {"@NX_class": "NXinstrument"})
         USER_SCAN_META.instrument.timing = META_TIMING.END
+        USER_SCAN_META.technique.set("@NX_class", {"@NX_class": "NXcollection"})
     return USER_SCAN_META
 
 

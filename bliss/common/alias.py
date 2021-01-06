@@ -145,8 +145,7 @@ class ObjectAlias(Proxy):
 
 
 class Aliases:
-    """Helper class to manage aliases list: display, add
-    """
+    """Helper class to manage aliases list: display, add"""
 
     def __init__(self, objects_map, current_session):
         self.__map = objects_map
@@ -337,8 +336,8 @@ class MapWithAliases(Map):
                 yield mot
 
     def get_counters_iter(self):
-        """ yield CounterAliases or Counters found in the map bellow the 'counters' tag.
-            It finds the Counters below the CounterContainers tagged with 'counters'.
+        """yield CounterAliases or Counters found in the map bellow the 'counters' tag.
+        It finds the Counters below the CounterContainers tagged with 'counters'.
         """
 
         aliased_counters = []
@@ -353,8 +352,8 @@ class MapWithAliases(Map):
                 try:
                     counters = counter_or_container.counters
                 except Exception:
-                    logging.getLogger("bliss").exception(
-                        "Could not retrieve counters from controller"
+                    logging.getLogger("bliss").debug(
+                        "Could not retrieve counters from controller", exc_info=True
                     )
                     continue
             elif isinstance(counter_or_container, Counter):

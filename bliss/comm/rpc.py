@@ -712,9 +712,9 @@ def Client(address, timeout=30., disconnect_callback=None, **kwargs):
                 client.try_connect()
             except:
                 # in case of isinstance and
-                # not connected don't know the type
+                # not connected set type like None
                 if args[0] == "__class__":
-                    return type(object)
+                    return type(None)
                 raise
             if args[0] == "__class__" and client._real_klass is not None:
                 return client._real_klass
@@ -753,7 +753,7 @@ def Client(address, timeout=30., disconnect_callback=None, **kwargs):
                 # not connected don't know the type
                 # return in that case _Proxy class
                 if name == "__class__":
-                    return type(object)
+                    return type(self)
                 raise
             if name == "__class__" and client._real_klass is not None:
                 return client._real_klass

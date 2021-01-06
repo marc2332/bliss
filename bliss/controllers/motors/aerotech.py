@@ -766,10 +766,16 @@ class Aerotech(Controller):
 
         return state
 
+    def __info__(self):
+        version = self.raw_write_read("VERSION")
+        comminfo = self._comm.__info__()
+        return f"AEROTECH CONTROLLER:\n    version: {version}\n    {comminfo}"
+
     def get_id(self, axis):
         version = self.raw_write_read("VERSION")
         return "Aerotech axis %s - version %s" % (self._aero_name(axis), version)
 
+    @object_method(types_info=("None", "str"))
     def get_info(self, axis):
         idstr = self.get_id(axis)
         (fault, status) = self.read_status(axis)

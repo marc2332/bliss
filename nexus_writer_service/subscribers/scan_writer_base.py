@@ -1811,7 +1811,8 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             add = info.get(cat, {})
             if "NX_class" in add:
                 add["@NX_class"] = add.pop("NX_class")
-            nxtreedict[cat] = add
+            if set(add.keys()) - {"@NX_class"}:
+                nxtreedict[cat] = add
         self._subscan_dicttonx(subscan, nxtreedict)
 
     def _fetch_subscan_metadata(self, subscan):

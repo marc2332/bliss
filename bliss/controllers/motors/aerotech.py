@@ -8,7 +8,7 @@
 from bliss.comm.util import TCP, get_comm
 from bliss.comm.tcp import SocketTimeout
 from bliss.common.axis import AxisState
-from bliss.common.encoder import Encoder
+from bliss.common.encoder import Encoder, lazy_init
 from bliss.config.channels import Cache
 from bliss.controllers.motor import Controller
 from bliss.common.utils import object_method
@@ -1037,10 +1037,10 @@ class Aerotech(Controller):
 
 class AerotechEncoder(Encoder):
     @property
-    @Encoder.lazy_init
+    @lazy_init
     def steps_per_unit(self):
         return self.controller.get_encoder_steps_per_unit(self)
 
-    @Encoder.lazy_init
+    @lazy_init
     def read(self):
         return self.controller.read_encoder(self)

@@ -156,7 +156,7 @@ def start_flint(flintModel: flint_model.FlintState, options, splash):
     splash.finish(flintWindow)
 
 
-def parse_options():
+def parse_options(argv):
     """
     Returns parsed command line argument as an `options` object.
 
@@ -166,7 +166,7 @@ def parse_options():
 
     parser = ArgumentParser()
     config.configure_parser_arguments(parser)
-    options = parser.parse_args()
+    options = parser.parse_args(args=argv)
     return options
 
 
@@ -375,7 +375,7 @@ def create_spash_screen():
 
 
 def main():
-    options = parse_options()
+    options = parse_options(sys.argv[1:])
     if options.debug:
         ROOT_LOGGER.setLevel(logging.DEBUG)
         mpl_log = logging.getLogger("matplotlib")

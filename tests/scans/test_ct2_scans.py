@@ -29,6 +29,9 @@ def ct2(mocker):
         event.send(ct2, DataSignal, [(x + x / 10.) for x in range(1, 10)])
 
     # Patch ct2
+    # Add empty 'counter_groups' to raise AttributeError on 'arg.counter_groups.default' in _get_counters_from_object
+    # else mocker auto-dark-magically creates 'ct2.counter_groups.default'
+    ct2.counter_groups = None
     ct2.start_acq.side_effect = start_acq
     yield ct2
 

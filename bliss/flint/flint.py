@@ -291,7 +291,7 @@ def handle_exception(exc_type, exc_value, exc_traceback):
     )
 
 
-def initApplication(argv, options):
+def initApplication(argv, options, settings: qt.QSettings):
     qapp = qt.QApplication.instance()
     if qapp is None:
         if options.share_opengl_contexts:
@@ -302,8 +302,9 @@ def initApplication(argv, options):
             qt.QCoreApplication.setAttribute(qt.Qt.AA_ShareOpenGLContexts)
         ROOT_LOGGER.debug("Create Qt application")
         qapp = qt.QApplication(argv)
-    qapp.setApplicationName("flint")
-    qapp.setOrganizationName("ESRF")
+
+    qapp.setApplicationName(settings.applicationName())
+    qapp.setOrganizationName(settings.organizationName())
     qapp.setOrganizationDomain("esrf.eu")
 
     import bliss.flint.resources
@@ -387,13 +388,11 @@ def main():
     # Patch qt binding to remove few warnings
     patch_qt()
 
-    qapp = initApplication(sys.argv, options)
     settings = qt.QSettings(
-        qt.QSettings.IniFormat,
-        qt.QSettings.UserScope,
-        qapp.organizationName(),
-        qapp.applicationName(),
+        qt.QSettings.IniFormat, qt.QSettings.UserScope, "ESRF", "flint"
     )
+
+    qapp = initApplication(sys.argv, options, settings)
     set_global_settings(settings, options)
 
     splash = create_spash_screen()

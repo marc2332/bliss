@@ -59,19 +59,16 @@ class CT2ControllerMeta(type(Proxy), type(CounterController)):
     pass
 
 
-class CT2Controller(Proxy, CounterController, metaclass=CT2ControllerMeta):
+class CT2Controller(CounterController):
     def __init__(self, device_config, name="ct2_cc", **kwargs):
 
         server_address = device_config["address"]
 
-        Proxy.__init__(
-            self, functools.partial(Client, server_address, **kwargs), init_once=True
-        )
-
         CounterController.__init__(self, name=name, register_counters=False)
 
-        global_map.register(self, children_list=[self.__wrapped__])
-
+        self.__server = None
+        self.__server_address = server_address
+        self.__server_kwargs = kwargs
         slave = CT2CounterController("ct2_counters_controller", self)
 
         # Add ct2 counters
@@ -90,6 +87,15 @@ class CT2Controller(Proxy, CounterController, metaclass=CT2ControllerMeta):
 
         self._counters = slave._counters
         self.server_address = server_address
+
+    def __getattr__(self, attr):
+        if attr.startswith("__"):
+            raise AttributeError(attr)
+        if self.__server is None:
+            self.__server = Client(self.__server_address, **self.__server_kwargs)
+            global_map.register(self, children_list=[self.__server])
+
+        return getattr(self.__server, attr)
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
 

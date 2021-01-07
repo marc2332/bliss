@@ -84,13 +84,13 @@ class CT2AcquisitionMaster(AcquisitionMaster):
     def connect(self):
         if self._connected:
             return
-        event.connect(self.device, event.Any, self.__on_event)
+        event.connect(self.device.server, event.Any, self.__on_event)
         self._connected = True
 
     def disconnect(self):
         if not self._connected:
             return
-        event.disconnect(self.device, event.Any, self.__on_event)
+        event.disconnect(self.device.server, event.Any, self.__on_event)
         self._connected = False
 
     def prepare(self):
@@ -221,11 +221,15 @@ class CT2CounterAcquisitionSlave(IntegratingCounterAcquisitionSlave):
     def start_device(self):
         # Connect only at scan startup.
         if not self._event_connected:
-            event.connect(self.device._master_controller, DataSignal, self.rx_data)
+            event.connect(
+                self.device._master_controller.server, DataSignal, self.rx_data
+            )
             self._event_connected = True
 
     def stop_device(self):
-        event.disconnect(self.device._master_controller, DataSignal, self.rx_data)
+        event.disconnect(
+            self.device._master_controller.server, DataSignal, self.rx_data
+        )
         self.__buffer_event.set()
 
     def rx_data(self, data, signal):

@@ -55,20 +55,17 @@ class CT2CounterTimer(CT2Counter):
         return ticks / self.timer_freq
 
 
-class CT2ControllerMeta(type(Proxy), type(CounterController)):
-    pass
-
-
 class CT2Controller(CounterController):
     def __init__(self, device_config, name="ct2_cc", **kwargs):
-
-        server_address = device_config["address"]
-
-        CounterController.__init__(self, name=name, register_counters=False)
-
+        object.__setattr__(
+            self, "_CT2Controller__init_done", False
+        )  # set flag without passing by "__setattr__"
         self.__server = None
-        self.__server_address = server_address
+        self.__server_address = device_config["address"]
         self.__server_kwargs = kwargs
+
+        super().__init__(name=name, register_counters=False)
+
         slave = CT2CounterController("ct2_counters_controller", self)
 
         # Add ct2 counters
@@ -86,19 +83,31 @@ class CT2Controller(CounterController):
                 slave.create_counter(CT2CounterTimer, ct_name)
 
         self._counters = slave._counters
-        self.server_address = server_address
+        self.__init_done = True
+
+    @property
+    def server_address(self):
+        return self.__server_address
+
+    @property
+    def server(self):
+        if self.__server is None:
+            self.__server = Client(self.__server_address, **self.__server_kwargs)
+            global_map.register(self, children_list=[self.__server])
+        return self.__server
 
     def __getattr__(self, attr):
         if attr.startswith("__"):
             raise AttributeError(attr)
-        if self.__server is None:
-            self.__server = Client(self.__server_address, **self.__server_kwargs)
-            global_map.register(self, children_list=[self.__server])
+        return getattr(self.server, attr)
 
-        return getattr(self.__server, attr)
+    def __setattr__(self, attr, value):
+        if self.__init_done:
+            setattr(self.server, attr, value)
+        else:
+            super().__setattr__(attr, value)
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
-
         from bliss.scanning.acquisition.ct2 import (
             CT2AcquisitionMaster,
             CT2VarTimeAcquisitionMaster,

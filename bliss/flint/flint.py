@@ -294,7 +294,19 @@ def handle_exception(exc_type, exc_value, exc_traceback):
 def initApplication(argv, options, settings: qt.QSettings):
     qapp = qt.QApplication.instance()
     if qapp is None:
-        if options.share_opengl_contexts:
+        settings.beginGroup("qapplication")
+        settings_share_opengl_contexts = settings.value(
+            "share-opengl-contexts", True, bool
+        )
+        settings.endGroup()
+
+        # Command line option override the settings
+        if options.share_opengl_contexts is not None:
+            do_share_opengl_contexts = options.share_opengl_contexts
+        else:
+            do_share_opengl_contexts = settings_share_opengl_contexts
+
+        if do_share_opengl_contexts:
             # This allows to reuse OpenGL context when docking/undocking windows
             # Can be disabled by command line in order to prevent segfault in
             # some environments

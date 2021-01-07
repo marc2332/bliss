@@ -35,3 +35,34 @@ Run tests with:
 ```bash
 $ python setup.py test --speedgoat=192.168.7.1:22222
 ```
+
+
+## Speedgoat motor controller
+
+This chapter explains how to configure a Speedgoat motor controller.
+
+### Features
+
+Encoder | Shutter | Trajectories | Linked axes
+------- | ------- | ------------ | -----------
+NO	| NO      | NO           | NO
+
+
+### Configuration
+
+First, you need a simulink bliss object (see Simulink configuration chapter).
+Here we assume a simulink object called *goat1*:
+
+
+```yaml
+plugin: emotion
+package: bliss.controllers.motors.speedgoat
+class: SpeedgoatMotor
+speedgoat: $goat1
+axes:
+  - name: fjpur
+    velocity: 1.0
+    acceleration: 10
+    steps_per_unit: 1000
+    unit: um
+```

@@ -344,6 +344,7 @@ class musst:
         }
         self.name = name
         self.__last_md5 = Cache(self, "last__md5")
+        self.__event_buffer_size = Cache(self, "event_buffer_size")
         self.__prg_root = config_tree.get("musst_prg_root")
         self.__block_size = config_tree.get("block_size", 8 * 1024)
         self.__one_line_programing = config_tree.get(
@@ -687,7 +688,11 @@ class musst:
         """ query event buffer size.
         Returns buffer size and number of buffers
         """
-        return [int(x) for x in self.putget("?ESIZE").split()]
+        event_buffer_size = self.__event_buffer_size.value
+        if event_buffer_size is None:
+            event_buffer_size = [int(x) for x in self.putget("?ESIZE").split()]
+            self.__event_buffer_size.value = event_buffer_size
+        return event_buffer_size
 
     def set_event_buffer_size(self, buffer_size, nb_buffer=1):
         """ set event buffer size.
@@ -695,6 +700,7 @@ class musst:
         buffer_size -- request buffer size
         nb_buffer -- the number of allocated buffer
         """
+        self.__event_buffer_size.value = None
         return self.putget("ESIZE %d %d" % (buffer_size, nb_buffer))
 
     def get_histogram_buffer_size(self):

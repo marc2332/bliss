@@ -836,7 +836,7 @@ class Scan:
             #  - the time from the first buffered event reached `max_time`
             #  - `flush` is called on the proxy rotation manager
 
-            max_time = 1  # We don't want to keep Redis subscribers waiting too long
+            max_time = 0.2  # We don't want to keep Redis subscribers waiting too long
             if channelnode.CHANNEL_MAX_LEN:
                 max_stream_events = min(channelnode.CHANNEL_MAX_LEN // 10, 50)
             else:

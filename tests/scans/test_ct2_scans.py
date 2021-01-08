@@ -25,8 +25,8 @@ def ct2(mocker):
     )
 
     def start_acq():
-        event.send(ct2, StatusSignal, AcqStatus.Ready)
-        event.send(ct2, DataSignal, [(x + x / 10.) for x in range(1, 10)])
+        event.send(ct2.server, StatusSignal, AcqStatus.Ready)
+        event.send(ct2.server, DataSignal, [(x + x / 10.) for x in range(1, 10)])
 
     # Patch ct2
     # Add empty 'counter_groups' to raise AttributeError on 'arg.counter_groups.default' in _get_counters_from_object

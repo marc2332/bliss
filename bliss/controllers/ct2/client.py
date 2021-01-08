@@ -63,6 +63,7 @@ class CT2Controller(CounterController):
         self.__server = None
         self.__server_address = device_config["address"]
         self.__server_kwargs = kwargs
+        self.server
 
         super().__init__(name=name, register_counters=False)
 

@@ -265,6 +265,7 @@ class CT2CounterAcquisitionSlave(IntegratingCounterAcquisitionSlave):
                 from_index += data_len
                 self._nb_acq_points += data_len
                 self._emit_new_data(data.T)
+            gevent.sleep(0)
 
         # finally
         data = numpy.array(self.__buffer[from_index:], dtype=numpy.uint32)

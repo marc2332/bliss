@@ -63,7 +63,6 @@ class CT2Controller(CounterController):
         self.__server = None
         self.__server_address = device_config["address"]
         self.__server_kwargs = kwargs
-        self.server
 
         super().__init__(name=name, register_counters=False)
 
@@ -93,7 +92,11 @@ class CT2Controller(CounterController):
     @property
     def server(self):
         if self.__server is None:
-            self.__server = Client(self.__server_address, **self.__server_kwargs)
+            object.__setattr__(
+                self,
+                "_CT2Controller__server",
+                Client(self.__server_address, **self.__server_kwargs),
+            )  # avoid call to __setattr__
             global_map.register(self, children_list=[self.__server])
         return self.__server
 

@@ -226,6 +226,8 @@ class McaAcquisitionSlave(AcquisitionSlave):
             ):  # -1 because the 'for-loop+enumerate' start at i=0
                 break
 
+            gevent.sleep(0.)
+
     def _publish(self, spectrums, stats):
         spectrums = self.device._convert_spectrums(spectrums)
         stats = self.device._convert_statistics(stats)

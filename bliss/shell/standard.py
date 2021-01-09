@@ -95,7 +95,7 @@ from bliss.common.plot import meshselect  # noqa: F401
 from bliss.common import plot as plot_module
 from bliss.shell.cli import user_dialog, pt_widgets
 
-from tabulate import tabulate
+import tabulate
 
 from bliss.common.utils import typeguardTypeError_to_hint
 from typing import Optional, Union
@@ -249,7 +249,7 @@ def _tabulate(data, **kwargs):
     kwargs.setdefault("floatfmt", _FLOAT_FORMAT)
     kwargs.setdefault("numalign", "right")
 
-    return str(tabulate(data, **kwargs))
+    return str(tabulate.tabulate(data, **kwargs))
 
 
 def __row_positions(positions, motors, fmt, sep=" "):
@@ -382,12 +382,14 @@ def lscnt(counter_container: typing.Union[CounterContainer, Counter, None] = Non
 
     table_info = []
     for counter_name, shape, prefix, name, alias in sorted(iter_counters(counters)):
-        table_info.append(itertools.chain([counter_name], (shape, prefix, name, alias)))
+        if alias:
+            alias = "      *"
+        table_info.append(itertools.chain([counter_name], (shape, prefix, alias, name)))
     print("")
     print(
         str(
-            tabulate(
-                table_info, headers=["Fullname", "Shape", "Controller", "Name", "Alias"]
+            tabulate.tabulate(
+                table_info, headers=["Fullname", "Shape", "Controller", "Alias", "Name"]
             )
         )
     )

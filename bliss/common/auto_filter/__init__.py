@@ -54,6 +54,7 @@ from bliss.common.utils import rounder
 from bliss import global_map
 from bliss.common.session import get_current_session
 from bliss.scanning.scan import ScanPreset
+from bliss.scanning.chain import ChainPreset, ChainIterationPreset
 from bliss.common.axis import Axis
 from bliss.common.cleanup import cleanup, axis as cleanup_axis
 from bliss.common.types import _countable
@@ -288,6 +289,8 @@ class AutoFilter(BeaconObject):
 
         # Flag that indicates that transmission needs to be recalculated
         self._energy_changed = True
+        # current point index
+        self.current_point = 0
 
     def _set_energy_changed(self, new_energy):
         self._energy_changed = True
@@ -497,7 +500,7 @@ class AutoFilter(BeaconObject):
         save_flag = kwargs.get("save", True)
         # only add twice max number of filter iteration to the total nb points
         # to be programed to counter devices.
-        programed_device_intervals = (intervals + 1) + (2 * self.max_nb_iter)
+        programed_device_intervals = (intervals + 1) + (4 * self.max_nb_iter)
         npoints = intervals + 1
         if scan_info is None:
             scan_info = dict()
@@ -622,6 +625,9 @@ class AutoFilter(BeaconObject):
         # Add a presetscan
         preset = AutoFilterPreset(self)
         s.add_preset(preset)
+        # Preset to incr point nb
+        current_point = IncrCurrentPoint(self)
+        s.acq_chain.add_preset(current_point)
 
         if kwargs.get("run", True):
             s.run()
@@ -752,3 +758,26 @@ class AutoFilterPreset(ScanPreset):
                 self.auto_filter.filterset.set_back_filter()
         finally:
             next(self._user_status, None)
+
+
+class IncrCurrentPoint(ChainPreset):
+    """
+    Increment current point number
+    """
+
+    class Iterator(ChainIterationPreset):
+        def __init__(self, auto_filter, iteration_nb):
+            self.iteration = iteration_nb
+            self.auto_filter = auto_filter
+
+        def start(self):
+            self.auto_filter.current_point = self.iteration
+
+    def __init__(self, auto_filter):
+        self.auto_filter = weakref.proxy(auto_filter)
+
+    def get_iterator(self, acq_chain):
+        current_point = 0
+        while True:
+            yield IncrCurrentPoint.Iterator(self.auto_filter, current_point)
+            current_point += 1

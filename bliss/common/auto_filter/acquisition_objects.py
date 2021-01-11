@@ -34,6 +34,8 @@ class VariableStepTriggerMaster(_VariableStepTriggerMaster):
                 try:
                     positions = next(position_iter)
                 except StopIteration:
+                    # To be remove sleep to publish last point
+                    gevent.sleep(1)
                     self.stop_all_slaves()
                     break
 
@@ -101,7 +103,7 @@ class _Base:
                     self.__received_event.wait()
         except gevent.Timeout:
             pass
-
+        # print(f"stop {self.device}")
         try:
             return self.device.stop()
         finally:
@@ -130,11 +132,12 @@ class _Base:
         """
         Check that all point are received
         """
-        last_valid_point = max(x for x, v in self.__valid_point.items() if v)
-        for last_point in self.__last_point_rx.values():
-            if last_point < last_valid_point:
-                return False
-        return True
+        current_point = self._auto_filter.current_point
+        if not self.__last_point_rx:
+            return True
+
+        min_last_point = min(self.__last_point_rx.values())
+        return min_last_point == current_point + 1 and not self.__pending_data
 
     def new_data_received(self, event_dict=None, signal=None, sender=None):
         channel_data = event_dict.get("data")
@@ -163,6 +166,7 @@ class _Base:
         else:  # valid is True or False
             if valid:
                 my_channel = self._name_2_channel[channel_name]
+                # print(f"emit {channel_name} {self._auto_filter.current_point}")
                 my_channel.emit(channel_data)
 
                 corr_chan = self._name_2_corr_chan.get(channel_name)
@@ -191,6 +195,7 @@ class _Base:
             self.__pending_data = dict()
             for channel_name, data in pending_data.items():
                 channel = self._name_2_channel[channel_name]
+                # print(f"emit {channel_name} {self._auto_filter.current_point}")
                 channel.emit(data)
 
                 corr_chan = self._name_2_corr_chan.get(channel_name)
@@ -199,6 +204,7 @@ class _Base:
                         point_nb, channel_name, data
                     )
                     corr_chan.emit(corrected_data)
+            self.__received_event.set()
 
 
 class _Slave(_Base, chain.AcquisitionSlave):
@@ -266,6 +272,7 @@ class _Lima(_MasterIter):
             # Final number of scan points.
             self.nb_points_to_receive = self.npoints
             self.emit_event = gevent.event.Event()
+            self._last_image_saved = -1
 
             def emit(data):
                 if not data.get("in_prepare", False):
@@ -273,6 +280,9 @@ class _Lima(_MasterIter):
                         # ask lima to save the current image
                         img_ready = data["last_image_ready"]
                         self.device.device.proxy.writeImage(img_ready)
+                        self._last_image_saved += 1
+                    data["last_image_saved"] = self._last_image_saved
+
                     self.nb_points_to_receive -= 1
                     self.emit_event.set()
 
@@ -323,7 +333,7 @@ def get_new_master(auto_filter, master, npoints):
 def _get_new_master(auto_filter, master, npoints):
     try:
         iter(master)
-    except TypeError:
+    except (TypeError, NotImplementedError):
         return _Master(auto_filter, master, npoints=npoints)
     else:
         # check if it Lima

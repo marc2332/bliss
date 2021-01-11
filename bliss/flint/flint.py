@@ -156,7 +156,7 @@ def start_flint(flintModel: flint_model.FlintState, options, splash):
     splash.finish(flintWindow)
 
 
-def parse_options():
+def parse_options(argv):
     """
     Returns parsed command line argument as an `options` object.
 
@@ -166,7 +166,7 @@ def parse_options():
 
     parser = ArgumentParser()
     config.configure_parser_arguments(parser)
-    options = parser.parse_args()
+    options = parser.parse_args(args=argv)
     return options
 
 
@@ -291,10 +291,22 @@ def handle_exception(exc_type, exc_value, exc_traceback):
     )
 
 
-def initApplication(argv, options):
+def initApplication(argv, options, settings: qt.QSettings):
     qapp = qt.QApplication.instance()
     if qapp is None:
-        if options.share_opengl_contexts:
+        settings.beginGroup("qapplication")
+        settings_share_opengl_contexts = settings.value(
+            "share-opengl-contexts", True, bool
+        )
+        settings.endGroup()
+
+        # Command line option override the settings
+        if options.share_opengl_contexts is not None:
+            do_share_opengl_contexts = options.share_opengl_contexts
+        else:
+            do_share_opengl_contexts = settings_share_opengl_contexts
+
+        if do_share_opengl_contexts:
             # This allows to reuse OpenGL context when docking/undocking windows
             # Can be disabled by command line in order to prevent segfault in
             # some environments
@@ -302,8 +314,9 @@ def initApplication(argv, options):
             qt.QCoreApplication.setAttribute(qt.Qt.AA_ShareOpenGLContexts)
         ROOT_LOGGER.debug("Create Qt application")
         qapp = qt.QApplication(argv)
-    qapp.setApplicationName("flint")
-    qapp.setOrganizationName("ESRF")
+
+    qapp.setApplicationName(settings.applicationName())
+    qapp.setOrganizationName(settings.organizationName())
     qapp.setOrganizationDomain("esrf.eu")
 
     import bliss.flint.resources
@@ -362,7 +375,7 @@ def create_spash_screen():
 
 
 def main():
-    options = parse_options()
+    options = parse_options(sys.argv[1:])
     if options.debug:
         ROOT_LOGGER.setLevel(logging.DEBUG)
         mpl_log = logging.getLogger("matplotlib")
@@ -387,13 +400,11 @@ def main():
     # Patch qt binding to remove few warnings
     patch_qt()
 
-    qapp = initApplication(sys.argv, options)
     settings = qt.QSettings(
-        qt.QSettings.IniFormat,
-        qt.QSettings.UserScope,
-        qapp.organizationName(),
-        qapp.applicationName(),
+        qt.QSettings.IniFormat, qt.QSettings.UserScope, "ESRF", "flint"
     )
+
+    qapp = initApplication(sys.argv, options, settings)
     set_global_settings(settings, options)
 
     splash = create_spash_screen()

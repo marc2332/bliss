@@ -57,7 +57,7 @@ def configure_parser_arguments(parser: ArgumentParser):
         "--disable-share-opengl-contexts",
         dest="share_opengl_contexts",
         action="store_false",
-        default=True,
+        default=None,
         help="Disable AA_ShareOpenGLContexts used by Qt in order to prevent "
         "segmentation fault with some environment.",
     )

@@ -14,6 +14,7 @@ import numpy
 import pytest
 from contextlib import contextmanager
 from bliss.common import scans
+from bliss.common.measurementgroup import MeasurementGroup
 from bliss.scanning.scan import Scan, StepScanDataWatch
 from bliss.scanning.chain import AcquisitionChain, AcquisitionSlave
 from bliss.scanning.channel import AcquisitionChannel
@@ -353,7 +354,7 @@ def test_scan_display_ascan(session, scan_data_listener_process):
 
 
 def test_scan_display_ct(session, scan_data_listener_process):
-    """Check the output displayed by the ScanDataListener with ascan"""
+    """Check the output displayed by the ScanDataListener with ct scan"""
     diode0 = session.config.get("diode0")
     diode1 = session.config.get("diode1")
     diode4 = session.config.get("diode4")
@@ -533,3 +534,93 @@ def test_lima_bpm_alias(beacon, default_session, lima_simulator):
         if "display_name" in v
     ]
     assert "toto" in display_names_values
+
+
+def test_counters_display_order(session, scan_data_listener_process):
+    """Check the output displayed by a scan with counters from MG or from given counters/controllers are sorted the same"""
+
+    from bliss.controllers.simulation_diode import (
+        SimulationDiodeController,
+        SimulationDiodeSamplingCounter,
+    )
+
+    ctrl = SimulationDiodeController()
+    names = ["Can", "you", "read", "this", "message", "from", "alpha", "to", "omega"]
+    cnts = [
+        SimulationDiodeSamplingCounter(name, ctrl) for name in names
+    ]  # all cnts share the same controller
+
+    ctrl2 = SimulationDiodeController()
+    names2 = ["The", "hawl", "is", "sleeping", "in", "the", "barn"]
+    cnts2 = [
+        SimulationDiodeSamplingCounter(name, ctrl2) for name in names2
+    ]  # another counter controller
+
+    cnt_num = len(names)
+    cnt_num2 = len(names2)
+
+    all_cnts = cnts + cnts2
+    all_names = names + names2
+    all_names_r = names2 + names
+    all_cnt_num = cnt_num + cnt_num2
+
+    # print('names =>', names)
+    # print('ctrl.counters =>', [c.name for c in ctrl.counters])
+
+    # Measurement group
+    mg1 = MeasurementGroup("mygroup1", {"counters": [cnt.fullname for cnt in cnts]})
+    mg1.set_active()
+
+    assert [c.split(":")[-1] for c in mg1.enabled] == names
+
+    # Check that order of counters from a list of counters is maintained
+    scans.ct(0.01, *all_cnts)
+    with grab_lines(scan_data_listener_process) as lines:
+        # print("\n".join(lines))
+        for idx, line in enumerate(lines[10 : 10 + all_cnt_num]):
+            cname = line.split("=")[0].strip()
+            assert cname == all_names[idx]
+
+    # Check that order of counters from controller is maintained
+    scans.ct(0.01, ctrl, ctrl2)
+    with grab_lines(scan_data_listener_process) as lines:
+        # print("\n".join(lines))
+        for idx, line in enumerate(lines[10 : 10 + all_cnt_num]):
+            cname = line.split("=")[0].strip()
+            assert cname == all_names[idx]
+
+    scans.ct(0.01, ctrl2, ctrl)
+    with grab_lines(scan_data_listener_process) as lines:
+        # print("\n".join(lines))
+        for idx, line in enumerate(lines[10 : 10 + all_cnt_num]):
+            cname = line.split("=")[0].strip()
+            assert cname == all_names_r[idx]
+
+    # Check that order of counters from MG is maintained
+    scans.ct(0.01, mg1)
+    with grab_lines(scan_data_listener_process) as lines:
+        # print("\n".join(lines))
+        for idx, line in enumerate(lines[10 : 10 + cnt_num]):
+            cname = line.split("=")[0].strip()
+            assert cname == names[idx]
+
+    # Check that order of counters from default MG is maintained
+    scans.ct(0.01)
+    with grab_lines(scan_data_listener_process) as lines:
+        # print("\n".join(lines))
+        for idx, line in enumerate(lines[10 : 10 + cnt_num]):
+            cname = line.split("=")[0].strip()
+            assert cname == names[idx]
+
+    # Check that order is maintained even if duplicating counters
+    rnames = all_names[:]  # to check that all cnts were displayed
+
+    scans.ct(0.01, mg1, ctrl, ctrl2, ctrl)
+    with grab_lines(scan_data_listener_process) as lines:
+        # print("\n".join(lines))
+        for idx, line in enumerate(lines[10 : 10 + all_cnt_num]):
+            cname = line.split("=")[0].strip()
+            assert cname == all_names[idx]
+
+            rnames.remove(cname)
+    assert rnames == []

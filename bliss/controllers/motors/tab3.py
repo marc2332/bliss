@@ -73,13 +73,14 @@ class tab3(CalcController):
     def __init__(self, *args, **kwargs):
         CalcController.__init__(self, *args, **kwargs)
 
-        self.geometry = self.config.get("geometry", int)
+        self.geometry = self.config.get("geometry", int, 0)
         self.d1 = self.config.get("d1", float)
         self.d2 = self.config.get("d2", float)
-        try:
-            self.d4 = self.config.get("d4", float)
-        except KeyError:
-            self.d4 = self.d1 / 2
+        if not self.d1 or not self.d2:
+            raise RuntimeError("Parameters (d1, d2) not configured")
+        self.d4 = self.config.get("d4", float)
+        if not self.d4:
+            self.d4 = self.d1 / 2.
         if self.geometry in (5, 8):
             self.d3 = self.config.get("d3", float)
 

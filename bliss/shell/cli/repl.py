@@ -8,7 +8,6 @@
 """Bliss REPL (Read Eval Print Loop)"""
 
 import builtins
-import fcntl
 import os
 import sys
 import signal
@@ -28,7 +27,7 @@ from datetime import datetime
 from ptpython.repl import PythonRepl
 import ptpython.layout
 
-# imports needed to have control over _excecute of ptpython
+# imports needed to have control over _execute of ptpython
 from ptpython.repl import _lex_python_result
 from prompt_toolkit.formatted_text.utils import fragment_list_width
 from prompt_toolkit.formatted_text import merge_formatted_text, FormattedText
@@ -255,6 +254,7 @@ def reset_excepthook():
 # don't patch the event loop on windows
 def _set_pt_event_loop():
     if not is_windows():
+        import fcntl
         from prompt_toolkit.eventloop.posix import PosixEventLoop
         from prompt_toolkit.eventloop.select import PollSelector
 

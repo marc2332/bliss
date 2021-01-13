@@ -157,7 +157,7 @@ class MusstAcquisitionMaster(AcquisitionMaster):
 
     def wait_ready(self):
         while self.musst.STATE == self.musst.RUN_STATE:
-            gevent.sleep(0)
+            gevent.sleep(0.02)
         self._running_state = False
         self._event.set()
 
@@ -236,7 +236,7 @@ class _MusstAcquisitionSlave(AcquisitionSlave):
             master = self.parent
             if not isinstance(master, MusstAcquisitionMaster):
                 raise RuntimeError(
-                    "MusstAcquisitionSlave must have a MusstAcquisitionMaster has"
+                    "MusstAcquisitionSlave must have a MusstAcquisitionMaster as"
                     " parent here it's (%r)" % master
                 )
             elif master.device != self.device:
@@ -289,9 +289,7 @@ class _MusstAcquisitionSlave(AcquisitionSlave):
             new_read_event = self._send_data(last_read_event)
             if new_read_event != last_read_event:
                 last_read_event = new_read_event
-                gevent.sleep(100e-6)  # be able to ABORT the musst card
-            else:
-                gevent.sleep(10e-3)  # relax a little bit.
+            gevent.sleep(0.1)
         self._send_data(last_read_event)  # final send
 
     def _send_data(self, last_read_event):

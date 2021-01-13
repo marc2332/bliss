@@ -23,7 +23,7 @@ Minimalistic configuration example:
 import sys
 import enum
 import logging
-
+import time
 import numpy
 import gevent
 from gevent import select
@@ -227,6 +227,8 @@ class CT2(object):
             return fifo_status
 
         def send_buffer_func():
+            t0 = time.time()
+            data_buffer = []
             while not stop_buffer_loop:
                 send_buffer_event.wait()
                 send_buffer_event.clear()
@@ -234,11 +236,17 @@ class CT2(object):
                 send_buffer_list.clear()
                 if local_buffers:
                     data = numpy.concatenate(local_buffers)
-                    dispatcher.send(DataSignal, self, data)
+                    data_buffer.extend(data)
+                    if time.time() - t0 > 0.1:
+                        dispatcher.send(DataSignal, self, data_buffer)
+                        data_buffer.clear()
+                        t0 = time.time()
                 gevent.idle()
             if send_buffer_list:  # Last send
                 data = numpy.concatenate(send_buffer_list)
-                dispatcher.send(DataSignal, self, data)
+                data_buffer.extend(data)
+            if data_buffer:
+                dispatcher.send(DataSignal, self, data_buffer)
 
         send_buffer_task = gevent.spawn(send_buffer_func)
         last_point_task = gevent.spawn(last_point_send_func)

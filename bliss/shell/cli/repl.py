@@ -208,6 +208,8 @@ def install_excepthook():
 
     logger = logging.getLogger("exceptions")
 
+    from bliss import current_session
+
     def repl_excepthook(exc_type, exc_value, tb, _with_elogbook=True):
         err_file = sys.stderr
 
@@ -223,10 +225,14 @@ def install_excepthook():
         if ERROR_REPORT._expert_mode:
             traceback.print_exception(exc_type, exc_value, tb, file=err_file)
         else:
-            print(
-                f"!!! === {exc_type.__name__}: {exc_value} === !!! ( for more details type cmd 'last_error' )",
-                file=err_file,
-            )
+            try:
+                if current_session.is_loading_config:
+                    print(f"{exc_type.__name__}: {exc_value}", file=err_file)
+            except AttributeError:
+                print(
+                    f"!!! === {exc_type.__name__}: {exc_value} === !!! ( for more details type cmd 'last_error' )",
+                    file=err_file,
+                )
 
         if _with_elogbook:
             try:

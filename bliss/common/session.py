@@ -12,7 +12,8 @@ import collections
 import functools
 import inspect
 import contextlib
-
+import shutil
+from tabulate import tabulate
 from treelib import Tree
 from types import ModuleType
 from weakref import WeakKeyDictionary
@@ -44,6 +45,12 @@ def set_current_session(session, force=True):
 
 def get_current_session():
     return CURRENT_SESSION
+
+
+def chunk_list(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i : i + n]
 
 
 class _StringImporter(object):
@@ -176,6 +183,7 @@ class Session:
         self.__data_policy_events = EventChannel(f"{self.name}:esrf_data_policy")
         self.scan_saving = None
         self.scan_display = None
+        self.is_loading_config = False
 
         self.init(config_tree)
 
@@ -696,6 +704,10 @@ class Session:
                 return ns
 
     def setup(self, env_dict=None, verbose=False):
+        """
+        <env_dict>: ???
+        <verbose>: ???
+        """
         set_current_session(self, force=True)
 
         # Session environment
@@ -709,10 +721,12 @@ class Session:
 
         # Instantiate the session objects
         try:
+            CURRENT_SESSION.is_loading_config = True
             self._load_config(verbose)
         except Exception:
             sys.excepthook(*sys.exc_info())
         finally:
+            CURRENT_SESSION.is_loading_config = False
             env_dict["config"] = self.config
 
         self._register_session_importers(self)
@@ -795,25 +809,96 @@ class Session:
         CURRENT_SESSION = None
 
     def _load_config(self, verbose=True):
+        warning_item_list = list()
+        success_item_list = list()
+        error_item_list = list()
+        error_count = 0
+        item_count = 0
+
         for item_name in self.object_names:
+            item_count += 1
+
+            # skip initialization of existing objects.
             if hasattr(setup_globals, item_name):
                 self.env_dict[item_name] = getattr(setup_globals, item_name)
                 continue
+
+            print(f"Initializing: {item_name}                  ", end="", flush=True)
 
             try:
                 self.config.get(item_name)
             except Exception:
                 if verbose:
-                    print(f"FAILED to initialize '{item_name}'")
-                sys.excepthook(*sys.exc_info())
+                    print("\r", end="", flush=True)  # return to begining of line.
+                    print(" " * 80, flush=True)
+                    print(
+                        f"Initialization of {item_name} \033[91mFAILED\033[0m ",
+                        flush=True,
+                    )
+
+                    print(f"[{error_count}] ", end="", flush=True)
+                    sys.excepthook(*sys.exc_info())
+                    error_count += 1
+                    error_item_list.append(item_name)
+
             else:
+                print("\r", end="", flush=True)  # return to begining of line.
                 if verbose:
                     item_node = self.config.get_config(item_name)
                     if item_node.plugin is None:
-                        print(f"Initialized '{item_name}' with **default** plugin")
+                        warning_item_list.append(item_name)
                     else:
-                        print(f"Initialized '{item_name}'")
+                        success_item_list.append(item_name)
 
+        print(" " * 80, flush=True)
+
+        display_width = shutil.get_terminal_size().columns
+
+        # SUCCESS
+        success_count = len(success_item_list)
+        if success_count > 0:
+            success_item_list.sort(key=str.casefold)
+            print(
+                f"OK: {len(success_item_list)}/{item_count} object{'s' if success_count > 1 else ''} successfully initialized.",
+                flush=True,
+            )
+            max_length = max([len(x) for x in success_item_list])
+            item_number = int(display_width / max_length) + 1
+            print(
+                tabulate(chunk_list(success_item_list, item_number), tablefmt="plain")
+            )
+            print("")
+
+        # WARNING
+        warning_count = len(warning_item_list)
+        if warning_count > 0:
+            warning_item_list.sort(key=str.casefold)
+            print(
+                f"WARNING: {len(warning_item_list)} object{'s' if warning_count > 1 else ''} initialized with **default** plugin:"
+            )
+            print(
+                tabulate(chunk_list(warning_item_list, item_number), tablefmt="plain")
+            )
+            print("")
+
+        # ERROR
+        if error_count > 0:
+            error_item_list.sort(key=str.casefold)
+            print(
+                f"ERROR: {error_count} object{'s' if error_count > 1 else ''} failed to intialize:"
+            )
+            print(tabulate(chunk_list(error_item_list, item_number), tablefmt="plain"))
+            print("")
+
+            if error_count == 1:
+                print("To learn about failure, type: 'last_error'")
+            else:
+                print(
+                    f"To learn about failures, type: 'last_error[X]' for X in [0..{error_count-1}]"
+                )
+            print("")
+
+        # Make aliases.
         for item_name, alias_cfg in self._aliases_info().items():
             alias_name = alias_cfg["alias_name"]
             try:

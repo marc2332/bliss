@@ -427,6 +427,7 @@ class _ScanPrinterBase:
 
         lines = []
         e = ""
+        w_length = 8
         for ctrl, values in info_dict.items():
             for dname, v, nv in values:
                 v = f"{v:#g}"
@@ -434,7 +435,7 @@ class _ScanPrinterBase:
                 g = len(v.split(".")[0])
                 ng = len(nv.split(".")[0])
                 lines.append(
-                    f"  {dname:>{width}}  = {e:{7-g}}{v:{10+g}} ({e:{7-ng}}{nv:{12+ng}} /s)  {ctrl}"
+                    f"  {dname:>{width}}  = {e:{w_length-g}}{v:{10+g}} ({e:{w_length-ng}}{nv:{12+ng}} /s)  {ctrl}"
                 )
 
             # separate data blocks per controller

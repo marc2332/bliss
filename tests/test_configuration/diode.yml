@@ -9,7 +9,7 @@
   plugin: bliss
   class: simulation_diode
   independent: True
-  constant: -2
+  constant: -123456.0
 -
   name: diode1
   plugin: bliss

@@ -3,13 +3,14 @@ cerberus
 colorama
 cython
 docopt
+fisx >= 1.1.9
 flask
-gevent >= 1.4, <= 20.6.2
-greenlet <= 0.4.16
+gevent >= 20.9.0
+greenlet >= 0.4.17
 gitpython
 h5py == 2.10
 hiredis
-jedi >= 0.17.1
+jedi == 0.17.2
 jinja2 >= 2.7
 louie >= 2.0
 mendeleev
@@ -25,7 +26,7 @@ parso >=0.5.1
 pint
 prompt-toolkit == 2.0.10
 psutil
-ptpython >= 2.0
+ptpython < 3.0
 pyfiglet
 pygments
 pyserial > 2
@@ -39,10 +40,11 @@ ruamel.yaml
 simple-pid
 sqlalchemy
 tabulate
-tblib
+tblib >= 1.7
 treelib <= 1.5.5
 typeguard == 2.6.1
 typing_extensions
+yappi
 
 # Flint
 ipykernel >= 5.2  # make sure qtconsole is working
@@ -50,5 +52,5 @@ ipython != 7.15.0
 pyopengl
 pyqt >= 5.9
 scipy
-silx
+silx == 0.14.0
 sortedcontainers

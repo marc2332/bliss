@@ -236,6 +236,7 @@ def main():
             "icons/*/*.png",
             "gui/*.ui",
         ],
+        "bliss.shell.qtapp.resources": ["logo/*.svg", "ui/*.ui"],
         "bliss.icat": ["hdf5_cfg.xml"],
         "bliss.controller.demo": ["*.h5", "*.npy", "*.edf.gz"],
         "bliss.controllers.speedgoat": ["*.bat", "*.dll", "*.h"],

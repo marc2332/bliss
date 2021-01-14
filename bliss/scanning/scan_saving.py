@@ -1408,7 +1408,8 @@ class ESRFScanSaving(BasicScanSaving):
         try:
             self._init_dataset()
         except Exception:
-            self._dataset = _dataset
+            if _dataset is not None:
+                self._dataset = _dataset
             raise
 
         msg = f"Dataset set to '{self.dataset}'\nData path: {self.root_path}"

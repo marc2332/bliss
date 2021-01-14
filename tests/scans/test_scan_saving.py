@@ -161,7 +161,7 @@ def test_default_session_scan_saving(
 
 
 class CustomWardrobe(scan_saving_module.EvalParametersWardrobe):
-    PROPERTY_ATTRIBUTES = ["p1", "p2"]
+    PROPERTY_ATTRIBUTES = ["p1"]
     PROPS = {"p1": "p1", "p2": "p2"}
 
     def __init__(self, name):
@@ -181,9 +181,7 @@ class CustomWardrobe(scan_saving_module.EvalParametersWardrobe):
             "circlec3": "{c}_{circlec1}",
             "circled1": "{circled1}_{a}",
         }
-        super().__init__(
-            name, default_values=default_values, property_attributes=["p1", "p2"]
-        )
+        super().__init__(name, default_values=default_values)
 
     @scan_saving_module.property_with_eval_dict
     def p1(self, eval_dict=None):

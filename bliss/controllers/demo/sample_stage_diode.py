@@ -2,10 +2,11 @@ import fabio
 from bliss.common.counter import SoftCounter, SamplingMode
 import numpy
 import os
+from bliss.common.protocols import CounterContainer
 from bliss.controllers.counter import counter_namespace
 
 
-class SampleStageDiode:
+class SampleStageDiode(CounterContainer):
     def __init__(self, name, config):
         self.img = fabio.open(
             os.path.join(os.path.dirname(__file__), "esrf.edf.gz")

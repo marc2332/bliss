@@ -206,17 +206,27 @@ class McaAcquisitionSlave(AcquisitionSlave):
             self._trigger_event.wait()
 
     def reading(self):
-        """Spawn by the chain."""
+        """ spawn byt the chain """
+        self._init_datas()
+        _accum = 1
 
         for nb, values in enumerate(self._pending_datas):
-            if isinstance(values, Exception):
+            if isinstance(values, StopIteration):
+                return
+            elif isinstance(values, Exception):
                 raise values
 
-            spectrums, stats = values
-
             # do not publish first point if read_all_triggers is False (for SYNC mode)
-            if nb != 0 or self.read_all_triggers:
-                self._publish(spectrums, stats)
+            if self.read_all_triggers is False and nb == 0:
+                continue
+
+            spectrums, stats = values
+            self._append_datas(spectrums, stats)
+            _accum += 1
+
+            if _accum == self.block_size:
+                self._publish_datas()
+                _accum = 0
 
             # break when we have received the expected number of points
             # it depends on the trigger_mode and device.hardware_points
@@ -224,17 +234,31 @@ class McaAcquisitionSlave(AcquisitionSlave):
             if (
                 nb == self.expected_npoints - 1
             ):  # -1 because the 'for-loop+enumerate' start at i=0
+                self._publish_datas()
                 break
 
             gevent.sleep(0.)
 
-    def _publish(self, spectrums, stats):
+    def _init_datas(self):
+        self._datas = dict()
+        for counter in self._counters:
+            self._datas[f"{self.name}:{counter.name}"] = list()
+
+    def _append_datas(self, spectrums, stats):
         spectrums = self.device._convert_spectrums(spectrums)
         stats = self.device._convert_statistics(stats)
-        # Feed data to all counters
+
         for counter in self._counters:
             point = counter.feed_point(spectrums, stats)
-            self.channels.update({f"{self.name}:{counter.name}": point})
+            self._datas[f"{self.name}:{counter.name}"].append(point)
+
+    def _publish_datas(self):
+        for counter in self._counters:
+            name = f"{self.name}:{counter.name}"
+            data = self._datas[name]
+            if len(data):
+                self.channels.update({name: data})
+                data.clear()
 
     def _data_rx(self, values, signal):
         self._pending_datas.put(values)

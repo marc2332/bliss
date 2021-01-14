@@ -15,7 +15,7 @@ import reprlib
 import datetime
 import logging
 import hashlib
-
+import time
 import numpy
 from tabulate import tabulate
 from ruamel.yaml import YAML
@@ -1292,11 +1292,16 @@ class ParametersWardrobe(metaclass=ParametersType):
             **keys: other key,value pairs will be directly passed to Redis proxy
         """
         logger.debug(
-            f"""In {type(self).__name__}.__init__({name}, 
-                      default_values={default_values}, 
-                      property_attributes={property_attributes}, 
-                      not_removable={not_removable}
-                      )"""
+            """In %s.__init__(%s, 
+                      default_values=%s, 
+                      property_attributes=%s,
+                      not_removable=%s
+                      )""",
+            type(self).__name__,
+            name,
+            default_values,
+            property_attributes,
+            not_removable,
         )
 
         if not default_values:
@@ -1310,13 +1315,13 @@ class ParametersWardrobe(metaclass=ParametersType):
         # the first item is the currently used one
         self._instances = QueueSetting("parameters:%s" % name, connection=connection)
         self._wardr_name = name  # name of the ParametersWardrobe
+        # adding attribute for creation_date and last_accessed
         self._property_attributes = tuple(property_attributes) + (
             "creation_date",
             "last_accessed",
         )
-        self._not_removable = tuple(not_removable)
 
-        # adding attributes for last_accessed and creation_date
+        self._not_removable = tuple(not_removable)
 
         # creates the two needed proxies
         _change_to_obj_marshalling(keys)  # allows pickling complex objects
@@ -1338,7 +1343,7 @@ class ParametersWardrobe(metaclass=ParametersType):
             self.switch("default")
         else:
             # Existant Wardrobe, switch to last used
-            self.switch(self.current_instance)
+            self.switch(self.current_instance, update=False)
 
     def _hash(self, name):
         """
@@ -1350,28 +1355,25 @@ class ParametersWardrobe(metaclass=ParametersType):
         keys_proxy_default = (
             x for x in self._proxy_default.keys() if not x.startswith("_")
         )
-        return (
-            list(keys_proxy_default)
-            + [
-                "add",
-                "remove",
-                "switch",
-                "instances",
-                "current_instance",
-                "to_dict",
-                "from_dict",
-                "to_file",
-                "from_file",
-                "to_beacon",
-                "from_beacon",
-                "freeze",
-                "show_table",
-                "creation_date",
-                "last_accessed",
-                "purge",
-            ]
-            + list(self._property_attributes)
-        )
+        attributes = [
+            "add",
+            "remove",
+            "switch",
+            "instances",
+            "current_instance",
+            "to_dict",
+            "from_dict",
+            "to_file",
+            "from_file",
+            "to_beacon",
+            "from_beacon",
+            "freeze",
+            "show_table",
+            "creation_date",
+            "last_accessed",
+            "purge",
+        ]
+        return list(keys_proxy_default) + attributes + list(self._property_attributes)
 
     def to_dict(self, export_properties=False):
         """
@@ -1405,7 +1407,9 @@ class ParametersWardrobe(metaclass=ParametersType):
         Raises:
             AttributeError, TypeError
         """
-        logger.debug(f"In {type(self).__name__}({self._wardr_name}).from_dict({d})")
+        logger.debug(
+            "In %s(%s).from_dict(%s)", type(self).__name__, self._wardr_name, d
+        )
         if not d:
             raise TypeError("You should provide a dictionary")
         backup = self.to_dict(export_properties=True)
@@ -1428,11 +1432,14 @@ class ParametersWardrobe(metaclass=ParametersType):
                     )
                 else:
                     raise AttributeError(
-                        f"Attribute '{name}' does not find an equivalent in current instance"
+                        "Attribute '{name}' does not find an equivalent in current instance"
                     )
             if found_attrs != redis_default_attrs:
                 logger.warning(
-                    f"Attribute difference for {type(self).__name__}({self._wardr_name}): Given excess({found_attrs.difference(redis_default_attrs)}"
+                    "Attribute difference for %s(%s): Given excess(%s)",
+                    type(self).__name__,
+                    self._wardr_name,
+                    found_attrs.difference(redis_default_attrs),
                 )
         except Exception as exc:
             self.from_dict(backup)  # rollback in case of exception
@@ -1660,7 +1667,7 @@ class ParametersWardrobe(metaclass=ParametersType):
         Args: 
             get_properties: if False it will remove property attributes
                             and also creation/modification info
-                            stored in _last_accessed and _creation_date
+                            stored in _creation_date
 
         Returns:
             dictionary with (parameter,value) pairs
@@ -1683,15 +1690,11 @@ class ParametersWardrobe(metaclass=ParametersType):
                 attrs.remove("_creation_date")
             except Exception:
                 pass
-            try:
-                attrs.remove("_last_accessed")
-            except Exception:
-                pass
 
         for attr in attrs:
             instance_[attr] = getattr(self, attr)
 
-        self.switch(self.current_instance)  # back to current instance
+        self.switch(self.current_instance, update=False)  # back to current instance
         return instance_
 
     def _get_all_instances(self):
@@ -1721,7 +1724,11 @@ class ParametersWardrobe(metaclass=ParametersType):
             NameError: Existing attribute name
         """
         logger.debug(
-            f"In {type(self).__name__}({self._wardr_name}).add({name}, value={value})"
+            "In %s(%s).add(%s, value=%s)",
+            type(self).__name__,
+            self._wardr_name,
+            name,
+            value,
         )
         if name in self._property_attributes:
             raise NameError(f"Existing computed property with this name: {name}")
@@ -1783,7 +1790,9 @@ class ParametersWardrobe(metaclass=ParametersType):
 
             >>> p.remove('casual') # without dot to remove a complete instance
         """
-        logger.debug(f"In {type(self).__name__}({self._wardr_name}).remove({param})")
+        logger.debug(
+            "In %s(%s).remove(%s)", type(self).__name__, self._wardr_name, param
+        )
 
         if param.startswith("."):
             # removing a parameter from every instance
@@ -1835,7 +1844,7 @@ class ParametersWardrobe(metaclass=ParametersType):
         Returns:
             None
         """
-        logger.debug(f"In {type(self).__name__}.switch({name},copy={copy})")
+        logger.debug("In %s.switch(%s,copy=%s)", type(self).__name__, name, copy)
         for key, value in dict(self.__class__.__dict__).items():
             if isinstance(value, self.DESCRIPTOR):
                 delattr(self.__class__, key)
@@ -1845,13 +1854,7 @@ class ParametersWardrobe(metaclass=ParametersType):
         # if is a new instance we will set the creation date
         if name not in self.instances:
             self._proxy["_creation_date"] = datetime.datetime.now().strftime(
-                "%Y-%m-%d-%H:%M"
-            )
-
-        # updating last_accessed
-        if update:
-            self._proxy["_last_accessed"] = datetime.datetime.now().strftime(
-                "%Y-%m-%d-%H:%M"
+                "%Y-%m-%d %H:%M:%S"
             )
 
         # adding default
@@ -1894,16 +1897,21 @@ class ParametersWardrobe(metaclass=ParametersType):
 
     @property
     def last_accessed(self):
-        attr_name = "_last_accessed"
-        if not hasattr(self, attr_name):
-            self._proxy[attr_name] = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M")
-            self._populate(attr_name)
-        return getattr(self, attr_name)
+        key_name = self._proxy._name
+        idletime = self._proxy.connection.object("idletime", key_name)
+        last_accessed_time = time.time() - float(idletime)
+        return str(
+            datetime.datetime.fromtimestamp(last_accessed_time).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+        )
 
     @property
     def creation_date(self):
         attr_name = "_creation_date"
         if not hasattr(self, attr_name):
-            self._proxy[attr_name] = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M")
+            self._proxy[attr_name] = datetime.datetime.now().strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
             self._populate(attr_name)
         return getattr(self, attr_name)

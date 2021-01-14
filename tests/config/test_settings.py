@@ -363,8 +363,7 @@ def test_parameters_wardrobe_switch(session):
     assert check.get("head") == "nothing"
     assert check.get("body") == "shirt"
     assert check.get("_creation_date") is not None
-    assert isinstance(check.get("_last_accessed"), str)
-    assert len(check) == 6
+    assert len(check) == 5
     check = dress.to_dict()
     assert len(check) == 2
 
@@ -496,23 +495,25 @@ def test_creation_time(session):
     # get current time
     now = datetime.datetime.now()
     # convert string to datetime obj
-    creation_date = datetime.datetime.strptime(drinks.creation_date, "%Y-%m-%d-%H:%M")
+    creation_date = datetime.datetime.strptime(
+        drinks.creation_date, "%Y-%m-%d %H:%M:%S"
+    )
     assert abs(now - creation_date) < datetime.timedelta(seconds=60)
-    last_accessed = datetime.datetime.strptime(drinks.creation_date, "%Y-%m-%d-%H:%M")
+    last_accessed = datetime.datetime.strptime(
+        drinks.last_accessed, "%Y-%m-%d %H:%M:%S"
+    )
     assert abs(now - last_accessed) < datetime.timedelta(seconds=60)
 
     # an empty Wardrobe has only creation/access info
     food = settings.ParametersWardrobe("food")
-    assert len(food.to_dict(export_properties=True)) == 4
-    creation_time = "2018-07-22-07:00"
-
-    food._creation_date = creation_time
-    food._last_accessed = creation_time
+    assert len(food.to_dict(export_properties=True)) == 3
 
     food.switch("first")
     food.switch("default")
-    assert food.creation_date == creation_time
-    assert food.last_accessed != creation_time
+    gevent.sleep(1)
+    food.creation_date  # access it => will change 'last_accessed'
+    assert food.creation_date == str(creation_date)
+    assert food.last_accessed != str(creation_date)
 
 
 def test_from_dict_ok(session):
@@ -573,7 +574,7 @@ def test_from_and_to_dict_with_inheritance(session):
     dict_ = mypar.to_dict(export_properties=True)
     assert "myproperty" in dict_  # check presence of property
 
-    assert len(dict_) == 7
+    assert len(dict_) == 6
     mypar.from_dict(dict_)
     with pytest.raises(AttributeError):
         mypar.from_dict({**dict_, **{"fakeattr": 123}})

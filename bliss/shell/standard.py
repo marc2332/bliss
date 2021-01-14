@@ -21,8 +21,9 @@ import typeguard
 import subprocess
 import fnmatch
 import numpy
+import socket
 from pprint import pprint
-from gevent import sleep
+from gevent import sleep, Timeout
 
 from pygments import highlight
 from pygments.lexers import PythonLexer
@@ -45,6 +46,7 @@ from bliss.common.standard import (
     reset_equipment,
 )  # noqa: F401
 from bliss.common.standard import wid as std_wid
+from bliss.common.event import connect
 from bliss.controllers.lima.limatools import *
 from bliss.controllers.lima import limatools
 from bliss.controllers.lima import roi as lima_roi
@@ -60,6 +62,8 @@ from bliss.common.utils import (
     shorten_signature,
     TypeguardTypeError,
 )
+from bliss.config.conductor.client import get_redis_proxy
+
 from bliss.common.measurementgroup import MeasurementGroup
 from bliss.shell.dialog.helpers import find_dialog, dialog as dialog_dec_cls
 
@@ -72,7 +76,7 @@ from bliss.common.cleanup import cleanup, error_cleanup
 from bliss.common import scans
 from bliss.common.scans import *
 from bliss.scanning.scan import Scan
-
+from bliss.comm.rpc import Client
 from bliss.common import logtools
 from bliss.common.logtools import elog_print
 from bliss.common.interlocks import interlock_state
@@ -109,7 +113,6 @@ from bliss.common.types import (
 )
 
 from bliss.common.profiling import time_profile
-
 
 ############## imports that are only used simpyly the
 ############## shell user access to these functions
@@ -186,6 +189,7 @@ __all__ = (
         "find_position",
         "goto_custom",
         "time_profile",
+        "tw",
     ]
     + scans.__all__
     + ["lprint", "ladd", "elog_print", "elog_add"]
@@ -490,6 +494,98 @@ def sta(read_hw: bool = False):
 _ERR = "!ERR"
 _MAX_COLS = 9
 _MISSING_VAL = "-----"
+
+
+def tw(*motors):
+    """
+    Display an user interface to move selected motors. (Limited to 5 motors)
+
+    Args:
+        motors (~bliss.common.axis.Axis): motor axis
+
+    example:
+      DEMO [18]: tw(m0, m1, m2)
+    """
+    import gevent
+
+    def get_url(timeout=None):
+        key = "tweak_ui_" + current_session.name
+        redis = get_redis_proxy()
+
+        if timeout is None:
+            value = redis.lpop(key)
+        else:
+            result = redis.blpop(key, timeout=timeout)
+            if result is not None:
+                key, value = result
+                redis.lpush(key, value)
+            else:
+                value = None
+
+        if value is None:
+            raise ValueError(
+                f"Tweak UI: cannot retrieve Tweak RPC server address from pid "
+            )
+        url = value.decode().split()[-1]
+        return url
+
+    def wait_tweak(tweak):
+        while True:
+            try:
+                tweak.loaded
+                break
+            except socket.error as e:
+                pass
+            gevent.sleep(0.3)
+
+    def create_env():
+        from bliss.config.conductor.client import get_default_connection
+
+        beacon = get_default_connection()
+        beacon_config = f"{beacon._host}:{beacon._port}"
+
+        env = dict(os.environ)
+        env["BEACON_HOST"] = beacon_config
+        return env
+
+    if len(motors) > 5:
+        raise TypeError("This tool can only display a maximum of 5 motors")
+
+    try:
+        task = None
+        with Timeout(10):
+            try:
+                url = get_url()
+            except ValueError:
+                pass
+            else:
+                tweak = Client(url)
+                try:
+                    tweak.close_new = True
+                except socket.error:
+                    pass
+
+            tweak = None
+            args = f"{sys.executable} -m bliss.shell.qtapp.tweak_ui --session {current_session.name} --motors".split()
+            for motor in motors:
+                args.append(motor.name)
+
+            process = subprocess.Popen(args, env=create_env())
+
+            url = get_url(timeout=5)
+
+            tweak = Client(url)
+            wait_tweak(tweak)
+            connect(tweak, "ct_requested", _tw_ct_requested)
+
+    except Timeout:
+        process.kill()
+        raise TimeoutError("The application took too long to start")
+    print("Tweak UI started")
+
+
+def _tw_ct_requested(acq_time, sender):
+    ct(acq_time, title="auto_ct")
 
 
 def wa(**kwargs):

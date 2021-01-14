@@ -892,21 +892,21 @@ class ESRFScanSaving(BasicScanSaving):
         user_warning("Use 'collection' instead of 'sample'")
         return self.collection
 
-    @property
-    def sample_name(self):
-        user_warning(
-            "Use 'dataset.sample_name' or 'collection.sample_name' instead of 'sample_name'"
-        )
-        return self.dataset.sample_name
+    @property_with_eval_dict
+    def sample_name(self, eval_dict=None):
+        # Property of ESRFScanSaving so that it can be used in a template
+        return self.get_cached_property("dataset", eval_dict).sample_name
 
-    @autocomplete_property
-    def dataset(self):
+    @property_with_eval_dict
+    def dataset(self, eval_dict=None):
         """The dataset will be created in Redis when it does not exist yet.
         """
         if self._dataset_object is None:
             # This is just for caching purposes
             self._ensure_dataset()
-            self._dataset_object = self._get_dataset_object(create=True)
+            self._dataset_object = self._get_dataset_object(
+                create=True, eval_dict=eval_dict
+            )
         return self._dataset_object
 
     @property
@@ -955,20 +955,17 @@ class ESRFScanSaving(BasicScanSaving):
         types[-1] = "dataset"
         return list(zip(parts, types))
 
-    @property
-    def _db_proposal_items(self):
-        # See _db_path_items
-        return self._db_path_items[:-2]
+    @property_with_eval_dict
+    def _db_proposal_items(self, eval_dict=None):
+        return self.get_cached_property("_db_path_items", eval_dict)[:-2]
 
-    @property
-    def _db_collection_items(self):
-        # See _db_path_items
-        return self._db_path_items[:-1]
+    @property_with_eval_dict
+    def _db_collection_items(self, eval_dict=None):
+        return self.get_cached_property("_db_path_items", eval_dict)[:-1]
 
-    @property
-    def _db_dataset_items(self):
-        # See _db_path_items
-        return self._db_path_items
+    @property_with_eval_dict
+    def _db_dataset_items(self, eval_dict=None):
+        return self.get_cached_property("_db_path_items", eval_dict)
 
     def _fill_node_info(self, node, node_type):
         """Add missing keys to node info
@@ -997,29 +994,35 @@ class ESRFScanSaving(BasicScanSaving):
         if info:
             node.info.update(info)
 
-    def _get_proposal_node(self, create=True):
+    @with_eval_dict
+    def _get_proposal_node(self, create=True, eval_dict=None):
         """This method returns the proposal node
 
         :param bool create:
         :returns ProposalNode or None: can only return `None` when `create=False`
         """
-        return self._get_node(self._db_proposal_items, create=create)
+        db_path_items = self.get_cached_property("_db_proposal_items", eval_dict)
+        return self._get_node(db_path_items, create=create)
 
-    def _get_collection_node(self, create=True):
+    @with_eval_dict
+    def _get_collection_node(self, create=True, eval_dict=None):
         """This method returns the collection node
 
         :param bool create:
         :returns DatasetCollectionNode or None: can only return `None` when `create=False`
         """
-        return self._get_node(self._db_collection_items, create=create)
+        db_path_items = self.get_cached_property("_db_collection_items", eval_dict)
+        return self._get_node(db_path_items, create=create)
 
-    def _get_dataset_node(self, create=True):
+    @with_eval_dict
+    def _get_dataset_node(self, create=True, eval_dict=None):
         """This method returns the dataset node
 
         :param bool create:
         :returns DatasetNode or None: can only return `None` when `create=False`
         """
-        return self._get_node(self._db_dataset_items, create=create)
+        db_path_items = self.get_cached_property("_db_dataset_items", eval_dict)
+        return self._get_node(db_path_items, create=create)
 
     @property_with_eval_dict
     def base_path(self, eval_dict=None):
@@ -1207,11 +1210,11 @@ class ESRFScanSaving(BasicScanSaving):
     @property_with_eval_dict
     def proposal_name(self, eval_dict=None):
         if not self._proposal:
-            self.proposal_name = None
+            self.set_cached_property("proposal_name", None, eval_dict)
         return self.eval_template(self._proposal, eval_dict=eval_dict)
 
     @proposal_name.setter
-    def proposal_name(self, name):
+    def proposal_name(self, name, eval_dict=None):
         if name:
             # Alphanumeric, space, dash and underscore
             if not re.match(r"^[0-9a-zA-Z_\s\-]+$", name):
@@ -1224,7 +1227,7 @@ class ESRFScanSaving(BasicScanSaving):
         if name != self._proposal:
             self._close_proposal()
             self._close_collection()
-            self._close_dataset()
+            self._close_dataset(eval_dict=eval_dict)
             self._proposal = name
             self._freeze_date()
             self._reset_collection()
@@ -1255,14 +1258,14 @@ class ESRFScanSaving(BasicScanSaving):
                 return "tmp"
         return "visitor"
 
-    @property
-    def collection_name(self):
+    @property_with_eval_dict
+    def collection_name(self, eval_dict=None):
         if not self._collection:
-            self.collection_name = None
+            self.set_cached_property("collection_name", None, eval_dict)
         return self._collection
 
     @collection_name.setter
-    def collection_name(self, name):
+    def collection_name(self, name, eval_dict=None):
         if name:
             # Alphanumeric, space, dash and underscore
             if not re.match(r"^[0-9a-zA-Z_\s\-]+$", name):
@@ -1272,23 +1275,23 @@ class ESRFScanSaving(BasicScanSaving):
             name = "sample"
         if name != self._collection:
             self._close_collection()
-            self._close_dataset()
+            self._close_dataset(eval_dict=eval_dict)
             self._ensure_proposal()
             self._collection = name
             self._reset_dataset()
 
-    @property
-    def dataset_name(self):
+    @property_with_eval_dict
+    def dataset_name(self, eval_dict=None):
         if not self._dataset:
-            self.dataset_name = None
+            self.set_cached_property("dataset_name", None, eval_dict)
         return self._dataset
 
     @dataset_name.setter
-    def dataset_name(self, value):
+    def dataset_name(self, value, eval_dict=None):
         """
         :param int or str value:
         """
-        self._close_dataset()
+        self._close_dataset(eval_dict=eval_dict)
         self._ensure_proposal()
         self._ensure_collection()
         reserved = self._reserved_datasets()
@@ -1471,7 +1474,8 @@ class ESRFScanSaving(BasicScanSaving):
             raise RuntimeError("collection does not exist in Redis")
         return DatasetCollection(node)
 
-    def _get_dataset_object(self, create=True):
+    @with_eval_dict
+    def _get_dataset_object(self, create=True, eval_dict=None):
         """Create a new Dataset instance. The Dataset may be already closed,
         this is not checked in this method.
 
@@ -1486,7 +1490,7 @@ class ESRFScanSaving(BasicScanSaving):
             raise RuntimeError("collection not specified")
         if not self._dataset:
             raise RuntimeError("dataset not specified")
-        node = self._get_dataset_node(create=create)
+        node = self._get_dataset_node(create=create, eval_dict=eval_dict)
         if node is None:
             raise RuntimeError("dataset does not exist in Redis")
         return Dataset(node)
@@ -1507,7 +1511,8 @@ class ESRFScanSaving(BasicScanSaving):
         self._collection_object = None
         self._collection = ""
 
-    def _close_dataset(self):
+    @with_eval_dict
+    def _close_dataset(self, eval_dict=None):
         """Close the current dataset. This will NOT create the dataset in Redis
         if it does not exist yet. If the dataset if already closed it does NOT
         raise an exception.
@@ -1516,7 +1521,7 @@ class ESRFScanSaving(BasicScanSaving):
         if dataset is None:
             # The dataset object has not been cached
             try:
-                dataset = self._get_dataset_object(create=False)
+                dataset = self._get_dataset_object(create=False, eval_dict=eval_dict)
             except RuntimeError:
                 # The dataset is not fully defined or does not exist.
                 # Do nothing in that case.

@@ -65,22 +65,6 @@ class CircularReference(ValueError):
     pass
 
 
-def eval_wraps(method):
-    """Like `functools.wraps` but adding a prefix
-    "_with_eval_dict_" to the method `__name__`.
-
-    :param callable method: unbound method of a class
-    :returns callable:
-    """
-
-    def wrap(wrapper):
-        wrapper = wraps(method)(wrapper)
-        wrapper.__name__ = "_with_eval_dict_" + wrapper.__name__
-        return wrapper
-
-    return wrap
-
-
 def with_eval_dict(method):
     """This passes a dictionary as named argument `eval_dict` to the method
     when it is not passed by the caller. This dictionary is used for caching
@@ -89,67 +73,41 @@ def with_eval_dict(method):
     :param callable method: unbound method of `EvalParametersWardrobe`
     :returns callable:
     """
-    return with_config_eval_dict()(method)
+
+    @wraps(method)
+    def eval_func(self, *args, **kwargs):
+        # Create a cache dictionary if not provided by caller
+        if "eval_dict" in kwargs:
+            eval_dict = kwargs.get("eval_dict")
+        else:
+            eval_dict = None
+        if eval_dict is None:
+            logger.debug("create eval_dict (method {})".format(repr(method.__name__)))
+            # Survives only for the duration of the call
+            eval_dict = kwargs["eval_dict"] = {}
+        if not eval_dict:
+            self._update_eval_dict(eval_dict)
+            logger.debug("filled eval_dict (method {})".format(repr(method.__name__)))
+        # Evaluate method (passes eval_dict)
+        return method(self, *args, **kwargs)
+
+    return eval_func
 
 
-def with_config_eval_dict(**eval_config):
-    """Like `with_eval_dict` but with configurable parameter
-    evaluation caching.
-
-    :param eval_config: use to control what parameters are cached
-                        (named arguments for the `_update_eval_dict` method)
-    :returns callable:
-    """
-
-    def wrap(method):
-        @eval_wraps(method)
-        def eval_func(self, *args, **kwargs):
-            # Create a cache dictionary if not provided by caller
-            if "eval_dict" in kwargs:
-                eval_dict = kwargs.get("eval_dict")
-            else:
-                eval_dict = None
-            if eval_dict is None:
-                logger.debug(
-                    "create eval_dict (method {})".format(repr(method.__name__))
-                )
-                # Survives only for the duration of the call
-                eval_dict = kwargs["eval_dict"] = {}
-            if not eval_dict:
-                self._update_eval_dict(eval_dict, **eval_config)
-                logger.debug(
-                    "filled eval_dict (method {})".format(repr(method.__name__))
-                )
-            # Evaluate method (passes eval_dict)
-            return method(self, *args, **kwargs)
-
-        return eval_func
-
-    return wrap
-
-
-def property_with_eval_dict(getter):
+class property_with_eval_dict(property):
     """Combine the `with_eval_dict` and `property` decorators
-
-    :param callable getter: unbound method of a class
-    :returns callable:
-    """
-    return property(with_eval_dict(getter))
-
-
-def property_with_config_eval_dict(**eval_config):
-    """Like `property_with_eval_dict` but with configurable
-    caching of parameter evaluation.
-
-    :param eval_config: control what parameters are cached
-                        (named arguments for the `_update_eval_dict` method)
-    :returns callable:
     """
 
-    def wrap(getter):
-        return property(with_config_eval_dict(**eval_config)(getter))
-
-    return wrap
+    def __init__(self, fget=None, fset=None, fdel=None, doc=None):
+        if fget is not None:
+            name = "_eval_getter_" + fget.__name__
+            fget = with_eval_dict(fget)
+            fget.__name__ = name
+        if fset is not None:
+            name = "_eval_setter_" + fset.__name__
+            fset = with_eval_dict(fset)
+            fset.__name__ = name
+        super().__init__(fget=fget, fset=fset, fdel=fdel, doc=doc)
 
 
 def is_circular_call(funcname):
@@ -189,7 +147,7 @@ class EvalParametersWardrobe(ParametersWardrobe):
 
     FORMATTER = string.Formatter()
 
-    NO_EVAL_PROPERTY = set()
+    NO_EVAL_PROPERTIES = set()
 
     def _template_named_fields(self, template):
         """Get all the named fields in a template.
@@ -240,9 +198,12 @@ class EvalParametersWardrobe(ParametersWardrobe):
             try:
                 eval_dict[field] = self.eval_template(value, eval_dict=eval_dict)
             except MissingParameter:
-                raise MissingParameter(
-                    f"Parameter {repr(field)} is missing in {repr(template)}"
-                )
+                if hasattr(self, field):
+                    self.get_cached_property(field, eval_dict)
+                if field not in eval_dict:
+                    raise MissingParameter(
+                        f"Parameter {repr(field)} is missing in {repr(template)}"
+                    ) from None
 
         # Evaluate string template while avoiding circular references
         fill_dict = {}
@@ -257,13 +218,11 @@ class EvalParametersWardrobe(ParametersWardrobe):
                 fill_dict[field] = value
         return template.format(**fill_dict)
 
-    def _update_eval_dict(self, eval_dict, **replace_properties):
+    def _update_eval_dict(self, eval_dict):
         """Update the evaluation dictionary with user attributes (from Redis)
         and properties when missing.
 
         :param dict eval_dict:
-        :param replace_properties: avoid calling the getters of these properties
-                                   property is skipped when `None`
         :returns dict:
         """
         fromredis = self.to_dict(export_properties=False)
@@ -273,19 +232,14 @@ class EvalParametersWardrobe(ParametersWardrobe):
         for prop in self._iter_eval_properties():
             if prop in eval_dict:
                 continue
-            if prop in replace_properties:
-                # Skip or replace property
-                value = replace_properties[prop]
-                if value is not None:
-                    eval_dict[prop] = value
-            else:
-                self.get_cached_property(prop, eval_dict)
+            self.get_cached_property(prop, eval_dict)
 
     def _iter_eval_properties(self):
-        """
+        """Yield all properties that will be cached when updating the
+        evaluation dictionary
         """
         for prop in self._property_attributes:
-            if prop not in self.NO_EVAL_PROPERTY:
+            if prop not in self.NO_EVAL_PROPERTIES:
                 yield prop
 
     def get_cached_property(self, name, eval_dict):
@@ -300,24 +254,19 @@ class EvalParametersWardrobe(ParametersWardrobe):
         if name in eval_dict:
             return eval_dict[name]
         _prop = getattr(self.__class__, name)
-        try:
-            fget = _prop.fget
-        except AttributeError:
+        if isinstance(_prop, property_with_eval_dict):
+            logger.debug("fget eval property " + repr(name))
+            if is_circular_call(_prop.fget.__name__):
+                raise CircularReference(
+                    "Property {} contains a circular reference".format(repr(name))
+                )
+            r = _prop.fget(self, eval_dict=eval_dict)
+        elif isinstance(_prop, property):
+            logger.debug("fget normal property " + repr(name))
+            r = _prop.fget(self)
+        else:
             # Not a property
             r = getattr(self, name)
-        else:
-            # See eval_wraps
-            cname = "_with_eval_dict_" + name
-            if fget.__name__ == cname:
-                logger.debug("fget eval property " + repr(name))
-                if is_circular_call(cname):
-                    raise CircularReference(
-                        "Property {} contains a circular reference".format(repr(name))
-                    )
-                r = fget(self, eval_dict=eval_dict)
-            else:
-                logger.debug("fget normal property " + repr(name))
-                r = fget(self)
         eval_dict[name] = r
         logger.debug(f"     eval_dict[{repr(name)}] = {repr(r)}")
         return r
@@ -330,24 +279,19 @@ class EvalParametersWardrobe(ParametersWardrobe):
         :param dict eval_dict:
         """
         _prop = getattr(self.__class__, name)
-        try:
-            fset = _prop.fset
-        except AttributeError:
+        if isinstance(_prop, property_with_eval_dict):
+            logger.debug("fset eval property " + repr(name))
+            if is_circular_call(_prop.fset.__name__):
+                raise CircularReference(
+                    "Property {} contains a circular reference".format(repr(name))
+                )
+            _prop.fset(self, value, eval_dict=eval_dict)
+        elif isinstance(_prop, property):
+            logger.debug("fset normal property " + repr(name))
+            _prop.fset(self, value)
+        else:
             # Not a property
             setattr(self, name, value)
-        else:
-            # See `eval_wraps`
-            cname = "_with_eval_dict_" + name
-            if fset.__name__ == cname:
-                logger.debug("fset eval property " + repr(name))
-                if is_circular_call(cname):
-                    raise CircularReference(
-                        "Property {} contains a circular reference".format(repr(name))
-                    )
-                fset(self, value, eval_dict=eval_dict)
-            else:
-                logger.debug("fset normal property " + repr(name))
-                fset(self, value)
         eval_dict[name] = value
 
 
@@ -837,7 +781,7 @@ class ESRFScanSaving(BasicScanSaving):
         "_dataset_object",
     ]
     REDIS_SETTING_PREFIX = "esrf_scan_saving"
-    NO_EVAL_PROPERTY = BasicScanSaving.NO_EVAL_PROPERTY | {
+    NO_EVAL_PROPERTIES = BasicScanSaving.NO_EVAL_PROPERTIES | {
         "proposal",
         "collection",
         "dataset",
@@ -948,21 +892,21 @@ class ESRFScanSaving(BasicScanSaving):
         user_warning("Use 'collection' instead of 'sample'")
         return self.collection
 
-    @property
-    def sample_name(self):
-        user_warning(
-            "Use 'dataset.sample_name' or 'collection.sample_name' instead of 'sample_name'"
-        )
-        return self.dataset.sample_name
+    @property_with_eval_dict
+    def sample_name(self, eval_dict=None):
+        # Property of ESRFScanSaving so that it can be used in a template
+        return self.get_cached_property("dataset", eval_dict).sample_name
 
-    @autocomplete_property
-    def dataset(self):
+    @property_with_eval_dict
+    def dataset(self, eval_dict=None):
         """The dataset will be created in Redis when it does not exist yet.
         """
         if self._dataset_object is None:
             # This is just for caching purposes
             self._ensure_dataset()
-            self._dataset_object = self._get_dataset_object(create=True)
+            self._dataset_object = self._get_dataset_object(
+                create=True, eval_dict=eval_dict
+            )
         return self._dataset_object
 
     @property
@@ -1011,20 +955,17 @@ class ESRFScanSaving(BasicScanSaving):
         types[-1] = "dataset"
         return list(zip(parts, types))
 
-    @property
-    def _db_proposal_items(self):
-        # See _db_path_items
-        return self._db_path_items[:-2]
+    @property_with_eval_dict
+    def _db_proposal_items(self, eval_dict=None):
+        return self.get_cached_property("_db_path_items", eval_dict)[:-2]
 
-    @property
-    def _db_collection_items(self):
-        # See _db_path_items
-        return self._db_path_items[:-1]
+    @property_with_eval_dict
+    def _db_collection_items(self, eval_dict=None):
+        return self.get_cached_property("_db_path_items", eval_dict)[:-1]
 
-    @property
-    def _db_dataset_items(self):
-        # See _db_path_items
-        return self._db_path_items
+    @property_with_eval_dict
+    def _db_dataset_items(self, eval_dict=None):
+        return self.get_cached_property("_db_path_items", eval_dict)
 
     def _fill_node_info(self, node, node_type):
         """Add missing keys to node info
@@ -1053,29 +994,35 @@ class ESRFScanSaving(BasicScanSaving):
         if info:
             node.info.update(info)
 
-    def _get_proposal_node(self, create=True):
+    @with_eval_dict
+    def _get_proposal_node(self, create=True, eval_dict=None):
         """This method returns the proposal node
 
         :param bool create:
         :returns ProposalNode or None: can only return `None` when `create=False`
         """
-        return self._get_node(self._db_proposal_items, create=create)
+        db_path_items = self.get_cached_property("_db_proposal_items", eval_dict)
+        return self._get_node(db_path_items, create=create)
 
-    def _get_collection_node(self, create=True):
+    @with_eval_dict
+    def _get_collection_node(self, create=True, eval_dict=None):
         """This method returns the collection node
 
         :param bool create:
         :returns DatasetCollectionNode or None: can only return `None` when `create=False`
         """
-        return self._get_node(self._db_collection_items, create=create)
+        db_path_items = self.get_cached_property("_db_collection_items", eval_dict)
+        return self._get_node(db_path_items, create=create)
 
-    def _get_dataset_node(self, create=True):
+    @with_eval_dict
+    def _get_dataset_node(self, create=True, eval_dict=None):
         """This method returns the dataset node
 
         :param bool create:
         :returns DatasetNode or None: can only return `None` when `create=False`
         """
-        return self._get_node(self._db_dataset_items, create=create)
+        db_path_items = self.get_cached_property("_db_dataset_items", eval_dict)
+        return self._get_node(db_path_items, create=create)
 
     @property_with_eval_dict
     def base_path(self, eval_dict=None):
@@ -1263,11 +1210,11 @@ class ESRFScanSaving(BasicScanSaving):
     @property_with_eval_dict
     def proposal_name(self, eval_dict=None):
         if not self._proposal:
-            self.proposal_name = None
+            self.set_cached_property("proposal_name", None, eval_dict)
         return self.eval_template(self._proposal, eval_dict=eval_dict)
 
     @proposal_name.setter
-    def proposal_name(self, name):
+    def proposal_name(self, name, eval_dict=None):
         if name:
             # Alphanumeric, space, dash and underscore
             if not re.match(r"^[0-9a-zA-Z_\s\-]+$", name):
@@ -1280,7 +1227,7 @@ class ESRFScanSaving(BasicScanSaving):
         if name != self._proposal:
             self._close_proposal()
             self._close_collection()
-            self._close_dataset()
+            self._close_dataset(eval_dict=eval_dict)
             self._proposal = name
             self._freeze_date()
             self._reset_collection()
@@ -1311,14 +1258,14 @@ class ESRFScanSaving(BasicScanSaving):
                 return "tmp"
         return "visitor"
 
-    @property
-    def collection_name(self):
+    @property_with_eval_dict
+    def collection_name(self, eval_dict=None):
         if not self._collection:
-            self.collection_name = None
+            self.set_cached_property("collection_name", None, eval_dict)
         return self._collection
 
     @collection_name.setter
-    def collection_name(self, name):
+    def collection_name(self, name, eval_dict=None):
         if name:
             # Alphanumeric, space, dash and underscore
             if not re.match(r"^[0-9a-zA-Z_\s\-]+$", name):
@@ -1328,23 +1275,23 @@ class ESRFScanSaving(BasicScanSaving):
             name = "sample"
         if name != self._collection:
             self._close_collection()
-            self._close_dataset()
+            self._close_dataset(eval_dict=eval_dict)
             self._ensure_proposal()
             self._collection = name
             self._reset_dataset()
 
-    @property
-    def dataset_name(self):
+    @property_with_eval_dict
+    def dataset_name(self, eval_dict=None):
         if not self._dataset:
-            self.dataset_name = None
+            self.set_cached_property("dataset_name", None, eval_dict)
         return self._dataset
 
     @dataset_name.setter
-    def dataset_name(self, value):
+    def dataset_name(self, value, eval_dict=None):
         """
         :param int or str value:
         """
-        self._close_dataset()
+        self._close_dataset(eval_dict=eval_dict)
         self._ensure_proposal()
         self._ensure_collection()
         reserved = self._reserved_datasets()
@@ -1464,7 +1411,8 @@ class ESRFScanSaving(BasicScanSaving):
         try:
             self._init_dataset()
         except Exception:
-            self._dataset = _dataset
+            if _dataset is not None:
+                self._dataset = _dataset
             raise
 
         msg = f"Dataset set to '{self.dataset}'\nData path: {self.root_path}"
@@ -1526,7 +1474,8 @@ class ESRFScanSaving(BasicScanSaving):
             raise RuntimeError("collection does not exist in Redis")
         return DatasetCollection(node)
 
-    def _get_dataset_object(self, create=True):
+    @with_eval_dict
+    def _get_dataset_object(self, create=True, eval_dict=None):
         """Create a new Dataset instance. The Dataset may be already closed,
         this is not checked in this method.
 
@@ -1541,7 +1490,7 @@ class ESRFScanSaving(BasicScanSaving):
             raise RuntimeError("collection not specified")
         if not self._dataset:
             raise RuntimeError("dataset not specified")
-        node = self._get_dataset_node(create=create)
+        node = self._get_dataset_node(create=create, eval_dict=eval_dict)
         if node is None:
             raise RuntimeError("dataset does not exist in Redis")
         return Dataset(node)
@@ -1562,7 +1511,8 @@ class ESRFScanSaving(BasicScanSaving):
         self._collection_object = None
         self._collection = ""
 
-    def _close_dataset(self):
+    @with_eval_dict
+    def _close_dataset(self, eval_dict=None):
         """Close the current dataset. This will NOT create the dataset in Redis
         if it does not exist yet. If the dataset if already closed it does NOT
         raise an exception.
@@ -1571,7 +1521,7 @@ class ESRFScanSaving(BasicScanSaving):
         if dataset is None:
             # The dataset object has not been cached
             try:
-                dataset = self._get_dataset_object(create=False)
+                dataset = self._get_dataset_object(create=False, eval_dict=eval_dict)
             except RuntimeError:
                 # The dataset is not fully defined or does not exist.
                 # Do nothing in that case.

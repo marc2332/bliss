@@ -21,7 +21,7 @@ class Camera(CameraBase):
 
     @LimaProperty
     def synchro_mode(self):
-        return "IMAGE"
+        return "TRIGGER"
 
     @LimaProperty
     def stream_stats(self):

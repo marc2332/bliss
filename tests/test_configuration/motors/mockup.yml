@@ -356,6 +356,25 @@ hooks:
     tags: real mot1
   - name: $m0
     tags: real mot2
-  
   - name: coupled_calc1
+    tags: calc_mot
+
+- class: CoupledMotionCalc
+  module: mockup
+  axes:
+  - name: $robu
+    tags: real mot1
+  - name: $bad
+    tags: real mot2
+  - name: coupled_calc2
+    tags: calc_mot
+
+- class: CoupledMotionCalc
+  module: mockup
+  axes:
+  - name: $coupled_calc1
+    tags: real mot1
+  - name: $coupled_calc2
+    tags: real mot2
+  - name: coupled_calc3
     tags: calc_mot

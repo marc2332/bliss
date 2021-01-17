@@ -26,7 +26,7 @@ class TweakUITest(unittest.TestCase):
         self.window.combo_h.setCurrentIndex(1)
 
     def test_defaults(self):
-        self.assertEqual(self.window.index["m0"]["step"].text(), "1.0")
+        self.assertEqual(self.window.index["m0"]["step"].text(), "1")
         self.assertEqual("m0", self.window.combo_h.currentText())
         self.assertEqual(
             str(self.window.motor_h.position),
@@ -39,6 +39,7 @@ class TweakUITest(unittest.TestCase):
         time.sleep(2)
         self.assertEqual(pos_initial + 1, self.window.motor_h.position)
 
+    @pytest.mark.skip("segfault sometimes")
     def test_ct(self):
         with patch.object(TweakUI, "startCt") as ct_auto:
             window = TweakUI(["m0"], current_session.name)

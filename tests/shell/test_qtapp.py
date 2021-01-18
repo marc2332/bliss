@@ -1,5 +1,4 @@
 from bliss import current_session
-from bliss.shell.qtapp.tweak_ui import TweakUI
 from bliss.common.axis import Axis
 from bliss.common import scans
 from bliss.shell.standard import mvr
@@ -7,12 +6,15 @@ import unittest
 from unittest.mock import patch
 import pytest
 import time
-from PyQt5 import Qt as qt
+
+# from bliss.shell.qtapp.tweak_ui import TweakUI
+# from PyQt5 import Qt as qt
 
 app = None
 
 
-@pytest.mark.usefixtures("xvfb", "session")
+# @pytest.mark.usefixtures("xvfb", "session")
+@pytest.mark.skip()
 class TweakUITest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -39,7 +41,6 @@ class TweakUITest(unittest.TestCase):
         time.sleep(2)
         self.assertEqual(pos_initial + 1, self.window.motor_h.position)
 
-    @pytest.mark.skip("segfault sometimes")
     def test_ct(self):
         with patch.object(TweakUI, "startCt") as ct_auto:
             window = TweakUI(["m0"], current_session.name)

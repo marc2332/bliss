@@ -85,7 +85,7 @@ class ExporterClient(StandardClient):
             if isinstance(pars, list) or isinstance(pars, tuple):
                 for par in pars:
                     par = self.create_array_parameter(par)
-                cmd += str(par) + PARAMETER_SEPARATOR
+                    cmd += str(par) + PARAMETER_SEPARATOR
             else:
                 cmd += str(pars)
         ret = self.sendReceive(cmd, timeout)

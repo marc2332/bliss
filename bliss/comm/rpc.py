@@ -331,7 +331,6 @@ class _ServerObject(object):
             louie.connect(rx_event, sender=self._object)
         try:
             while True:
-                gevent.select.select([client_sock], [], [])
                 msg = client_sock.recv(READ_BUFFER_SIZE)
                 if not msg:
                     break

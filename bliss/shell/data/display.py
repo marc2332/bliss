@@ -18,6 +18,7 @@ import contextlib
 import gevent
 import typing
 import gevent.event
+import numbers
 
 from bliss.data.scan import watch_session_scans
 from bliss.common.utils import nonblocking_print
@@ -393,6 +394,33 @@ class _ScanPrinterBase:
             line = self._tab.add_line(values)
             return line
 
+    def _format_number(self, value, length_before, length_after) -> str:
+        """Format a number in order to center the dot.
+
+        Arguments:
+            length_before: Expected size before (the content is padded
+                           right if small)
+            length_after: Expected size after (the content is padded left
+                          if smaller)
+        Returns:
+            A string with always a size of (length_before + length_after + 1)
+        """
+        if isinstance(value, numbers.Integral):
+            v = str(value)
+        else:
+            v = f"{value:#g}"
+        prefix_size = len(v.split(".")[0])
+        suffix_size = len(v) - prefix_size - 1
+        if length_before > prefix_size:
+            prefix = " " * (length_before - prefix_size)
+        else:
+            prefix = ""
+        if length_after > suffix_size:
+            suffix = " " * (length_after - suffix_size)
+        else:
+            suffix = ""
+        return f"{prefix}{v}{suffix}"
+
     def _build_ct_output(self, values, norm_values):
 
         info_dict = {}
@@ -426,20 +454,11 @@ class _ScanPrinterBase:
         width = min(50, width)
 
         lines = []
-        e = ""
-        w_length = 8
         for ctrl, values in info_dict.items():
             for dname, v, nv in values:
-                v = f"{v:#g}"
-                nv = f"{nv:#g}"
-                g = len(v.split(".")[0])
-                ng = len(nv.split(".")[0])
-                lines.append(
-                    f"  {dname:>{width}}  = {e:{w_length-g}}{v:{10+g}} ({e:{w_length-ng}}{nv:{12+ng}} /s)  {ctrl}"
-                )
-
-            # separate data blocks per controller
-            # lines.append('')
+                v = self._format_number(v, 8, 9)
+                nv = self._format_number(nv, 8, 11)
+                lines.append(f"  {dname:>{width}}  = {v} ({nv} /s)  {ctrl}")
 
         return "\n".join(lines)
 

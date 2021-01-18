@@ -496,6 +496,14 @@ class Controller:
         """
         raise NotImplementedError
 
+    def _is_already_on_position(self, axis, delta):
+        """ return True if the difference between current position
+            and new position (delta) is smaller than the positioning precision 
+        """
+        if abs(delta) < (self.steps_position_precision(axis) / 2):
+            return True  # Already in position
+        return False
+
 
 class CalcController(Controller):
     def __init__(self, *args, **kwargs):
@@ -928,6 +936,15 @@ class CalcController(Controller):
                 ctrl._get_real_position(
                     dep_real_axes, dep_real_position, final_real_axes_position
                 )
+
+    def _is_already_on_position(self, axis, delta):
+        """ With calculated axes, always return False to ensure it updates real axes that might 
+            have been moved independently (i.e outside CalcMotor context). 
+        """
+        if axis not in self.reals:
+            return False
+        else:
+            return super()._is_already_on_position(axis, delta)
 
 
 def get_real_axes(*axes):

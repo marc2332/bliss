@@ -1691,7 +1691,7 @@ class Axis(Scannable):
         dial = self.dial
         target_pos = dial_target_pos * self.steps_per_unit
         delta = target_pos - dial * self.steps_per_unit
-        if abs(delta) < (self.controller.steps_position_precision(self) / 2):
+        if self.controller._is_already_on_position(self, delta):
             return  # Already in position => no motion
         backlash = self.backlash / self.sign * self.steps_per_unit
         backlash_str = " (with %f backlash)" % self.backlash if backlash else ""

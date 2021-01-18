@@ -1141,3 +1141,84 @@ def test_change_velocity_limits(robz):
 
     with pytest.raises(ValueError, match="is below"):
         robz.velocity = old_min_velocity - 6
+
+
+def test_coupled_calc(default_session):
+    roby = default_session.config.get("roby")
+    m0 = default_session.config.get("m0")
+
+    robu = default_session.config.get("robu")
+    bad = default_session.config.get("bad")
+
+    cc1 = default_session.config.get("coupled_calc1")  # calc of 2 reals
+    cc2 = default_session.config.get("coupled_calc2")  # calc of 2 reals
+    cc3 = default_session.config.get("coupled_calc3")  # calc of 2 calcs
+
+    # === test CalcMotor with 2 real motors as reals ==========
+    cc1.move(1)
+
+    assert roby.position == 1
+    assert m0.position == 1
+
+    m0.move(2)
+
+    assert m0.position == 2
+    assert cc1.position == 1
+
+    cc1.move(1)
+
+    assert roby.position == 1
+    assert m0.position == 1
+
+    # === test CalcMotor with 2 calc_motors as CalcMotor.reals ==========
+
+    cc3.move(1)
+
+    assert cc1.position == 1
+    assert cc2.position == 1
+    assert roby.position == 1
+    assert m0.position == 1
+    assert robu.position == 1
+    assert bad.position == 1
+
+    m0.move(2)
+
+    assert m0.position == 2
+    assert cc3.position == 1
+    assert cc1.position == 1
+    assert cc2.position == 1
+
+    cc3.move(1)
+
+    assert roby.position == 1
+    assert m0.position == 1
+    assert robu.position == 1
+    assert bad.position == 1
+
+    # ==================
+
+    cc3.move(1)
+
+    assert cc1.position == 1
+    assert cc2.position == 1
+    assert roby.position == 1
+    assert m0.position == 1
+    assert robu.position == 1
+    assert bad.position == 1
+
+    cc2.move(2)
+
+    assert cc2.position == 2
+    assert robu.position == 2
+    assert bad.position == 2
+    assert cc3.position == 1
+    assert cc1.position == 1
+
+    cc3.move(1)
+
+    assert roby.position == 1
+    assert m0.position == 1
+    assert robu.position == 1
+    assert bad.position == 1
+    assert cc1.position == 1
+    assert cc2.position == 1

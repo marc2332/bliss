@@ -822,3 +822,12 @@ class FaultyCalc(CalcController):
 
     def calc_to_real(self, positions_dict):
         return {self._axis_tag(x): None for x in self.reals}
+
+
+class CoupledMotionCalc(CalcController):
+    def calc_from_real(self, positions_dict):
+        return {"calc_mot": positions_dict["mot1"]}
+
+    def calc_to_real(self, positions_dict):
+        real_pos = positions_dict["calc_mot"]
+        return {self._axis_tag(x): real_pos for x in self.reals}

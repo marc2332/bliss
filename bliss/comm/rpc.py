@@ -331,7 +331,6 @@ class _ServerObject(object):
             louie.connect(rx_event, sender=self._object)
         try:
             while True:
-                gevent.select.select([client_sock], [], [])
                 msg = client_sock.recv(READ_BUFFER_SIZE)
                 if not msg:
                     break
@@ -516,6 +515,7 @@ class _cnx(object):
             self.host = None
             self.port = m.group(2)
 
+        self._lock = gevent.lock.Semaphore()
         self._address = address
         self._socket = None
         self._queues = dict()
@@ -616,7 +616,9 @@ class _cnx(object):
             nb_retry_allowed = 1
             with self.wait_queue(self, uniq_id) as w:
                 while True:
-                    self._socket.sendall(msg)
+                    with self._lock:
+                        # lock sendall to serialize concurrent client calls
+                        self._socket.sendall(msg)
                     value = w.get()
                     if isinstance(value, Exception):
                         # FIXME: checking the traceback is an approximation

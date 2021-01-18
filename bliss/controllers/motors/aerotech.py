@@ -13,11 +13,12 @@ from bliss.config.channels import Cache
 from bliss.controllers.motor import Controller
 from bliss.common.utils import object_method
 from bliss import global_map
-from bliss.common.logtools import log_debug, log_debug_data
+from bliss.common.logtools import log_info, log_debug, log_debug_data
 
 import string
 import time
 import gevent
+import gevent.lock
 import enum
 from collections import namedtuple
 
@@ -611,6 +612,8 @@ class Aerotech(Controller):
 
         global_map.register(self, children_list=[self._comm])
 
+        self._lock = gevent.lock.Semaphore()
+
     def initialize(self):
         self._aero_axis = {}
         self._aero_speed = {}
@@ -660,7 +663,6 @@ class Aerotech(Controller):
         log_debug_data(self, "SEND", cmd)
         send_cmd = cmd + self.CMD_TERM
         with self._comm.lock:
-            self._comm.flush()
             reply = self._comm.write_read(send_cmd.encode(), size=1)
         reply = reply.decode()
         log_debug_data(self, "GET", reply)
@@ -719,6 +721,15 @@ class Aerotech(Controller):
         self.raw_write(self._cmd_no_reply("FAULTACK", axis))
 
     def read_status(self, axis):
+        with self._lock:
+            try:
+                return self.__try_read_status(axis)
+            except SocketTimeout:
+                log_info(self, "Retry on read_status SocketTimeout on ", axis.name)
+                self._comm.flush()
+                return self.__try_read_status(axis)
+
+    def __try_read_status(self, axis):
         status = self.raw_write_read(self._cmd("AXISSTATUS", axis))
         axis_status = AerotechStatus(int(status), self.AXIS_STATUS_BITS)
 
@@ -827,14 +838,21 @@ class Aerotech(Controller):
         self.raw_write(cmd)
 
     def read_position(self, axis):
-        is_moving = self._is_moving.get(axis.name, False)
-        if not is_moving:
-            reply = self.raw_write_read(self._cmd("CMDPOS", axis))
-        else:
-            reply = self.raw_write_read(self._cmd("PFBK", axis))
+        with self._lock:
+            is_moving = self._is_moving.get(axis.name, False)
+            if not is_moving:
+                cmd = self._cmd("CMDPOS", axis)
+            else:
+                cmd = self._cmd("PFBK", axis)
+            try:
+                reply = self.raw_write_read(cmd)
+            except SocketTimeout:
+                log_info(self, "Retry on read_position SocketTimeout on ", axis.name)
+                self._comm.flush()
+                reply = self.raw_write_read(cmd)
 
-        pos = float(reply) * axis.steps_per_unit
-        return pos
+            pos = float(reply) * axis.steps_per_unit
+            return pos
 
     def set_velocity(self, axis, new_vel):
         self._aero_speed[axis.name] = new_vel / abs(axis.steps_per_unit)

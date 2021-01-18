@@ -11,6 +11,7 @@ import traceback
 import subprocess
 import sys
 import os
+import numpy
 
 from bliss.common import event
 from bliss.comm.rpc import Server, Client
@@ -89,6 +90,9 @@ class Car(object):
     def returns_exception(self):
         e = RuntimeError("foo")
         return e
+
+    def play_music(self, data):
+        pass
 
     def __int__(self):
         return int(self.horsepower)
@@ -327,3 +331,34 @@ def test_issue_1944(beacon):
     finally:
         script.terminate()
         client_obj.close()
+
+
+def test_client_collision(beacon):
+    """
+    Create a RPC client-server and try to interleave 2 client requests
+    """
+    url = "tcp://127.0.0.1:12345"
+
+    def monitor_car(car):
+        """Request many little things"""
+        for _ in range(10):
+            car.position
+            gevent.sleep(0.01)
+
+    def play_music(car, data):
+        """Request a huge big thing"""
+        car.play_music(data)
+
+    data = numpy.empty((1024 * 1024 * 40), dtype=numpy.uint8)
+
+    with rpc_server(url, heartbeat=0.1):
+        client_car = Client(url, heartbeat=0.1)
+        client_car.connect()
+
+        g1 = gevent.spawn(monitor_car, client_car)
+        g2 = gevent.spawn(play_music, client_car, data)
+
+        gevent.joinall([g1, g2])
+
+    gevent.sleep(0.4)
+    client_car.close()

@@ -574,16 +574,19 @@ def tw(*motors):
 
             process = subprocess.Popen(args, env=create_env())
 
-            url = get_url(timeout=5)
-
-            tweak = Client(url)
-            wait_tweak(tweak)
-            connect(tweak, "ct_requested", _tw_ct_requested)
+            try:
+                url = get_url(timeout=10)
+                tweak = Client(url)
+                wait_tweak(tweak)
+                connect(tweak, "ct_requested", _tw_ct_requested)
+                print("Tweak UI started")
+            except Exception:
+                process.kill()
+                print("Tweak UI launch has failed, please try again")
 
     except Timeout:
         process.kill()
         raise TimeoutError("The application took too long to start")
-    print("Tweak UI started")
 
 
 def _tw_ct_requested(acq_time, sender):

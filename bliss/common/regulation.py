@@ -843,7 +843,6 @@ class Loop(SamplingCounterController):
     def channel(self):
         return self._channel
 
-    # @property
     @autocomplete_property
     def counters(self):
         """ Standard counter namespace """
@@ -1024,7 +1023,7 @@ class Loop(SamplingCounterController):
         self._stop_ramping()
 
     ##--- SOFT AXIS METHODS: makes the Loop object scannable (ex: ascan(loop, ...) )
-    # @property
+
     @autocomplete_property
     def axis(self):
         """ Return a SoftAxis object that makes the Loop scanable """

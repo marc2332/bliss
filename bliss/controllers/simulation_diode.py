@@ -103,7 +103,8 @@ def simulation_diode(name, config):
             controller = DEFAULT_CONTROLLER
     if config.get("constant") is not None:
         diode = CstSimulationDiodeSamplingCounter(name, controller)
-        diode.set_cst_value(int(config.get("constant")))
+        value = config.get("constant")
+        diode.set_cst_value(value)
     elif config.get("mode") is not None:
         diode = SimulationDiodeSamplingCounter(
             name, controller, mode=config.get("mode")

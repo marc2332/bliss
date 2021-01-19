@@ -175,6 +175,9 @@ class McaAcquisitionSlave(AcquisitionSlave):
             self.device.block_size = self.block_size
             self.read_all_triggers = True  # forced to True with this trig mode
 
+        if self.block_size is None:
+            self.block_size = self.device.block_size
+
         self._pending_datas = gevent.queue.Queue()
         event.connect(self.device, "data", self._data_rx)
 
@@ -208,7 +211,7 @@ class McaAcquisitionSlave(AcquisitionSlave):
     def reading(self):
         """ spawn byt the chain """
         self._init_datas()
-        _accum = 1
+        _accum = 0
 
         for nb, values in enumerate(self._pending_datas):
             if isinstance(values, StopIteration):

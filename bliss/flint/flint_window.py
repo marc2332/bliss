@@ -20,6 +20,8 @@ from bliss.flint.widgets.custom_plot import CustomPlot
 from bliss.flint.widgets.state_indicator import StateIndicator
 from bliss.flint.widgets.utils import app_actions
 from bliss.flint.model import flint_model
+from bliss.flint import config
+from bliss.common import constants as bliss_constants
 
 _logger = logging.getLogger(__name__)
 
@@ -236,10 +238,14 @@ class FlintWindow(qt.QMainWindow):
         sessionName = self.__flintState.blissSessionName()
 
         if sessionName is None:
-            session = "no session attached."
+            session = "no session attached"
+        elif sessionName == bliss_constants.DEFAULT_SESSION_NAME:
+            session = "attached to default"
         else:
             session = "attached to '%s'" % sessionName
-        title = "Flint (PID={}) - {}".format(os.getpid(), session)
+        pid = os.getpid()
+
+        title = f"Flint (PID={pid}) - {session}"
         self.setWindowTitle(title)
 
     def __screenId(self):

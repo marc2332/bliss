@@ -57,6 +57,10 @@ device:
   tango_name: id00/roi2spectrum/simulator1
 - tango_name: id00/memcached/simulator1
   class: MemcachedDeviceServer
+- tango_name: id00/jumboroicounter/simulator1
+  class: JumboRoiCounterDeviceServer
+- tango_name: id00/roicollection/simulator1
+  class: RoiCollectionDeviceServer
 personal_name: simulator
 server: LimaCCDs
 properties:

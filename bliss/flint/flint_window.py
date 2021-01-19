@@ -245,7 +245,7 @@ class FlintWindow(qt.QMainWindow):
     def __screenId(self):
         """Try to return a kind of unique name to define the used screens.
 
-        This allows to store different preferences for different environements,
+        This allows to store different preferences for different environments,
         which is the case when we use SSH.
         """
         app = qt.QApplication.instance()

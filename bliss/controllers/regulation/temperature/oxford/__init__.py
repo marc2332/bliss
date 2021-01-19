@@ -39,6 +39,7 @@ class OxfordInput(Input):
             mode=self._config.get("sampling-counter-mode", "SINGLE"),
         )
 
+    @lazy_init
     def read_all(self, *counters):
         res = []
         for cnt in counters:
@@ -105,6 +106,7 @@ class OxfordOutput(Output):
             mode=self._config.get("sampling-counter-mode", "SINGLE"),
         )
 
+    @lazy_init
     def read_all(self, *counters):
         res = []
         for cnt in counters:
@@ -165,6 +167,7 @@ class OxfordLoop(Loop):
             mode="SINGLE",
         )
 
+    @lazy_init
     def read_all(self, *counters):
         res = []
         for cnt in counters:

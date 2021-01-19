@@ -1,7 +1,7 @@
 import pytest
 import gevent
 from bliss.common.regulation import SoftLoop
-from bliss.common.scans import ascan
+from bliss.common.scans import ascan, ct
 
 
 def mockup_regulation(loop):
@@ -98,6 +98,10 @@ def mockup_regulation(loop):
             gevent.sleep(0.01)
 
     assert x.setpoint == sp
+
+
+def test_ct_scan_just_after_session_starts(default_session, temp_tloop):
+    ct(0.1, temp_tloop)
 
 
 def test_sampling_counter_input(default_session):

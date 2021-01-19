@@ -19,6 +19,7 @@ import gevent.event
 from bliss.config.conductor.client import get_redis_proxy
 from bliss.config import get_sessions_list
 from bliss.flint import config
+from bliss.common import constants as bliss_constants
 
 import logging
 from silx.gui import qt
@@ -206,9 +207,10 @@ class ManageMainBehaviours(qt.QObject):
             # FIXME: In case of a restart of bliss, is it safe?
             return False
 
-        sessions = get_sessions_list()
-        if sessionName not in list(sessions):
-            return False
+        if sessionName != bliss_constants.DEFAULT_SESSION_NAME:
+            sessions = get_sessions_list()
+            if sessionName not in list(sessions):
+                return False
 
         # Early update of the beacon logger if possible
         beaconLogHandler = self.__beaconLogHandler

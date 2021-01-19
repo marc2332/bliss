@@ -2,52 +2,58 @@
 import pytest
 import gevent
 
+from bliss import global_map
 from bliss.shell.standard import lscnt, bench, lsobj
 
 EXPECTED = """
-Fullname                     Shape    Controller    Name                   Alias
----------------------------  -------  ------------  ---------------------  -------
-simu1:deadtime_det0          0D       simu1         deadtime_det0
-simu1:deadtime_det1          0D       simu1         deadtime_det1
-simu1:deadtime_det2          0D       simu1         deadtime_det2
-simu1:deadtime_det3          0D       simu1         deadtime_det3
-simu1:energy_livetime_det0   0D       simu1         energy_livetime_det0
-simu1:energy_livetime_det1   0D       simu1         energy_livetime_det1
-simu1:energy_livetime_det2   0D       simu1         energy_livetime_det2
-simu1:energy_livetime_det3   0D       simu1         energy_livetime_det3
-simu1:events_det0            0D       simu1         events_det0
-simu1:events_det1            0D       simu1         events_det1
-simu1:events_det2            0D       simu1         events_det2
-simu1:events_det3            0D       simu1         events_det3
-simu1:icr_det0               0D       simu1         icr_det0
-simu1:icr_det1               0D       simu1         icr_det1
-simu1:icr_det2               0D       simu1         icr_det2
-simu1:icr_det3               0D       simu1         icr_det3
-simu1:ocr_det0               0D       simu1         ocr_det0
-simu1:ocr_det1               0D       simu1         ocr_det1
-simu1:ocr_det2               0D       simu1         ocr_det2
-simu1:ocr_det3               0D       simu1         ocr_det3
-simu1:realtime_det0          0D       simu1         realtime_det0
-simu1:realtime_det1          0D       simu1         realtime_det1
-simu1:realtime_det2          0D       simu1         realtime_det2
-simu1:realtime_det3          0D       simu1         realtime_det3
-simu1:spectrum_det0          1D       simu1         spectrum_det0
-simu1:spectrum_det1          1D       simu1         spectrum_det1
-simu1:spectrum_det2          1D       simu1         spectrum_det2
-simu1:spectrum_det3          1D       simu1         spectrum_det3
-simu1:trigger_livetime_det0  0D       simu1         trigger_livetime_det0
-simu1:trigger_livetime_det1  0D       simu1         trigger_livetime_det1
-simu1:trigger_livetime_det2  0D       simu1         trigger_livetime_det2
-simu1:trigger_livetime_det3  0D       simu1         trigger_livetime_det3
-simu1:triggers_det0          0D       simu1         triggers_det0
-simu1:triggers_det1          0D       simu1         triggers_det1
-simu1:triggers_det2          0D       simu1         triggers_det2
-simu1:triggers_det3          0D       simu1         triggers_det3
+Fullname                     Shape    Controller    Alias    Name
+---------------------------  -------  ------------  -------  ---------------------
+simu1:deadtime_det0          0D       simu1                  deadtime_det0
+simu1:deadtime_det1          0D       simu1                  deadtime_det1
+simu1:deadtime_det2          0D       simu1                  deadtime_det2
+simu1:deadtime_det3          0D       simu1                  deadtime_det3
+simu1:energy_livetime_det0   0D       simu1                  energy_livetime_det0
+simu1:energy_livetime_det1   0D       simu1                  energy_livetime_det1
+simu1:energy_livetime_det2   0D       simu1                  energy_livetime_det2
+simu1:energy_livetime_det3   0D       simu1                  energy_livetime_det3
+simu1:events_det0            0D       simu1                  events_det0
+simu1:events_det1            0D       simu1                  events_det1
+simu1:events_det2            0D       simu1                  events_det2
+simu1:events_det3            0D       simu1                  events_det3
+simu1:icr_det0               0D       simu1                  icr_det0
+simu1:icr_det1               0D       simu1                  icr_det1
+simu1:icr_det2               0D       simu1                  icr_det2
+simu1:icr_det3               0D       simu1                  icr_det3
+simu1:ocr_det0               0D       simu1                  ocr_det0
+simu1:ocr_det1               0D       simu1                  ocr_det1
+simu1:ocr_det2               0D       simu1                  ocr_det2
+simu1:ocr_det3               0D       simu1                  ocr_det3
+simu1:realtime_det0          0D       simu1                  realtime_det0
+simu1:realtime_det1          0D       simu1                  realtime_det1
+simu1:realtime_det2          0D       simu1                  realtime_det2
+simu1:realtime_det3          0D       simu1                  realtime_det3
+simu1:spectrum_det0          1D       simu1                  spectrum_det0
+simu1:spectrum_det1          1D       simu1                  spectrum_det1
+simu1:spectrum_det2          1D       simu1                  spectrum_det2
+simu1:spectrum_det3          1D       simu1                  spectrum_det3
+simu1:trigger_livetime_det0  0D       simu1                  trigger_livetime_det0
+simu1:trigger_livetime_det1  0D       simu1                  trigger_livetime_det1
+simu1:trigger_livetime_det2  0D       simu1                  trigger_livetime_det2
+simu1:trigger_livetime_det3  0D       simu1                  trigger_livetime_det3
+simu1:triggers_det0          0D       simu1                  triggers_det0
+simu1:triggers_det1          0D       simu1                  triggers_det1
+simu1:triggers_det2          0D       simu1                  triggers_det2
+simu1:triggers_det3          0D       simu1                  triggers_det3
 """
 EXPECTED_DIODE_ONLY = """
-Fullname                                    Shape    Controller                            Name    Alias
-------------------------------------------  -------  ------------------------------------  ------  -------
-simulation_diode_sampling_controller:diode  0D       simulation_diode_sampling_controller  diode
+Fullname                                    Shape    Controller                            Alias    Name
+------------------------------------------  -------  ------------------------------------  -------  ------
+simulation_diode_sampling_controller:diode  0D       simulation_diode_sampling_controller           diode
+"""
+EXPECTED_DIODE_ALIAS = """
+Fullname                                    Shape    Controller                            Alias    Name
+------------------------------------------  -------  ------------------------------------  -------  ------
+simulation_diode_sampling_controller:alias  0D       simulation_diode_sampling_controller        *  alias
 """
 
 
@@ -64,16 +70,21 @@ def setup_globals():
         setup_globals.__dict__.update(save)
 
 
-def test_lscnt(beacon, setup_globals, capsys):
-    setup_globals.simu1 = beacon.get("simu1")
+def test_lscnt(default_session, setup_globals, capsys):
+    setup_globals.simu1 = default_session.config.get("simu1")
     assert lscnt() is None
     captured = capsys.readouterr()
     assert captured.out == EXPECTED
 
-    diode = beacon.get("diode")
+    diode = default_session.config.get("diode")
     lscnt(diode)
     captured = capsys.readouterr()
     assert captured.out == EXPECTED_DIODE_ONLY
+
+    global_map.aliases.add("alias", "simulation_diode_sampling_controller:diode")
+    lscnt(default_session.env_dict["alias"])
+    captured = capsys.readouterr()
+    assert captured.out == EXPECTED_DIODE_ALIAS
 
 
 def test_bench(beacon, setup_globals, capsys):

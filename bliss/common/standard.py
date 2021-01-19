@@ -290,7 +290,7 @@ def iter_counters(counters=None):
             shape[len(cnt.shape)],
             cnt._counter_controller.name if cnt._counter_controller else prefix,
             short_name,
-            global_map.aliases.get_alias(cnt),
+            getattr(cnt, "original_name", None),
         )
     for fullname, (shape, prefix, name, alias) in counters_dict.items():
         yield CountersList(fullname, shape, prefix, name, alias)

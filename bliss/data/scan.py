@@ -110,15 +110,45 @@ class ScansObserver:
         """
         pass
 
-    def on_data_received(self, dim: str, top_master: str, data: Dict):
+    def on_scalar_data_received(
+        self, scan_info: Dict, top_master: str, data: Dict[str, numpy.ndarray]
+    ):
         """
-        Data processing callback.
+        Called upon a bunch of scalar data (0dim) from a `top_master` was
+        received.
 
         Arguments:
+            scan_info: scan_info of the scan
             dim: One of "0d", "1d", "2d". (for now there is no 3 or 4d data)
             top_master: Name of the top master
-            data: Structure containing the data, which is not the same for 0d
-                  and for others.
+            data: Name of the channels as key, with associated numpy array.
+        """
+        pass
+
+    def on_ndim_data_received(
+        self,
+        scan_info: Dict,
+        channel_name: str,
+        dim: int,
+        top_master: str,
+        index: int,
+        event_data,
+        description: str,
+        data_node,
+    ):
+        """Called upon a ndim (except 0dim) data was received.
+
+        For 0dim data, see `on_scalar_data_received`.
+
+        Arguments:
+            scan_info: scan_info of the scan
+            top_master: Name of the top master
+            channel_name: Name of the channel emitting the data
+            dim: Dimension of this data
+            index: index of the data
+            description: description of the data
+            data_node: Node containing the updated data
+            event_data: Data of the event
         """
         pass
 
@@ -279,13 +309,8 @@ class ScansWatcher:
                                 ] + channels.get("scalars", [])
                                 if fullname in channels_set:
                                     try:
-                                        observer.on_data_received(
-                                            "0d",
-                                            master,
-                                            {
-                                                "data": nodes_data,
-                                                "scan_info": scan_info,
-                                            },
+                                        observer.on_scalar_data_received(
+                                            scan_info, master, nodes_data
                                         )
                                     except Exception:
                                         sys.excepthook(*sys.exc_info())
@@ -301,17 +326,14 @@ class ScansWatcher:
                         other_names += channels.get("master", {}).get("spectra", [])
                         if fullname in other_names:
                             try:
-                                observer.on_data_received(
-                                    f"{dim}d",
-                                    master,
-                                    {
-                                        "index": index,
-                                        "data": data,
-                                        "description": description,
-                                        "channel_name": fullname,
-                                        "channel_data_node": node,
-                                        "scan_info": scan_info,
-                                    },
+                                observer.on_ndim_data_received(
+                                    scan_info=scan_info,
+                                    top_master=master,
+                                    channel_name=fullname,
+                                    data_node=node,
+                                    dim=dim,
+                                    index=index,
+                                    event_data=event_data,
                                 )
                             except Exception:
                                 sys.excepthook(*sys.exc_info())
@@ -374,8 +396,33 @@ def watch_session_scans(
         def on_child_created(self, scan_info: Dict, node):
             scan_new_child_callback(scan_info, node)
 
-        def on_data_received(self, dim: str, top_master: str, data: Dict):
-            scan_data_callback(dim, top_master, data)
+        def on_scalar_data_received(
+            self, scan_info: Dict, top_master: str, data: Dict[str, numpy.ndarray]
+        ):
+            scan_data_callback("0d", top_master, {"data": data, "scan_info": scan_info})
+
+        def on_ndim_data_received(
+            self,
+            scan_info: Dict,
+            top_master: str,
+            channel_name: str,
+            data_node,
+            dim: int,
+            index,
+            event_data,
+        ):
+            scan_data_callback(
+                f"{dim}d",
+                top_master,
+                {
+                    "index": index,
+                    "data": event_data.data,
+                    "description": event_data.description,
+                    "channel_name": channel_name,
+                    "channel_data_node": data_node,
+                    "scan_info": scan_info,
+                },
+            )
 
     observer = Observer()
     watcher.set_observer(observer)

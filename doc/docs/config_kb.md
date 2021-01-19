@@ -27,6 +27,7 @@ These features are implemented as a `KbController` class offering:
 
 ```yaml
 - plugin: bliss
+  package: bliss.controller.kb
   class: KbController
   name: kb
   saving: True               <- Save or not data during slits scans
@@ -35,6 +36,7 @@ These features are implemented as a `KbController` class offering:
     - device: $vfocus
 
 - plugin: bliss
+  package: bliss.controller.kb
   class: KbFocus
   name: hfocus
   offset_motor: $kbho
@@ -45,6 +47,7 @@ These features are implemented as a `KbController` class offering:
   counter: $diagbpm.bpm.x
 
 - plugin: bliss
+  package: bliss.controller.kb
   class: KbFocus
   name: vfocus
   offset_motor: $kbvo
@@ -59,7 +62,7 @@ These features are implemented as a `KbController` class offering:
   class: KbMirrorCalcMotor
   name: kbmirror
   # distance in mm
-  distance: 85          <- distance between the 2 rotatin points in mm
+  distance: 85          <- distance between the 2 rotation points in mm
   axes:
     - name: $kbvrot      <- Main rotation
       tags: real rot

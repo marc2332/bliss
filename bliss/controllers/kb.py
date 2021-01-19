@@ -26,7 +26,7 @@ from bliss.common.utils import BOLD, YELLOW
 
 """
 - plugin: bliss
-  package: kb
+  package: bliss.controller.kb
   class: KbController
   name: kb
   saving: True               <- Save or not data during slits scans
@@ -35,7 +35,7 @@ from bliss.common.utils import BOLD, YELLOW
     - device: $vfocus
 
 - plugin: bliss
-  package: kb
+  package: bliss.controller.kb
   class: KbFocus
   name: hfocus
   offset_motor: $kbho
@@ -46,7 +46,7 @@ from bliss.common.utils import BOLD, YELLOW
   counter: $bpm.bpm.x
 
 - plugin: bliss
-  package: kb
+  package: bliss.controller.kb
   class: KbFocus
   name: vfocus
   offset_motor: $kbvo

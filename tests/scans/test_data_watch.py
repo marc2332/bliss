@@ -15,10 +15,11 @@ from bliss.scanning.toolbox import ChainBuilder
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
+from bliss.scanning.acquisition.mca import McaAcquisitionSlave
+from bliss.scanning.acquisition.motor import LinearStepTriggerMaster
 from bliss.scanning.scan import Scan
 from bliss.data.scan import watch_session_scans
 from bliss.scanning.chain import AcquisitionChain
-from bliss.shell.standard import info
 from bliss.common import scans
 from bliss.scanning.group import Sequence
 
@@ -107,6 +108,52 @@ def test_simple_continuous_scan_with_session_watcher(session, scan_saving):
     assert numpy.allclose(vars["scan_data_m1"], master._positions, atol=1e-1)
     assert pytest.approx(m1.position) == end_pos
     assert len(end_scan_args)
+
+
+def test_mca_with_watcher(session):
+    m0 = session.config.get("roby")
+    # Get mca
+    simu = session.config.get("simu1")
+    mca_device = McaAcquisitionSlave(*simu.counters, npoints=3, preset_time=0.1)
+    # Create chain
+    chain = AcquisitionChain()
+    chain.add(LinearStepTriggerMaster(3, m0, 0, 1), mca_device)
+    # Run scan
+    scan = Scan(chain, "mca_test", save=False)
+
+    new_scan_args = []
+    new_child_args = []
+    new_data_args = []
+    end_scan_args = []
+    end_scan_event = gevent.event.Event()
+
+    def end(*args):
+        end_scan_event.set()
+        end_scan_args.append(args)
+
+    watcher_ready_event = gevent.event.Event()
+
+    session_watcher = gevent.spawn(
+        watch_session_scans,
+        session.name,
+        lambda *args: new_scan_args.append(args),
+        lambda *args: new_child_args.append(args),
+        lambda *args: new_data_args.append(args),
+        end,
+        ready_event=watcher_ready_event,
+        exclude_existing_scans=False,
+    )
+
+    try:
+        assert watcher_ready_event.wait(3)
+        scan.run()
+        assert end_scan_event.wait(3)
+    finally:
+        session_watcher.kill()
+
+    assert len(new_data_args) >= 1  # At least 1 event have to be received
+    assert len(new_scan_args) == 1
+    assert len(end_scan_args) == 1
 
 
 def test_limatake_with_watcher(session, lima_simulator):

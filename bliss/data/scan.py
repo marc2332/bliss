@@ -297,49 +297,53 @@ class ScansWatcher:
                     nodes_data = self._running_scans[scan_db_name].setdefault(
                         "nodes_data", dict()
                     )
+
                     if node.type == "channel":
                         shape = description.get("shape")
                         dim = len(shape)
-                        # in case of zerod, we keep all data value during the scan
-                        if dim == 0:
-                            prev_data = nodes_data.get(fullname, [])
-                            nodes_data[fullname] = numpy.concatenate((prev_data, data))
-                            for master, channels in scan_info[
-                                "acquisition_chain"
-                            ].items():
-                                channels_set = channels["master"][
-                                    "scalars"
-                                ] + channels.get("scalars", [])
-                                if fullname in channels_set:
-                                    try:
-                                        observer.on_scalar_data_received(
-                                            scan_db_name, master, nodes_data
-                                        )
-                                    except Exception:
-                                        sys.excepthook(*sys.exc_info())
-                            continue
-                    elif node.type == "lima":
-                        dim = 2
+                        is_scalar = dim == 0
+                    else:
+                        is_scalar = False
 
-                    for master, channels in scan_info["acquisition_chain"].items():
-                        other_names: typing.List[str] = []
-                        other_names += channels.get("spectra", [])
-                        other_names += channels.get("images", [])
-                        other_names += channels.get("master", {}).get("images", [])
-                        other_names += channels.get("master", {}).get("spectra", [])
-                        if fullname in other_names:
-                            try:
-                                observer.on_ndim_data_received(
-                                    scan_db_name=scan_db_name,
-                                    top_master=master,
-                                    channel_name=fullname,
-                                    data_node=node,
-                                    dim=dim,
-                                    index=index,
-                                    event_data=event_data,
-                                )
-                            except Exception:
-                                sys.excepthook(*sys.exc_info())
+                    if is_scalar:
+                        # in case of zerod, we keep all data value during the scan
+                        prev_data = nodes_data.get(fullname, [])
+                        nodes_data[fullname] = numpy.concatenate((prev_data, data))
+                        for master, channels in scan_info["acquisition_chain"].items():
+                            channels_set = channels["master"]["scalars"] + channels.get(
+                                "scalars", []
+                            )
+                            if fullname in channels_set:
+                                try:
+                                    observer.on_scalar_data_received(
+                                        scan_db_name, master, nodes_data
+                                    )
+                                except Exception:
+                                    sys.excepthook(*sys.exc_info())
+                    else:
+                        if node.type == "lima":
+                            dim = 2
+
+                        for master, channels in scan_info["acquisition_chain"].items():
+                            # TODO: This have to be cached
+                            other_names: typing.List[str] = []
+                            other_names += channels.get("spectra", [])
+                            other_names += channels.get("images", [])
+                            other_names += channels.get("master", {}).get("images", [])
+                            other_names += channels.get("master", {}).get("spectra", [])
+                            if fullname in other_names:
+                                try:
+                                    observer.on_ndim_data_received(
+                                        scan_db_name=scan_db_name,
+                                        top_master=master,
+                                        channel_name=fullname,
+                                        data_node=node,
+                                        dim=dim,
+                                        index=index,
+                                        event_data=event_data,
+                                    )
+                                except Exception:
+                                    sys.excepthook(*sys.exc_info())
 
             elif event_type == event_type.END_SCAN:
                 node_type = node.type

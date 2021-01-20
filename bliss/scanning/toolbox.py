@@ -15,7 +15,7 @@ from bliss.common.measurementgroup import (
     _get_counters_from_object,
 )
 from bliss.common.counter import CalcCounter, Counter
-from bliss.controllers.counter import CalcCounterController
+from bliss.controllers.counter import CounterController, CalcCounterController
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 
@@ -283,11 +283,21 @@ class DefaultAcquisitionChain:
             acq_settings = device_settings.get("acquisition_settings", {})
             master = device_settings.get("master")
 
+            if master is not None:
+                if not isinstance(master, CounterController):
+                    msg = "default_chain config: master object must be a CounterController,"
+                    msg += f" instead received '{master.name}' of type {type(master)} !"
+                    raise ValueError(msg)
+
             device = device_settings["device"]
             if isinstance(device, Counter):
                 controller = device._counter_controller
-            else:
+            elif isinstance(device, CounterController):
                 controller = device
+            else:
+                msg = "default_chain config: device object must be a CounterController or a Counter,"
+                msg += f" instead received '{device.name}' of type {type(device)} !"
+                raise ValueError(msg)
 
             default_settings[controller] = {
                 "acquisition_settings": acq_settings,

@@ -1056,7 +1056,12 @@ def timescan(
 
     _log.info("Doing %s", scan_type)
 
-    scan_params = {"npoints": npoints, "count_time": count_time, "type": scan_type}
+    scan_params = {
+        "npoints": npoints,
+        "count_time": count_time,
+        "type": scan_type,
+        "sleep_time": sleep_time,
+    }
     chain = DEFAULT_CHAIN.get(scan_params, counter_args)
 
     scan = Scan(

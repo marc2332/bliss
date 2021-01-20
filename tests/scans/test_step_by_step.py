@@ -7,6 +7,7 @@
 
 import os
 import pytest
+import time
 import numpy
 import gevent
 from bliss.common import scans, event
@@ -28,6 +29,16 @@ def test_ascan(session):
     assert s.scan_info["title"].startswith("ascan robz2 0 0.1235 ")
     scan_data = s.get_data()
     assert numpy.array_equal(scan_data["sim_ct_gauss"], simul_counter.data)
+
+
+def test_loopscan_sleep_time(session):
+    simul_counter = session.env_dict["sim_ct_gauss"]
+
+    t0 = time.time()
+    scans.loopscan(2, 0.2, simul_counter, sleep_time=1, save=False)
+    duration = time.time() - t0
+
+    assert abs(1.4 - duration) < 0.3
 
 
 def test_ascan_gauss2(session):

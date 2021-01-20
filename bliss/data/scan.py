@@ -91,34 +91,36 @@ class ScansObserver:
     scans of a session.
     """
 
-    def on_scan_started(self, scan_info: Dict):
+    def on_scan_started(self, scan_db_name: str, scan_info: Dict):
         """
         Called upon scan start.
 
         Arguments:
+            scan_db_name: Identifier of the scan
             scan_info: Dictionary containing scan metadata
         """
         pass
 
-    def on_child_created(self, scan_info: Dict, node):
+    def on_child_created(self, scan_db_name: str, scan_info: Dict, node):
         """
         Called upon scan child creation (e.g. channel node)
 
         Arguments:
+            scan_db_name: Identifier of the parent scan
             scan_info: Dictionary containing metadata of this child
             node: Redis node of this child
         """
         pass
 
     def on_scalar_data_received(
-        self, scan_info: Dict, top_master: str, data: Dict[str, numpy.ndarray]
+        self, scan_db_name: str, top_master: str, data: Dict[str, numpy.ndarray]
     ):
         """
         Called upon a bunch of scalar data (0dim) from a `top_master` was
         received.
 
         Arguments:
-            scan_info: scan_info of the scan
+            scan_db_name: Identifier of the parent scan
             dim: One of "0d", "1d", "2d". (for now there is no 3 or 4d data)
             top_master: Name of the top master
             data: Name of the channels as key, with associated numpy array.
@@ -127,7 +129,7 @@ class ScansObserver:
 
     def on_ndim_data_received(
         self,
-        scan_info: Dict,
+        scan_db_name: str,
         channel_name: str,
         dim: int,
         top_master: str,
@@ -141,7 +143,7 @@ class ScansObserver:
         For 0dim data, see `on_scalar_data_received`.
 
         Arguments:
-            scan_info: scan_info of the scan
+            scan_db_name: Identifier of the parent scan
             top_master: Name of the top master
             channel_name: Name of the channel emitting the data
             dim: Dimension of this data
@@ -152,11 +154,12 @@ class ScansObserver:
         """
         pass
 
-    def on_scan_finished(self, scna_info: Dict):
+    def on_scan_finished(self, scan_db_name: str, scna_info: Dict):
         """
         Called upon scan end.
 
         Arguments:
+            scan_db_name: Identifier of the parent scan
             scan_info: Dictionary containing scan metadata. It can be different
                        from the one at start.
         """
@@ -258,7 +261,7 @@ class ScansWatcher:
                     if not scan_dictionnary:
                         scan_info = node.info.get_all()
                         scan_dictionnary["info"] = scan_info
-                        observer.on_scan_started(scan_info)
+                        observer.on_scan_started(db_name, scan_info)
                 elif node_type == "scan_group":
                     if self._watch_scan_group:
                         # New scan was created
@@ -268,12 +271,12 @@ class ScansWatcher:
                         if not scan_dictionnary:
                             scan_info = node.info.get_all()
                             scan_dictionnary["info"] = scan_info
-                            observer.on_scan_started(scan_info)
+                            observer.on_scan_started(db_name, scan_info)
                 else:
                     scan_info, scan_db_name = _get_scan_info(db_name)
                     if scan_info:  # scan_found
                         try:
-                            observer.on_child_created(scan_info, node)
+                            observer.on_child_created(scan_db_name, scan_info, node)
                         except Exception:
                             sys.excepthook(*sys.exc_info())
             elif event_type == event_type.NEW_DATA:
@@ -310,7 +313,7 @@ class ScansWatcher:
                                 if fullname in channels_set:
                                     try:
                                         observer.on_scalar_data_received(
-                                            scan_info, master, nodes_data
+                                            scan_db_name, master, nodes_data
                                         )
                                     except Exception:
                                         sys.excepthook(*sys.exc_info())
@@ -327,7 +330,7 @@ class ScansWatcher:
                         if fullname in other_names:
                             try:
                                 observer.on_ndim_data_received(
-                                    scan_info=scan_info,
+                                    scan_db_name=scan_db_name,
                                     top_master=master,
                                     channel_name=fullname,
                                     data_node=node,
@@ -346,7 +349,7 @@ class ScansWatcher:
                     if scan_dict:
                         scan_info = node.info.get_all()
                         try:
-                            observer.on_scan_finished(scan_info)
+                            observer.on_scan_finished(db_name, scan_info)
                         except Exception:
                             sys.excepthook(*sys.exc_info())
 
@@ -386,24 +389,36 @@ def watch_session_scans(
     watcher.set_watch_scan_group(watch_scan_group)
 
     class Observer(ScansObserver):
-        def on_scan_started(self, scan_info: Dict):
+        def __init__(self):
+            self._running_scans: Dict[str, Dict] = {}
+
+        def _get_scan_info(self, scan_db_name) -> Dict:
+            return self._running_scans.get(scan_db_name)
+
+        def on_scan_started(self, scan_db_name: str, scan_info: Dict):
+            self._running_scans[scan_db_name] = scan_info
             scan_new_callback(scan_info)
 
-        def on_scan_finished(self, scna_info: Dict):
+        def on_scan_finished(self, scan_db_name: str, scna_info: Dict):
+            self._running_scans.pop(scan_db_name)
             if scan_end_callback is not None:
                 scan_end_callback(scna_info)
 
-        def on_child_created(self, scan_info: Dict, node):
+        def on_child_created(self, scan_db_name: str, scan_info: Dict, node):
             scan_new_child_callback(scan_info, node)
 
         def on_scalar_data_received(
-            self, scan_info: Dict, top_master: str, data: Dict[str, numpy.ndarray]
+            self, scan_db_name: str, top_master: str, data: Dict[str, numpy.ndarray]
         ):
+            scan_info = self._get_scan_info(scan_db_name)
+            if scan_info is None:
+                # Scan not part of the listened scans
+                return
             scan_data_callback("0d", top_master, {"data": data, "scan_info": scan_info})
 
         def on_ndim_data_received(
             self,
-            scan_info: Dict,
+            scan_db_name: str,
             top_master: str,
             channel_name: str,
             data_node,
@@ -411,6 +426,10 @@ def watch_session_scans(
             index,
             event_data,
         ):
+            scan_info = self._get_scan_info(scan_db_name)
+            if scan_info is None:
+                # Scan not part of the listened scans
+                return
             scan_data_callback(
                 f"{dim}d",
                 top_master,

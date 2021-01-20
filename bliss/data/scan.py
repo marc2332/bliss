@@ -113,7 +113,7 @@ class ScansObserver:
         pass
 
     def on_scalar_data_received(
-        self, scan_db_name: str, top_master: str, data: Dict[str, numpy.ndarray]
+        self, scan_db_name: str, channel_name: str, data: Dict[str, numpy.ndarray]
     ):
         """
         Called upon a bunch of scalar data (0dim) from a `top_master` was
@@ -121,8 +121,7 @@ class ScansObserver:
 
         Arguments:
             scan_db_name: Identifier of the parent scan
-            dim: One of "0d", "1d", "2d". (for now there is no 3 or 4d data)
-            top_master: Name of the top master
+            channel_name: Name of the updated channel
             data: Name of the channels as key, with associated numpy array.
         """
         pass
@@ -132,7 +131,6 @@ class ScansObserver:
         scan_db_name: str,
         channel_name: str,
         dim: int,
-        top_master: str,
         index: int,
         event_data,
         description: str,
@@ -144,7 +142,6 @@ class ScansObserver:
 
         Arguments:
             scan_db_name: Identifier of the parent scan
-            top_master: Name of the top master
             channel_name: Name of the channel emitting the data
             dim: Dimension of this data
             index: index of the data
@@ -309,41 +306,26 @@ class ScansWatcher:
                         # in case of zerod, we keep all data value during the scan
                         prev_data = nodes_data.get(fullname, [])
                         nodes_data[fullname] = numpy.concatenate((prev_data, data))
-                        for master, channels in scan_info["acquisition_chain"].items():
-                            channels_set = channels["master"]["scalars"] + channels.get(
-                                "scalars", []
+                        try:
+                            observer.on_scalar_data_received(
+                                scan_db_name, fullname, nodes_data
                             )
-                            if fullname in channels_set:
-                                try:
-                                    observer.on_scalar_data_received(
-                                        scan_db_name, master, nodes_data
-                                    )
-                                except Exception:
-                                    sys.excepthook(*sys.exc_info())
+                        except Exception:
+                            sys.excepthook(*sys.exc_info())
                     else:
                         if node.type == "lima":
                             dim = 2
-
-                        for master, channels in scan_info["acquisition_chain"].items():
-                            # TODO: This have to be cached
-                            other_names: typing.List[str] = []
-                            other_names += channels.get("spectra", [])
-                            other_names += channels.get("images", [])
-                            other_names += channels.get("master", {}).get("images", [])
-                            other_names += channels.get("master", {}).get("spectra", [])
-                            if fullname in other_names:
-                                try:
-                                    observer.on_ndim_data_received(
-                                        scan_db_name=scan_db_name,
-                                        top_master=master,
-                                        channel_name=fullname,
-                                        data_node=node,
-                                        dim=dim,
-                                        index=index,
-                                        event_data=event_data,
-                                    )
-                                except Exception:
-                                    sys.excepthook(*sys.exc_info())
+                        try:
+                            observer.on_ndim_data_received(
+                                scan_db_name=scan_db_name,
+                                channel_name=fullname,
+                                data_node=node,
+                                dim=dim,
+                                index=index,
+                                event_data=event_data,
+                            )
+                        except Exception:
+                            sys.excepthook(*sys.exc_info())
 
             elif event_type == event_type.END_SCAN:
                 node_type = node.type
@@ -393,14 +375,34 @@ def watch_session_scans(
     watcher.set_watch_scan_group(watch_scan_group)
 
     class Observer(ScansObserver):
+        class _ScanDescription(typing.NamedTuple):
+            scan_info: Dict
+            """Scan_info of the scan"""
+            channels_to_master: Dict[str, str]
+            """Describe the master for each channels"""
+
         def __init__(self):
             self._running_scans: Dict[str, Dict] = {}
 
-        def _get_scan_info(self, scan_db_name) -> Dict:
+        def _get_scan_description(self, scan_db_name) -> _ScanDescription:
             return self._running_scans.get(scan_db_name)
 
         def on_scan_started(self, scan_db_name: str, scan_info: Dict):
-            self._running_scans[scan_db_name] = scan_info
+            # Pre-compute mapping from each channels to its master
+            masters = {}
+            for master, channels in scan_info["acquisition_chain"].items():
+                channel_names = []
+                channel_names += channels.get("scalars", [])
+                channel_names += channels.get("master", []).get("scalars", [])
+                channel_names += channels.get("spectra", [])
+                channel_names += channels.get("master", {}).get("spectra", [])
+                channel_names += channels.get("images", [])
+                channel_names += channels.get("master", {}).get("images", [])
+                for c in channel_names:
+                    masters[c] = master
+            self._running_scans[scan_db_name] = self._ScanDescription(
+                scan_info, masters
+            )
             scan_new_callback(scan_info)
 
         def on_scan_finished(self, scan_db_name: str, scna_info: Dict):
@@ -412,28 +414,31 @@ def watch_session_scans(
             scan_new_child_callback(scan_info, node)
 
         def on_scalar_data_received(
-            self, scan_db_name: str, top_master: str, data: Dict[str, numpy.ndarray]
+            self, scan_db_name: str, channel_name: str, data: Dict[str, numpy.ndarray]
         ):
-            scan_info = self._get_scan_info(scan_db_name)
-            if scan_info is None:
+            scan_desciption = self._get_scan_description(scan_db_name)
+            if scan_desciption is None:
                 # Scan not part of the listened scans
                 return
-            scan_data_callback("0d", top_master, {"data": data, "scan_info": scan_info})
+            top_master = scan_desciption.channels_to_master[channel_name]
+            scan_data_callback(
+                "0d", top_master, {"data": data, "scan_info": scan_desciption.scan_info}
+            )
 
         def on_ndim_data_received(
             self,
             scan_db_name: str,
-            top_master: str,
             channel_name: str,
             data_node,
             dim: int,
             index,
             event_data,
         ):
-            scan_info = self._get_scan_info(scan_db_name)
-            if scan_info is None:
+            scan_desciption = self._get_scan_description(scan_db_name)
+            if scan_desciption is None:
                 # Scan not part of the listened scans
                 return
+            top_master = scan_desciption.channels_to_master[channel_name]
             scan_data_callback(
                 f"{dim}d",
                 top_master,
@@ -443,7 +448,7 @@ def watch_session_scans(
                     "description": event_data.description,
                     "channel_name": channel_name,
                     "channel_data_node": data_node,
-                    "scan_info": scan_info,
+                    "scan_info": scan_desciption.scan_info,
                 },
             )
 

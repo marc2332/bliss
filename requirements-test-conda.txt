@@ -7,7 +7,7 @@ lima-core >= 1.9.6
 lima-camera-simulator >= 1.9.2
 lima-camera-simulator-tango >= 1.9.2
 lima-tango-server > 1.9.6
-opencv
+# opencv
 py
 pytest == 5.3.5
 pytest-cov

@@ -105,6 +105,7 @@ def test_decode_video_yuv422packed():
     assert image[3, 0].tolist() == pytest.approx([0, 0, 0], abs=20)
 
 
+@pytest.mark.skipif(not cv2, reason="OpenCV not available")
 def test_decode_video_rgb24():
     frame = lima_image.decode_devencoded_video(("VIDEO_IMAGE", RAW_RGB24_VIDEO))
     image = frame[0]
@@ -116,6 +117,7 @@ def test_decode_video_rgb24():
     assert image[1, 1].tolist() == pytest.approx([0, 0, 0], abs=20)
 
 
+@pytest.mark.skipif(not cv2, reason="OpenCV not available")
 def test_decode_video_rgb32():
     frame = lima_image.decode_devencoded_video(("VIDEO_IMAGE", RAW_RGB32_VIDEO))
     image = frame[0]
@@ -127,6 +129,7 @@ def test_decode_video_rgb32():
     assert image[1, 1].tolist() == pytest.approx([0, 0, 0, 255], abs=20)
 
 
+@pytest.mark.skipif(not cv2, reason="OpenCV not available")
 def test_decode_bayer_rg16():
     frame = lima_image.decode_devencoded_video(("VIDEO_IMAGE", RAW_BAYER_RG16))
     image = frame[0]

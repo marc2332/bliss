@@ -478,13 +478,11 @@ def anscan(
             raise ValueError(f"Duplicated axis {mot.name}")
         scan_axes.add(mot)
         d = mot._set_position if scan_type == "dscan" else 0
-        start = m_tup[1]
-        stop = m_tup[2]
+        start = m_tup[1] + d
+        stop = m_tup[2] + d
         title_list.extend(
             (mot.name, rounder(mot.tolerance, start), rounder(mot.tolerance, stop))
         )
-        start = m_tup[1] + d
-        stop = m_tup[2] + d
         motors_positions.append((mot, numpy.linspace(start, stop, npoints)))
         starts_list.append(start)
         stops_list.append(stop)
@@ -516,7 +514,7 @@ def anscan(
         name = scan_type
 
     if not title:
-        args = [scan_type]
+        args = [scan_type.replace("d", "a")]
         args += title_list
         args += [intervals, count_time]
         template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])

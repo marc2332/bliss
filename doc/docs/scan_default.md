@@ -104,9 +104,13 @@ before the scan begins, the scan will run from `X+rel_start` to `X+rel_stop`.
 The step size is: `(<rel_stop>-<rel_start>)/<intervals>`. The number of points
 will be `<intervals>+1`. Count time is given by `<count_time>` (in seconds).
 
-At the end of a `dscan` (even in case of error or scan abortion, on a `ctrl-c`
-for example) the motor will return to its initial position.
+!!!note
+    At the end of a `dscan` (even in case of error or scan abortion, on a `ctrl-c`
+    for example) the motor will return to its initial position.
 
+!!!note
+    A `dscan` will be rewriten in hdf5 file as an `ascan`: relative positions
+    will be replaced by absolute ones.
 
 ## a2scan
 ```python

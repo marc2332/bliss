@@ -73,7 +73,9 @@ def test_dscan(session):
     # test for issues #1080
     # use tolerance to get axis precision
     assert pytest.approx(robz2.tolerance) == 1e-4
-    assert s.scan_info["title"].startswith("dscan robz2 -0.2 0.2")
+    assert s.scan_info["title"].startswith(
+        f"ascan robz2 {start_pos - 0.2:.4f} {start_pos + 0.2:.4f}"
+    )
     #
     assert robz2.position == start_pos
     scan_data = s.get_data()
@@ -109,7 +111,7 @@ def test_d2scan(session):
     # test for issues #1080
     # use tolerance to get axis precision
     assert pytest.approx(robz2.tolerance) == 1e-4
-    assert s.scan_info["title"].startswith("d2scan robz2 -0.2 0.2")
+    assert s.scan_info["title"].startswith("a2scan robz2 -1.2 -0.8")
     #
     assert robz2.position == start_pos
     scan_data = s.get_data()

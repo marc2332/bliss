@@ -47,6 +47,7 @@ from bliss.shell.cli.typing_helper import TypingHelper
 from bliss.shell.cli.ptpython_statusbar_patch import NEWstatus_bar, TMUXstatus_bar
 
 from bliss.common.utils import ShellStr
+from bliss.common import constants
 from bliss import release, current_session
 from bliss.config import static
 from bliss.shell.standard import info
@@ -716,7 +717,7 @@ def cli(
     user_ns["protect"] = protected_user_ns.protect
     user_ns["unprotect"] = protected_user_ns.unprotect
 
-    if session_name and not session_name.startswith("__DEFAULT__"):
+    if session_name and not session_name.startswith(constants.DEFAULT_SESSION_NAME):
         try:
             session = initialize(session_name, session_env=user_ns)
         except RuntimeError as e:
@@ -727,7 +728,7 @@ def cli(
     else:
         session = initialize(session_name=None, session_env=user_ns)
 
-    if session.name != "__DEFAULT__":
+    if session.name != constants.DEFAULT_SESSION_NAME:
         protected_user_ns.protect(session.object_names)
         # protect Aliases if they exist
         if "ALIASES" in protected_user_ns:
@@ -755,7 +756,7 @@ def cli(
     def get_globals():
         return protected_user_ns
 
-    if session_name and not session_name.startswith("__DEFAULT__"):
+    if session_name and not session_name.startswith(constants.DEFAULT_SESSION_NAME):
         session_id = session_name
         session_title = "Bliss shell ({0})".format(session_name)
         prompt_label = session_name.upper()

@@ -44,6 +44,7 @@ from bliss.config import get_sessions_list
 from bliss.config import static
 from bliss.config.static import ConfigNode
 from bliss.config.conductor import client
+from bliss.common import constants
 from bliss import logging_startup
 from bliss import current_session, global_map
 
@@ -252,9 +253,7 @@ def main():
     else:
 
         if session_name is None:
-            session = (
-                "__DEFAULT__"
-            )  # see __DEFAULT__ in bliss.shell.cli.repl => def cli()
+            session = constants.DEFAULT_SESSION_NAME
         else:
             session = session_name
 

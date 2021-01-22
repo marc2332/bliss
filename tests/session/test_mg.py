@@ -478,12 +478,12 @@ def test_bad_controller(test_mg):
 
     # try to enable non-existent controller
     with pytest.raises(ValueError):
-        test_mg.enable("bad_controller")
+        test_mg.enable("non_existing_controller")
 
     # try to disable non-existent counters
     with pytest.raises(ValueError):
         # explicitely test with a pattern
-        test_mg.disable("bad_con*")
+        test_mg.disable("non_existing*")
 
 
 def test_mg_with_encoder(default_session):
@@ -590,3 +590,22 @@ def test_unresponsive_lima_dev_counters_iter(default_session, caplog, log_contex
         list(global_map.get_counters_iter())
 
     assert "Could not retrieve counters" in caplog.text
+
+
+@pytest.fixture
+def test_mg_mca(default_session):
+    simu1 = default_session.config.get("simu1")
+
+    mg = measurementgroup.MeasurementGroup("local", {"counters": ["simu1"]})
+
+    return mg
+
+
+def test_issue_2491(default_session, test_mg_mca):
+    simu1 = default_session.config.get("simu1")
+
+    test_mg_mca.disable_all()
+
+    test_mg_mca.enable("simu1")
+
+    assert set(test_mg_mca.enabled) == set(cnt.fullname for cnt in simu1.counters)

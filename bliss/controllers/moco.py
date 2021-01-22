@@ -69,6 +69,8 @@ class Moco(CounterContainer):
 
     @protect_from_kill
     def comm(self, msg, timeout=None, text=True):
+        if msg == "ECHO":
+            raise ValueError("MOCO: ECHO mode is not supported")
         self._cnx.open()
         echo = False
         ret = None

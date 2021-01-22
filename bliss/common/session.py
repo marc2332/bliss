@@ -25,6 +25,7 @@ from bliss.config.conductor.client import get_text_file, get_python_modules, get
 from bliss.common.proxy import Proxy
 from bliss.common.logtools import log_warning
 from bliss.common.utils import UserNamespace
+from bliss.common import constants
 from bliss.scanning import scan_saving
 from bliss.scanning import scan_display
 
@@ -841,7 +842,7 @@ class DefaultSession(Session):
     """
 
     def __init__(self):
-        Session.__init__(self, "__DEFAULT__", {"config-objects": []})
+        Session.__init__(self, constants.DEFAULT_SESSION_NAME, {"config-objects": []})
 
     def _set_scan_saving(self, cls=None):
         if cls is not None:

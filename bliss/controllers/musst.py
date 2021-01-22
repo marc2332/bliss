@@ -15,6 +15,7 @@ import gevent
 
 from bliss import global_map
 from bliss.comm import get_comm
+from bliss.common.protocols import CounterContainer
 from bliss.common.utils import autocomplete_property
 from bliss.common.greenlet_utils import KillMask, protect_from_kill
 from bliss.config.channels import Cache
@@ -108,7 +109,7 @@ class MusstIntegratingCounterController(CounterController):
         return {"count_time": acq_params.get("count_time", scan_params["count_time"])}
 
 
-class musst:
+class musst(CounterContainer):
     class channel(object):
         COUNTER, ENCODER, SSI, ADC10, ADC5, SWITCH = list(range(6))
 

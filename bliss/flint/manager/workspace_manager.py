@@ -551,18 +551,15 @@ class WorkspaceManager(qt.QObject):
         window = flintModel.liveWindow()
         scan = flintModel.currentScan()
 
-        sessionName = flintModel.blissSessionName()
-
         if data is None:
-            if sessionName is not None:
-                try:
-                    settings = self.__getSettings()
-                    data = settings.get(newWorkspace.name(), None)
-                except Exception:
-                    _logger.error(
-                        "Problem to load workspace data. Information will be lost.",
-                        exc_info=True,
-                    )
+            try:
+                settings = self.__getSettings()
+                data = settings.get(newWorkspace.name(), None)
+            except Exception:
+                _logger.error(
+                    "Problem to load workspace data. Information will be lost.",
+                    exc_info=True,
+                )
 
         if data is not None and not isinstance(data, WorkspaceData):
             _logger.error(
@@ -607,6 +604,7 @@ class WorkspaceManager(qt.QObject):
         for widget in newWorkspace.widgets():
             widget.setVisible(True)
 
+        sessionName = flintModel.blissSessionName()
         if sessionName is not None:
             self.__saveCurrentWorkspaceName(newWorkspace.name())
 

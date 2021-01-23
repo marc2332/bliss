@@ -414,6 +414,8 @@ class WorkspaceManager(qt.QObject):
     def __getLastWorkspaceName(self):
         settings = self.__getSessionSettings()
         name = settings.get("@lastname", self.DEFAULT)
+        if name == "":
+            raise ValueError("lastname not set")
         return name
 
     def loadLastWorkspace(self):

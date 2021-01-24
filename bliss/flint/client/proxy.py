@@ -220,8 +220,11 @@ class FlintClient:
         if poll_patch is not None:
             poll_patch.set_ld_preload(env)
 
+        session_name = current_session.name
         scan_display = ScanDisplay()
+
         args = [sys.executable, "-m", "bliss.flint"]
+        args.extend(["-s", session_name])
         args.extend(scan_display.extra_args)
         process = subprocess.Popen(
             args,

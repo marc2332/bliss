@@ -167,11 +167,6 @@ class ManageMainBehaviours(qt.QObject):
         redis = get_redis_proxy()
         flintModel = self.flintModel()
         flintModel.setRedisConnection(redis)
-        try:
-            # NOTE: Here the session can not yet be defined
-            self.workspaceManager().loadLastWorkspace()
-        except Exception:
-            _logger.error("Error while loading the workspace", exc_info=True)
 
     def createBeaconLogServer(self, sessionName):
         rootLogger = logging.getLogger()

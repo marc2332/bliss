@@ -301,10 +301,9 @@ class ManageMainBehaviours(qt.QObject):
         else:
             workspaceName = None
 
-        title = ""
-        if workspaceName is not None:
-            title += f"({workspaceName}) "
-        title += "Live scan"
+        title = "Live scan"
+        if workspaceName != "" and workspaceName is not None:
+            title += f" [{workspaceName}]"
 
         tabWidget.setTabText(liveScanIndex, title)
 

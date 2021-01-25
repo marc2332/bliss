@@ -118,6 +118,7 @@ class Lima(CounterController):
         self.__last = None
         self._config_node = config_node
         self._camera = None
+        self._disable_bpm = config_node.get("disable_bpm", False)
         self._image = None
         self._shutter = None
         self._acquisition = None
@@ -140,6 +141,10 @@ class Lima(CounterController):
         global_map.register(
             self, parents_list=["lima", "controllers"], children_list=[self._proxy]
         )
+
+    @property
+    def disable_bpm(self):
+        return self._disable_bpm
 
     def set_bliss_device_name(self):
         if hasattr(self.proxy, "lima_version"):
@@ -713,12 +718,12 @@ class Lima(CounterController):
     @autocomplete_property
     def counters(self):
         counter_groups = self.counter_groups
-        return counter_namespace(
-            list(self.counter_groups.images)
-            + list(self.counter_groups.bpm)
-            + list(self.counter_groups.roi_counters)
-            + list(self.counter_groups.roi_profiles)
-        )
+        counters = list(self.counter_groups.images)
+        if not self.disable_bpm:
+            counters += list(self.counter_groups.bpm)
+        counters += list(self.counter_groups.roi_counters)
+        counters += list(self.counter_groups.roi_profiles)
+        return counter_namespace(counters)
 
     @autocomplete_property
     def counter_groups(self):
@@ -731,10 +736,11 @@ class Lima(CounterController):
             dct["images"] = counter_namespace([])
 
         # BPM counters
-        try:
-            dct["bpm"] = counter_namespace(self.bpm.counters)
-        except (RuntimeError, DevFailed):
-            dct["bpm"] = counter_namespace([])
+        if not self.disable_bpm:
+            try:
+                dct["bpm"] = counter_namespace(self.bpm.counters)
+            except (RuntimeError, DevFailed):
+                dct["bpm"] = counter_namespace([])
 
         # All ROI counters ( => cnt = cam.counter_groups['roi_counters']['r1_sum'], i.e all counters of all rois)
         try:

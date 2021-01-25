@@ -98,3 +98,9 @@ class Bpm(IntegratingCounterController):
         cnts = [f"{cnt.name}" for cnt in self.counters]
         info += ", ".join(cnts)
         return info
+
+    def start(self):
+        self._proxy.start()
+
+    def stop(self):
+        self._proxy.stop()

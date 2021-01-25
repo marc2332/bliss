@@ -265,6 +265,12 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         if self.__sequence_index > 0 and self.prepare_once:
             return
 
+        # ensure bpm is stopped (see issue #1685)
+        # it is important to stop it in prepare, and to have it
+        # started if needed in "start" since prepare is executed
+        # before start
+        self.device.bpm.stop()
+
         if self._image_channel:
             self._image_channel.description.update(
                 {"acq_trigger_mode": self.acq_params["acq_trigger_mode"]}
@@ -525,12 +531,13 @@ class BpmAcquisitionSlave(IntegratingCounterAcquisitionSlave):
         # data_synchronisation = scan_params.get("data_synchronisation", False)
         # if data_synchronisation:
         #     prepare_once = start_once = False
-
-        self.device._proxy.Start()
+        pass
 
     def start_device(self):
-        self.device._proxy.Start()
+        # it is important to start bpm in "start" and not in "prepare",
+        # since camera prepare is stopping it to avoid problems like
+        # issue #1685
+        self.device.start()
 
     def stop_device(self):
-        # self.device._proxy.Stop() # temporary fix, see issue 1707
         pass

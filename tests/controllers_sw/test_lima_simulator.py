@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import os
+import time
 import types
 import pytest
 import gevent
@@ -47,17 +48,76 @@ def test_lima_simulator(beacon, lima_simulator):
     assert simulator.camera.test == "test"
 
 
-def test_lima_sim_bpm(beacon, default_session, lima_simulator):
-    simulator = beacon.get("lima_simulator")
+def patched_simulator(simulator, monkeypatch):
+    simulator.bpm.start_time = 0
+    simulator.bpm.stop_time = 0
+    orig_bpm_start = simulator.bpm.start
+    orig_bpm_stop = simulator.bpm.stop
 
+    def patched_bpm_start(self):
+        self.start_time = time.time()
+        return orig_bpm_start()
+
+    def patched_bpm_stop(self):
+        self.stop_time = time.time()
+        return orig_bpm_stop()
+
+    monkeypatch.setattr(
+        simulator.bpm, "start", types.MethodType(patched_bpm_start, simulator.bpm)
+    )
+    monkeypatch.setattr(
+        simulator.bpm, "stop", types.MethodType(patched_bpm_stop, simulator.bpm)
+    )
+
+    return simulator
+
+
+@pytest.fixture
+def lima_sim_with_bpm_start_stop_time(beacon, lima_simulator, monkeypatch):
+    simulator = beacon.get("lima_simulator")
+    yield patched_simulator(simulator, monkeypatch)
+
+
+@pytest.fixture
+def lima_sim_no_bpm_with_bpm_start_stop_time(beacon, lima_simulator2, monkeypatch):
+    simulator = beacon.get("lima_simulator_no_bpm")
+    yield patched_simulator(simulator, monkeypatch)
+
+
+def test_lima_sim_bpm(default_session, lima_sim_with_bpm_start_stop_time):
+    simulator = lima_sim_with_bpm_start_stop_time
+
+    assert not simulator.disable_bpm
     assert "fwhm_x" in simulator.counters._fields
     assert "bpm" in simulator.counter_groups._fields
 
     s = loopscan(1, 0.1, simulator.counter_groups.bpm, save=False)
 
+    # check that bpm was stopped, then started
+    assert simulator.bpm.stop_time > 0
+    assert simulator.bpm.start_time > 0
+    assert simulator.bpm.stop_time < simulator.bpm.start_time
+
     data = s.get_data()
     assert f"{simulator.name}:bpm:x" in s.get_data()
     assert len(data) == 6 + 2  # 6 bpm counters + 2 timer
+
+
+def test_lima_sim_no_bpm(default_session, lima_sim_no_bpm_with_bpm_start_stop_time):
+    simulator = lima_sim_no_bpm_with_bpm_start_stop_time
+
+    assert simulator.disable_bpm
+    assert "fwhm_x" not in simulator.counters._fields
+    assert "bpm" not in simulator.counter_groups._fields
+
+    s = loopscan(1, 0.1, simulator.counters, save=False)
+
+    # check bpm was stopped, but not started
+    assert simulator.bpm.stop_time > 0
+    assert simulator.bpm.start_time == 0
+
+    data = s.get_data()
+    assert len(data) == 3  # 2 timer (elapsed time, epoch) and image
 
 
 def assert_lima_rois(simulator, rois):

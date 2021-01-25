@@ -285,14 +285,20 @@ def test_auto_dataset_increment(session, icat_subscriber, esrf_data_policy):
     assert scan_saving.get_path().endswith("dataset_0002")
 
 
-@pytest.mark.parametrize("user_action", [newdataset, newsample, newproposal])
-def test_close_dataset(session, icat_subscriber, esrf_data_policy, user_action):
+@pytest.mark.parametrize(
+    "user_action,same_sample",
+    [[newdataset, True], [newsample, True], [newproposal, False], [newproposal, True]],
+)
+def test_close_dataset(
+    session, icat_subscriber, esrf_data_policy, user_action, same_sample
+):
     scan_saving = session.scan_saving
     scan_saving.writer = "hdf5"
     assert_icat_received_current_proposal(scan_saving, icat_subscriber)
     newproposal("myproposal")
     assert_icat_received_current_proposal(scan_saving, icat_subscriber)
-    newsample("mysample")
+    if same_sample:
+        newsample("mysample")
 
     diode = session.config.get("diode")
     loopscan(1, 0.1, diode)

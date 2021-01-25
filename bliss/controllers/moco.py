@@ -4,6 +4,7 @@ from bliss.common.greenlet_utils import protect_from_kill
 from bliss.common.counter import SamplingCounter, SamplingMode
 from bliss.controllers.counter import SamplingCounterController
 from bliss.common.protocols import CounterContainer
+from bliss.common.logtools import user_warning
 
 
 class Moco(CounterContainer):
@@ -68,17 +69,28 @@ class Moco(CounterContainer):
 
     @protect_from_kill
     def comm(self, msg, timeout=None, text=True):
+        if msg == "ECHO":
+            raise ValueError("MOCO: ECHO mode is not supported")
         self._cnx.open()
+        echo = False
+        ret = None
         with self._cnx._lock:
             self._cnx._write((msg + "\r\n").encode())
             if msg.startswith("?") or msg.startswith("#"):
-                msg = self._cnx._readline(timeout=timeout)
-                if msg.startswith("$".encode()):
-                    msg = self._cnx._readline("$\r\n".encode(), timeout=timeout)
+                ans = self._cnx._readline(timeout=timeout)
+                if ans.decode().strip() == msg.strip():
+                    echo = True
+                    ans = self._cnx._readline(timeout=timeout)
+                if ans.startswith("$".encode()):
+                    ans = self._cnx._readline("$\r\n".encode(), timeout=timeout)
                 if text:
-                    return (msg.strip("\r\n".encode())).decode()
+                    ret = (ans.strip("\r\n".encode())).decode()
                 else:
-                    return msg.strip("\r\n".encode())
+                    ret = ans.strip("\r\n".encode())
+        if echo and msg != "NOECHO":
+            user_warning(f"MOCO: {self.name}: Disabling ECHO")
+            self.comm("NOECHO")
+        return ret
 
     """
     MOCO counters

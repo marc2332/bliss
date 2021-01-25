@@ -54,9 +54,12 @@ class SoftwareTimerMaster(AcquisitionMaster):
         if self.parent is None:
             self.trigger()
 
+    def _sleep(self):
+        gevent.sleep(self.sleep_time)
+
     def trigger(self):
         if self._nb_point > 0 and self.sleep_time:
-            gevent.sleep(self.sleep_time)
+            self._sleep()
 
         start_trigger = time.time()
         self.trigger_slaves()

@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import os
+import mock
 import pytest
 import time
 import numpy
@@ -34,11 +35,14 @@ def test_ascan(session):
 def test_loopscan_sleep_time(session):
     simul_counter = session.env_dict["sim_ct_gauss"]
 
-    t0 = time.time()
-    scans.loopscan(2, 0.2, simul_counter, sleep_time=1, save=False)
-    duration = time.time() - t0
+    s = scans.loopscan(2, 0.2, simul_counter, sleep_time=1, save=False, run=False)
 
-    assert abs(1.4 - duration) < 0.3
+    timer = s.acq_chain.top_masters[0]
+    assert timer.sleep_time == 1
+
+    with mock.patch.object(timer, "_sleep", wraps=timer._sleep) as timer_sleep:
+        s.run()
+        assert timer_sleep.call_count == 1
 
 
 def test_ascan_gauss2(session):

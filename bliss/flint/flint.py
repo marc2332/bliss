@@ -136,8 +136,11 @@ def start_flint(flintModel: flint_model.FlintState, options, splash):
     scanManager = scan_manager.ScanManager(flintModel)
     flintModel.setScanManager(scanManager)
 
+    # The show must be done before loading the layout
+    # Else the layout is wrong
+    flintWindow.setVisible(True)
+
     if options.bliss_session is not None:
-        manager = flintModel.mainManager()
         result = manager.updateBlissSessionName(options.bliss_session)
         if not result:
             msg = f"Impossible to connect to the session '{options.bliss_session}'"
@@ -146,8 +149,6 @@ def start_flint(flintModel: flint_model.FlintState, options, splash):
     # Flag that flint is started
     ROOT_LOGGER.info("Flint started")
     manager.setFlintStarted()
-
-    flintWindow.setVisible(True)
 
     liveWindow = flintModel.liveWindow()
     liveWindow.postInit()

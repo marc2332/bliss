@@ -10,6 +10,7 @@ import itertools
 import functools
 import fnmatch
 import typeguard
+import sys
 from sortedcontainers import SortedKeyList
 from collections.abc import MutableSequence
 
@@ -142,12 +143,16 @@ def _get_counter_containers(all_counters_dict):
 
 def _get_default_counters(counter_containers_dict):
     default_counters = []
-    for container in counter_containers_dict.values():
-        try:
-            default_counters.extend(container.counter_groups.default)
-        except AttributeError:
-            # no default group ?
-            pass
+    try:
+        for container in counter_containers_dict.values():
+            try:
+                default_counters.extend(container.counter_groups.default)
+            except AttributeError:
+                # no default group ?
+                # => add all counters
+                default_counters.extend(container.counters)
+    except Exception:
+        sys.excepthook(*sys.exc_info())
     return map(counter_or_aliased_counter, default_counters)
 
 

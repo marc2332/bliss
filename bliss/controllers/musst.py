@@ -534,6 +534,7 @@ class musst(CounterContainer):
         entryPoint -- program name or a program label that
         indicates the point from where the execution should be carried out
         """
+        # DBG_EPTR        self._eptr_debug = list()
         if entryPoint is None:
             self.putget("#RUN")
         else:
@@ -633,15 +634,25 @@ class musst(CounterContainer):
 
         buffer_size, nb_buffer = self.get_event_buffer_size()
         buffer_memory = buffer_size * nb_buffer
-        for i in range(10):
+        for idx in range(5):
             curr_state = self.STATE
             current_offset, current_buffer_id = self.get_event_memory_pointer()
-            if current_buffer_id == 0 and current_offset != 64:
+            gevent.sleep(100e-3)
+            next_offset, next_buffer_id = self.get_event_memory_pointer()
+            if next_offset >= current_offset and next_buffer_id >= current_buffer_id:
                 break
             if curr_state != self.RUN_STATE:
                 break
-
+            # DBG_EPTR            self._eptr_debug.append(
+            # DBG_EPTR                f"get_data filter {current_offset} {current_buffer_id} {next_offset} {next_buffer_id}"
+            # DBG_EPTR            )
             gevent.sleep(100e-3)  # wait a little bit before re-asking
+
+        # DBG_EPTR        if idx > 0:
+        # DBG_EPTR            self._eptr_debug.append(
+        # DBG_EPTR                f"get_data keep {current_offset} {current_buffer_id}"
+        # DBG_EPTR            )
+
         current_offset = current_buffer_id * buffer_size + current_offset
 
         from_offset = (from_event_id * nb_counters) % buffer_memory
@@ -656,6 +667,7 @@ class musst(CounterContainer):
             self._read_data(from_offset, buffer_memory, data)
             self._read_data(0, current_offset, data[buffer_memory - from_offset :])
             data.shape = (nb_lines, nb_counters)
+        # DBG_EPTR        self._eptr_debug.append(f"get_data read {nb_lines*nb_counters}")
         return data
 
     def _read_data(self, from_offset, to_offset, data):
@@ -723,7 +735,31 @@ class musst(CounterContainer):
 
         Returns the current position of the event data memory pointer (offset,buffN)
         """
-        return [int(x) for x in self.putget("?EPTR").split()]
+        for idx in range(5):
+            buff_values = self.get_event_buffer_size()
+            eptr_values = [int(x) for x in self.putget("?EPTR").split()]
+            if eptr_values == [64, 0] or eptr_values == [256, 0]:
+                # DBG_EPTR                self._eptr_debug.append(
+                # DBG_EPTR                    f"eptr read filter {eptr_values[0]} {eptr_values[1]}"
+                # DBG_EPTR                )
+                gevent.sleep(100e-3)
+                eptr_values = [int(x) for x in self.putget("?EPTR").split()]
+            # DBG_EPTR            self._eptr_debug.append(f"eptr read {eptr_values[0]} {eptr_values[1]}")
+            if (
+                eptr_values[0] < buff_values[0]
+                and eptr_values[1] >= 0
+                and eptr_values[1] < buff_values[1]
+            ):
+                break
+            # DBG_EPTR            self._eptr_debug.append(f"eptr filter {eptr_values[0]} {eptr_values[1]}")
+            gevent.sleep(100e-3)
+
+        return eptr_values
+
+    # DBG_EPTR    def dump_eptr_debug(self, filename):
+    # DBG_EPTR        df = open(filename, "w")
+    # DBG_EPTR        df.writelines(map(lambda x: x + "\n", self._eptr_debug))
+    # DBG_EPTR        df.close()
 
     def set_event_memory_pointer(self, offset, buff_number=0):
         """Set event memory pointer.

@@ -13,6 +13,47 @@ from bliss.controllers.lima.limatools import (
 from bliss.data.lima_image import image_from_server
 from bliss.shell.formatters.table import IncrementalTable
 
+# ------ Utility function to PLOT 2D ARRAY AS AN IMAGE (LIVE PREVIEW) --------
+def get_image_display(interactive=True, dtmin=0.001, defsize=(800, 600)):
+
+    import matplotlib.pyplot as plt
+
+    class Display:
+        def __init__(self, interactive=True, dtmin=0.001, defsize=(800, 600)):
+            self._interactive = interactive
+            self._dtmin = dtmin
+
+            if interactive:
+                plt.ion()
+            else:
+                plt.ioff()
+
+            self.plot = plt.imshow(numpy.zeros((defsize[1], defsize[0])))
+            plt.pause(self._dtmin)
+
+        def __del__(self):
+            plt.close()
+            plt.ioff()
+
+        def show(self, arry):
+            try:
+                plt.cla()  # clear axes
+                # plt.clf()   # clear figure
+            except Exception:
+                pass
+
+            self.plot = plt.imshow(arry)
+            if self._interactive:
+                plt.pause(self._dtmin)
+            else:
+                plt.show()
+
+        def close(self):
+            plt.close()
+            plt.ioff()
+
+    return Display(interactive, dtmin, defsize)
+
 
 # --- Notes about rect vs roi ------------
 # rect = [left, top, right, bottom]
@@ -289,9 +330,8 @@ def test_lima_image_1(beacon, default_session, lima_simulator, images_directory)
 
     if _DEBUG > 1:
         # ---Activate a live display for debug
-        from bliss.common.image_tools import Display
+        disp = get_image_display()
 
-        disp = Display()
     else:
         disp = None
 
@@ -551,9 +591,8 @@ def test_lima_proxy_1(beacon, default_session, lima_simulator, images_directory)
 
     if _DEBUG > 1:
         # ---Activate a live display for debug
-        from bliss.common.image_tools import Display
+        disp = get_image_display()
 
-        disp = Display()
     else:
         disp = None
 

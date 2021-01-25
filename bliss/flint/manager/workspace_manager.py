@@ -414,6 +414,8 @@ class WorkspaceManager(qt.QObject):
     def __getLastWorkspaceName(self):
         settings = self.__getSessionSettings()
         name = settings.get("@lastname", self.DEFAULT)
+        if name == "":
+            raise ValueError("lastname not set")
         return name
 
     def loadLastWorkspace(self):
@@ -490,15 +492,16 @@ class WorkspaceManager(qt.QObject):
         """Returns the settings storing workspaces in this bliss session."""
         flintModel = self.mainManager().flintModel()
         redis = flintModel.redisConnection()
-        sessionName = flintModel.blissSessionName()
-        if sessionName is None:
-            raise ValueError("No session defined")
 
         key = config.get_workspace_key(None)
         setting = HashObjSetting(key, connection=redis)
 
         if len(setting) == 0:
             # FIXME: Move settings from BLISS <= 1.7dev to BLISS 1.7
+            sessionName = flintModel.blissSessionName()
+            if sessionName is None:
+                raise ValueError("No session defined")
+
             key = config.get_workspace_key(sessionName)
             oldSetting = HashObjSetting(key, connection=redis)
             setting.update(oldSetting.get_all())
@@ -548,18 +551,15 @@ class WorkspaceManager(qt.QObject):
         window = flintModel.liveWindow()
         scan = flintModel.currentScan()
 
-        sessionName = flintModel.blissSessionName()
-
         if data is None:
-            if sessionName is not None:
-                try:
-                    settings = self.__getSettings()
-                    data = settings.get(newWorkspace.name(), None)
-                except Exception:
-                    _logger.error(
-                        "Problem to load workspace data. Information will be lost.",
-                        exc_info=True,
-                    )
+            try:
+                settings = self.__getSettings()
+                data = settings.get(newWorkspace.name(), None)
+            except Exception:
+                _logger.error(
+                    "Problem to load workspace data. Information will be lost.",
+                    exc_info=True,
+                )
 
         if data is not None and not isinstance(data, WorkspaceData):
             _logger.error(
@@ -604,6 +604,7 @@ class WorkspaceManager(qt.QObject):
         for widget in newWorkspace.widgets():
             widget.setVisible(True)
 
+        sessionName = flintModel.blissSessionName()
         if sessionName is not None:
             self.__saveCurrentWorkspaceName(newWorkspace.name())
 

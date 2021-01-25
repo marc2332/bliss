@@ -167,11 +167,6 @@ class ManageMainBehaviours(qt.QObject):
         redis = get_redis_proxy()
         flintModel = self.flintModel()
         flintModel.setRedisConnection(redis)
-        try:
-            # NOTE: Here the session can not yet be defined
-            self.workspaceManager().loadLastWorkspace()
-        except Exception:
-            _logger.error("Error while loading the workspace", exc_info=True)
 
     def createBeaconLogServer(self, sessionName):
         rootLogger = logging.getLogger()
@@ -306,10 +301,9 @@ class ManageMainBehaviours(qt.QObject):
         else:
             workspaceName = None
 
-        title = ""
-        if workspaceName is not None:
-            title += f"({workspaceName}) "
-        title += "Live scan"
+        title = "Live scan"
+        if workspaceName != "" and workspaceName is not None:
+            title += f" [{workspaceName}]"
 
         tabWidget.setTabText(liveScanIndex, title)
 

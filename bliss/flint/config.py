@@ -93,6 +93,7 @@ def configure_parser_arguments(parser: ArgumentParser):
         help="Start with cleared local user settings.",
     )
     parser.add_argument(
+        "-s",
         "--bliss-session",
         type=str,
         dest="bliss_session",

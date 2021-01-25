@@ -30,6 +30,12 @@
   class: Lima
   tango_url: id00/limaccds/simulator2
 
+- name: lima_simulator_no_bpm
+  plugin: bliss
+  class: Lima
+  tango_url: id00/limaccds/simulator2
+  disable_bpm: True
+
 #- name: lima_slits_simulator
 #  plugin: bliss
 #  class: Lima

@@ -1225,9 +1225,9 @@ class ESRFScanSaving(BasicScanSaving):
             yymm = time.strftime("%y%m")
             name = f"{{beamline}}{yymm}"
         if name != self._proposal:
-            self._close_proposal()
-            self._close_collection()
             self._close_dataset(eval_dict=eval_dict)
+            self._close_collection()
+            self._close_proposal()
             self._proposal = name
             self._freeze_date()
             self._reset_collection()
@@ -1274,8 +1274,8 @@ class ESRFScanSaving(BasicScanSaving):
         else:
             name = "sample"
         if name != self._collection:
-            self._close_collection()
             self._close_dataset(eval_dict=eval_dict)
+            self._close_collection()
             self._ensure_proposal()
             self._collection = name
             self._reset_dataset()

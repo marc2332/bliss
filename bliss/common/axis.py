@@ -930,7 +930,12 @@ class Axis(Scannable):
         sp = self.settings.get("_set_position")
         if sp is not None:
             return sp
-        position = self.position
+        if self._read_position_mode == self.READ_POSITION_MODE.ENCODER:
+            # no setting, first time pos is read, init with controller hw pos.
+            # issue 2463
+            position = self._do_read_hw_position()
+        else:
+            position = self.position
         self._set_position = position
         return position
 
@@ -1087,7 +1092,10 @@ class Axis(Scannable):
     def _hw_position(self):
         if self._read_position_mode == self.READ_POSITION_MODE.ENCODER:
             return self.dial_measured_position
+        return self._do_read_hw_position()
 
+    @lazy_init
+    def _do_read_hw_position(self):
         try:
             curr_pos = self.__controller.read_position(self) / self.steps_per_unit
         except NotImplementedError:

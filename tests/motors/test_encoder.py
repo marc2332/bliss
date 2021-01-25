@@ -63,6 +63,14 @@ def test_move(m1):
     assert m1.position == pytest.approx(m1.encoder.read())
 
 
+def test_issue_2463(default_session):
+    default_session.config.get_config("m1")["read_position"] = "encoder"
+    m1 = default_session.config.get("m1")
+
+    with mock.patch.object(m1.controller, "read_encoder", return_value=1000):
+        assert m1._set_position == 0
+
+
 def test_encoder_counter(default_session, m1, m1enc):
     s = scans.loopscan(3, 0.1, m1enc)
     assert numpy.array_equal(s.get_data()["m1enc"], [m1enc.read()] * 3)

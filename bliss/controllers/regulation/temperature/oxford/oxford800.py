@@ -307,8 +307,8 @@ class Oxford800(Oxford700):
 
     # ------ init methods ------------------------
 
-    def initialize_controller(self):
-        """ 
-        Initializes the controller (including hardware).
-        """
-        self.hw_controller = Handler(self.config["cryoname"])
+    @property
+    def hw_controller(self):
+        if self._hw_controller is None:
+            self._hw_controller = Handler(self.config["cryoname"])
+        return self._hw_controller

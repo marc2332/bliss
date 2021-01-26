@@ -25,12 +25,52 @@ def ct2_profiling '{
 }'
 
 #=====================================================================
+#     LIST STRINGS
+#=====================================================================
+
+def ct2_list_init() '{
+    return " "
+}'
+
+def ct2_list_includes(cnt_l, cnt_s) '{
+    return (index(cnt_l, sprintf(" %s ", cnt_s)) > 0)
+}'
+
+def ct2_list_add(cnt_l, cnt_s, multi_set) '{
+    if (!multi_set && ct2_list_includes(cnt_l, cnt_s))
+        return cnt_l
+    return sprintf("%s%s ", cnt_l, cnt_s)
+}'
+
+def ct2_list_del(cnt_l, cnt_s) '{
+    local arr[] cnt_nb cnt_i new_l
+    if (!ct2_list_includes(cnt_l, cnt_s))
+        return cnt_l
+    new_l = ct2_list_init()
+    cnt_nb = ct2_list_split(cnt_l, arr)
+    for (cnt_i = 0; cnt_i < cnt_nb; cnt_i++)
+        if (arr[cnt_i] != cnt_s)
+           new_l = ct2_list_add(new_l, arr[cnt_i])
+    return new_l
+}'
+
+def ct2_list_n(cnt_l) '{
+    local arr[]
+    return ct2_list_split(cnt_l, arr)
+}'
+
+def ct2_list_split(cnt_l, arr) '{
+    return split(substr(cnt_l, 2), arr)
+}'
+
+
+#=====================================================================
 #     CONFIG
 #=====================================================================
 
 def ct2_config(cnum, type, unit, module, chan) '{
     local FnId addon; FnId="ct2_config"
-    local mne, ctrl_dev, all_chan, first_chan, master_str
+    local mne, ctrl_dev, chan_l, first_chan, master_str
     global CT2_MAC_HDW[]
     global CT2_MAC_LIST[]
     ctrl_dev = ct2_ADDR
@@ -58,18 +98,18 @@ def ct2_config(cnum, type, unit, module, chan) '{
         list_setpar(CT2_MAC_LIST, ctrl_dev, "acq_point_period", 0)
         list_setpar(CT2_MAC_LIST, ctrl_dev, "acq_nb_points", 1)
         list_setpar(CT2_MAC_LIST, ctrl_dev, "timer_freq", 1e6)
-        list_setpar(CT2_MAC_LIST, ctrl_dev, "all_channels", "")
+        list_setpar(CT2_MAC_LIST, ctrl_dev, "all_channels", ct2_list_init())
         return
     } else if (type != "cnt")  {
         printf("CT2: WARNING unknown type=%s, unit=%s\n", type, unit)
         return ".error."
     }
 
-    all_chan = list_getpar(CT2_MAC_LIST, ctrl_dev, "all_channels")
-    first_chan = (all_chan == "")
+    chan_l = list_getpar(CT2_MAC_LIST, ctrl_dev, "all_channels")
+    first_chan = (chan_l == ct2_list_init())
     mne = cnt_mne(cnum)
-    all_chan = sprintf("%s%s%s", all_chan, length(all_chan) ? " " : "", mne)
-    list_setpar(CT2_MAC_LIST, ctrl_dev, "all_channels", all_chan)
+    list_setpar(CT2_MAC_LIST, ctrl_dev, "all_channels", \
+                ct2_list_add(chan_l, mne))
 
     master_str = ct2_check_master(cnum, ctrl_dev, chan)
     if (master_str == ".error.")
@@ -127,14 +167,13 @@ def ct2_check_master(cnum, ctrl_dev, chan) '{
 }'
 
 def ct2_get_master_list() '{
-    local i, dev, master_list, sep
+    local i, dev, master_list
 
-    master_list = ""
+    master_list = ct2_list_init()
     for (i = 0; i < list_n(CT2_MAC_LIST); i++) {
         dev = list_item(CT2_MAC_LIST, i + 1)
-        sep = length(master_list) ? " " : ""
 	if (list_getpar(CT2_MAC_LIST, dev, "master_dev") == dev)
-	    master_list = sprintf("%s%s%s", master_list, sep, dev)
+	    master_list = ct2_list_add(master_list, dev)
     }
     return master_list
 }'
@@ -175,7 +214,7 @@ def ct2_cmd(cnum, key, p1, p2) '{
 #---------------------------------------------------------------------
 def ct2_get_status() '{
     local is_running, nb_masters, master_list[], i
-    nb_masters = split(ct2_get_master_list(), master_list)
+    nb_masters = ct2_list_split(ct2_get_master_list(), master_list)
     for (i = 0; i < nb_masters; i++) {
         is_running = ct2_get_master_status(master_list[i])
         if (is_running)
@@ -199,14 +238,14 @@ def ct2_get_master_status(ctrl_dev) '{
 #---------------------------------------------------------------------
 #---------------------------------------------------------------------
 def ct2_prestart_all(ctrl_dev) '{
-    local nb_chan, i, acq_chan_list[]
-    CT2_MAC_HDW[ctrl_dev]["acq_channels"] = ""
+    local nb_chan, i, l, acq_chan_list[]
+    CT2_MAC_HDW[ctrl_dev]["acq_channels"] = ct2_list_init()
     CT2_MAC_HDW[ctrl_dev]["nb_channels"] = 0
     CT2_MAC_HDW[ctrl_dev]["act_channels"] = 0
-    CT2_MAC_HDW[ctrl_dev]["slaves"] = ""
+    CT2_MAC_HDW[ctrl_dev]["slaves"] = ct2_list_init()
     CT2_MAC_HDW["started_masters"] = 0
-    nb_chan = split(list_getpar(CT2_MAC_LIST, ctrl_dev, "all_channels"), \
-                    acq_chan_list)
+    l = list_getpar(CT2_MAC_LIST, ctrl_dev, "all_channels")
+    nb_chan = ct2_list_split(l, acq_chan_list)
     for (i = 0; i < nb_chan; i++)
         if (!counter_par(cnt_num(acq_chan_list[i]), "disable"))
             CT2_MAC_HDW[ctrl_dev]["act_channels"]++
@@ -217,37 +256,23 @@ def ct2_prestart_all(ctrl_dev) '{
 #---------------------------------------------------------------------
 def ct2_start_one(cnum, ctrl_dev, chan, p1, p2) '{
     local FnId addon; FnId="ct2_start_one"
-    local acq_chan, sep, cnt_idx
-    local nb_chan, acq_chan_list[], all_chan_started
-    local nb_slaves, slave_list[], i
-    local master_dev, is_master, slaves, sep
+    local acq_chan, cnt_idx, all_chan_started
+    local master_dev, is_master, slaves
 
     __ct2_profile "(trace 1)" 
 
     if (chan != 0) {
         acq_chan = CT2_MAC_HDW[ctrl_dev]["acq_channels"]
-        sep = length(acq_chan) ? " " : ""
-        acq_chan = sprintf("%s%s%d", acq_chan, sep, chan)
-        CT2_MAC_HDW[ctrl_dev]["acq_channels"] = acq_chan
-        nb_chan = split(acq_chan, acq_chan_list)
-        cnt_idx = nb_chan - 1
+        cnt_idx = ct2_list_n(acq_chan)
+        CT2_MAC_HDW[ctrl_dev]["acq_channels"] = ct2_list_add(acq_chan, chan)
 	counter_par(cnum, "counter_idx", cnt_idx, "add")
     }
 
     master_dev = list_getpar(CT2_MAC_LIST, ctrl_dev, "master_dev")
     is_master = (master_dev == ctrl_dev)
     if (!is_master) {
-        slaves = CT2_MAC_HDW[master_dev]["slaves"]
-	nb_slaves = split(slaves, slave_list)
-	for (i = 0; i < nb_slaves; i++) {
-	    if (slave_list[i] == ctrl_dev)
-	        break
-        }
-        if (i == nb_slaves) {
-            sep = length(slaves) ? " " : ""
-            slaves = sprintf("%s%s%s", slaves, sep, ctrl_dev)
-            CT2_MAC_HDW[master_dev]["slaves"] = slaves
-	}
+        slaves = ct2_list_add(CT2_MAC_HDW[master_dev]["slaves"], ctrl_dev)
+        CT2_MAC_HDW[master_dev]["slaves"] = slaves
     }
 
     all_chan_started = (++CT2_MAC_HDW[ctrl_dev]["nb_channels"] == \
@@ -264,7 +289,7 @@ def ct2_start_master(ctrl_dev, chan, p1, p2) '{
     ct2_prepare_master_and_slaves(ctrl_dev, chan, p1, p2)
 
     # all the ctrls are started at once, do nothing if not the last
-    nb_masters = split(ct2_get_master_list(), master_list)
+    nb_masters = ct2_list_split(ct2_get_master_list(), master_list)
     if (++CT2_MAC_HDW["started_masters"] < nb_masters)
         return
 
@@ -282,7 +307,7 @@ def ct2_prepare_master_and_slaves(ctrl_dev, chan, p1, p2) '{
     local acq_expo_time, acq_point_period, acq_nb_points
     local is_null_point_period, is_trig_readout, needs_point_period
 
-    nb_ctrls = split(CT2_MAC_HDW[ctrl_dev]["slaves"], ctrl_list)
+    nb_ctrls = ct2_list_split(CT2_MAC_HDW[ctrl_dev]["slaves"], ctrl_list)
     # start this as the last controller
     ctrl_list[nb_ctrls++] = ctrl_dev
     
@@ -315,7 +340,7 @@ def ct2_prepare_master_and_slaves(ctrl_dev, chan, p1, p2) '{
         tango_put(dev, "acq_expo_time", acq_expo_time)
         __ct2_profile "start_one" " chan == 0 tango_put expo time"
 
-        split(CT2_MAC_HDW[dev]["acq_channels"], acq_chan_list)
+        ct2_list_split(CT2_MAC_HDW[dev]["acq_channels"], acq_chan_list)
         tango_put(dev, "acq_channels", acq_chan_list)
         __ct2_profile "start_one" " tango_put acq_channels"
 
@@ -339,7 +364,7 @@ def ct2_start_master_and_slaves(ctrl_dev) '{
     local FnId addon; FnId="ct2_start_master_and_slaves"
     local nb_ctrls, ctrl_list[], i, dev
 
-    nb_ctrls = split(CT2_MAC_HDW[ctrl_dev]["slaves"], ctrl_list)
+    nb_ctrls = ct2_list_split(CT2_MAC_HDW[ctrl_dev]["slaves"], ctrl_list)
     ctrl_list[nb_ctrls++] = ctrl_dev
     
     for (i = 0; i < nb_ctrls; i++) {
@@ -358,10 +383,9 @@ def ct2_start_master_and_slaves(ctrl_dev) '{
 
 def ct2_counts(cnum, ctrl_dev, chan, p1) '{
     local FnId addon; FnId="ct2_counts"
-    local cnt_idx, arr_key
-    local nb_chan, acq_chan_list[]
+    local cnt_idx, arr_key, nb_chan
     __ct2_profile  "(trace 1)"
-    nb_chan = split(CT2_MAC_HDW[ctrl_dev]["acq_channels"], acq_chan_list)
+    nb_chan = ct2_list_n(CT2_MAC_HDW[ctrl_dev]["acq_channels"])
     if (!CT2_MAC_HDW_LAST[ctrl_dev]["valid"]) {
         local int_cnt, val, cnt_i
         tango_get(ctrl_dev, "counters", val)

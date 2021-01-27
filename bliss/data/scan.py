@@ -125,6 +125,7 @@ class ScansObserver:
         self,
         scan_db_name: str,
         channel_name: str,
+        index: int,
         data_bunch: typing.Union[list, numpy.ndarray],
     ):
         """
@@ -134,6 +135,8 @@ class ScansObserver:
         Arguments:
             scan_db_name: Identifier of the parent scan
             channel_name: Name of the updated channel
+            index: Start index of the data bunch in the real data stream.
+                   There could be wholes between 2 bunches of data.
             data_bunch: The list of data received, as a bunch of data.
         """
         pass
@@ -364,6 +367,7 @@ class ScansWatcher:
                             observer.on_scalar_data_received(
                                 scan_db_name=scan_db_name,
                                 channel_name=fullname,
+                                index=event_data.first_index,
                                 data_bunch=event_data.data,
                             )
                         except Exception:
@@ -489,6 +493,7 @@ class DefaultScansObserver(ScansObserver):
         self,
         scan_db_name: str,
         channel_name: str,
+        index: int,
         data_bunch: typing.Union[list, numpy.ndarray],
     ):
         if self.scan_data_callback is None:

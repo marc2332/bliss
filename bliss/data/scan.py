@@ -342,11 +342,6 @@ class ScansWatcher:
                         except Exception:
                             sys.excepthook(*sys.exc_info())
             elif event_type == event_type.NEW_DATA:
-                index, data_bunch, description = (
-                    event_data.first_index,
-                    event_data.data,
-                    event_data.description,
-                )
                 db_name = node.db_name
                 if not hasattr(node, "fullname"):
                     # not a node we want to do anything with here
@@ -357,6 +352,7 @@ class ScansWatcher:
                 scan_info, scan_db_name = _get_scan_info(db_name)
                 if scan_info:
                     if node.type == "channel":
+                        description = event_data.description
                         shape = description.get("shape")
                         dim = len(shape)
                         is_scalar = dim == 0
@@ -366,7 +362,9 @@ class ScansWatcher:
                     if is_scalar:
                         try:
                             observer.on_scalar_data_received(
-                                scan_db_name, fullname, data_bunch
+                                scan_db_name=scan_db_name,
+                                channel_name=fullname,
+                                data_bunch=event_data.data,
                             )
                         except Exception:
                             sys.excepthook(*sys.exc_info())
@@ -380,7 +378,7 @@ class ScansWatcher:
                                     channel_name=fullname,
                                     source_node=node,
                                     dim=2,
-                                    index=index,
+                                    index=event_data.first_index,
                                     event_data=event_data,
                                 )
                             except Exception:
@@ -391,8 +389,8 @@ class ScansWatcher:
                                     scan_db_name=scan_db_name,
                                     channel_name=fullname,
                                     dim=dim,
-                                    index=index,
-                                    data_bunch=data_bunch,
+                                    index=event_data.first_index,
+                                    data_bunch=event_data.data,
                                 )
                             except Exception:
                                 sys.excepthook(*sys.exc_info())

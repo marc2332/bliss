@@ -143,9 +143,31 @@ class ScansObserver:
         channel_name: str,
         dim: int,
         index: int,
+        data_bunch: typing.Union[list, numpy.ndarray],
+    ):
+        """Called upon a ndim data (except 0dim, except data ref) data was
+        received.
+
+        - For 0dim data, see `on_scalar_data_received`.
+
+        Arguments:
+            scan_db_name: Identifier of the parent scan
+            channel_name: Name of the channel emitting the data
+            dim: Dimension of this data (MCA is 1, image is 2)
+            index: Start index of the data bunch in the real data stream.
+                   There could be wholes between 2 bunches of data.
+            data_bunch: The list of data received, as a bunch of data.
+        """
+        pass
+
+    def on_lima_ref_received(
+        self,
+        scan_db_name: str,
+        channel_name: str,
+        dim: int,
+        index: int,
+        source_node,
         event_data,
-        description: str,
-        data_node,
     ):
         """Called upon a ndim (except 0dim) data was received.
 
@@ -156,8 +178,7 @@ class ScansObserver:
             channel_name: Name of the channel emitting the data
             dim: Dimension of this data
             index: index of the data
-            description: description of the data
-            data_node: Node containing the updated data
+            source_node: Node containing the updated data
             event_data: Data of the event
         """
         pass
@@ -323,18 +344,30 @@ class ScansWatcher:
                             sys.excepthook(*sys.exc_info())
                     else:
                         if node.type == "lima":
-                            dim = 2
-                        try:
-                            observer.on_ndim_data_received(
-                                scan_db_name=scan_db_name,
-                                channel_name=fullname,
-                                data_node=node,
-                                dim=dim,
-                                index=index,
-                                event_data=event_data,
-                            )
-                        except Exception:
-                            sys.excepthook(*sys.exc_info())
+                            # Lima and only Lima deals with ref for now
+                            # FIXME: It would be good to have a dedicated event type for that
+                            try:
+                                observer.on_lima_ref_received(
+                                    scan_db_name=scan_db_name,
+                                    channel_name=fullname,
+                                    source_node=node,
+                                    dim=2,
+                                    index=index,
+                                    event_data=event_data,
+                                )
+                            except Exception:
+                                sys.excepthook(*sys.exc_info())
+                        else:
+                            try:
+                                observer.on_ndim_data_received(
+                                    scan_db_name=scan_db_name,
+                                    channel_name=fullname,
+                                    dim=dim,
+                                    index=index,
+                                    data_bunch=data_bunch,
+                                )
+                            except Exception:
+                                sys.excepthook(*sys.exc_info())
 
             elif event_type == event_type.END_SCAN:
                 node_type = node.type
@@ -375,9 +408,24 @@ class DefaultScansObserver(ScansObserver):
         self.scan_new_child_callback: typing.Callable[[Dict, typing.Any], None] = None
         self.scan_data_callback: typing.Callable[[str, str, Dict], None] = None
         self.scan_end_callback: typing.Callable[[Dict], None] = None
+        self._current_event: typing.Tuple[typing.Any, typing.Any, typing.Any] = None
+        """
+        Used to store a tuple with `event_type`, `node`, `event_data`
+        during a callback event.
+
+        Never None inside callbacks
+        """
 
     def _get_scan_description(self, scan_db_name) -> _ScanDescription:
         return self._running_scans.get(scan_db_name)
+
+    def on_event_received(self, event_type, node, event_data):
+        """
+        Called upon new event
+
+        Mostly used for backward compatibility with `DefaultScanObserver`.
+        """
+        self._current_event = event_type, node, event_data
 
     def on_scan_started(self, scan_db_name: str, scan_info: Dict):
         # Pre-compute mapping from each channels to its master
@@ -438,9 +486,41 @@ class DefaultScansObserver(ScansObserver):
         self,
         scan_db_name: str,
         channel_name: str,
-        data_node,
         dim: int,
-        index,
+        index: int,
+        data_bunch: typing.Union[list, numpy.ndarray],
+    ):
+        if self.scan_data_callback is None:
+            return
+
+        scan_desciption = self._get_scan_description(scan_db_name)
+        if scan_desciption is None:
+            # Scan not part of the listened scans
+            return
+
+        _event_type, source_node, event_data = self._current_event
+
+        top_master = scan_desciption.channels_to_master[channel_name]
+        self.scan_data_callback(
+            f"{dim}d",
+            top_master,
+            {
+                "index": index,
+                "data": data_bunch,
+                "description": event_data.description,
+                "channel_name": channel_name,
+                "channel_data_node": source_node,
+                "scan_info": scan_desciption.scan_info,
+            },
+        )
+
+    def on_lima_ref_received(
+        self,
+        scan_db_name: str,
+        channel_name: str,
+        dim: int,
+        index: int,
+        source_node,
         event_data,
     ):
         if self.scan_data_callback is None:
@@ -450,6 +530,7 @@ class DefaultScansObserver(ScansObserver):
         if scan_desciption is None:
             # Scan not part of the listened scans
             return
+
         top_master = scan_desciption.channels_to_master[channel_name]
         self.scan_data_callback(
             f"{dim}d",
@@ -459,7 +540,7 @@ class DefaultScansObserver(ScansObserver):
                 "data": event_data.data,
                 "description": event_data.description,
                 "channel_name": channel_name,
-                "channel_data_node": data_node,
+                "channel_data_node": source_node,
                 "scan_info": scan_desciption.scan_info,
             },
         )

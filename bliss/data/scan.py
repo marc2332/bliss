@@ -342,6 +342,96 @@ class ScansWatcher:
             gevent.idle()
 
 
+class DefaultScansObserver(ScansObserver):
+    """Default scan observer.
+
+    This observer provides a compatibility with the previous implementation:
+
+    - Backward compatible API for callbacks (BLISS <= 1.7)
+    - Storing scan_info per scans
+    - Storing the whole data for each scalar channels
+    """
+
+    class _ScanDescription(typing.NamedTuple):
+        scan_info: Dict
+        """Scan_info of the scan"""
+        channels_to_master: Dict[str, str]
+        """Describe the master for each channels"""
+
+    def __init__(self):
+        self._running_scans: Dict[str, Dict] = {}
+        self.scan_new_callback: typing.Callable[[Dict], None] = None
+        self.scan_new_child_callback: typing.Callable[[Dict, typing.Any], None] = None
+        self.scan_data_callback: typing.Callable[[str, str, Dict], None] = None
+        self.scan_end_callback: typing.Callable[[Dict], None] = None
+
+    def _get_scan_description(self, scan_db_name) -> _ScanDescription:
+        return self._running_scans.get(scan_db_name)
+
+    def on_scan_started(self, scan_db_name: str, scan_info: Dict):
+        # Pre-compute mapping from each channels to its master
+        masters = {}
+        for master, channels in scan_info["acquisition_chain"].items():
+            channel_names = []
+            channel_names += channels.get("scalars", [])
+            channel_names += channels.get("master", []).get("scalars", [])
+            channel_names += channels.get("spectra", [])
+            channel_names += channels.get("master", {}).get("spectra", [])
+            channel_names += channels.get("images", [])
+            channel_names += channels.get("master", {}).get("images", [])
+            for c in channel_names:
+                masters[c] = master
+        self._running_scans[scan_db_name] = self._ScanDescription(scan_info, masters)
+        self.scan_new_callback(scan_info)
+
+    def on_scan_finished(self, scan_db_name: str, scna_info: Dict):
+        self._running_scans.pop(scan_db_name)
+        if self.scan_end_callback is not None:
+            self.scan_end_callback(scna_info)
+
+    def on_child_created(self, scan_db_name: str, scan_info: Dict, node):
+        self.scan_new_child_callback(scan_info, node)
+
+    def on_scalar_data_received(
+        self, scan_db_name: str, channel_name: str, data: Dict[str, numpy.ndarray]
+    ):
+        scan_desciption = self._get_scan_description(scan_db_name)
+        if scan_desciption is None:
+            # Scan not part of the listened scans
+            return
+        top_master = scan_desciption.channels_to_master[channel_name]
+        self.scan_data_callback(
+            "0d", top_master, {"data": data, "scan_info": scan_desciption.scan_info}
+        )
+
+    def on_ndim_data_received(
+        self,
+        scan_db_name: str,
+        channel_name: str,
+        data_node,
+        dim: int,
+        index,
+        event_data,
+    ):
+        scan_desciption = self._get_scan_description(scan_db_name)
+        if scan_desciption is None:
+            # Scan not part of the listened scans
+            return
+        top_master = scan_desciption.channels_to_master[channel_name]
+        self.scan_data_callback(
+            f"{dim}d",
+            top_master,
+            {
+                "index": index,
+                "data": event_data.data,
+                "description": event_data.description,
+                "channel_name": channel_name,
+                "channel_data_node": data_node,
+                "scan_info": scan_desciption.scan_info,
+            },
+        )
+
+
 def watch_session_scans(
     session_name,
     scan_new_callback,
@@ -374,84 +464,11 @@ def watch_session_scans(
     watcher.set_exclude_existing_scans(exclude_existing_scans)
     watcher.set_watch_scan_group(watch_scan_group)
 
-    class Observer(ScansObserver):
-        class _ScanDescription(typing.NamedTuple):
-            scan_info: Dict
-            """Scan_info of the scan"""
-            channels_to_master: Dict[str, str]
-            """Describe the master for each channels"""
+    observer = DefaultScansObserver()
+    observer.scan_new_callback = scan_new_callback
+    observer.scan_new_child_callback = scan_new_child_callback
+    observer.scan_data_callback = scan_data_callback
+    observer.scan_end_callback = scan_end_callback
 
-        def __init__(self):
-            self._running_scans: Dict[str, Dict] = {}
-
-        def _get_scan_description(self, scan_db_name) -> _ScanDescription:
-            return self._running_scans.get(scan_db_name)
-
-        def on_scan_started(self, scan_db_name: str, scan_info: Dict):
-            # Pre-compute mapping from each channels to its master
-            masters = {}
-            for master, channels in scan_info["acquisition_chain"].items():
-                channel_names = []
-                channel_names += channels.get("scalars", [])
-                channel_names += channels.get("master", []).get("scalars", [])
-                channel_names += channels.get("spectra", [])
-                channel_names += channels.get("master", {}).get("spectra", [])
-                channel_names += channels.get("images", [])
-                channel_names += channels.get("master", {}).get("images", [])
-                for c in channel_names:
-                    masters[c] = master
-            self._running_scans[scan_db_name] = self._ScanDescription(
-                scan_info, masters
-            )
-            scan_new_callback(scan_info)
-
-        def on_scan_finished(self, scan_db_name: str, scna_info: Dict):
-            self._running_scans.pop(scan_db_name)
-            if scan_end_callback is not None:
-                scan_end_callback(scna_info)
-
-        def on_child_created(self, scan_db_name: str, scan_info: Dict, node):
-            scan_new_child_callback(scan_info, node)
-
-        def on_scalar_data_received(
-            self, scan_db_name: str, channel_name: str, data: Dict[str, numpy.ndarray]
-        ):
-            scan_desciption = self._get_scan_description(scan_db_name)
-            if scan_desciption is None:
-                # Scan not part of the listened scans
-                return
-            top_master = scan_desciption.channels_to_master[channel_name]
-            scan_data_callback(
-                "0d", top_master, {"data": data, "scan_info": scan_desciption.scan_info}
-            )
-
-        def on_ndim_data_received(
-            self,
-            scan_db_name: str,
-            channel_name: str,
-            data_node,
-            dim: int,
-            index,
-            event_data,
-        ):
-            scan_desciption = self._get_scan_description(scan_db_name)
-            if scan_desciption is None:
-                # Scan not part of the listened scans
-                return
-            top_master = scan_desciption.channels_to_master[channel_name]
-            scan_data_callback(
-                f"{dim}d",
-                top_master,
-                {
-                    "index": index,
-                    "data": event_data.data,
-                    "description": event_data.description,
-                    "channel_name": channel_name,
-                    "channel_data_node": data_node,
-                    "scan_info": scan_desciption.scan_info,
-                },
-            )
-
-    observer = Observer()
     watcher.set_observer(observer)
     watcher.run(ready_event=ready_event, stop_handler=stop_handler)

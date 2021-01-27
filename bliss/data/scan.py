@@ -91,6 +91,14 @@ class ScansObserver:
     scans of a session.
     """
 
+    def on_event_received(self, event_type, node, event_data):
+        """
+        Called upon new event
+
+        Mostly used for backward compatibility with `DefaultScanObserver`.
+        """
+        pass
+
     def on_scan_started(self, scan_db_name: str, scan_info: Dict):
         """
         Called upon scan start.
@@ -252,6 +260,11 @@ class ScansWatcher:
             exclude_existing_children=exclude_existing_children,
             started_event=ready_event,
         ):
+            try:
+                observer.on_event_received(event_type, node, event_data)
+            except Exception:
+                sys.excepthook(*sys.exc_info())
+
             if event_type == event_type.NEW_NODE:
                 node_type = node.type
                 db_name = node.db_name

@@ -215,6 +215,22 @@ class ScansWatcher:
         self._running_scans = {}
         """Store running scans"""
 
+        self._ready_event = gevent.event.Event()
+        """Handle the ready event"""
+
+    def wait_ready(self, timeout: float = None):
+        """Wait until the scan watcher is ready to receive new event.
+
+        The steps between `started` and `ready` can takes few seconds depending
+        on the amount of data and the load of Redis.
+
+        Arguments:
+            timeout: If not `None`, it should be a floating point number
+                     specifying a timeout for the operation in seconds
+                     (or fractions thereof).
+        """
+        self._ready_event.wait(timeout=timeout)
+
     def set_exclude_existing_scans(self, exclude: bool):
         """
         Include or exclude existing scans. Default is False.
@@ -244,14 +260,13 @@ class ScansWatcher:
         assert not self._started
         self._observer = observer
 
-    def run(self, ready_event=None, stop_handler=None):
+    def run(self, stop_handler=None):
         """
         Run watching scan events. This method will never ending.
 
         Any scan node that is created before the `ready_event` will not be watched
         when `exclude_existing_scans` is True.
 
-        :param Event ready_event: started listening to Redis
         :param DataStreamReaderStopHandler stop_handler:
         """
         assert not self._started
@@ -279,7 +294,7 @@ class ScansWatcher:
         for event_type, node, event_data in session_node.walk_on_new_events(
             stop_handler=stop_handler,
             exclude_existing_children=exclude_existing_children,
-            started_event=ready_event,
+            started_event=self._ready_event,
         ):
             try:
                 observer.on_event_received(event_type, node, event_data)
@@ -578,6 +593,17 @@ def watch_session_scans(
     watcher.set_exclude_existing_scans(exclude_existing_scans)
     watcher.set_watch_scan_group(watch_scan_group)
 
+    if ready_event is not None:
+
+        def wait_ready():
+            nonlocal ready_event
+            watcher.wait_ready()
+            ready_event.set()
+
+        local_store_g = gevent.spawn(wait_ready)
+    else:
+        local_store_g = None
+
     observer = DefaultScansObserver()
     observer.scan_new_callback = scan_new_callback
     observer.scan_new_child_callback = scan_new_child_callback
@@ -585,4 +611,6 @@ def watch_session_scans(
     observer.scan_end_callback = scan_end_callback
 
     watcher.set_observer(observer)
-    watcher.run(ready_event=ready_event, stop_handler=stop_handler)
+    watcher.run(stop_handler=stop_handler)
+    if local_store_g is not None:
+        local_store_g.kill()

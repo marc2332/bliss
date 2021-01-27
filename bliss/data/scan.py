@@ -113,7 +113,10 @@ class ScansObserver:
         pass
 
     def on_scalar_data_received(
-        self, scan_db_name: str, channel_name: str, data: Dict[str, numpy.ndarray]
+        self,
+        scan_db_name: str,
+        channel_name: str,
+        data_bunch: typing.Union[list, numpy.ndarray],
     ):
         """
         Called upon a bunch of scalar data (0dim) from a `top_master` was
@@ -122,7 +125,7 @@ class ScansObserver:
         Arguments:
             scan_db_name: Identifier of the parent scan
             channel_name: Name of the updated channel
-            data: Name of the channels as key, with associated numpy array.
+            data_bunch: The list of data received, as a bunch of data.
         """
         pass
 
@@ -277,7 +280,7 @@ class ScansWatcher:
                         except Exception:
                             sys.excepthook(*sys.exc_info())
             elif event_type == event_type.NEW_DATA:
-                index, data, description = (
+                index, data_bunch, description = (
                     event_data.first_index,
                     event_data.data,
                     event_data.description,
@@ -291,10 +294,6 @@ class ScansWatcher:
 
                 scan_info, scan_db_name = _get_scan_info(db_name)
                 if scan_info:
-                    nodes_data = self._running_scans[scan_db_name].setdefault(
-                        "nodes_data", dict()
-                    )
-
                     if node.type == "channel":
                         shape = description.get("shape")
                         dim = len(shape)
@@ -303,12 +302,9 @@ class ScansWatcher:
                         is_scalar = False
 
                     if is_scalar:
-                        # in case of zerod, we keep all data value during the scan
-                        prev_data = nodes_data.get(fullname, [])
-                        nodes_data[fullname] = numpy.concatenate((prev_data, data))
                         try:
                             observer.on_scalar_data_received(
-                                scan_db_name, fullname, nodes_data
+                                scan_db_name, fullname, data_bunch
                             )
                         except Exception:
                             sys.excepthook(*sys.exc_info())
@@ -357,9 +353,11 @@ class DefaultScansObserver(ScansObserver):
         """Scan_info of the scan"""
         channels_to_master: Dict[str, str]
         """Describe the master for each channels"""
+        channels_data: Dict[str, numpy.ndarray]
+        """Store the full data per scalar channels"""
 
     def __init__(self):
-        self._running_scans: Dict[str, Dict] = {}
+        self._running_scans: Dict[str, self._ScanDescription] = {}
         self.scan_new_callback: typing.Callable[[Dict], None] = None
         self.scan_new_child_callback: typing.Callable[[Dict, typing.Any], None] = None
         self.scan_data_callback: typing.Callable[[str, str, Dict], None] = None
@@ -381,7 +379,9 @@ class DefaultScansObserver(ScansObserver):
             channel_names += channels.get("master", {}).get("images", [])
             for c in channel_names:
                 masters[c] = master
-        self._running_scans[scan_db_name] = self._ScanDescription(scan_info, masters)
+        self._running_scans[scan_db_name] = self._ScanDescription(
+            scan_info, masters, {}
+        )
         self.scan_new_callback(scan_info)
 
     def on_scan_finished(self, scan_db_name: str, scna_info: Dict):
@@ -393,15 +393,32 @@ class DefaultScansObserver(ScansObserver):
         self.scan_new_child_callback(scan_info, node)
 
     def on_scalar_data_received(
-        self, scan_db_name: str, channel_name: str, data: Dict[str, numpy.ndarray]
+        self,
+        scan_db_name: str,
+        channel_name: str,
+        data_bunch: typing.Union[list, numpy.ndarray],
     ):
+        if self.scan_data_callback is None:
+            return
+
         scan_desciption = self._get_scan_description(scan_db_name)
         if scan_desciption is None:
             # Scan not part of the listened scans
             return
+
+        # in case of zerod, we keep all data value during the scan
+        prev_data = scan_desciption.channels_data.get(channel_name, [])
+        data = numpy.concatenate((prev_data, data_bunch))
+        scan_desciption.channels_data[channel_name] = data
+
         top_master = scan_desciption.channels_to_master[channel_name]
         self.scan_data_callback(
-            "0d", top_master, {"data": data, "scan_info": scan_desciption.scan_info}
+            "0d",
+            top_master,
+            {
+                "data": scan_desciption.channels_data,
+                "scan_info": scan_desciption.scan_info,
+            },
         )
 
     def on_ndim_data_received(
@@ -413,6 +430,9 @@ class DefaultScansObserver(ScansObserver):
         index,
         event_data,
     ):
+        if self.scan_data_callback is None:
+            return
+
         scan_desciption = self._get_scan_description(scan_db_name)
         if scan_desciption is None:
             # Scan not part of the listened scans

@@ -165,13 +165,7 @@ class ScansObserver:
         pass
 
     def on_lima_ref_received(
-        self,
-        scan_db_name: str,
-        channel_name: str,
-        dim: int,
-        index: int,
-        source_node,
-        event_data,
+        self, scan_db_name: str, channel_name: str, dim: int, source_node, event_data
     ):
         """Called upon a ndim (except 0dim) data was received.
 
@@ -181,7 +175,6 @@ class ScansObserver:
             scan_db_name: Identifier of the parent scan
             channel_name: Name of the channel emitting the data
             dim: Dimension of this data
-            index: index of the data
             source_node: Node containing the updated data
             event_data: Data of the event
         """
@@ -382,7 +375,6 @@ class ScansWatcher:
                                     channel_name=fullname,
                                     source_node=node,
                                     dim=2,
-                                    index=event_data.first_index,
                                     event_data=event_data,
                                 )
                             except Exception:
@@ -552,13 +544,7 @@ class DefaultScansObserver(ScansObserver):
         )
 
     def on_lima_ref_received(
-        self,
-        scan_db_name: str,
-        channel_name: str,
-        dim: int,
-        index: int,
-        source_node,
-        event_data,
+        self, scan_db_name: str, channel_name: str, dim: int, source_node, event_data
     ):
         if self.scan_data_callback is None:
             return
@@ -573,7 +559,7 @@ class DefaultScansObserver(ScansObserver):
             f"{dim}d",
             top_master,
             {
-                "index": index,
+                "index": event_data.first_index,
                 "data": event_data.data,
                 "description": event_data.description,
                 "channel_name": channel_name,

@@ -19,6 +19,7 @@ from bliss.common.axis import Axis
 from bliss.data.nodes.scan import get_data_from_nodes
 from bliss.data.node import get_or_create_node
 from bliss.common.utils import get_matching_names
+from bliss.config.streaming import DataStreamReaderStopHandler
 
 
 def get_counter_names(scan):
@@ -218,6 +219,9 @@ class ScansWatcher:
         self._ready_event = gevent.event.Event()
         """Handle the ready event"""
 
+        self._stop_handler = DataStreamReaderStopHandler()
+        """Handler to be able to stop the event loop"""
+
     def wait_ready(self, timeout: float = None):
         """Wait until the scan watcher is ready to receive new event.
 
@@ -260,14 +264,23 @@ class ScansWatcher:
         assert not self._started
         self._observer = observer
 
-    def run(self, stop_handler=None):
+    def _set_stop_handler(self, stop_handler):
         """
-        Run watching scan events. This method will never ending.
+        Backward compatibility code with `watch_session_scans`.
+
+        This function have to be removed with `watch_session_scans`.
+        """
+        assert not self._started
+        self._stop_handler = stop_handler
+
+    def run(self):
+        """
+        Run watching scan events.
+
+        This method is blocking. But can be terminated by calling `stop`.
 
         Any scan node that is created before the `ready_event` will not be watched
         when `exclude_existing_scans` is True.
-
-        :param DataStreamReaderStopHandler stop_handler:
         """
         assert not self._started
         self._started = True
@@ -292,7 +305,7 @@ class ScansWatcher:
             exclude_existing_children = None
 
         for event_type, node, event_data in session_node.walk_on_new_events(
-            stop_handler=stop_handler,
+            stop_handler=self._stop_handler,
             exclude_existing_children=exclude_existing_children,
             started_event=self._ready_event,
         ):
@@ -397,6 +410,12 @@ class ScansWatcher:
                             sys.excepthook(*sys.exc_info())
 
             gevent.idle()
+        self._started = False
+
+    def stop(self):
+        """Call it to stop the event loop."""
+        if self._started:
+            self._stop_handler.stop()
 
 
 class DefaultScansObserver(ScansObserver):
@@ -592,6 +611,8 @@ def watch_session_scans(
     watcher = ScansWatcher(session_name)
     watcher.set_exclude_existing_scans(exclude_existing_scans)
     watcher.set_watch_scan_group(watch_scan_group)
+    if stop_handler is not None:
+        watcher._set_stop_handler(stop_handler)
 
     if ready_event is not None:
 
@@ -611,6 +632,6 @@ def watch_session_scans(
     observer.scan_end_callback = scan_end_callback
 
     watcher.set_observer(observer)
-    watcher.run(stop_handler=stop_handler)
+    watcher.run()
     if local_store_g is not None:
         local_store_g.kill()

@@ -38,7 +38,7 @@ import time
 import gevent.event
 
 from bliss.data.lima_image import ImageFormatNotSupported
-from bliss.data.scan import watch_session_scans
+from bliss.data import scan as bliss_scan
 from bliss.config.conductor.client import close_all_redis_connections
 
 from .data_storage import DataStorage
@@ -157,25 +157,23 @@ class ScanManager:
         if session_name is None:
             return
 
-        ready_event = gevent.event.Event()
+        observer = bliss_scan.DefaultScansObserver()
+        observer.scan_new_callback = self.new_scan
+        observer.scan_new_child_callback = self.new_scan_child
+        observer.scan_data_callback = self.new_scan_data
+        observer.scan_end_callback = self.end_scan
 
-        task = gevent.spawn(
-            watch_session_scans,
-            session_name,
-            self.new_scan,
-            self.new_scan_child,
-            self.new_scan_data,
-            self.end_scan,
-            ready_event=ready_event,
-            watch_scan_group=True,
-            exclude_existing_scans=True,
-        )
+        watcher = bliss_scan.ScansWatcher(session_name)
+        watcher.set_observer(observer)
+        watcher.set_watch_scan_group(True)
+        watcher.set_exclude_existing_scans(True)
+        task = gevent.spawn(watcher.run)
 
         def exception_orrured(future_exception):
             try:
                 future_exception.get()
             except Exception:
-                _logger.error("Error occurred in watch_session_scans", exc_info=True)
+                _logger.error("Error occurred in ScansWatcher.run", exc_info=True)
             delay = 5
             _logger.warning("Retry the Redis connect in %s seconds", delay)
             gevent.sleep(delay)
@@ -184,7 +182,7 @@ class ScanManager:
         task.link_exception(exception_orrured)
         self._scans_watch_task = task
 
-        ready_event.wait()
+        watcher.wait_ready()
 
         return task
 

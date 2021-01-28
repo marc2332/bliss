@@ -23,7 +23,7 @@ import redis.connection
 from fabio.edfimage import EdfImage
 from bliss.config import static
 from bliss.common import scans
-from bliss.data.scan import watch_session_scans
+from bliss.data import scan as scan_mdl
 from bliss.scanning.group import Sequence, Group
 from bliss.common.tango import DeviceProxy
 from nexus_writer_service.io import nexus
@@ -361,20 +361,14 @@ def print_scan_progress(test_session):
         sys.stdout.write("\rScan progress {}-{} pts".format(pmin, pmax))
         sys.stdout.flush()
 
-    def nullhandler(*args):
-        pass
+    observer = scan_mdl.DefaultScansObserver()
+    observer.scan_data_callback = new_data
 
-    ready_event = gevent.event.Event()
-    session_watcher = gevent.spawn(
-        watch_session_scans,
-        test_session.name,
-        nullhandler,
-        nullhandler,
-        new_data,
-        nullhandler,
-        ready_event=ready_event,
-    )
-    ready_event.wait(timeout=3)
+    watcher = scan_mdl.ScansWatcher(test_session.name)
+    watcher.set_observer(observer)
+
+    session_watcher = gevent.spawn(watcher.run)
+    watcher.wait_ready(timeout=3)
     try:
         yield
     finally:

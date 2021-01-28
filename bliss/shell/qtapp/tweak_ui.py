@@ -328,7 +328,7 @@ class TweakServer:
         try:
             future_exception.get()
         except Exception:
-            _logger.error("Error occurred in watch_session_scans", exc_info=True)
+            _logger.error("Error occurred in TweakServer", exc_info=True)
 
     def _task(self, tweak, stop):
         key = "tweak_ui_" + tweak.session

@@ -471,7 +471,8 @@ class DefaultScansObserver(ScansObserver):
         self._running_scans[scan_db_name] = self._ScanDescription(
             scan_info, masters, {}
         )
-        self.scan_new_callback(scan_info)
+        if self.scan_new_callback is not None:
+            self.scan_new_callback(scan_info)
 
     def on_scan_finished(self, scan_db_name: str, scna_info: Dict):
         self._running_scans.pop(scan_db_name)
@@ -479,7 +480,8 @@ class DefaultScansObserver(ScansObserver):
             self.scan_end_callback(scna_info)
 
     def on_child_created(self, scan_db_name: str, scan_info: Dict, node):
-        self.scan_new_child_callback(scan_info, node)
+        if self.scan_new_child_callback is not None:
+            self.scan_new_child_callback(scan_info, node)
 
     def on_scalar_data_received(
         self,

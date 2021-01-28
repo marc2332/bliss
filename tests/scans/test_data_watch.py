@@ -22,6 +22,7 @@ from bliss.data.scan import watch_session_scans
 from bliss.scanning.chain import AcquisitionChain
 from bliss.common import scans
 from bliss.scanning.group import Sequence
+from bliss.config.streaming import DataStreamReaderStopHandler
 
 
 def test_simple_continuous_scan_with_session_watcher(session, scan_saving):
@@ -375,3 +376,43 @@ def test_sequence_scans(default_session):
     session_watcher.get()
 
     # assert False
+
+
+def test_stop_handler(session, scan_saving, diode_acq_device_factory):
+    chain = AcquisitionChain()
+    acquisition_device_1, _ = diode_acq_device_factory.get(count_time=0.1, npoints=1)
+    master = SoftwareTimerMaster(0.1, npoints=1)
+    chain.add(master, acquisition_device_1)
+
+    watcher_ready_event = gevent.event.Event()
+    end_scan_event = gevent.event.Event()
+
+    def end(*args):
+        end_scan_event.set()
+
+    stop_handler = DataStreamReaderStopHandler()
+    session_watcher = gevent.spawn(
+        watch_session_scans,
+        scan_saving.session,
+        lambda *args: None,
+        lambda *args: None,
+        lambda *args: None,
+        end,
+        ready_event=watcher_ready_event,
+        stop_handler=stop_handler,
+        exclude_existing_scans=False,
+    )
+
+    try:
+        assert watcher_ready_event.wait(3)
+        scan = Scan(chain, save=False)
+        scan.run()
+        assert end_scan_event.wait(3)
+    finally:
+        try:
+            with gevent.Timeout(seconds=3):
+                stop_handler.stop()
+                session_watcher.join()
+        except gevent.Timeout:
+            session_watcher.kill()
+            assert False, "A kill is not expected here"

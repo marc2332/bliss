@@ -6,7 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import gevent
-
+import pytest
 from bliss.common.scans import DEFAULT_CHAIN, loopscan
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 from bliss.scanning.acquisition.mca import McaAcquisitionSlave
@@ -391,6 +391,87 @@ def test_default_chain_with_recursive_master(default_session, lima_simulator):
         assert nodes[2].parent == nodes[1]
         assert nodes[3].parent == nodes[2]
 
+    finally:
+        DEFAULT_CHAIN.set_settings([])
+
+
+def test_default_chain_with_bad_master(default_session, lima_simulator):
+    """ check that a customized default chain does not accept masters which are not CounterControllers
+    """
+    lima_sim = default_session.config.get("lima_simulator")
+    diode = default_session.config.get("diode2")
+    assert diode
+
+    scan_pars = {"npoints": 10, "count_time": 0.1}
+
+    class FakeMaster:
+        def __init__(self, name):
+            self.name = name
+
+        def get_acquisition_object(
+            self, acq_params, ctrl_params=None, parent_acq_params=None
+        ):
+            return AcquisitionMaster(self, ctrl_params=ctrl_params, **acq_params)
+
+        def get_default_chain_parameters(self, scan_params, acq_params):
+            return acq_params
+
+    fake_master = FakeMaster("fake")
+
+    defch_settings = [
+        {"device": diode, "master": lima_sim},
+        {
+            "device": lima_sim,
+            "master": fake_master,
+            "acquisition_settings": {"acq_trigger_mode": "EXTERNAL_GATE"},
+        },
+    ]
+
+    try:
+        DEFAULT_CHAIN.set_settings(defch_settings)
+        assert False  # it should have failed the line above
+    except ValueError as exc:
+        assert "must be a CounterController" in str(exc)
+    finally:
+        DEFAULT_CHAIN.set_settings([])
+
+
+def test_default_chain_with_bad_device(default_session, lima_simulator):
+    """ check that a customized default chain does not accept devices which are not CounterControllers or Counters
+    """
+
+    lima_sim = default_session.config.get("lima_simulator")
+    diode = default_session.config.get("diode2")
+    assert diode
+
+    scan_pars = {"npoints": 10, "count_time": 0.1}
+
+    class FakeDevice:
+        def __init__(self, name):
+            self.name = name
+
+        def get_acquisition_object(
+            self, acq_params, ctrl_params=None, parent_acq_params=None
+        ):
+            return AcquisitionMaster(self, ctrl_params=ctrl_params, **acq_params)
+
+        def get_default_chain_parameters(self, scan_params, acq_params):
+            return acq_params
+
+    fake_device = FakeDevice("fake")
+
+    defch_settings = [
+        {
+            "device": fake_device,
+            "acquisition_settings": {"acq_trigger_mode": "EXTERNAL_GATE"},
+        }
+    ]
+
+    try:
+        DEFAULT_CHAIN.set_settings(defch_settings)
+        assert False  # it should have failed the line above
+    except ValueError as exc:
+        assert "must be a CounterController or a Counter" in str(exc)
     finally:
         DEFAULT_CHAIN.set_settings([])
 

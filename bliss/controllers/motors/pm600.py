@@ -52,6 +52,9 @@ class PM600(Controller):
             answer = answer + "\n" + reply_list[i].decode()
         return answer + "\n"
 
+    def steps_position_precision(self, axis):
+        return self.config.config_dict.get("precision", 1)
+
     def initialize(self):
         try:
             self.sock = get_comm(self.config.config_dict)

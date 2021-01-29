@@ -159,7 +159,7 @@ class BaseMCA(CounterController):
                     params["preset_time"], params["block_size"]
                 )
                 params["block_size"] = block_size
-        elif self.detector_type == DetectorType.FALCONX:
+        if self.detector_type == DetectorType.FALCONX:
             if params["npoints"] == 1:
                 params["refresh_rate"] = min(0.1, params["preset_time"])
 

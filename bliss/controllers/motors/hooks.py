@@ -98,13 +98,27 @@ class WagoHook(MotionHook):
     def set(self, phase):
         value = self.config[phase]["value"]
         wait = self.config[phase].get("wait", 0)
-        log_debug(self, "start setting %s value to %s...", phase, value)
+        log_debug(
+            self,
+            "start setting %s value to %s %s: %s",
+            phase,
+            self.wago.name,
+            self.channel,
+            value,
+        )
         self.wago.set(self.channel, value)
-        log_debug(self, "finished setting %s value to %s...", phase, value)
+        log_debug(
+            self,
+            "finished setting %s value to %s %s: %s",
+            phase,
+            self.wago.name,
+            self.channel,
+            value,
+        )
         if wait:
-            log_debug(self, "start %s wait (%s)...", phase, wait)
+            log_debug(self, "start %s wait (%s sec.)...", phase, wait)
             sleep(wait)
-            log_debug(self, "finished %s wait (%s)...", phase, wait)
+            log_debug(self, "finished %s wait (%s sec.)...", phase, wait)
 
     def pre_move(self, motion_list):
         self.set("pre_move")
@@ -215,3 +229,66 @@ class WagoAirHook(WagoHook):
 
     def post_move(self, motion_list):
         self.set("post_move", motion_list)
+
+
+class ScanWagoHook(WagoHook):
+    """
+    Wago generic value hook with special behaviour during scans:
+    Apply *init* before starting motion, but only first motion of a scan, (and before checking limits)
+          *pre_move* before moving, and only first motion of a scan,
+          *post_move* after moving, and only last motion of a scan,
+
+    main differences with WagoHook
+    - the same hook can be attached to several axis
+    - init, pre_move, post_move are not compulsory, only the defined ones will be executed
+    
+    Configuration example:
+
+    .. code-block:: yaml
+
+        name: ngy_airpad
+        class: ScanWagoHook
+        module: motors.hooks
+        wago: $wcid00a
+        channel: ngy_air
+        init:
+            value: 1
+            wait: 1    # optional (default: 0s)
+        post_move:
+            value: 0
+            wait: 1    # optional (default: 0s)
+    """
+
+    def __info__(self):
+        return f"ScanWagoHook {self.wago.name} channel {self.channel} STATUS: {self.wago.controller.get(self.channel)}"
+
+    def __init__(self, *args, **kwargs):
+        self._scan_flag = False
+        super().__init__(*args, **kwargs)
+
+    def _add_axis(self, axis):
+        super(WagoHook, self)._add_axis(axis)
+
+    def set(self, phase):
+        if phase in self.config:
+            super().set(phase)
+
+    def init(self):
+        if self._scan_flag is False:
+            self.set("init")
+
+    def pre_move(self, motion_list):
+        if self._scan_flag is False:
+            self.set("pre_move")
+
+    def post_move(self, motion_list):
+        if self._scan_flag is False:
+            self.set("post_move")
+
+    def pre_scan(self, axes_list):
+        self._scan_flag = True
+        self.set("pre_move")
+
+    def post_scan(self, axes_list):
+        self._scan_flag = False
+        self.set("post_move")

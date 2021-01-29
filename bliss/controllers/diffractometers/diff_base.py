@@ -1,4 +1,11 @@
-import types
+# -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2015-2020 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
+
+
 import numpy
 import tabulate
 from six import print_
@@ -6,6 +13,7 @@ from bliss.physics.hkl.geometry import HklGeometry
 from bliss.config.settings import HashObjSetting
 from bliss.common.motor_group import Group as MotorGroup
 from bliss.common.cleanup import error_cleanup
+from bliss.common.utils import autocomplete_property
 from gevent import sleep
 
 __CURR_DIFF = None
@@ -74,6 +82,44 @@ def remove_diff_settings(name, *keys):
 
 
 class Diffractometer(object):
+
+    """ Diffractometer base class.
+
+        YML configuration example:
+
+        controller:
+            plugin: diffractometer
+            name: d4ch
+            geometry: E4CH
+            axes:
+
+                #--- declare real axis of the diffracto config ---
+
+                - name: $myomega
+                tags: real omega
+                - name: $mychi
+                tags: real chi
+                - name: $myphi
+                tags: real phi
+                - name: $mytth
+                tags: real tth
+
+                - name: $myenergy
+                tags: real energy
+
+                #--- export some pseudo axis ---
+
+                - name: H
+                tags: hkl_h
+                - name: K
+                tags: hkl_k
+                - name: L
+                tags: hkl_l
+                - name: Q
+                tags: q_q
+
+    """
+
     PSI_CONSTANT_MODES = [
         "psi_constant",
         "psi_constant_vertical",
@@ -83,16 +129,24 @@ class Diffractometer(object):
     def __init__(self, name, config):
         self.name = name
         self._config = config
-        geometry = config.get("geometry", None)
+        geometry = config.get("geometry")
         if geometry is None:
-            raise ValueError("No geometry specified for [{0}]".format(name))
+            raise ValueError(f"Missing geometry in config of Diffractometer '{name}'")
         self._settings = HashObjSetting(name)
         self._geometry = HklGeometry(geometry, self._settings)
         self._motor_calc = None
         self._motor_names = dict()
         register_diffractometer(name, self)
 
+    def __info__(self):
+        self._calc_geo()
+        return self._geometry.info(self._motor_names)
+
     @property
+    def config(self):
+        return self._config
+
+    @autocomplete_property
     def calc_controller(self):
         self._check_motor_calc()
         return self._motor_calc
@@ -162,11 +216,11 @@ class Diffractometer(object):
     def show(self):
         self.show_geo()
 
-    @property
+    @autocomplete_property
     def geometry(self):
         return self._geometry
 
-    @property
+    @autocomplete_property
     def sample(self):
         return self._geometry.get_sample()
 

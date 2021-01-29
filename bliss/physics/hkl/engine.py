@@ -13,6 +13,7 @@ class UsingEngineMode(object):
     def __init__(self, engine, mode):
         self.engine = engine
         self.mode = mode
+        self.current = None
 
     def __enter__(self):
         self.current = self.engine.get_current_mode()

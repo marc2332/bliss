@@ -153,6 +153,8 @@ class HklGeometry(object):
             )
         return self._geometry.axis_get(axis_name)
 
+    # ======= Warning limits are Geo limits (not the real motors limits) =========
+
     def is_axis_limits_initialized(self, axis_name):
         return self._axis_limits_init.get(axis_name, False)
 
@@ -201,7 +203,7 @@ class HklGeometry(object):
     def get_axis_involved(self, *pseudo_names):
         engine_name = None
         for alias in pseudo_names:
-            (engname, name) = self.__alias_to_pseudo(alias)
+            (engname, _) = self.__alias_to_pseudo(alias)
             if engine_name is None:
                 engine_name = engname
             else:
@@ -263,6 +265,10 @@ class HklGeometry(object):
         set_geometry_positions(self._geometry, axis_pos, self.UNIT)
 
     def __select_solution(self, solutions):
+        """ Solutions are sorted by distance to current pos.
+            Here we take the first one (closest one)
+            Note that these solutions already take into account the geo limits (init as default to motor limits).
+         """
         return solutions[0]
 
     def get_all_pos(self):
@@ -279,7 +285,9 @@ class HklGeometry(object):
         rot = self._geometry.detector_rotation_get(self._detector)
         return matrix_to_numpy(rot.to_matrix())
 
-    def info(self, mapnames=dict()):
+    def info(self, mapnames=None):
+        if mapnames is None:
+            mapnames = {}
         msg = "GEOMETRY : {0}\n".format(self.get_name())
         msg += "ENERGY : {0} KeV\n".format(self.get_energy())
         msg += "PHYSICAL AXIS :\n"

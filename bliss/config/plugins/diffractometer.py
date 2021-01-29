@@ -6,30 +6,34 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 
-from .utils import find_class, replace_reference_by_object
 from bliss.controllers.diffractometers import get_diffractometer_class
 from bliss.controllers.motors.hklmotors import HKLMotors
-from bliss.common.axis import Axis, AxisRef
-from bliss.config.static import Node
+from bliss.common.axis import Axis
 
 
-def create_objects_from_config_node(config, cfg_node):
-    diff_name = cfg_node["name"]
-    diff_geo = cfg_node.get("geometry", None)
+def load_controller(controller_config):
+    # print("======= LOADING DIFFRACTOMETER CONTROLLER=========")
+    diff_name = controller_config["name"]
+    diff_geo = controller_config.get("geometry")
     if diff_geo is None:
-        raise KeyError("Missing diffractometer geometry name in config")
+        raise KeyError(f"Missing diffractometer geometry in {diff_name} config")
 
     diff_class = get_diffractometer_class(diff_geo)
-    diff_calc = diff_class(diff_name, cfg_node)
-    real_names = list(diff_calc.axis_names)
-    pseudo_names = list(diff_calc.pseudo_names)
+    diffracto = diff_class(diff_name, controller_config)
+    return diffracto
 
-    axes = list()
-    axes_names = list()
 
-    for axis_config in cfg_node.get("axes"):
+def get_axes_info(diffracto):
+
+    real_names = list(diffracto.axis_names)
+    pseudo_names = list(diffracto.pseudo_names)
+
+    axes = {}
+    for axis_config in diffracto.config.get("axes"):
         axis_name = axis_config.get("name")
         axis_tag = axis_config.get("tags")
+
+        # check if axes tags are valid
         if axis_tag.startswith("real"):
             axis_calc_name = axis_tag.split()[1]
             if axis_calc_name in real_names:
@@ -44,34 +48,66 @@ def create_objects_from_config_node(config, cfg_node):
                 pseudo_names.remove(axis_tag)
             else:
                 raise KeyError("{0} is not a valid pseudo axis tag".format(axis_tag))
-        if axis_name.startswith("$"):
-            axis_class = AxisRef
-            axis_name = axis_name.lstrip("$")
+
+        if not isinstance(axis_name, str):
+            axis_class = None
+            axis_name = axis_name.name
         else:
             axis_class = Axis
-            axes_names.append(axis_name)
-        axes.append((axis_name, axis_class, axis_config))
 
+        axes[axis_name] = (axis_class, axis_config)
+
+    # check that all required reals have been found in config
     if len(real_names):
         raise KeyError("Missing real axis tags {0}".format(real_names))
 
-    parent_node = Node()
+    # get remaining pseudo axis not declared in config
     for axis_name in pseudo_names:
-        axis_config = Node(parent=parent_node)
-        axis_config.update({"name": axis_name, "tags": axis_name})
-        axis_class = Axis
-        axes.append((axis_name, axis_class, axis_config))
+        # print("remaining pseudo", axis_name)
+        axes[axis_name] = (Axis, {"name": axis_name, "tags": axis_name})
 
-    name_mots = diff_name + "_motors"
-    diff_mots = HKLMotors(name_mots, diff_calc, cfg_node, axes)
-    diff_mots._init()
-    diff_calc.calc_controller = diff_mots
+    return axes
 
-    cache_dict = dict(list(zip(axes_names, [diff_mots] * len(axes_names))))
-    return {diff_name: diff_calc, name_mots: diff_mots}, cache_dict
+
+def create_hkl_motors(diffracto, axes_info):
+    hklmots = HKLMotors(
+        f"{diffracto.name}_motors", diffracto, diffracto.config, axes_info
+    )
+    # --- force axis init before CalcController._init (see emotion)
+    for axname in axes_info:
+        hklmots.get_axis(axname)
+    hklmots._init()
+    return hklmots
+
+
+def create_objects_from_config_node(config, cfg_node):
+
+    controller_config = cfg_node
+    is_controller = True
+    if "geometry" not in cfg_node:
+        is_controller = False
+        controller_config = cfg_node.parent
+        if "geometry" not in controller_config:  # check parent node is the controller
+            raise KeyError(f"Cannot find geometry in parent node")
+
+    diffracto = load_controller(controller_config)
+    axes_info = get_axes_info(diffracto)
+    hklmots = create_hkl_motors(diffracto, axes_info)
+
+    diffracto.calc_controller = hklmots
+
+    name2cacheditems = {axname: hklmots for axname in axes_info}
+    yield {diffracto.name: diffracto}, name2cacheditems
+
+    if not is_controller:
+        obj_name = cfg_node.get("name")
+        obj = config.get(obj_name)
+        # print("=== Not a controller: yield", obj_name, obj)
+        yield {obj_name: obj}
 
 
 def create_object_from_cache(config, name, controller):
+    # print("=== create_object_from_cache", name, controller)
     try:
         return controller.get_axis(name)
     except:

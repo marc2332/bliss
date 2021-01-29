@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2015-2020 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
+
 import numpy
 from bliss.controllers.motor import CalcController
 from bliss.physics import trajectory
@@ -9,8 +16,8 @@ from bliss.common.utils import object_method
 
 class HKLMotors(CalcController):
     def __init__(self, name, diffractometer, config, axes):
-        CalcController.__init__(self, name, config, axes, [], [], [])
-        self.calc = diffractometer
+        super().__init__(name, config, axes, [], [], [])
+        self.diffracto = diffractometer
         self._frozen_angles = dict()
 
     def initialize(self, *args, **kws):
@@ -22,22 +29,22 @@ class HKLMotors(CalcController):
                 event.connect(axis, "high_limit", self.update_limits)
 
     def update_limits(self, *args):
-        geo_limits = self.calc.geometry.get_axis_limits()
+        geo_limits = self.diffracto.geometry.get_axis_limits()
         for axis in self.reals:
             name = self._axis_tag(axis)
             if name != "energy":
                 axis_limits = axis.limits
-                if not self.calc.geometry.is_axis_limits_initialized(name):
+                if not self.diffracto.geometry.is_axis_limits_initialized(name):
                     geo_limits[name] = axis_limits
                 else:
                     geo_limits[name] = (
                         max(axis_limits[0], geo_limits[name][0]),
                         min(axis_limits[1], geo_limits[name][1]),
                     )
-        self.calc.geometry.set_axis_limits(geo_limits)
+        self.diffracto.geometry.set_axis_limits(geo_limits)
 
     def initialize_axis(self, axis):
-        super(HKLMotors, self).initialize_axis(axis)
+        super().initialize_axis(axis)
         axis.no_offset = True
 
     def start_all(self, *motion_list):
@@ -56,16 +63,16 @@ class HKLMotors(CalcController):
 
     def calc_to_real(self, positions_dict):
         if len(self._frozen_angles):
-            self.calc.geometry.set_axis_pos(self._frozen_angles, update=False)
-        self.calc.geometry.set_pseudo_pos(positions_dict)
-        return self.calc.geometry.get_axis_pos()
+            self.diffracto.geometry.set_axis_pos(self._frozen_angles, update=False)
+        self.diffracto.geometry.set_pseudo_pos(positions_dict)
+        return self.diffracto.geometry.get_axis_pos()
 
     def calc_from_real(self, real_positions):
         energy = real_positions.pop("energy", None)
         if energy is not None:
-            self.calc.geometry.set_energy(energy)
-        self.calc.geometry.set_axis_pos(real_positions)
-        return self.calc.geometry.get_pseudo_pos()
+            self.diffracto.geometry.set_energy(energy)
+        self.diffracto.geometry.set_axis_pos(real_positions)
+        return self.diffracto.geometry.get_pseudo_pos()
 
     def update(self):
         self._calc_from_real()
@@ -115,7 +122,7 @@ class HKLMotors(CalcController):
         self, pseudos, start, stop, npoints, time_per_point, interpolation_factor=1
     ):
 
-        geometry = self.calc.geometry
+        geometry = self.diffracto.geometry
 
         # --- check if real motor has trajectory capability
         real_involved = geometry.get_axis_involved(*pseudos)

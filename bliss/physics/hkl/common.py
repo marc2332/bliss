@@ -48,7 +48,9 @@ def get_geometry_list():
     return " ".join(list(Hkl.factories().keys()))
 
 
-def get_geometry_positions(geometry, unit):
+def get_geometry_positions(
+    geometry, unit
+):  # geometry is the low level obj from Hkl =====
     axis_names = geometry.axis_names_get()
     axis_values = geometry.axis_values_get(unit)
     axis_pos = dict()

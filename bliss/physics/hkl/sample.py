@@ -237,7 +237,9 @@ class HklSample(object):
                     )
         return (meas, theo)
 
-    def info(self, mapnames=dict()):
+    def info(self, mapnames=None):
+        if mapnames is None:
+            mapnames = {}
         msg = "SAMPLE : {0}\n".format(self.get_name())
         msg += "LATTICE (lengths / angles):\n"
         msg += "         real space = {0:.4g} {1:.4g} {2:.4g} / {3:.4g} {4:.4g} {5:.4g}\n".format(

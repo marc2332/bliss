@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2015-2020 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
+
 import numpy
 import tabulate
 
@@ -199,9 +206,9 @@ def refdel(*index):
 
 def reflist():
     diffracto = get_current_diffractometer()
-    reflist = diffracto.reflist
+    _reflist = diffracto.reflist
     refout = list()
-    for (idx, ref) in zip(range(len(reflist)), reflist):
+    for (idx, ref) in zip(range(len(_reflist)), _reflist):
         refout.append(("[{0}]".format(idx),) + ref)
     print(tabulate.tabulate(refout, ("index",) + diffracto.refhead, "simple"))
 

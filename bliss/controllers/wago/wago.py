@@ -158,6 +158,9 @@ MODULES_CONFIG = {
     # ssi32: 32 bit SSI encoder
     # digital: digital IN or OUT
     # counter: counters
+    "750-342": [0, 0, 0, 0, 2, 2, "cpu", "Wago PLC Ethernet/IP"],
+    "750-352": [0, 0, 0, 0, 2, 2, "cpu", "Wago PLC Ethernet/IP"],
+    "750-363": [0, 0, 0, 0, 2, 2, "cpu", "Wago PLC Ethernet/IP"],
     "750-842": [0, 0, 0, 0, 2, 2, "cpu", "Wago PLC Ethernet/IP"],
     "750-881": [0, 0, 0, 0, 2, 2, "cpu", "Wago PLC Ethernet/IP"],
     "750-891": [0, 0, 0, 0, 2, 2, "cpu", "Wago PLC Ethernet/IP"],
@@ -233,6 +236,7 @@ MODULES_CONFIG = {
     "750-512": [0, 2, 0, 0, 2, 2, "digital", "2 Normally Open Relay Output"],
     "750-513": [0, 2, 0, 0, 2, 2, "digital", "2 Normally Open Relay Output"],
     "750-514": [0, 2, 0, 0, 2, 2, "digital", "2 Changeover Relay Output"],
+    "750-515": [0, 4, 0, 0, 4, 4, "digital", "4 Changeover Relay Output"],
     "750-516": [0, 4, 0, 0, 4, 4, "digital", "4 Channel Digital Output"],
     "750-517": [0, 2, 0, 0, 2, 2, "digital", "2 Changeover Relay Output"],
     "750-519": [0, 4, 0, 0, 4, 4, "digital", "4 Channel Digital Output"],

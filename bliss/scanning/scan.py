@@ -1521,9 +1521,9 @@ class Scan:
                                 if i is not None
                             ]
                         )
-                    except KeyboardInterrupt:
+                    except KeyboardInterrupt as e:
                         killed = killed_by_user = True
-                        raise ScanAbort
+                        raise ScanAbort from e
                     except BaseException:
                         killed = True
                         raise
@@ -1579,7 +1579,7 @@ class Scan:
                     killed = True
                     if e == KeyboardInterrupt:
                         killed_by_user = True
-                        raise ScanAbort
+                        raise ScanAbort from e
                     raise e
 
             # execute post scan hooks

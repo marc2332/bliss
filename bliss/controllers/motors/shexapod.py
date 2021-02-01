@@ -338,7 +338,7 @@ Q86=%f Q87=%f Q88=%f Q89=%f Q90=%f Q91=%f Q20=21"
             (
                 (
                     self.__get_axis_role(axis),
-                    self.__get_hw_set_position(axis) * CUNIT_TO_UNIT[axis.unit],
+                    self.__get_hw_set_position(axis) / CUNIT_TO_UNIT[axis.unit],
                 )
                 for axis in self.axes.values()
             )

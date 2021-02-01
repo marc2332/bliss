@@ -1116,9 +1116,6 @@ def loopscan(
         run (bool): if True (default), run the scan. False means just create
                     scan object and acquisition chain
         return_scan (bool): True by default
-        output_mode (str): valid are 'tail' (append each line to output) or
-                           'monitor' (refresh output in single line)
-                           [default: 'tail']
     """
 
     if title is None:

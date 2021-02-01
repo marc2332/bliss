@@ -39,21 +39,16 @@ YAML_ configuration example:
 """
 
 import re
-import logging
 from collections import namedtuple
 
 import numpy
 import gevent.lock
 from tabulate import tabulate
 
-from bliss.comm.util import get_comm, TCP
 from bliss.comm.tcp import SocketTimeout
-from bliss.common.axis import AxisState
-from bliss.controllers.motor import Controller
-from bliss.common.logtools import *
+from bliss.common.logtools import log_debug_data
 
 from bliss.controllers.motors.shexapod import (
-    ROLES,
     Pose,
     BaseHexapodError,
     BaseHexapodProtocol,

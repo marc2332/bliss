@@ -1,7 +1,5 @@
 import struct
 import socket
-import string
-import numpy
 from collections import namedtuple
 from tabulate import tabulate
 

@@ -554,7 +554,6 @@ class BaseMcaCounter(Counter):
     def __init__(self, mca, base_name, detector=None):
         self.mca = mca
         self.acquisition_device = None
-        self.data_points = []
         self.detector_channel = detector
         self.base_name = base_name
 
@@ -569,7 +568,6 @@ class BaseMcaCounter(Counter):
     # Extra logic
     def register_device(self, device):
         # Current device
-        self.data_points = []
         self.acquisition_device = device
         # Consistency checks
         assert self._counter_controller is self.acquisition_device.device
@@ -581,7 +579,6 @@ class BaseMcaCounter(Counter):
 
     def feed_point(self, spectrums, stats):
         point = self.extract_point(spectrums, stats)
-        self.data_points.append(point)
         return point
 
 

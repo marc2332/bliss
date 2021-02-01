@@ -516,6 +516,8 @@ class CalcController(Controller):
         self._reals_group = None
         self.reals = []
         self.pseudos = []
+        self._lock = lock.RLock()
+        self._in_real_pos_update = False
 
     def initialize(self):
         for real_axis in self._tagged["real"]:
@@ -570,16 +572,19 @@ class CalcController(Controller):
         return setpos_dict
 
     def _real_position_update(self, pos, sender=None):
-        for axis in self.pseudos:
-            self._initialize_axis(axis)
+        with self._lock:
+            # avoid recursion
+            if self._in_real_pos_update:
+                return
 
-        try:
-            # avoid recursion by disconnecting the signal
-            event.disconnect(sender, "internal_position", self._real_position_update)
-            return self._calc_from_real()
-        finally:
-            # reconnect
-            event.connect(sender, "internal_position", self._real_position_update)
+            for axis in self.pseudos:
+                self._initialize_axis(axis)
+
+            try:
+                self._in_real_pos_update = True
+                return self._calc_from_real()
+            finally:
+                self._in_real_pos_update = False
 
     def _real_setpos_update(self, _):
         real_setpos = dict()

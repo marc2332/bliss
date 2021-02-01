@@ -1,4 +1,5 @@
 # Conda requirements file
+aiogevent
 blessings
 cerberus
 colorama
@@ -25,9 +26,9 @@ numpy >= 1.13
 pandas
 parso >=0.5.1
 pint
-prompt-toolkit == 2.0.10
 psutil
-ptpython < 3.0
+ptpython >= 3.0.16
+prompt-toolkit >= 3.0.18
 pyfiglet
 pygments
 pygraphviz >= 1.5

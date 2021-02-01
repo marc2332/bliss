@@ -9,7 +9,7 @@ import os
 from bliss.icat import FieldGroup
 from xml.etree import ElementTree
 from collections import namedtuple
-from bliss.common.utils import autocomplete_property
+from bliss.common.utils import autocomplete_property, Singleton
 
 
 def process_node(n, fields):
@@ -21,15 +21,7 @@ def process_node(n, fields):
         process_node(child, fields)
 
 
-def singleton(cls):
-    instance = cls()
-    cls.__new__ = cls.__call__ = lambda cls: instance
-    cls.__init__ = lambda self: None
-    return instance
-
-
-@singleton
-class Definitions:
+class Definitions(metaclass=Singleton):
     def __init__(self):
         self._populate()
 

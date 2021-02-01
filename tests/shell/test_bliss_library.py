@@ -35,6 +35,9 @@ def test_shell_script(beacon):
     output, err = script.communicate()
 
     assert script.returncode == 0, output
+    assert (
+        err == b"Warning: Output is not a terminal (fd=1).\n"
+    )  # displayed by ptpython
     assert b"SHELL_MODE: True" in output, output
 
 

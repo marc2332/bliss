@@ -12,12 +12,12 @@ import os
 
 from bliss import release
 from bliss.common.session import Session
-from bliss.shell.cli.main import get_sessions_list
-from bliss.shell.cli.main import print_sessions_and_trees
-from bliss.shell.cli.main import print_sessions_list
+from bliss.shell.main import get_sessions_list
+from bliss.shell.main import print_sessions_and_trees
+from bliss.shell.main import print_sessions_list
 
 
-BLISS = [sys.executable, "-m", "bliss.shell.cli.main"]
+BLISS = [sys.executable, "-m", "bliss.shell.main"]
 
 
 @pytest.fixture

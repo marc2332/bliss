@@ -28,7 +28,7 @@ class BlissPrompt(PromptStyle):
 
     @property
     def prompt_label(self):
-        return self._prompt_label or self.python_input.bliss_prompt_label
+        return self._prompt_label
 
     @property
     def current_statement_index(self):

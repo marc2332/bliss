@@ -12,15 +12,31 @@ import contextlib
 from unittest import mock
 from prompt_toolkit.input.defaults import create_pipe_input
 from prompt_toolkit.output import DummyOutput
-from prompt_toolkit.eventloop import get_event_loop
 import pytest
 import gevent
 
-from bliss.shell.cli.repl import BlissRepl, CaptureOutput, install_excepthook
+from bliss.shell.cli.repl import (
+    BlissRepl,
+    PromptToolkitOutputWrapper,
+    install_excepthook,
+)
+
+
+class DummyTestOutput(DummyOutput):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._data = []
+
+    def write(self, text):
+        self._data.append(text)
+
+    def flush(self):
+        print("".join(self._data))
+        self._data = []
 
 
 def _feed_cli_with_input(
-    text, check_line_ending=True, local_locals={}, local_globals=None
+    text, check_line_ending=True, local_locals=None, local_globals=None
 ):
     """
     Create a Prompt, feed it with the given user input and return the CLI
@@ -34,6 +50,9 @@ def _feed_cli_with_input(
 
     inp = create_pipe_input()
 
+    if local_locals is None:
+        local_locals = {}
+
     def mylocals():
         return local_locals
 
@@ -46,21 +65,21 @@ def _feed_cli_with_input(
         myglobals = None
 
     try:
-
+        inp.send_text(text)
         br = BlissRepl(
             input=inp,
-            output=DummyOutput(),
+            output=DummyTestOutput(),
             session="test_session",
             get_locals=mylocals,
             get_globals=myglobals,
         )
-        inp.send_text(text)
+        br.app.output = PromptToolkitOutputWrapper(br.app.output)
         result = br.app.run()
         return result, br.app, br
 
     finally:
+        BlissRepl.instance = None  # BlissRepl is a Singleton
         inp.close()
-        get_event_loop().close()
 
 
 def test_shell_exit():
@@ -101,12 +120,12 @@ def test_shell_ctrl_r():
 
 
 def test_shell_prompt_number():
-    result, cli, br = _feed_cli_with_input("print 1\r")
+    result, cli, br = _feed_cli_with_input("print(1)\r")
     num1 = br.bliss_prompt.python_input.current_statement_index
-    br._execute(result)
+    br.eval(result)
     num2 = br.bliss_prompt.python_input.current_statement_index
     assert num2 == num1 + 1
-    br._execute(result)
+    br.eval(result)
     num3 = br.bliss_prompt.python_input.current_statement_index
     assert num3 == num1 + 2
 
@@ -244,27 +263,30 @@ def bliss_repl(locals_dict):
         br = BlissRepl(
             input=inp, output=DummyOutput(), session="test_session", get_locals=mylocals
         )
+        br.app.output = PromptToolkitOutputWrapper(br.app.output)
         yield inp, br
     finally:
+        BlissRepl.instance = None  # BlissRepl is a Singleton
         inp.close()
-        get_event_loop().close()
 
 
-def test_protected_against_trailing_whitespaces(capfd):
+def test_protected_against_trailing_whitespaces():
     """ Check that the number of spaces (N) after a command doesn't  make the command to be repeated N-1 times """
 
     def f():
         print("Om Mani Padme Hum")
 
     result, cli, br = _feed_cli_with_input(f"f() {' '*5}\r", local_locals={"f": f})
-    br._execute(result)
-    captured = capfd.readouterr()
-    out = _repl_out_to_string(captured.out)
-    assert out == "Om Mani Padme Hum\n"
+
+    output = cli.output
+    with output.capture_stdout:
+        br.eval(result)
+
+    assert output[-1] == "Om Mani Padme Hum\n\n"
 
 
-def test_info_dunder(capfd):
-    class A(object):
+def test_info_dunder():
+    class A:
         def __repr__(self):
             return "repr-string"
 
@@ -277,112 +299,109 @@ def test_info_dunder(capfd):
         def titi(self):
             return "titi-method"
 
-    class B(object):
+    class B:
         def __repr__(self):
             return "repr-string"
 
-    class C(object):
+    class C:
         pass
 
     # '__info__()' method called at object call.
     result, cli, br = _feed_cli_with_input("A\r", local_locals={"A": A(), "B": B()})
-    br._execute(result)
-    captured = capfd.readouterr()
-    out = _repl_out_to_string(captured.out)
-    assert "info-string" in out
+    output = cli.output
+
+    with output.capture_stdout:
+        br.eval(result)
+    assert "info-string" in output[-1]
 
     result, cli, br = _feed_cli_with_input("[A]\r", local_locals={"A": A(), "B": B()})
-    br._execute(result)
-    captured = capfd.readouterr()
-    out = _repl_out_to_string(captured.out)
-    assert "[repr-string]" in out
+    output = cli.output
+    with output.capture_stdout:
+        br.eval(result)
+    assert "[repr-string]" in output[-1]
 
     # 2 parenthesis added to method if not present
     result, cli, br = _feed_cli_with_input(
         "A.titi\r", local_locals={"A": A(), "B": B()}
     )
-    br._execute(result)
-    captured = capfd.readouterr()
-    out = _repl_out_to_string(captured.out)
-    assert "titi-method" in out
+    output = cli.output
+    with output.capture_stdout:
+        br.eval(result)
+    assert "titi-method" in output[-1]
 
     # Closing parenthesis added if only opening one is present.
     result, cli, br = _feed_cli_with_input(
         "A.titi(\r", local_locals={"A": A(), "B": B()}
     )
-    br._execute(result)
-    captured = capfd.readouterr()
-    out = _repl_out_to_string(captured.out)
-    assert "titi-method" in out
+    output = cli.output
+    with output.capture_stdout:
+        br.eval(result)
+    assert "titi-method" in output[-1]
 
     # Ok if finishing by a closing parenthesis.
     result, cli, br = _feed_cli_with_input(
         "A.titi()\r", local_locals={"A": A(), "B": B()}
     )
-    br._execute(result)
-    captured = capfd.readouterr()
-    out = _repl_out_to_string(captured.out)
-    assert "titi-method" in out
+    output = cli.output
+    with output.capture_stdout:
+        br.eval(result)
+    assert "titi-method" in output[-1]
 
     # '__repr__()' used if no '__info__()' method is defined.
     result, cli, br = _feed_cli_with_input("B\r", local_locals={"A": A(), "B": B()})
-    br._execute(result)
-    captured = capfd.readouterr()
-    out = _repl_out_to_string(captured.out)
-    assert "repr-string" in out
+    output = cli.output
+    with output.capture_stdout:
+        br.eval(result)
+    assert "repr-string" in output[-1]
 
     # Default behaviour for object without specific method.
     result, cli, br = _feed_cli_with_input(
         "C\r", local_locals={"A": A(), "B": B(), "C": C()}
     )
-    br._execute(result)
-    captured = capfd.readouterr()
-    out = _repl_out_to_string(captured.out)
-    assert "C object at " in out
+    output = cli.output
+    with output.capture_stdout:
+        br.eval(result)
+    assert "C object at " in output[-1]
 
     ###bypass typing helper ... equivalent of ... [Space][left Arrow]A[return], "B": B, "A.titi": A.titi}, "B": B, "A.titi": A.titi}
     with bliss_repl({"A": A, "B": B, "A.titi": A.titi}) as bliss_repl_ctx:
         inp, br = bliss_repl_ctx
+        output = br.app.output
         inp.send_text("")
         br.default_buffer.insert_text("A ")
         inp.send_text("\r")
         result = br.app.run()
         assert result == "A"
-        br._execute(result)
-        captured = capfd.readouterr()
-        out = _repl_out_to_string(captured.out)
+        with output.capture_stdout:
+            br.eval(result)
         # assert "<locals>.A" in out
         assert (
-            "  Out [1]: <class 'test_bliss_shell_basics.test_info_dunder.<locals>.A'>\r\n\r\n"
-            == out
+            "  Out [1]: <class 'test_bliss_shell_basics.test_info_dunder.<locals>.A'>\r\n\n"
+            == output[-1]
         )
 
     with bliss_repl({"A": A, "B": B, "A.titi": A.titi}) as bliss_repl_ctx:
         inp, br = bliss_repl_ctx
-        inp.send_text("")
-        br.default_buffer.insert_text("A")
-        inp.send_text("\r")
+        output = br.app.output
+        inp.send_text("A\r")
         result = br.app.run()
         assert result == "A()"
-        br._execute(result)
-        captured = capfd.readouterr()
-        out = _repl_out_to_string(captured.out)
+        with output.capture_stdout:
+            br.eval(result)
         # assert "<locals>.A" in out
-        assert "  Out [1]: info-string\r\n\r\n" == out
+        assert output[-1].startswith("  Out [1]: info-string")
 
     with bliss_repl({"A": A, "B": B, "A.titi": A.titi}) as bliss_repl_ctx:
         inp, br = bliss_repl_ctx
-        inp.send_text("")
-        br.default_buffer.insert_text("B")
-        inp.send_text("\r")
+        output = br.app.output
+        inp.send_text("B\r")
         result = br.app.run()
         assert result == "B()"
-        br._execute(result)
-        captured = capfd.readouterr()
-        out = _repl_out_to_string(captured.out)
+        with output.capture_stdout:
+            br.eval(result)
 
         # assert "<locals>.B" in out
-        assert "  Out [1]: repr-string\r\n\r\n" == out
+        assert output[-1].startswith("  Out [1]: repr-string")
 
 
 def test_shell_dict_list_not_callable():
@@ -465,7 +484,7 @@ def test_deprecation_warning(beacon, capfd, log_context):
         inp, br = bliss_repl_ctx
         inp.send_text("func()\r")
         result = br.app.run()
-        br._execute(result)
+        br.eval(result)
         captured = capfd.readouterr()
 
     out = _repl_out_to_string(captured.out)
@@ -475,42 +494,39 @@ def test_deprecation_warning(beacon, capfd, log_context):
 
 
 def test_captured_output():
-
-    CaptureOutput._data.clear()
-
     def f(num):
         print(num + 1)
         return num + 2
 
-    result, cli, br = _feed_cli_with_input("f(1)\r", local_locals={"f": f})
-    br._execute(result)
+    _, cli, br = _feed_cli_with_input("\r", local_locals={"f": f})
 
-    # necessary to advance to next paragraph to replicate
-    # shell behavior
-    CaptureOutput().end_of_paragraph(br.current_statement_index)
+    output = cli.output
+    with output.capture_stdout:
+        br.eval("f(1)")
 
-    captured = CaptureOutput()[-1]
+    captured = output[-1]
     assert "2" in captured
     assert "3" in captured
-    captured = CaptureOutput()[1]
+    captured = output[1]
     assert "2" in captured
     assert "3" in captured
     with pytest.raises(IndexError):
-        CaptureOutput()[3]
-    br._execute("f(3)")
-    CaptureOutput().end_of_paragraph(br.current_statement_index)
+        output[2]
 
-    captured = CaptureOutput()[-1]
+    with output.capture_stdout:
+        br.eval("f(3)")
+
+    captured = output[-1]
     assert "4" in captured
     assert "5" in captured
-    captured = CaptureOutput()[1]
+    captured = output[1]
     assert "2" in captured
     assert "3" in captured
-    captured = CaptureOutput()[2]
+    captured = output[2]
     assert "4" in captured
     assert "5" in captured
     with pytest.raises(IndexError):
-        CaptureOutput()[-10]
+        output[-10]
 
 
 def test_getattribute_evaluation():

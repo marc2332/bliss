@@ -132,7 +132,7 @@ class TypingHelper(object):
                         repl.default_buffer.insert_text(",")
 
                     except ValidationError as e:  # e.g. inside string ... print('bla bla
-                        if e.message == "Syntax Error":
+                        if "Syntax Error" in e.message:
                             repl.default_buffer.insert_text(" ")
                 else:
                     try:  # e.g. ascan(m0,1   or ascan(run=False,1
@@ -177,7 +177,9 @@ class TypingHelper(object):
             # load_confirm_exit-binding
             for handler in reversed(matches):
                 if (
-                    self.blissrepl.bliss_prompt.python_input.show_exit_confirmation
+                    self.blissrepl.all_prompt_styles[
+                        self.blissrepl.prompt_style
+                    ].python_input.show_exit_confirmation
                     and handler.handler.__qualname__
                     == "load_confirm_exit_bindings.<locals>._"
                 ):
@@ -222,7 +224,7 @@ class TypingHelper(object):
             try:
                 self.validator.validate(doc)
             except ValidationError as e:
-                if e.message == "Syntax Error":
+                if "Syntax Error" in e.message:
 
                     new_text = text + ")"
                     new_doc = Document(text=new_text, cursor_position=curs_pos + 1)

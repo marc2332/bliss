@@ -28,12 +28,11 @@ __author__ = release.author
 __license__ = release.license
 version_info = release.version_info
 
-from gevent import monkey as _monkey
+from bliss.common.greenlet_utils import patch_gevent as _patch_gevent
 
-_monkey.patch_all(thread=False)
+_patch_gevent()
 
 from bliss.common.proxy import Proxy as _Proxy
-import atexit
 
 
 def _get_current_session():
@@ -47,7 +46,9 @@ current_session = _Proxy(_get_current_session)
 from bliss.common.alias import MapWithAliases as _MapWithAliases
 
 global_map = _MapWithAliases(current_session)
-atexit.register(global_map.clear)
+import atexit as _atexit
+
+_atexit.register(global_map.clear)
 
 from bliss.common.logtools import Log as _Log
 

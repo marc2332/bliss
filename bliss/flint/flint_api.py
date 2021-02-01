@@ -359,6 +359,12 @@ class FlintApi:
         action: qt.QAction = plot.findChild(qt.QAction, qaction)
         action.trigger()
 
+    def test_infinit_loop(self):
+        """Debug purpose function to create an infinit loop in Flint.
+        """
+        while True:
+            pass
+
     def test_mouse(
         self,
         plot_id,

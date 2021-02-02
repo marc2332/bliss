@@ -637,7 +637,7 @@ def get_flint(
     if not creation_allowed:
         return None
 
-    reset_flint()
+    close_flint()
     global FLINT
     FLINT = FlintClient()
     return FLINT
@@ -670,7 +670,7 @@ def attach_flint(pid: int) -> FlintClient:
     return flint
 
 
-def reset_flint():
+def close_flint():
     """Close the current flint proxy.
     """
     global FLINT
@@ -681,3 +681,7 @@ def reset_flint():
     finally:
         # Anyway, invalidate the proxy
         FLINT = None
+
+
+def reset_flint():
+    close_flint()

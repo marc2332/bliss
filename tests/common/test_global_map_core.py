@@ -284,7 +284,7 @@ def test_global_map(beacon, s1hg, roby):
 
     # now check if expected links match the map
     expected_links = {
-        roby.controller: {"s1f", "s1b", "s1u", "s1d", "roby", "hooked_m0"},
+        roby.controller.name: {"s1f", "s1b", "s1u", "s1d", "roby", "hooked_m0"},
         "primary_slit": {"s1vg", "s1vo", "s1hg", "s1ho", "s1f", "s1d", "s1u", "s1b"},
         heater.controller: {"thermo_sample", "heater", "sample_regulation"},
         "axes": {
@@ -302,7 +302,7 @@ def test_global_map(beacon, s1hg, roby):
         "hook0": {"hooked_m0"},
         "controllers": {
             "primary_slit",
-            roby.controller,
+            roby.controller.name,
             heater.controller,
             "motion_hooks",
         },

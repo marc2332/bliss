@@ -328,6 +328,9 @@ def create_objects_from_config_node(config, node):
 
     controller_class_name = node.get("class")
     controller_name = node.get("name")
+    if controller_name is None:
+        # build a controller name, from the config
+        controller_name = f"{controller_class_name}_{node.md5hash()}"
     controller_class = find_class(node, "bliss.controllers.motors")
     controller_module = sys.modules[controller_class.__module__]
     axes = dict()

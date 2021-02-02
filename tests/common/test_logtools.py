@@ -94,10 +94,7 @@ def test_add_motor_m0(params):
     assert isinstance(get_logger(m0), logging.Logger)
 
     all_loggers = logging.getLogger().manager.loggerDict
-    assert (
-        f"global.controllers.{m0.controller.__class__.__name__}.m0"
-        in all_loggers.keys()
-    )
+    assert f"global.controllers.{m0.controller.name}.m0" in all_loggers.keys()
 
 
 def test_m0_logger_debugon(params, caplog):

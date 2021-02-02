@@ -51,6 +51,7 @@ import types
 import pickle
 import weakref
 import operator
+import hashlib
 from collections import defaultdict
 from collections.abc import MutableMapping, MutableSequence
 
@@ -295,6 +296,14 @@ class ConfigNode(MutableMapping):
 
     def encode(self):
         return self._data
+
+    def md5hash(self):
+        """Return md5 hex digest of the config node
+
+        Uses internal config dict to build the hash, so
+        two nodes with same digest represent the exact same config
+        """
+        return hashlib.md5(str(self._data).encode()).hexdigest()
 
     def reparent(self, new_parent_node):
         self._parent = new_parent_node

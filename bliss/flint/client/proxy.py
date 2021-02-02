@@ -102,11 +102,8 @@ class FlintClient:
             gevent.killall(self._greenlets, timeout=2.0)
         self._greenlets = None
 
-    def close(self):
-        """Close Flint and clean up this proxy."""
-        if self._proxy is None:
-            raise RuntimeError("No proxy connected")
-        self._proxy.close_application()
+    def _wait_for_closed(self, pid, timeout=None):
+        """"Wait for the PID to be closed"""
         try:
             p = psutil.Process(self._pid)
         except psutil.NoSuchProcess:
@@ -114,6 +111,13 @@ class FlintClient:
             pass
         else:
             psutil.wait_procs([p], timeout=4.0)
+
+    def close(self):
+        """Close Flint and clean up this proxy."""
+        if self._proxy is None:
+            raise RuntimeError("No proxy connected")
+        self._proxy.close_application()
+        self._wait_for_closed(self._pid, timeout=4.0)
         self.close_proxy()
 
     def focus(self):
@@ -127,6 +131,7 @@ class FlintClient:
         if self._pid is None:
             raise RuntimeError("No proxy connected")
         os.kill(self._pid, signal.SIGTERM)
+        self._wait_for_closed(self._pid, timeout=4.0)
         self.close_proxy()
 
     def kill9(self):
@@ -134,6 +139,7 @@ class FlintClient:
         if self._pid is None:
             raise RuntimeError("No proxy connected")
         os.kill(self._pid, signal.SIGKILL)
+        self._wait_for_closed(self._pid, timeout=4.0)
         self.close_proxy()
 
     def __start_flint(self):

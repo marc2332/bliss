@@ -4,6 +4,8 @@ import time
 import os
 import signal
 import pytest
+import gevent
+import psutil
 from contextlib import contextmanager
 
 from silx.utils import testutils
@@ -86,3 +88,40 @@ def test_attached_flint(attached_flint_session):
             if len(listener.records) >= 1:
                 # Early break
                 break
+
+
+def test_restart_flint(flint_session):
+    """
+    Test that the restart API is working in normal condition
+    """
+    flint = plot.get_flint()
+    previous_pid = flint._pid
+
+    try:
+        flint = plot.restart_flint()
+        assert previous_pid != flint._pid
+    finally:
+        flint.kill9()
+
+
+def test_restart_unresponsive_flint(flint_session):
+    """
+    Test that the restart API is working despite unresponsive Flint
+    """
+    flint = plot.get_flint()
+    previous_pid = flint._pid
+
+    def freeze_flint():
+        flint.test_infinit_loop()
+        assert False, "It is not supposed to return"
+
+    g = gevent.spawn(freeze_flint)
+    gevent.sleep(0.5)
+    g.kill()
+
+    try:
+        flint = plot.restart_flint()
+        assert not psutil.pid_exists(previous_pid)
+        assert flint is not None
+    finally:
+        flint.kill9()

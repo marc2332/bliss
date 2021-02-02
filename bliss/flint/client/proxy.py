@@ -21,6 +21,7 @@ import signal
 import bliss
 from bliss.comm import rpc
 from bliss.common import event
+from bliss.common import greenlet_utils
 
 from bliss import current_session
 from bliss.config.conductor.client import get_default_connection
@@ -112,11 +113,12 @@ class FlintClient:
         else:
             psutil.wait_procs([p], timeout=4.0)
 
-    def close(self):
+    def close(self, timeout=None):
         """Close Flint and clean up this proxy."""
         if self._proxy is None:
             raise RuntimeError("No proxy connected")
-        self._proxy.close_application()
+        with gevent.Timeout(timeout):
+            self._proxy.close_application()
         self._wait_for_closed(self._pid, timeout=4.0)
         self.close_proxy()
 
@@ -132,6 +134,7 @@ class FlintClient:
             raise RuntimeError("No proxy connected")
         os.kill(self._pid, signal.SIGTERM)
         self._wait_for_closed(self._pid, timeout=4.0)
+        self._proxy = None
         self.close_proxy()
 
     def kill9(self):
@@ -140,6 +143,7 @@ class FlintClient:
             raise RuntimeError("No proxy connected")
         os.kill(self._pid, signal.SIGKILL)
         self._wait_for_closed(self._pid, timeout=4.0)
+        self._proxy = None
         self.close_proxy()
 
     def __start_flint(self):
@@ -668,6 +672,41 @@ def attach_flint(pid: int) -> FlintClient:
     flint = FlintClient(process=pid)
     FLINT = flint
     return flint
+
+
+def restart_flint(creation_allowed: bool = True):
+    """Restart flint.
+
+    Arguments:
+        creation_allowed:  If true, if FLint was not started is will be created.
+            Else, nothing will happen.
+    """
+    global FLINT
+
+    flint = _get_cached_flint()
+    if flint is None:
+        if creation_allowed:
+            return get_flint()
+        return None
+
+    try:
+        flint.close(timeout=4)
+    except greenlet_utils.Timeout:
+        FLINT_LOGGER.debug("Error while closing Flint")
+        FLINT_LOGGER.warning("Try to kill Flint")
+
+        pid = flint._pid
+        flint.kill()
+
+        if psutil.pid_exists(pid):
+            FLINT_LOGGER.warning("Try to kill-9 Flint")
+            os.kill(pid, signal.SIGKILL)
+            try:
+                os.waitpid(pid, 0)
+            except IOError:
+                pass
+
+    return get_flint(start_new=True, mandatory=True)
 
 
 def close_flint():

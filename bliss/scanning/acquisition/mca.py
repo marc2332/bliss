@@ -257,13 +257,13 @@ class McaAcquisitionSlave(AcquisitionSlave):
             # break when we have received the expected number of points
             # it depends on the trigger_mode and device.hardware_points
             # (see prepare)
-            if (
-                nb == self.expected_npoints - 1
-            ):  # -1 because the 'for-loop+enumerate' start at i=0
+            #             - 1 because the 'for-loop+enumerate' start at i=0
+            if nb == self.expected_npoints - 1:
                 self._publish_datas()
                 break
 
             gevent.sleep(0.)
+            log_debug(self, "reading() end")
 
     def _init_datas(self):
         self._datas = dict()
@@ -306,6 +306,8 @@ class HWScaAcquisitionSlave(AcquisitionSlave):
             ctrl_params=ctrl_params,
         )
 
+        self._time_start = 0
+        self._time_stop = 0
         self.mca = mca
         self.spectrum_size = mca.spectrum_size
         self.scas = list()

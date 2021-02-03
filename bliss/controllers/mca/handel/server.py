@@ -9,6 +9,7 @@ Usage:
 """
 
 import os
+
 import argparse
 import logging
 from bliss.comm import rpc
@@ -31,10 +32,7 @@ except ImportError:
 
 
 # Run server
-def run(bind="0.0.0.0", port=8000, verbose=0):
-
-    if git is None:
-        raise ImportError("git library not found")
+def run(mca_name, verbose=0):
 
     # Logging.
     logger = logging.getLogger("HANDEL_rpc")
@@ -94,9 +92,58 @@ def run(bind="0.0.0.0", port=8000, verbose=0):
         logger.debug(f"      commit = {sha}")
         logger.debug(f"      branch = {branch}")
         logger.debug(f"      last commit = {last_commit_date}")
+
+    # Retrieve beacon config.
+    # BEACON_HOST environment variable must be set.
+    beacon_host = os.getenv("BEACON_HOST")
+    logger.debug(f"BEACON_HOST = {beacon_host}")
+
+    if beacon_host is None:
+        raise ValueError("Environment variable BEACON_HOST is not set.")
+
+    if mca_name is None:
+        raise ValueError("No MCA device name specified")
+    logger.debug(f"Mca name = {mca_name}")
+
+    # Get 'port' from 'url' field in beacon config.
+    config = get_beacon_config()
+    cfg = config.get_config(mca_name)
+    if cfg is None:
+        raise ValueError(
+            f"Cannot find object '{mca_name}' on BEACON_HOST={beacon_host}"
+        )
+    #    logger.debug(f"config= {cfg}")
+    protocol, host_url, port = cfg.get("url").split(":")
+
+    host = host_url.replace("//", "")  # remove heading "//"
+    bind = "0.0.0.0"
+
+    logger.debug(f"bind= {bind}")
+    logger.debug(f"host= {host}")
+    logger.debug(f"port= {port}")
+
+    # RPC SERVER
+    access = f"tcp://{host}:{port}"
     try:
-        hi.init_handel()
-        server = rpc.Server(hi, stream=True)
+        logger.debug("call init_handel()")
+        try:
+            hi.init_handel(mca_name)
+        except Exception as e:
+            print("unable to init_handel()")
+            raise e
+
+        if verbose == 1:
+            hi.set_log_level(4)
+            # Handel log file.
+            # Handel log levels:
+            #  MD_ERROR     1
+            #  MD_WARNING   2
+            #  MD_INFO      3
+            #  MD_DEBUG     4
+            hi.set_log_output("C:\\blissadm\\xia_handel_server.log")
+
+        logger.debug("create RPC server")
+        server = rpc.Server(hi, stream=True)  # stream ?
         server.bind(access)
         logger.info(f"READY - (Serving handel on {access}).")
         try:
@@ -107,10 +154,7 @@ def run(bind="0.0.0.0", port=8000, verbose=0):
         finally:
             server.close()
     finally:
-        hi.exit()
-
-
-# Parsing
+        hi.exit_handel()
 
 
 # Startup script arguments parsing.
@@ -120,13 +164,6 @@ def parse_args(args=None):
         description="Serve the handel interface over the network using bliss rpc",
     )
     parser.add_argument(
-        "--bind",
-        "-b",
-        default="0.0.0.0",
-        metavar="address",
-        help="Specify alternate bind address [default: all interfaces]",
-    )
-    parser.add_argument(
         "--verbose",
         "-v",
         default="0",
@@ -134,12 +171,11 @@ def parse_args(args=None):
         help="Specify level of verbosity [default: 0]",
     )
     parser.add_argument(
-        "port",
+        "mca_name",
         action="store",
-        default=8000,
-        type=int,
+        type=str,
         nargs="?",
-        help="Specify alternate port [default: 8000]",
+        help="Specify Bliss object name (used to retrieve configuration)",
     )
     return parser.parse_args(args)
 
@@ -150,7 +186,10 @@ def main(args=None):
 
     # ???
     gevent.patch()
-    run(namespace.bind, namespace.port, int(namespace.verbose))
+
+    print("MCA NAME=%r" % namespace.mca_name)
+
+    run(namespace.mca_name, int(namespace.verbose))
 
 
 if __name__ == "__main__":

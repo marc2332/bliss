@@ -230,8 +230,8 @@ class BaseXIA(BaseMCA):
         The filename is relative to the configuration directory.
         """
         try:
-            # call exit to avoid crash when reloading a config.
-            self._proxy.exit()
+            # call exit_handel to avoid crash when reloading a config.
+            self._proxy.exit_handel()
             user_print(f"Loading configuration '{filename}'")
             self._proxy.init(self.beacon_obj.configuration_directory, filename)
             self._proxy.start_system()  # Takes about 5 seconds

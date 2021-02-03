@@ -8,8 +8,12 @@ import logging
 from functools import reduce
 
 import numpy
+import time
 import gevent
 from bliss.common import event
+from bliss.config import settings
+from bliss.config.static import get_config as get_beacon_config
+from bliss.config.beacon_object import BeaconObject
 
 from .error import check_error, HandelError
 from ._cffi import handel, ffi
@@ -20,7 +24,7 @@ from .mapping import parse_mapping_buffer
 __all__ = [
     "init",
     "init_handel",
-    "exit",
+    "exit_handel",
     "get_num_detectors",
     "get_detectors",
     "get_detector_from_channel",
@@ -128,15 +132,73 @@ def init(*path):
     check_error(code)
 
 
-def init_handel():
+def init_handel(mca_name):
     """ Called at server startup.
     """
     code = handel.xiaInitHandel()
     check_error(code)
 
+    # vmaj, vmin, vrel = get_handel_version()  # exit prog ???
+    # vmaj, vmin, vrel = 0, 0, 0
+    # LOGGER.info("init_handel -- %s -- version=%s.%s.%s", mca_name, vmaj, vmin, vrel)
 
-def exit():
-    LOGGER.debug("exit()")
+    # Get info from Beacon configuration and settings.
+    print(f"get config for {mca_name}")
+    cfg = get_beacon_config()
+    mca_config = cfg.get_config(mca_name)
+    if mca_config is None:
+        raise ValueError(f"Cannot find config for {mca_name}")
+    mca_beacon_obj = BeaconObject(mca_config)
+
+    # Get Beacon setting parameters.
+    current_configuration = mca_beacon_obj.settings.get("current_configuration")
+    LOGGER.debug("current_configuration = %s", current_configuration)
+
+    # Get Beacon configuration parameters.
+    default_configuration = mca_config.get("default_configuration")
+    LOGGER.debug("default_configuration = %s", default_configuration)
+    config_dir = mca_config.get("configuration_directory")
+    LOGGER.debug("config_dir = %s", config_dir)
+
+    # Use default_configuration if current_configuration is not found.
+    if current_configuration is None:
+        print("No 'current_configuration' found in settings")
+        try:
+            init(config_dir, default_configuration)
+            print(f"Default configuration {default_configuration} loaded.")
+            current_configuration = default_configuration
+        except Exception:
+            raise RuntimeError(
+                f"Error loading default configuration {default_configuration}"
+            )
+    else:
+        try:
+            # Load current_configuration.
+            init(config_dir, current_configuration)
+            print(f"Current configuration {current_configuration} loaded.")
+        except Exception:
+            # Load 'default_configuration' in case of failure of
+            # current_configuration loading (incorrect config file for example).
+            print(f"Loading current configuration {current_configuration} failed.")
+            try:
+                init(config_dir, default_configuration)
+                print(f"Default configuration {default_configuration} loaded.")
+                current_configuration = default_configuration
+            except Exception:
+                raise RuntimeError(
+                    f"Error loading default configuration {default_configuration}"
+                )
+
+    # In case of success, update 'current_configuration' Beacon setting.
+    mca_beacon_obj.settings.set({"current_configuration": current_configuration})
+    print(f"current config is now: {current_configuration}")
+
+    start_system()
+    LOGGER.debug("end of init_handel()")
+
+
+def exit_handel():
+    LOGGER.debug("exit_handel()")
     code = handel.xiaExit()
     check_error(code)
 
@@ -200,10 +262,10 @@ def stop_run(channel=None):
 
 
 def get_channel_realtime(channel):
-    time = ffi.new("double *")
-    code = handel.xiaGetRunData(channel, b"realtime", time)
+    timing = ffi.new("double *")
+    code = handel.xiaGetRunData(channel, b"realtime", timing)
     check_error(code)
-    return time[0]
+    return timing[0]
 
 
 def get_spectrum_length(channel):
@@ -486,7 +548,9 @@ def get_all_buffer_data(buffer_id):
     return merge_buffer_data(*data)
 
 
-def synchronized_poll_data(done=set()):
+def synchronized_poll_data(
+    acquisition_number, done=set(), pixel_seen_cache={"pixel": 0, "times": 0}
+):
     """Convenient helper for buffer management in mapping mode.
 
     It assumes that all the modules are configured with the same number
@@ -506,32 +570,59 @@ def synchronized_poll_data(done=set()):
     first indexed by pixel and then by channel. If there is no data to
     report, those values are empty dicts.
     """
+    pixel_seen = pixel_seen_cache
     data = {"a": None, "b": None}
-    overrun_error = RuntimeError("Buffer overrun!")
+
+    overrun_error_hwd = RuntimeError("Buffer overrun (hwd)!")
+    overrun_error_soft = RuntimeError("Buffer overrun (soft)!")
     # Get info from hardware
     current_pixel = get_current_pixel()
+
+    # put "a" or "b" in "full" if buffer a or buffer b is full.
     full = {x for x in data if all_buffer_full(x)}  # <- full is a set, not a dict...
-    # Overrun from hardware
+    # Check overrun detected by hardware.
     if any_buffer_overrun():
-        raise overrun_error
+        raise overrun_error_hwd
+
     # FalconX hack
-    # The buffer_done command does not reset the full flag.
+    # The 'buffer_done' command does not reset the full flag.
     # It's only reset when the buffer starts being filled up again.
     # For this reason, we need to remember full flags from the previous call.
-    # This is exactly what the done set does.
+    # This is exactly what the 'done' set does.
     done &= full  # Reset done flags
     full -= done  # Don't read twice
     done |= full  # Set done flags
+
     # Read data from buffers
     for x in full:
         data[x] = get_all_buffer_data(x)
-        # Overrun from set_buffer_done
+        # mark buffers as read. get overrun from set_buffer_done.
         if set_all_buffer_done(x):
-            raise overrun_error
+            raise overrun_error_soft
+
     # Extract data
     args = filter(None, data.values())
     spectrums, stats = merge_buffer_data(*args)
-    # Return
+
+    nb_spectrums = len(spectrums)
+
+    # Count number of times a specific pixel is seen.
+    if pixel_seen["pixel"] == current_pixel:
+        pixel_seen["times"] += 1
+    else:
+        pixel_seen["times"] = 0
+        pixel_seen["pixel"] = current_pixel
+
+    pxs = pixel_seen["pixel"]
+    pxtimes = pixel_seen["times"]
+    missing = acquisition_number - current_pixel
+    if pixel_seen["times"] > 50:
+        if pixel_seen["times"] % 10 == 0:
+            print(
+                f"\rpixel {pxs} seen {pxtimes:3d} times (nb_spectrums={nb_spectrums}) (missing={missing})",
+                end="",
+            )
+
     return current_pixel, spectrums, stats
 
 
@@ -941,31 +1032,52 @@ def _raw_read(acquisition_number, queue):
                 event.send(module, "current_pixel", current_pixel_dict["current"])
 
         def poll_data(sent):
-            current, data, statistics = synchronized_poll_data()
+            current, data, statistics = synchronized_poll_data(acquisition_number)
             points = list(range(sent, sent + len(data)))
+
+            # To inform BLISS about progression.
             current_pixel_dict["current"] = current
             current_pixel_event.set()
+
             # Check data integrity
             if sorted(data) != sorted(statistics) != points:
                 raise RuntimeError("The polled data overlapped during the acquisition")
             sent += len(data)
+
             # Send the data
             for n in points:
                 queue.put((data[n], statistics[n]))
+            print(
+                f"\r in poll_data current_pixel={current} sent={sent}/{acquisition_number}",
+                end="",
+            )
+
             # Finished
             # we should go in this test to send the end of the acquisition
             if sent == current == acquisition_number:
+                print("")
                 raise StopIteration
-            # Sleep
+
             gevent.sleep(0)
             return sent
 
         send_pixel_task = gevent.spawn(send_current_pixel)
         sent = 0
         while is_running():
+            _t0 = time.time()
             sent = poll_data(sent)
+            _duration = time.time() - _t0
+            LOGGER.debug(
+                f"poll_data() after poll_data ({_duration}) sent={sent} acq_nb={acquisition_number}"
+            )
+
         # get last points
+        _t0 = time.time()
+        _duration = time.time() - _t0
         poll_data(sent)
+        LOGGER.debug(
+            f"poll_data() after poll_data ({_duration}) sent={sent} acq_nb={acquisition_number}"
+        )
     except StopIteration:
         pass
     except Exception as e:
@@ -997,17 +1109,16 @@ def _raw_read(acquisition_number, queue):
 # int xiaCommandOperation(int detChan, byte_t cmd, unsigned int lenS,
 #                         byte_t *send, unsigned int lenR, byte_t *recv);
 
-
 # Debugging
 
 
 def get_handel_version():
-    rel = ffi.new("int *")
-    min = ffi.new("int *")
-    maj = ffi.new("int *")
-    pretty = ffi.new("char *")
-    handel.xiaGetVersionInfo(rel, min, maj, pretty)
-    return maj[0], min[0], rel[0]
+    _rel = ffi.new("int *")
+    _min = ffi.new("int *")
+    _maj = ffi.new("int *")
+    _pretty = ffi.new("char *")
+    handel.xiaGetVersionInfo(_rel, _min, _maj, _pretty)
+    return _maj[0], _min[0], _rel[0]
 
 
 # Not exposed

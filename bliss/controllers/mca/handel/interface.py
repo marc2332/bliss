@@ -122,7 +122,7 @@ def init(*path):
     """ Called at BLISS object init.
     """
     filename = to_bytes(os.path.join(*path))
-    LOGGER.debug("init (config={%s})", filename)
+    LOGGER.info("init (config={%s})", filename)
 
     code = handel.xiaInit(filename)
     check_error(code)
@@ -131,8 +131,6 @@ def init(*path):
 def init_handel():
     """ Called at server startup.
     """
-    LOGGER.debug("init_handel --")
-
     code = handel.xiaInitHandel()
     check_error(code)
 
@@ -194,10 +192,9 @@ def start_run(channel=None, resume=False):
 def stop_run(channel=None):
     """
     """
-    LOGGER.debug(f"stop_run(channel={channel})")
-
     if channel is None:
         channel = -1  # All channels
+    LOGGER.debug(f"stop_run(channel={channel})")
     code = handel.xiaStopRun(channel)
     check_error(code)
 
@@ -217,7 +214,6 @@ def get_spectrum_length(channel):
 
 
 def get_spectrum(channel):
-    LOGGER.debug(f"get_spectrum(channel={channel})")
     length = get_spectrum_length(channel)
     array = numpy.zeros(length, dtype="uint32")
     data = ffi.cast("uint32_t *", array.ctypes.data)
@@ -228,6 +224,7 @@ def get_spectrum(channel):
 
 def get_spectrums():
     """Return the spectrums for all enabled channels as a dictionary."""
+    LOGGER.debug("get_spectrums()")
     return {channel: get_spectrum(channel) for channel in get_channels()}
 
 
@@ -251,9 +248,11 @@ def is_running():
 
     if LOGGER.level == logging.DEBUG:
         if running:
-            print("R ", end="")
+            pass
+            # print("\rRunning ", end="")
         else:
-            print("Not Running")
+            pass
+            # print("Not Running")
 
     return running
 
@@ -297,7 +296,7 @@ def get_module_statistics(module):
     # Run handel call
     code = handel.xiaGetRunData(master, b"module_statistics_2", data)
     check_error(code)
-    # Parse raw data
+    LOGGER.info("Parse raw data")
     return {
         channel: stats_from_normal_mode(array[index * 9 :])
         for index, channel in enumerate(channels)
@@ -307,16 +306,17 @@ def get_module_statistics(module):
 
 def get_statistics():
     """Return the statistics for all enabled channels as a dictionary."""
+    LOGGER.debug("get_statistics()")
     result = {}
     # We're not using get_master_channels here.
     # That's because each FalconX channels is its own master, even though
     # the statistics can be accessed with a single call per module.
     for module in get_modules():
-        result.update(get_module_statistics(module))
+        stats = get_module_statistics(module)
+        LOGGER.debug("stats=%r", stats)
+        result.update(stats)
 
-    LOGGER.debug("get_statistics()")
-    LOGGER.debug("result=", result)
-
+    # print(result)
     return result
 
 
@@ -328,7 +328,7 @@ def get_buffer_length(master):
     code = handel.xiaGetRunData(master, b"buffer_len", length)
     check_error(code)
     buf_len = length[0]
-    LOGGER.debug(f"get_buffer_length(master={master}) --> {buf_len}")
+    # LOGGER.debug(f"get_buffer_length(master={master}) --> {buf_len}")
 
     return buf_len
 
@@ -341,7 +341,7 @@ def is_buffer_full(master, buffer_id):
     check_error(code)
     ibf = bool(result[0])
 
-    LOGGER.debug(f"is_buffer_full(master={master}, buffer_id={buffer_id}) --> {ibf}")
+    # LOGGER.debug(f"is_buffer_full(master={master}, buffer_id={buffer_id}) --> {ibf}")
 
     return ibf
 
@@ -351,17 +351,22 @@ def is_buffer_overrun(master):
     code = handel.xiaGetRunData(master, b"buffer_overrun", result)
     check_error(code)
     ibo = bool(result[0])
-    LOGGER.debug(f"is_buffer_overrun(master={master}) --> {ibo}")
+    if ibo:
+        LOGGER.debug(f"is_buffer_overrun(master={master}) --> {ibo}")
     return ibo
 
 
 def get_raw_buffer(master, buffer_id):
-    LOGGER = logging.getLogger("HANDEL_rpc")
-    LOGGER.debug(f"get_raw_buffer(master={master} buff id={buffer_id})")
-
+    """
+    Read currently acquiered data from handel.
+    Return raw data.
+    Used in mapping mode.
+    """
     bid = to_buffer_id(buffer_id)
     command = b"buffer_%c" % bid
     length = get_buffer_length(master)
+    LOGGER.debug(f"get_raw_buffer(master={master} buff id={buffer_id}) (len={length})")
+
     array = numpy.zeros(length * 2, dtype="uint16")
     data = ffi.cast("uint32_t *", array.ctypes.data)
     code = handel.xiaGetRunData(master, command, data)
@@ -376,7 +381,7 @@ def get_raw_buffer(master, buffer_id):
 
 
 def get_buffer_data(master, buffer_id):
-    LOGGER.debug(f"get_buffer_date(master={master} buff id={buffer_id})")
+    LOGGER.debug(f"get_buffer_data(master={master} buff id={buffer_id})")
     raw = get_raw_buffer(master, buffer_id)
     return parse_mapping_buffer(raw)
 
@@ -404,7 +409,7 @@ def set_buffer_done(master, buffer_id):
     other = b"b" if bid == b"a" else b"a"
     overrun = is_buffer_full(master, other) and is_channel_running(master)
     LOGGER.debug(
-        f"get_raw_buffer(master={master} buff id={buffer_id} )   overrun={overrun}"
+        f"set_buffer_done(master={master} buff id={buffer_id} )   overrun={overrun}"
     )
     return overrun
 
@@ -416,7 +421,7 @@ def set_maximum_pixels_per_buffer():
     """Set the maximum number of pixels per buffer.
 
     It makes sure all the modules are configured with the same value,
-    in order to be able to perform synchronized run.
+    to be able to perform synchronized run.
     """
     set_acquisition_value("num_map_pixels_per_buffer", -1)
     value = min(
@@ -452,11 +457,17 @@ def set_all_buffer_done(buffer_id):
 
 
 def get_current_pixel():
-    """Get the current pixel reported by the hardware."""
+    """
+    Return the max over all current pixel's channel.
+    """
 
-    current_pixel = max(
+    # why MAX ???
+
+    all_current_pixels = (
         get_buffer_current_pixel(master) for master in get_master_channels()
     )
+    current_pixel = max(all_current_pixels)
+    # current_pixel = min(all_current_pixels)
 
     LOGGER.debug(f"get_current_pixel() ->  {current_pixel}")
 
@@ -630,6 +641,9 @@ def get_num_modules():
 
 
 def get_modules():
+    """ Return alias(es) of modules.
+    Ex: ['module1']
+    """
     n = get_num_modules()
     arg = [ffi.new("char []", MAX_STRING_LENGTH) for _ in range(n)]
     code = handel.xiaGetModules(arg)
@@ -691,7 +705,9 @@ def get_module_channel_at(alias, index):
 
 
 def get_module_channels(alias):
-    """Return the module channels properly indexed."""
+    """Return the module channels properly indexed.
+    Ex: fx2._proxy.get_module_channels(b"module1")  -> [0, 1]
+    """
     number_of_channels = get_module_number_of_channels(alias)
     return tuple(
         get_module_channel_at(alias, index) for index in range(number_of_channels)
@@ -699,8 +715,12 @@ def get_module_channels(alias):
 
 
 def get_grouped_channels():
-    """Return the indexed channels grouped by modules."""
-    return tuple(get_module_channels(alias) for alias in get_modules())
+    """Return the indexed channels grouped by modules.
+    Ex: [[0, 1]]  (list in BLISS after rpc transport.)
+    """
+    grp_chans = tuple(get_module_channels(alias) for alias in get_modules())
+    # print("grp_chans= ", grp_chans)
+    return grp_chans
 
 
 def get_channels():
@@ -741,7 +761,7 @@ def get_trigger_channels():
 # int xiaGetModules_VB(unsigned int index, char *alias);
 
 
-# Parameters
+# Parameters (acquisition values)
 
 
 def get_acquisition_value(name, channel=None):
@@ -767,6 +787,7 @@ def get_acquisition_value(name, channel=None):
 
 
 def set_acquisition_value(name, value, channel=None):
+    # LOGGER.info(f"set_acquisition_value({name}, \t{value}, ch={channel})")
     if channel is None:
         channel = -1  # All channels
     name = to_bytes(name)
@@ -796,7 +817,60 @@ def apply_acquisition_values(channel=None):
     check_error(code)
 
 
+def print_acq_vals():
+    av_list = [
+        "analog_gain",
+        "analog_offset",
+        "detector_polarity",
+        "detector_polarity",
+        "termination",
+        "attenuation",
+        "coupling",
+        "decay_time",
+        #    "dc_offset",
+        "reset_blanking_enable",
+        #    "reset_blanking_threshold",
+        "reset_blanking_presamples",
+        "reset_blanking_postsamples",
+        "clock_speed",
+        "adc_trace_decimation",
+        #    "detection_threshold",
+        "min_pulse_pair_separation",
+        #    "risetime_optimization",
+        "detection_filter",
+        #    "scale_factor",
+        "number_mca_channels",
+        "mca_spectrum_accepted",
+        "mca_spectrum_rejected",
+        "mca_start_channel",
+        "mca_refresh",
+        "mca_bin_width",
+        "preset_type",
+        "preset_value",
+        "mapping_mode",
+        "sca_trigger_mode",
+        "sca_pulse_duration",
+        "number_of_scas",
+        #    "sca",
+        "num_map_pixels",
+        "num_map_pixels_per_buffer",
+        "pixel_advance_mode",
+        "input_logic_polarity",
+        "gate_ignore",
+        "sync_count",
+        "auto_dc_offset",
+    ]
+
+    for av in av_list:
+        value = get_acquisition_value(av)
+        print(f"{av} = {value}")
+
+
 def trigger():
+    """
+    Called only in MCA mode (step by step scan).
+    """
+    LOGGER.debug("trigger()")
     module = inspect.getmodule(trigger)
     try:
         stop_run()
@@ -829,9 +903,14 @@ def wait_hardware_reading():
             return HARDWARE_READING_TASK.get()
         finally:
             HARDWARE_READING_TASK = None
+    print("\nEnd of HARDWARE_READING_TASK\n")
 
 
 def _hardware_poll_points(npoints):
+    """
+    Read data from handel lib and put them in a queue.
+    * spawned from _hardware_poll_points()
+    """
     module = inspect.getmodule(_hardware_poll_points)
     queue = gevent.queue.Queue()
     try:
@@ -850,6 +929,7 @@ def _hardware_poll_points(npoints):
 def _raw_read(acquisition_number, queue):
     module = inspect.getmodule(_raw_read)
     send_pixel_task = None
+    LOGGER.debug(f"_raw_read(acquisition_number={acquisition_number})")
     try:
         current_pixel_event = gevent.event.Event()
         current_pixel_dict = {"current": -1}

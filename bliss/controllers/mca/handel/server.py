@@ -15,6 +15,12 @@ from bliss.comm import rpc
 from bliss import release
 import bliss
 
+# ??? gevent imported from handel ???
+from bliss.controllers.mca.handel import gevent
+from bliss.config.static import get_config as get_beacon_config
+
+import bliss.controllers.mca.handel.interface as hi
+
 _logger = logging.getLogger(__name__)
 
 try:
@@ -22,11 +28,6 @@ try:
 except ImportError:
     # Make it pass for the Sphinx API documentation
     git = None
-
-# ??? gevent imported from handel ???
-from bliss.controllers.mca.handel import gevent
-
-import bliss.controllers.mca.handel.interface as hi
 
 
 # Run server
@@ -37,56 +38,72 @@ def run(bind="0.0.0.0", port=8000, verbose=0):
 
     # Logging.
     logger = logging.getLogger("HANDEL_rpc")
-    log_handler = logging.StreamHandler()
+
+    # file handler
+    fh = logging.FileHandler("handel_server.log")
+    fh.setLevel(logging.DEBUG)
+
+    # console handler
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    # datefmt='%m-%d-%Y %I:%M:%S %p'
+    fh.setFormatter(formatter)
+    ch.setFormatter(formatter)
+
+    logger.addHandler(ch)
+    logger.addHandler(fh)
+
     if verbose == 1:
         logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.INFO)
-    # log_format = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    log_format = logging.Formatter("%(levelname)s - %(message)s")
-    log_handler.setFormatter(log_format)
-    logger.addHandler(log_handler)
-    logger.error("LOGGER ERROR")
-    logger.warning("LOGGER WARNING")
-    logger.info("LOGGER INFO")
-    logger.critical("LOGGER CRITICAL")
-    logger.debug("LOGGER DEBUG")
 
-    # Retrieve GIT repo info.
-    try:
-        bpath = bliss.__path__[0]
+    # Just warn about missing git support, it's not a big problem.
+    if git is None:
+        logger.warning("git library not found")
+    else:
+        # Retrieve GIT repo info.
         try:
-            os.chdir(bpath)
-            logger.debug(f"now in {bpath}")
+            bpath = bliss.__path__[0]
+            try:
+                os.chdir(bpath)
+                logger.debug(f"now in {bpath}")
+            except Exception:
+                logger.debug(f"Cannot go to bliss repo dir {bpath}")
         except Exception:
-            logger.debug(f"Cannot go to bliss repo dir {bpath}")
-    except Exception:
-        logger.debug("canot find bliss path")
-    try:
-        repo = git.Repo(search_parent_directories=True)
-        sha = repo.head.object.hexsha
-        branch = repo.active_branch.name
-        last_commit_date = repo.head.object.committed_datetime.isoformat()
-    except git.InvalidGitRepositoryError:
-        sha = "not in git repo directory"
-        branch = "not in git repo directory"
-        last_commit_date = "not in git repo directory"
-    logger.info(f"verbose={verbose}")
-    logger.info(f"BLISS version = {release.version}")
-    logger.debug(f"      commit = {sha}")
-    logger.debug(f"      branch = {branch}")
-    logger.debug(f"      last commit = {last_commit_date}")
+            logger.debug("canot find bliss path")
+        try:
+            repo = git.Repo(search_parent_directories=True)
+            sha = repo.head.object.hexsha
+            branch = repo.active_branch.name
+            last_commit_date = repo.head.object.committed_datetime.isoformat()
+        except git.InvalidGitRepositoryError as excp:  # noqa: F841
+            sha = "not in git repo directory"
+            branch = "not in git repo directory"
+            last_commit_date = "not in git repo directory"
+        except TypeError as excp:  # noqa: F841
+            sha = "detached head ?"
+            branch = "detached head ?"
+            last_commit_date = "detached head ?"
 
-    access = "tcp://{}:{}".format(bind, port)
+    logger.info(f"BLISS version = {release.version}")
+
+    if git is not None:
+        logger.debug(f"      commit = {sha}")
+        logger.debug(f"      branch = {branch}")
+        logger.debug(f"      last commit = {last_commit_date}")
     try:
         hi.init_handel()
         server = rpc.Server(hi, stream=True)
         server.bind(access)
-        logger.info("Serving handel on {} ...".format(access))
+        logger.info(f"READY - (Serving handel on {access}).")
         try:
+            # start RPC server
             server.run()
         except KeyboardInterrupt:
-            print("Interrupted.")
+            print("Interrupted (by Ctrl-c).")
         finally:
             server.close()
     finally:
@@ -96,6 +113,7 @@ def run(bind="0.0.0.0", port=8000, verbose=0):
 # Parsing
 
 
+# Startup script arguments parsing.
 def parse_args(args=None):
     parser = argparse.ArgumentParser(
         prog="handel-server",
@@ -126,11 +144,9 @@ def parse_args(args=None):
     return parser.parse_args(args)
 
 
-# Main function
-
-
 def main(args=None):
     namespace = parse_args(args)
+    print("starting handel server")
 
     # ???
     gevent.patch()

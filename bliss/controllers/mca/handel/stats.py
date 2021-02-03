@@ -24,6 +24,10 @@ _logger = logging.getLogger(__name__)
 
 
 def stats_from_normal_mode(array):
+    """
+    input: 9 elements array
+    output: 8 elements named-tuple
+    """
     realtime = float(array[0])
     trigger_livetime = float(array[1])
     energy_livetime = float(array[2])
@@ -79,7 +83,7 @@ def make_stats(realtime, trigger_livetime, triggers, events):
     # no icr -> 0 ?
     energy_livetime = events / icr if icr != 0 else 0.0
 
-    return Stats(
+    statistics = Stats(
         realtime,
         trigger_livetime,
         energy_livetime,
@@ -89,3 +93,7 @@ def make_stats(realtime, trigger_livetime, triggers, events):
         ocr,
         deadtime,
     )
+
+    # _logger.debug(f"make_stats(rt={realtime}, tlt={trigger_livetime}, trigs={triggers}, evts={events})")
+    # _logger.debug(statistics)
+    return statistics

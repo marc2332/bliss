@@ -474,7 +474,7 @@ class Output(SamplingCounterController):
         lines.append(
             f"current value: {self.read():.3f} {self.config.get('unit', 'N/A')}"
         )
-        lines.append(f"\n=== Output.set_value ramping options ===")
+        lines.append("\n=== Output.set_value ramping options ===")
         lines.append(f"ramprate: {self.ramprate}")
         lines.append(f"ramping: {self.is_ramping()}")
         lines.append(f"limits: {self._limits}")
@@ -658,7 +658,7 @@ class ExternalOutput(Output):
         lines.append(
             f"current value: {self.read():.3f} {self.config.get('unit', 'N/A')}"
         )
-        lines.append(f"\n=== Output.set_value ramping options ===")
+        lines.append("\n=== Output.set_value ramping options ===")
         lines.append(f"ramprate: {self.ramprate}")
         lines.append(f"ramping: {self.is_ramping()}")
         lines.append(f"limits: {self._limits}")
@@ -1170,7 +1170,7 @@ class Loop(SamplingCounterController):
             f"output: {self.output.name} @ {self.output.read():.3f} {self.output.config.get('unit', 'N/A')}"
         )
 
-        lines.append(f"\n=== Setpoint ===")
+        lines.append("\n=== Setpoint ===")
         lines.append(
             f"setpoint: {self.setpoint} {self.input.config.get('unit', 'N/A')}"
         )
@@ -1178,7 +1178,7 @@ class Loop(SamplingCounterController):
             f"ramprate: {self.ramprate} {self.input.config.get('unit', 'N/A')}/s"
         )
         lines.append(f"ramping: {self.is_ramping()}")
-        lines.append(f"\n=== PID ===")
+        lines.append("\n=== PID ===")
         lines.append(f"kp: {self.kp}")
         lines.append(f"ki: {self.ki}")
         lines.append(f"kd: {self.kd}")
@@ -1524,8 +1524,10 @@ class SoftLoop(Loop):
 
         self._last_input_value = None
         self._last_output_value = None
+        self._max_attempts_before_failure = None
 
         self.load_base_config()
+        self.max_attempts_before_failure = config.get("max_attempts_before_failure", 1)
 
     def __info__(self):
         lines = ["\n"]
@@ -1559,6 +1561,24 @@ class SoftLoop(Loop):
 
         self._ramp.stop()
         self._stop_regulation()
+
+    @property
+    def max_attempts_before_failure(self):
+        """
+        Get the maximum number of read input/set output attempts before failure
+        """
+
+        return self._max_attempts_before_failure
+
+    @max_attempts_before_failure.setter
+    def max_attempts_before_failure(self, value):
+        """
+        Set the maximum number of read input/set output attempts before failure
+        """
+
+        if not isinstance(value, int) or value < 0:
+            ValueError("max_attempts_before_failure should a positive integer")
+        self._max_attempts_before_failure = value
 
     @property
     def kp(self):
@@ -1763,18 +1783,38 @@ class SoftLoop(Loop):
         self._ramp.stop()
 
     def _do_regulation(self):
+        failures_in = 0
+        failures_out = 0
 
         while not self._stop_event.is_set():
 
             if self.input.allow_regulation():
-                self._last_input_value = input_value = self.input.read()
-                power_value = self.pid(input_value)
-                self._last_output_value = output_value = self._get_power2unit(
-                    power_value
-                )
 
-                if not self._x_is_in_idleband(input_value):
-                    self.output.set_value(output_value)
+                try:
+                    self._last_input_value = input_value = self.input.read()
+                except Exception as e:
+                    failures_in += 1
+                    if failures_in > self.max_attempts_before_failure:
+                        raise TimeoutError(
+                            "too many attempts to read input value, regulation stopped"
+                        ) from e
+                else:
+                    failures_in = 0
+                    power_value = self.pid(input_value)
+                    self._last_output_value = output_value = self._get_power2unit(
+                        power_value
+                    )
+
+                    if not self._x_is_in_idleband(input_value):
+                        try:
+                            self.output.set_value(output_value)
+                            failures_out = 0
+                        except Exception as e:
+                            failures_out += 1
+                            if failures_out > self.max_attempts_before_failure:
+                                raise TimeoutError(
+                                    "too many attempts to set output value, regulation stopped"
+                                ) from e
 
             gevent.sleep(self.pid.sample_time)
 

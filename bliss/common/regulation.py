@@ -957,14 +957,20 @@ class Loop(SamplingCounterController):
 
         self.history_data["time"].append(xval)
         self.history_data["setpoint"].append(self._get_working_setpoint())
-        self.history_data["input"].append(self.input.read())
-        self.history_data["output"].append(self.output.read())
+        self.history_data["input"].append(self._get_last_input_value())
+        self.history_data["output"].append(self._get_last_output_value())
 
         for data in self.history_data.values():
             dx = len(data) - self._history_size
             if dx > 0:
                 for i in range(dx):
                     data.pop(0)
+
+    def _get_last_input_value(self):
+        return self.input.read()
+
+    def _get_last_output_value(self):
+        return self.output.read()
 
     @property
     def history_size(self):
@@ -1516,7 +1522,8 @@ class SoftLoop(Loop):
         self.task = None
         self._stop_event = gevent.event.Event()
 
-        self._pid_output_value = None
+        self._last_input_value = None
+        self._last_output_value = None
 
         self.load_base_config()
 
@@ -1760,9 +1767,9 @@ class SoftLoop(Loop):
         while not self._stop_event.is_set():
 
             if self.input.allow_regulation():
-                input_value = self.input.read()
+                self._last_input_value = input_value = self.input.read()
                 power_value = self.pid(input_value)
-                self._pid_output_value = output_value = self._get_power2unit(
+                self._last_output_value = output_value = self._get_power2unit(
                     power_value
                 )
 
@@ -1770,6 +1777,20 @@ class SoftLoop(Loop):
                     self.output.set_value(output_value)
 
             gevent.sleep(self.pid.sample_time)
+
+    def _get_last_input_value(self):
+        # for an optimized _store_history_data (less com with input device)
+        if self.is_regulating:
+            if self._last_input_value is not None:
+                return self._last_input_value
+        return self.input.read()
+
+    def _get_last_output_value(self):
+        # for an optimized _store_history_data (less com with output device)
+        if self.is_regulating:
+            if self._last_output_value is not None:
+                return self._last_output_value
+        return self.output.read()
 
 
 class SoftRamp:

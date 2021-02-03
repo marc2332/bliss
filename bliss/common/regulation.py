@@ -2000,8 +2000,13 @@ class RegPlot:
                 self.task.join()
 
     def run(self):
-        # error_cnt = 0
-        while not self._stop_event.is_set() and self.is_plot_active():
+        while not self._stop_event.is_set():
+
+            try:
+                if not self.is_plot_active():
+                    return
+            except (gevent.timeout.Timeout, Exception) as e:
+                pass
 
             # update data history
             self.loop._store_history_data()
@@ -2041,10 +2046,7 @@ class RegPlot:
 
                 self.fig.submit("setAutoReplot", True)
 
-            except Exception as e:
-                # if error_cnt == 0:
-                #     print(e.args)
-                # error_cnt += 1
+            except (gevent.timeout.Timeout, Exception) as e:
                 pass
 
             gevent.sleep(self.sleep_time)

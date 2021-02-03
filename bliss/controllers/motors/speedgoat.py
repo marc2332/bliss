@@ -20,16 +20,16 @@ YAML_ configuration example:
       url: pcmel1
 
     # Speedgoat motor controller:
-    controller:
-      plugin: emotion         # (2)
-      class: Speedgoat        # (3)
-      speedgoat: goat1        # (4)
-      axes:
-      - name: piezo1          # (5)
-        model: piezoMotor     # (6)
-        velocity: 100         # (7)
-        acceleration: 400     # (8)
-        unit: nm              # (9)
+    plugin: emotion
+    package: bliss.controllers.motors.speedgoat
+    class: SpeedgoatMotor
+    speedgoat: $goat1
+    axes:
+      - name: fjpur
+        velocity: 1.0
+        acceleration: 10
+        steps_per_unit: 1000
+        unit: um
 
 #. simulink YAML_ definition (see: :mod:`bliss.controllers.simulink`)
 #. emotion plugin (inherited)

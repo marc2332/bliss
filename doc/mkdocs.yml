@@ -91,6 +91,7 @@ nav:
                       - PEPU: config_pepu.md
                       - Power supply:
                             - Nhq: config_nhq.md
+                            - HMC8041: config_hmc8041.md
                       - Regulation framework:
                             - Lakeshore: config_lakeshore.md
                             - Linkam: config_linkam.md

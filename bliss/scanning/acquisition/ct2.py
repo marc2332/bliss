@@ -9,6 +9,7 @@
 
 import numpy
 import gevent.event
+from collections import deque
 
 from bliss.common import event
 from bliss.scanning.chain import AcquisitionMaster
@@ -170,7 +171,7 @@ class CT2VarTimeAcquisitionMaster(CT2AcquisitionMaster):
 class CT2CounterAcquisitionSlave(IntegratingCounterAcquisitionSlave):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.__buffer = []
+        self.__buffer = deque()
         self.__buffer_event = gevent.event.Event()
         self._event_connected = False
 
@@ -216,7 +217,6 @@ class CT2CounterAcquisitionSlave(IntegratingCounterAcquisitionSlave):
         # CT2AcquisitionMaster prepare, we do a "second" prepare
         # here after the acq_channels have been configured
         ctrl.prepare_acq()
-        self.__buffer = []
 
     def start_device(self):
         # Connect only at scan startup.
@@ -243,7 +243,8 @@ class CT2CounterAcquisitionSlave(IntegratingCounterAcquisitionSlave):
         ) and not self._stop_flag:
             self.__buffer_event.wait()
             self.__buffer_event.clear()
-            data = numpy.array(self.__buffer[from_index:], dtype=numpy.uint32)
+            data = numpy.array(self.__buffer, dtype=numpy.uint32)
+            self.__buffer.clear()
             if not data.size:
                 continue
             data_len = len(data)
@@ -268,7 +269,8 @@ class CT2CounterAcquisitionSlave(IntegratingCounterAcquisitionSlave):
             gevent.sleep(0)
 
         # finally
-        data = numpy.array(self.__buffer[from_index:], dtype=numpy.uint32)
+        data = numpy.array(self.__buffer, dtype=numpy.uint32)
+        self.__buffer = None
         if data.size:
             self._emit_new_data(data.T)
 

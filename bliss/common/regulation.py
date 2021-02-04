@@ -1527,7 +1527,7 @@ class SoftLoop(Loop):
         self._max_attempts_before_failure = None
 
         self.load_base_config()
-        self.max_attempts_before_failure = config.get("max_attempts_before_failure", 1)
+        self.max_attempts_before_failure = config.get("max_attempts_before_failure", 3)
 
     def __info__(self):
         lines = ["\n"]

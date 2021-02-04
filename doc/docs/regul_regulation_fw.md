@@ -309,7 +309,8 @@ Inside the SoftLoop configuration section, there are references (`$`) to the inp
     deadband_time: 3.0        # minimum time (sec) to consider that the setpoint has been reached
     ramprate: 1               # ramprate is used as a 'speed' toward setpoint (ramprate=0 to apply setpoint immediately)
     wait_mode: deadband       # wait_move mode for the loop as a pseudo axis (loop.axis)
-    max_attempts_before_failure: 5 # number of failed attempts to input.read or output.set_value before stopping the loop
+    max_attempts_before_failure: 5  # (optional) number of failed attempts to input.read or output.set_value 
+                                    # before stopping the loop (the default is 3)
 
 -   class: Chi2DiodeInput     # A custom object implemented by the user and inheriting from the ExternalInput base class
     package: id26.controllers.chi2_diode_device  # where to find the object class definition
@@ -333,12 +334,14 @@ Inside the SoftLoop configuration section, there are references (`$`) to the inp
     mode: relative          # (optional) type of axis motion, in ['relative', 'absolute']
 ```
 
-!!! tip "`SoftLoop` timeout resilience"
+!!! info "`SoftLoop` timeout resilience"
     You can make the `SoftLoop` more resilient to transitory communication errors like timeouts by increasing `SoftLoop.max_attempts_before_failure`. It can be specified in yml config like so:
 
     ```yaml
     max_attempts_before_failure: 100  # the loop will stop after 100 contiguous failed attempts to input.read or output.set_value
     ```
+
+    The default value for this property is 3.
 
 ## Interacting with the Loop object
 

@@ -125,6 +125,43 @@ for importer, module_name, _ in pkgutil.iter_modules(
     node_plugins[node_type] = {"name": module_name}
 
 
+class NodeStruct(settings.Struct):
+    def __init__(self, db_name, **kwargs):
+        # /!\ it is important to not modify redis keys here,
+        # otherwise calls to '._get_struct' in pipelines (for example)
+        # fail, since there are extra return values (corresponding to
+        # the return values of redis calls in this constructor)
+        super().__init__(db_name, **kwargs)
+        object.__setattr__(self, "_NodeStruct__db_name", db_name)
+        # self.__name is initialized to None => attempt to read the "name" property
+        # will pass through the underlying HashSetting
+        object.__setattr__(self, "_NodeStruct__name", None)
+
+    @property
+    def db_name(self):
+        return self.__db_name
+
+    @property
+    def name(self):
+        if self.__name is None:
+            self.__name = self._proxy.get("name")
+        return self.__name
+
+    def _update(self, mapping):
+        return self._proxy.update(mapping)
+
+    def _init(self, **mapping):
+        name = mapping.get("name")
+        if name is None:
+            _, _, name = self.db_name.rpartition(":")
+        object.__setattr__(self, "_NodeStruct__name", name)
+        mapping["name"] = name
+        # hash setting needs to have `db_name` field,
+        # since it is expected when doing `hgetall` (cf. test publishing)
+        mapping["db_name"] = self.db_name
+        self._update(mapping)
+
+
 def _get_node_object(node_type, name, parent, connection, create=False, **kwargs):
     """Instantiated a DataNode class and optionally create it in Redis.
     This does not perform any checks on what already exists in Redis.
@@ -695,7 +732,7 @@ class DataNode(metaclass=DataNodeMetaClass):
         # The DataNode itself is represented by a Redis dictionary
         if create:
             self.__new_node = True
-            self._struct = self._create_struct(db_name, name, node_type)
+            self._struct = self._create_struct(db_name, node_type)
         else:
             self.__new_node = False
             self._ttl_setter = None
@@ -831,21 +868,23 @@ class DataNode(metaclass=DataNodeMetaClass):
         return False
 
     @classmethod
-    def _get_struct(cls, db_name, connection=None):
+    def _get_struct(cls, db_name, connection=None, **kwargs):
         """Principal Redis representation of a `DataNode`
         """
         if connection is None:
             connection = client.get_redis_proxy(db=1)
-        return settings.Struct(db_name, connection=connection)
+        return NodeStruct(db_name, connection=connection, **kwargs)
 
-    def _create_struct(self, db_name, name, node_type):
+    def _create_struct(self, db_name, node_type, name=None):
         """Create principal Redis representation of a `DataNode`
         """
         struct = self._get_struct(db_name, connection=self.db_connection)
-        struct.version = None  # bool(version) means initialized
-        struct.name = name
-        struct.db_name = db_name
-        struct.node_type = node_type
+        # the following call finalize initialization
+        # 1) sets db_name
+        # 2) sets version to None => means the node is uninitialized
+        # 3) if name is None, it is assigned to the last part of "db_name" (default)
+        #        - this is useful for Channel nodes only
+        struct._init(version=None, node_type=node_type, name=name)
         return struct
 
     @staticmethod

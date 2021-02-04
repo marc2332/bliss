@@ -43,7 +43,7 @@ class _ChannelDataNodeBase(DataNode):
 
     def _init_info(self, **kwargs):
         # This is a hack, just for self._create_struct. The name of this
-        # DataNode (which is used to create the db_name) will replaced
+        # DataNode (which is used to create the db_name) will be replaced
         # by the channel name after composing the db_name.
         self.__channel_name = kwargs.get("channel_name", None)
 
@@ -160,13 +160,11 @@ class _ChannelDataNodeBase(DataNode):
         _, _, last_part = self.name.rpartition(":")
         return last_part
 
-    def _create_struct(self, db_name, short_name, node_type):
-        # AcquisitionChannel.short_name is used for `self.db_name`.
-        # AcquisitionChannel.fullname is used for `node.name`.
-        name = self.__channel_name
-        if not name:
-            name = short_name
-        return super()._create_struct(db_name, name, node_type)
+    def _create_struct(self, db_name, node_type):
+        node_struct = super()._create_struct(
+            db_name, node_type, name=self.__channel_name
+        )
+        return node_struct
 
     @property
     def unit(self):

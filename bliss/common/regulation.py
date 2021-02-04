@@ -1577,7 +1577,7 @@ class SoftLoop(Loop):
         """
 
         if not isinstance(value, int) or value < 0:
-            ValueError("max_attempts_before_failure should a positive integer")
+            ValueError("max_attempts_before_failure should be a positive integer")
         self._max_attempts_before_failure = value
 
     @property

@@ -6,27 +6,17 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import numpy
-from scipy.interpolate import interp1d
 from PyMca5.PyMcaPhysics.xrf import Elements
 from .helpers import get_cs_kind
 
-_cs_catalog = {}
 
-
-def _get_from_cs_catalog(Z, kind):
+def _cs_from_library(Z, energies, kind):
     symbol = element_atomicnumber_to_symbol(Z)
-    csdict = _cs_catalog.get(symbol, {})
-    if not csdict:
-        adict = Elements.getMaterialMassAttenuationCoefficients(symbol, 1)
-        x = adict.pop("energy")
-        for key, y in adict.items():
-            csdict[key] = interp1d(
-                x, y, kind="linear", bounds_error=False, fill_value=numpy.nan
-            )
+    csdict = Elements.getMaterialMassAttenuationCoefficients(symbol, 1, energies)
     if kind == kind.TOTAL:
         return csdict["total"]
     elif kind == kind.PHOTO:
-        return csdict["photo"]
+        return csdict["photoelectric"]
     elif kind == kind.COHERENT:
         return csdict["coherent"]
     elif kind == kind.INCOHERENT:
@@ -73,7 +63,7 @@ def cross_section(Z, energies, kind):
     kind = get_cs_kind(kind)
     energies = numpy.atleast_1d(energies).astype(float)
     Z = numpy.atleast_1d(Z).astype(int)
-    cs = [_get_from_cs_catalog(Zi, kind)(energies) for Zi in Z]
+    cs = [_cs_from_library(Zi, energies, kind) for Zi in Z]
     return numpy.asarray(cs)
 
 

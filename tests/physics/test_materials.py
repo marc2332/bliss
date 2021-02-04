@@ -345,16 +345,23 @@ def test_element_transmission(backend):
     # Cu Density=8.96 Thickness=20. microns
     #  Photon Energy (eV), Transmission
     #     16000.      0.32744
+    # Cu Density=8.96 Thickness=128. microns
+    #  Photon Energy (eV), Transmission
+    #     25400.      0.14242
     energy = 16.
     thickness = 20e-4
     material = materials.Element("Cu")
     calculated = material.transmission(energy, thickness)
     expected = [0.32744]
-    if backend == "xraylib":
-        rtol = 0.5  # % relative difference
-    else:
-        # Large difference due to photoelectric cross section
-        rtol = 7  # % relative difference
+    rtol = 0.7  # % relative difference
+    numpy.testing.assert_allclose(calculated, expected, rtol=rtol / 100.)
+
+    energy = [16., 25.4]
+    thickness = [20e-4, 128e-4]
+    material = materials.Element("Cu")
+    calculated = material.transmission(energy, thickness)
+    expected = [0.32744, 0.14242]
+    rtol = 5  # % relative difference
     numpy.testing.assert_allclose(calculated, expected, rtol=rtol / 100.)
 
 
@@ -376,9 +383,5 @@ def test_compound_transmission(backend):
     expected = [0.11999, 0.18717, 0.26024, 0.33388, 0.40439, 0.46970]
     material = materials.Compound("FeCrNi", density=density)
     calculated = material.transmission(energies, thickness)
-    if backend == "xraylib":
-        rtol = 2  # % relative difference
-    else:
-        # Large difference due to photoelectric cross section
-        rtol = 30  # % relative difference
+    rtol = 1.5  # % relative difference
     numpy.testing.assert_allclose(calculated, expected, rtol=rtol / 100.)

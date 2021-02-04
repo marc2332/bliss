@@ -1,5 +1,6 @@
 import pytest
 import gevent
+from unittest import mock
 from bliss.common.regulation import SoftLoop
 from bliss.common.scans import ascan, ct
 
@@ -50,18 +51,18 @@ def mockup_regulation(loop):
     x.ramprate = 0
     sp = x.input.read() + 1.0
     x.setpoint = sp
-    assert x.is_ramping() == False
+    assert x.is_ramping() is False
     gevent.sleep(0.1)
-    assert x.is_ramping() == False
+    assert x.is_ramping() is False
     assert x.setpoint == sp
 
     # -- with ramping (rate != 0)
     x.ramprate = 1.0
     sp = x.input.read() + 1.0
     x.setpoint = sp
-    assert x.is_ramping() == True
+    assert x.is_ramping() is True
     gevent.sleep(0.1)
-    assert x.is_ramping() == True
+    assert x.is_ramping() is True
     with gevent.Timeout(2.0):
         while x.is_ramping():
             gevent.sleep(0.01)
@@ -71,9 +72,9 @@ def mockup_regulation(loop):
     sp = x.input.read() + 1.0
     x.setpoint = sp
     gevent.sleep(0.1)
-    assert x.is_ramping() == True
+    assert x.is_ramping() is True
     x.stop()
-    assert x.is_ramping() == False
+    assert x.is_ramping() is False
 
     # ---- scanning ----------
 
@@ -119,6 +120,31 @@ def test_soft_regulation(temp_soft_tloop):
 
 def test_soft_regulation_2(temp_soft_tloop_2):
     mockup_regulation(temp_soft_tloop_2)
+
+
+def test_soft_regulation_failure(temp_soft_tloop):
+    loop = temp_soft_tloop
+    assert loop.max_attempts_before_failure == 3
+
+    # start regulation
+    loop.setpoint = 1
+
+    # count read attempts before failure
+    with mock.patch.object(loop.input, "read", side_effect=Exception) as read:
+        with pytest.raises(Exception):
+            loop.task.get()
+        assert read.call_count == loop.max_attempts_before_failure + 1
+
+    # restart regulation
+    loop.setpoint = 1
+
+    # count set_value attempts before failure
+    with mock.patch.object(
+        loop.output, "set_value", side_effect=Exception
+    ) as set_value:
+        with pytest.raises(Exception):
+            loop.task.get()
+        assert set_value.call_count == loop.max_attempts_before_failure + 1
 
 
 def test_regulation_plot(temp_tloop, flint_session):

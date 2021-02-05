@@ -110,13 +110,12 @@ class ScansObserver:
         """
         pass
 
-    def on_child_created(self, scan_db_name: str, scan_info: Dict, node):
+    def on_child_created(self, scan_db_name: str, node):
         """
         Called upon scan child creation (e.g. channel node)
 
         Arguments:
             scan_db_name: Identifier of the parent scan
-            scan_info: Dictionary containing metadata of this child
             node: Redis node of this child
         """
         pass
@@ -209,7 +208,7 @@ class ScansWatcher:
         self._running = False
         """True if the watcher was started."""
 
-        self._running_scan_infos = {}
+        self._running_scans = set()
         """Store running scans"""
 
         self._ready_event = gevent.event.Event()
@@ -275,7 +274,7 @@ class ScansWatcher:
 
         It also works with the `scan_db_name`.
         """
-        for key in self._running_scan_infos.keys():
+        for key in self._running_scans:
             if db_name.startswith(key):
                 return key
         return None
@@ -321,20 +320,19 @@ class ScansWatcher:
                     if node_type == "scan":
                         # New scan was created
                         scan_info = node.info.get_all()
-                        self._running_scan_infos[db_name] = scan_info
+                        self._running_scans.add(db_name)
                         observer.on_scan_started(db_name, scan_info)
                     elif node_type == "scan_group":
                         if self._watch_scan_group:
                             # New scan was created
                             scan_info = node.info.get_all()
-                            self._running_scan_infos[db_name] = scan_info
+                            self._running_scans.add(db_name)
                             observer.on_scan_started(db_name, scan_info)
                     else:
                         scan_db_name = self._get_scan_db_name_from_child(db_name)
                         if scan_db_name is not None:
-                            scan_info = self._running_scan_infos[scan_db_name]
                             try:
-                                observer.on_child_created(scan_db_name, scan_info, node)
+                                observer.on_child_created(scan_db_name, node)
                             except Exception:
                                 sys.excepthook(*sys.exc_info())
                 elif event_type == event_type.NEW_DATA:
@@ -395,7 +393,7 @@ class ScansWatcher:
                     node_type = node.type
                     if self._watch_scan_group or node_type == "scan":
                         db_name = node.db_name
-                        if db_name in self._running_scan_infos:
+                        if db_name in self._running_scans:
                             try:
                                 scan_info = node.info.get_all()
                                 try:
@@ -403,7 +401,8 @@ class ScansWatcher:
                                 except Exception:
                                     sys.excepthook(*sys.exc_info())
                             finally:
-                                del self._running_scan_infos[db_name]
+                                self._running_scans.discard(db_name)
+
                 gevent.idle()
         finally:
             self._running = False
@@ -481,9 +480,14 @@ class DefaultScansObserver(ScansObserver):
         if self.scan_end_callback is not None:
             self.scan_end_callback(scna_info)
 
-    def on_child_created(self, scan_db_name: str, scan_info: Dict, node):
+    def on_child_created(self, scan_db_name: str, node):
+        scan_desciption = self._get_scan_description(scan_db_name)
+        if scan_desciption is None:
+            # Scan not part of the listened scans
+            return
+
         if self.scan_new_child_callback is not None:
-            self.scan_new_child_callback(scan_info, node)
+            self.scan_new_child_callback(scan_desciption.scan_info, node)
 
     def on_scalar_data_received(
         self,

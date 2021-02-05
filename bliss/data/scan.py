@@ -206,8 +206,8 @@ class ScansWatcher:
         self._watch_scan_group = False
         self._observer: ScansObserver = None
 
-        self._started = False
-        """True if processing"""
+        self._running = False
+        """True if the watcher was started."""
 
         self._running_scan_infos = {}
         """Store running scans"""
@@ -239,7 +239,7 @@ class ScansWatcher:
 
         It have to be set before start.
         """
-        assert not self._started
+        assert not self._running
         self._exclude_existing_scans = exclude
 
     def set_watch_scan_group(self, watch: bool):
@@ -248,7 +248,7 @@ class ScansWatcher:
 
         It have to be set before start.
         """
-        assert not self._started
+        assert not self._running
         self._watch_scan_group = watch
 
     def set_observer(self, observer: ScansObserver):
@@ -257,7 +257,7 @@ class ScansWatcher:
 
         If not set, the `run` method will raise an exception.
         """
-        assert not self._started
+        assert not self._running
         self._observer = observer
 
     def _set_stop_handler(self, stop_handler):
@@ -266,7 +266,7 @@ class ScansWatcher:
 
         This function have to be removed with `watch_session_scans`.
         """
-        assert not self._started
+        assert not self._running
         self._stop_handler = stop_handler
 
     def _get_scan_db_name_from_child(self, db_name: str) -> str:
@@ -289,128 +289,128 @@ class ScansWatcher:
         Any scan node that is created before the `ready_event` will not be watched
         when `exclude_existing_scans` is True.
         """
-        assert not self._started
-        self._started = True
+        assert not self._running
+        self._running = True
+        try:
+            session_node = get_or_create_node(self._session_name, node_type="session")
+            if session_node is None:
+                return
 
-        session_node = get_or_create_node(self._session_name, node_type="session")
-        if session_node is None:
-            return
+            observer = self._observer
+            if observer is None:
+                raise RuntimeError("No observer was set")
 
-        observer = self._observer
-        if observer is None:
-            raise RuntimeError("No observer was set")
+            if self._exclude_existing_scans:
+                exclude_existing_children = "scan", "scan_group"
+            else:
+                exclude_existing_children = None
 
-        if self._exclude_existing_scans:
-            exclude_existing_children = "scan", "scan_group"
-        else:
-            exclude_existing_children = None
+            for event_type, node, event_data in session_node.walk_on_new_events(
+                stop_handler=self._stop_handler,
+                exclude_existing_children=exclude_existing_children,
+                started_event=self._ready_event,
+            ):
+                try:
+                    observer.on_event_received(event_type, node, event_data)
+                except Exception:
+                    sys.excepthook(*sys.exc_info())
 
-        for event_type, node, event_data in session_node.walk_on_new_events(
-            stop_handler=self._stop_handler,
-            exclude_existing_children=exclude_existing_children,
-            started_event=self._ready_event,
-        ):
-            try:
-                observer.on_event_received(event_type, node, event_data)
-            except Exception:
-                sys.excepthook(*sys.exc_info())
-
-            if event_type == event_type.NEW_NODE:
-                node_type = node.type
-                db_name = node.db_name
-                if node_type == "scan":
-                    # New scan was created
-                    scan_info = node.info.get_all()
-                    self._running_scan_infos[db_name] = scan_info
-                    observer.on_scan_started(db_name, scan_info)
-                elif node_type == "scan_group":
-                    if self._watch_scan_group:
+                if event_type == event_type.NEW_NODE:
+                    node_type = node.type
+                    db_name = node.db_name
+                    if node_type == "scan":
                         # New scan was created
                         scan_info = node.info.get_all()
                         self._running_scan_infos[db_name] = scan_info
                         observer.on_scan_started(db_name, scan_info)
-                else:
-                    scan_db_name = self._get_scan_db_name_from_child(db_name)
-                    if scan_db_name is not None:
-                        scan_info = self._running_scan_infos[scan_db_name]
-                        try:
-                            observer.on_child_created(scan_db_name, scan_info, node)
-                        except Exception:
-                            sys.excepthook(*sys.exc_info())
-            elif event_type == event_type.NEW_DATA:
-                db_name = node.db_name
-                if not hasattr(node, "fullname"):
-                    # not a node we want to do anything with here
-                    continue
-
-                fullname = node.fullname
-
-                scan_db_name = self._get_scan_db_name_from_child(db_name)
-                if scan_db_name is not None:
-                    if node.type == "channel":
-                        description = event_data.description
-                        shape = description.get("shape")
-                        dim = len(shape)
-                        is_scalar = dim == 0
+                    elif node_type == "scan_group":
+                        if self._watch_scan_group:
+                            # New scan was created
+                            scan_info = node.info.get_all()
+                            self._running_scan_infos[db_name] = scan_info
+                            observer.on_scan_started(db_name, scan_info)
                     else:
-                        is_scalar = False
-
-                    if is_scalar:
-                        try:
-                            observer.on_scalar_data_received(
-                                scan_db_name=scan_db_name,
-                                channel_name=fullname,
-                                index=event_data.first_index,
-                                data_bunch=event_data.data,
-                            )
-                        except Exception:
-                            sys.excepthook(*sys.exc_info())
-                    else:
-                        if node.type == "lima":
-                            # Lima and only Lima deals with ref for now
-                            # FIXME: It would be good to have a dedicated event type for that
+                        scan_db_name = self._get_scan_db_name_from_child(db_name)
+                        if scan_db_name is not None:
+                            scan_info = self._running_scan_infos[scan_db_name]
                             try:
-                                observer.on_lima_ref_received(
-                                    scan_db_name=scan_db_name,
-                                    channel_name=fullname,
-                                    source_node=node,
-                                    dim=2,
-                                    event_data=event_data,
-                                )
+                                observer.on_child_created(scan_db_name, scan_info, node)
                             except Exception:
                                 sys.excepthook(*sys.exc_info())
+                elif event_type == event_type.NEW_DATA:
+                    db_name = node.db_name
+                    if not hasattr(node, "fullname"):
+                        # not a node we want to do anything with here
+                        continue
+
+                    fullname = node.fullname
+
+                    scan_db_name = self._get_scan_db_name_from_child(db_name)
+                    if scan_db_name is not None:
+                        if node.type == "channel":
+                            description = event_data.description
+                            shape = description.get("shape")
+                            dim = len(shape)
+                            is_scalar = dim == 0
                         else:
+                            is_scalar = False
+
+                        if is_scalar:
                             try:
-                                observer.on_ndim_data_received(
+                                observer.on_scalar_data_received(
                                     scan_db_name=scan_db_name,
                                     channel_name=fullname,
-                                    dim=dim,
                                     index=event_data.first_index,
                                     data_bunch=event_data.data,
                                 )
                             except Exception:
                                 sys.excepthook(*sys.exc_info())
+                        else:
+                            if node.type == "lima":
+                                # Lima and only Lima deals with ref for now
+                                # FIXME: It would be good to have a dedicated event type for that
+                                try:
+                                    observer.on_lima_ref_received(
+                                        scan_db_name=scan_db_name,
+                                        channel_name=fullname,
+                                        source_node=node,
+                                        dim=2,
+                                        event_data=event_data,
+                                    )
+                                except Exception:
+                                    sys.excepthook(*sys.exc_info())
+                            else:
+                                try:
+                                    observer.on_ndim_data_received(
+                                        scan_db_name=scan_db_name,
+                                        channel_name=fullname,
+                                        dim=dim,
+                                        index=event_data.first_index,
+                                        data_bunch=event_data.data,
+                                    )
+                                except Exception:
+                                    sys.excepthook(*sys.exc_info())
 
-            elif event_type == event_type.END_SCAN:
-                node_type = node.type
-                if self._watch_scan_group or node_type == "scan":
-                    db_name = node.db_name
-                    if db_name in self._running_scan_infos:
-                        try:
-                            scan_info = node.info.get_all()
+                elif event_type == event_type.END_SCAN:
+                    node_type = node.type
+                    if self._watch_scan_group or node_type == "scan":
+                        db_name = node.db_name
+                        if db_name in self._running_scan_infos:
                             try:
-                                observer.on_scan_finished(db_name, scan_info)
-                            except Exception:
-                                sys.excepthook(*sys.exc_info())
-                        finally:
-                            del self._running_scan_infos[db_name]
-
-            gevent.idle()
-        self._started = False
+                                scan_info = node.info.get_all()
+                                try:
+                                    observer.on_scan_finished(db_name, scan_info)
+                                except Exception:
+                                    sys.excepthook(*sys.exc_info())
+                            finally:
+                                del self._running_scan_infos[db_name]
+                gevent.idle()
+        finally:
+            self._running = False
 
     def stop(self):
         """Call it to stop the event loop."""
-        if self._started:
+        if self._running:
             self._stop_handler.stop()
 
 

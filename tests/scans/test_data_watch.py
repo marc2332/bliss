@@ -354,7 +354,7 @@ def test_sequence_scans(default_session, mocker):
     gevent.sleep(.5)
     session_watcher.get()
 
-    # assert False
+    assert len(callbacks.scan_new_callback.call_args_list) == 1
 
 
 def test_stop_handler(session, scan_saving, diode_acq_device_factory):
@@ -395,3 +395,44 @@ def test_stop_handler(session, scan_saving, diode_acq_device_factory):
         except gevent.Timeout:
             session_watcher.kill()
             assert False, "A kill is not expected here"
+
+
+def test_scan_groups(default_session, mocker):
+    diode = default_session.config.get("diode")
+
+    callbacks = mocker.Mock()
+    end_scan_event = gevent.event.Event()
+    ready_event = gevent.event.Event()
+
+    def end(*args):
+        end_scan_event.set()
+        callbacks.scan_end_callback(*args)
+
+    session_watcher = gevent.spawn(
+        watch_session_scans,
+        default_session.name,
+        callbacks.scan_new_callback,
+        callbacks.scan_new_child_callback,
+        callbacks.scan_data_callback,
+        end,
+        ready_event=ready_event,
+        exclude_existing_scans=False,
+        watch_scan_group=True,
+    )
+
+    assert ready_event.wait(timeout=3.)
+    try:
+        seq = Sequence()
+        with seq.sequence_context() as scan_seq:
+            s1 = scans.loopscan(5, .1, diode, run=False)
+            scan_seq.add(s1)
+            s1.run()
+
+    finally:
+        session_watcher.kill()
+
+    # check that end of group is not received
+    gevent.sleep(.5)
+    session_watcher.get()
+
+    assert len(callbacks.scan_new_callback.call_args_list) == 2

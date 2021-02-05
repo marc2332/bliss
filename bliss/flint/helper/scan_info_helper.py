@@ -1029,7 +1029,6 @@ class PositionerDescription(NamedTuple):
 
 def get_all_positioners(scan_info: Dict) -> List[PositionerDescription]:
     result = []
-    print()
     positioners = scan_info.get("positioners", None)
     if positioners is None:
         return result

@@ -41,7 +41,7 @@ ruamel.yaml
 simple-pid
 sqlalchemy
 tabulate
-tailon == 1.1.0.1
+tailon == 1.1.0.2
 tango >= 9.3.2
 tango-metadata >= 4.0.7
 tblib >= 1.7

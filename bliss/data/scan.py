@@ -209,7 +209,7 @@ class ScansWatcher:
         self._started = False
         """True if processing"""
 
-        self._running_scans = {}
+        self._running_scan_infos = {}
         """Store running scans"""
 
         self._ready_event = gevent.event.Event()
@@ -269,6 +269,17 @@ class ScansWatcher:
         assert not self._started
         self._stop_handler = stop_handler
 
+    def _get_scan_db_name_from_child(self, db_name: str) -> str:
+        """
+        Returns the scan_db_name from the db_name of a child.
+
+        It also works with the `scan_db_name`.
+        """
+        for key in self._running_scan_infos.keys():
+            if db_name.startswith(key):
+                return key
+        return None
+
     def run(self):
         """
         Run watching scan events.
@@ -288,12 +299,6 @@ class ScansWatcher:
         observer = self._observer
         if observer is None:
             raise RuntimeError("No observer was set")
-
-        def _get_scan_info(db_name):
-            for key, scan_dict in self._running_scans.items():
-                if db_name.startswith(key):
-                    return scan_dict["info"], key
-            return None, None
 
         if self._exclude_existing_scans:
             exclude_existing_children = "scan", "scan_group"
@@ -315,24 +320,19 @@ class ScansWatcher:
                 db_name = node.db_name
                 if node_type == "scan":
                     # New scan was created
-                    scan_dictionnary = self._running_scans.setdefault(db_name, dict())
-                    if not scan_dictionnary:
-                        scan_info = node.info.get_all()
-                        scan_dictionnary["info"] = scan_info
-                        observer.on_scan_started(db_name, scan_info)
+                    scan_info = node.info.get_all()
+                    self._running_scan_infos[db_name] = scan_info
+                    observer.on_scan_started(db_name, scan_info)
                 elif node_type == "scan_group":
                     if self._watch_scan_group:
                         # New scan was created
-                        scan_dictionnary = self._running_scans.setdefault(
-                            db_name, dict()
-                        )
-                        if not scan_dictionnary:
-                            scan_info = node.info.get_all()
-                            scan_dictionnary["info"] = scan_info
-                            observer.on_scan_started(db_name, scan_info)
+                        scan_info = node.info.get_all()
+                        self._running_scan_infos[db_name] = scan_info
+                        observer.on_scan_started(db_name, scan_info)
                 else:
-                    scan_info, scan_db_name = _get_scan_info(db_name)
-                    if scan_info:  # scan_found
+                    scan_db_name = self._get_scan_db_name_from_child(db_name)
+                    if scan_db_name is not None:
+                        scan_info = self._running_scan_infos[scan_db_name]
                         try:
                             observer.on_child_created(scan_db_name, scan_info, node)
                         except Exception:
@@ -345,8 +345,8 @@ class ScansWatcher:
 
                 fullname = node.fullname
 
-                scan_info, scan_db_name = _get_scan_info(db_name)
-                if scan_info:
+                scan_db_name = self._get_scan_db_name_from_child(db_name)
+                if scan_db_name is not None:
                     if node.type == "channel":
                         description = event_data.description
                         shape = description.get("shape")
@@ -395,13 +395,15 @@ class ScansWatcher:
                 node_type = node.type
                 if self._watch_scan_group or node_type == "scan":
                     db_name = node.db_name
-                    scan_dict = self._running_scans.pop(db_name, None)
-                    if scan_dict:
-                        scan_info = node.info.get_all()
+                    if db_name in self._running_scan_infos:
                         try:
-                            observer.on_scan_finished(db_name, scan_info)
-                        except Exception:
-                            sys.excepthook(*sys.exc_info())
+                            scan_info = node.info.get_all()
+                            try:
+                                observer.on_scan_finished(db_name, scan_info)
+                            except Exception:
+                                sys.excepthook(*sys.exc_info())
+                        finally:
+                            del self._running_scan_infos[db_name]
 
             gevent.idle()
         self._started = False

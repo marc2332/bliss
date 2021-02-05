@@ -230,6 +230,15 @@ class ScansWatcher:
         """
         self._ready_event.wait(timeout=timeout)
 
+    def running_scan_names(self) -> typing.Sequence[str]:
+        """
+        Returns the known running scans with there db names.
+
+        Only managed scans are listed here. For example, if `watch_scan_group`
+        was set to False, this scans will not be shown.
+        """
+        return list(self._running_scans)
+
     def set_exclude_existing_scans(self, exclude: bool):
         """
         Include or exclude existing scans. Default is False.

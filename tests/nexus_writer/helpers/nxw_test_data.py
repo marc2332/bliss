@@ -334,7 +334,7 @@ def validate_measurement(
     :param str softtimer:
     :param bool save_images:
     """
-    assert measurement.attrs["NX_class"] == "NXcollection"
+    assert measurement.attrs == {"NX_class": "NXcollection"}
     # Detectors
     datasets = expected_channels(
         config=config,
@@ -400,7 +400,7 @@ def validate_instrument(
     save_images=True,
 ):
     """
-    :param h5py.Group nxentry:
+    :param h5py.Group instrument:
     :param tuple scan_shape: fast axis first
     :param bool config: configurable writer
     :param list(list(str)) positioners:
@@ -412,6 +412,7 @@ def validate_instrument(
     :param str softtimer:
     :param bool save_images:
     """
+    assert instrument.attrs == {"NX_class": "NXinstrument"}
     # Positioner groups
     expected_posg = {
         "positioners",

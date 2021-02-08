@@ -33,21 +33,20 @@ from ..utils import scan_utils
 logger = logging.getLogger(__name__)
 
 
-CATEGORIES = ["NEXUSWRITER", "INSTRUMENT"]
+CATEGORIES = ["NEXUSWRITER"]
 
 
-def register_metadata_generators(generators):
+def register_metadata_generators(user_scan_meta):
+    """Create the metadata generators for the configurable writer
+
+    :param bliss.scanning.scan_meta.ScanMeta user_scan_meta:
     """
-    Create the metadata generators for the configurable writer
-
-    :param bliss.scanning.scan_meta.ScanMeta generators:
-    """
-    instrument = generators.instrument
-    generators = generators.nexuswriter
-    generators.set("instrument", fill_instrument_name)
-    generators.set("device_info", fill_device_info)
-    generators.set("technique", fill_technique_info)
-    generators.set("masterfiles", fill_masterfiles)
+    user_scan_meta.add_categories(CATEGORIES)
+    nexuswriter = user_scan_meta.nexuswriter
+    nexuswriter.set("instrument", fill_instrument_name)
+    nexuswriter.set("device_info", fill_device_info)
+    nexuswriter.set("technique", fill_technique_info)
+    nexuswriter.set("masterfiles", fill_masterfiles)
 
 
 def fill_instrument_name(scan):

@@ -14,7 +14,7 @@ import datetime
 import gevent
 from silx.io.dictdump import dicttonx
 from bliss.scanning.writer.file import FileWriter
-from bliss.scanning.scan_meta import categories_names
+from bliss.scanning import scan_meta
 import functools
 
 
@@ -210,16 +210,13 @@ class Writer(FileWriter):
         ####   use scan_meta to fill fields   ####
         hdf5_scan_meta = {
             cat_name: scan_info.get(cat_name, {}).copy()
-            for cat_name in categories_names()
+            for cat_name in scan_meta.ScanMeta.categories_names()
         }
 
-        # pop instrument
         instrument = self.file.create_group(f"{scan_name}/instrument")
-        # instrument.attrs["NX_class"] = "NXinstrument"
         instrument_meta = hdf5_scan_meta.pop("instrument")
 
-        # pop nexuswriter
-        hdf5_scan_meta.pop("nexuswriter")
+        hdf5_scan_meta.pop("nexuswriter", None)
         hdf5_scan_meta.pop("positioners", None)
         dicttonx(hdf5_scan_meta, self.file, h5path=f"{scan_name}/scan_meta")
         self.file[f"{scan_name}/scan_meta"].attrs["NX_class"] = "NXcollection"

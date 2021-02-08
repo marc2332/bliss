@@ -42,33 +42,36 @@ def test_scan_info_display_names(session):
 
 def test_scan_meta_function(scan_meta):
     scan_meta.clear()
+    scan_meta.add_categories(["mycat"])
     info_dict = {"name": "gold", "bla": 10, "truc": "super mario"}
 
     def f(scan):
         return info_dict
 
-    scan_meta.nexuswriter.set("my_func", f)
+    scan_meta.mycat.set("my_func", f)
     scan_meta_dict = scan_meta.to_dict(None)
-    assert scan_meta_dict["nexuswriter"] == info_dict
+    assert scan_meta_dict["mycat"] == info_dict
 
 
 def test_scan_meta_order_function(scan_meta):
     scan_meta.clear()
+    scan_meta.add_categories(["mycat"])
+
     first_info = {"name": "gold", "bla": 10, "truc": "super mario"}
-    scan_meta.nexuswriter.set("direct", first_info)
+    scan_meta.mycat.set("direct", first_info)
     second_dict = {"name": "silver"}
 
     def f(scan):
         return second_dict
 
-    scan_meta.nexuswriter.set("func", f)
+    scan_meta.mycat.set("func", f)
     scan_meta_dict = scan_meta.to_dict(None)
     final = first_info
     final.update(second_dict)
-    assert scan_meta_dict["nexuswriter"] == final
-    scan_meta.nexuswriter.remove("func")
+    assert scan_meta_dict["mycat"] == final
+    scan_meta.mycat.remove("func")
     scan_meta_dict = scan_meta.to_dict(None)
-    assert scan_meta_dict["nexuswriter"] == first_info
+    assert scan_meta_dict["mycat"] == first_info
 
 
 def test_scan_meta_master_and_device(session, scan_meta):

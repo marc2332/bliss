@@ -1359,7 +1359,9 @@ class Scan:
                     self._scan_info,
                     self.user_scan_meta.to_dict(self, timing=meta_timing),
                 )
-            self._scan_info["scan_meta_categories"] = self.user_scan_meta.cat_list()
+            original = set(self._scan_info.get("scan_meta_categories", []))
+            extra = set(self.user_scan_meta.used_categories_names())
+            self._scan_info["scan_meta_categories"] = list(original | extra)
 
     def _prepare_scan_meta(self):
         self._scan_info["filename"] = self.writer.filename

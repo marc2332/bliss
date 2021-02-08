@@ -237,7 +237,7 @@ class CT2(Device):
 
     @command
     def start_acq(self):
-        event.connect(self.device, DataSignal, self._rx_data)
+        event.connect(self.device.server, DataSignal, self._rx_data)
         self.device.start_acq()
 
     def _rx_data(self, data, signal):
@@ -246,7 +246,7 @@ class CT2(Device):
     @command
     def stop_acq(self):
         self.device.stop_acq()
-        event.disconnect(self.device, DataSignal, self._rx_data)
+        event.disconnect(self.device.server, DataSignal, self._rx_data)
 
     @command
     def trigger_point(self):

@@ -9,6 +9,7 @@
 
 import sys
 import time
+from tqdm import tqdm
 import datetime
 import numpy
 import shutil
@@ -26,9 +27,9 @@ from bliss.common.axis import Axis
 from bliss.common.event import dispatcher
 from bliss.common.logtools import user_print
 from bliss.common import user_status_info
-from bliss.scanning.scan import set_scan_watch_callbacks
+from bliss.scanning.scan import set_scan_watch_callbacks, ScanState
 from bliss.scanning.scan_display import ScanDisplay
-from bliss import global_map
+from bliss import global_map, is_bliss_shell
 from bliss.scanning.chain import ChainPreset, ChainIterationPreset
 from bliss.shell.formatters.table import IncrementalTable
 
@@ -111,12 +112,10 @@ class _ScanPrinterBase:
 
     EXTRA_HEADER = (
         "   unselected: [ {not_selected} ]\n"
-        + "                 (use \033[90mplotselect\033[0m to custom this list)\n"
+        + "                 (use plotselect to customize this list)\n"
     )
 
-    EXTRA_HEADER_2 = (
-        "                 (use \033[90mplotselect\033[0m to filter this list)\n"
-    )
+    EXTRA_HEADER_2 = "                 (use plotselect to filter this list)\n"
 
     DEFAULT_WIDTH = 12
 
@@ -301,8 +300,46 @@ class _ScanPrinterBase:
     def build_header(self, scan_info):
         """Build the header to be displayed
         """
-        if scan_info.get("type") != "ct":
+        # A message about not shown channels
+        not_shown_counters_str = ""
+        if self.other_channels:
+            not_shown_counters_str = ", ".join(self.other_channels)
 
+        master_names = ", ".join(self.master_channel_names)
+
+        header = self.HEADER.format(
+            not_shown_counters_str=not_shown_counters_str,
+            master_names=master_names,
+            **scan_info,
+        )
+
+        if scan_info.get("type") != "ct":
+            header += self._build_extra_header()
+
+        return header
+
+    def _build_extra_header(self):
+        not_selected = [
+            c
+            for c in self.displayable_channel_names
+            if c not in self.sorted_channel_names
+        ]
+        if len(not_selected) == 0:
+            return self.EXTRA_HEADER_2
+
+        not_selected = [f"'\033[91m{c}\033[0m'" for c in not_selected]
+        not_selected = ", ".join(not_selected)
+        return self.EXTRA_HEADER.format(not_selected=not_selected)
+
+    def print_scan_header(self, scan_info):
+        """Print the header of a new scan"""
+        header = self.build_header(scan_info)
+        print(header)
+
+    def print_data_header(self, scan_info):  # , first=False):
+        """Print the header of the data table.
+        """
+        if scan_info.get("type") != "ct":
             col_max_width = 40
             labels = self.build_columns_labels()
             self._tab = IncrementalTable(
@@ -324,58 +361,9 @@ class _ScanPrinterBase:
                     break
 
             self._tab.add_separator(self.RAW_SEP)
+            print(str(self._tab))
         else:
             self._tab = ""
-
-        # A message about not shown channels
-        not_shown_counters_str = ""
-        if self.other_channels:
-            not_shown_counters_str = ", ".join(self.other_channels)
-
-        master_names = ", ".join(self.master_channel_names)
-
-        header = self.HEADER.format(
-            not_shown_counters_str=not_shown_counters_str,
-            master_names=master_names,
-            **scan_info,
-        )
-
-        return header
-
-    def build_extra_header(self):
-        not_selected = [
-            c
-            for c in self.displayable_channel_names
-            if c not in self.sorted_channel_names
-        ]
-        if len(not_selected) == 0:
-            return self.EXTRA_HEADER_2
-
-        not_selected = [f"'\033[91m{c}\033[0m'" for c in not_selected]
-        not_selected = ", ".join(not_selected)
-        return self.EXTRA_HEADER.format(not_selected=not_selected)
-
-    def print_scan_header(self, scan_info):
-        """Print the header of a new scan"""
-        header = self.build_header(scan_info)
-        if scan_info.get("type") != "ct":
-            header += self.build_extra_header()
-        print(header)
-
-    def print_data_header(self, scan_info, first=False):
-        """Print the header of the data table.
-
-        The first one skip the EXTRA_HEADER, cause it is already part of the
-        scan header.
-        """
-        if not first:
-            header = "\n" + self.build_extra_header()
-        else:
-            header = ""
-
-        self.build_header(scan_info)
-        tab = str(self._tab)
-        print(header + tab)
 
     def build_data_output(self, scan_info, data):
         """ data is a dict, one scalar per channel (last point) """
@@ -388,7 +376,6 @@ class _ScanPrinterBase:
             # ct is actually a timescan(npoints=1).
             norm_values = numpy.array(values) / scan_info["count_time"]
             return self._build_ct_output(values, norm_values)
-
         else:
             values.insert(0, self.scan_steps_index)
             line = self._tab.add_line(values)
@@ -484,7 +471,6 @@ class _ScanPrinterBase:
         return True
 
     def is_new_data_valid(self, scan_info, data):
-
         # Skip other scan
         if scan_info.get("node_name") != self.scan_name:
             return False
@@ -496,17 +482,16 @@ class _ScanPrinterBase:
         return True
 
     def is_end_scan_valid(self, scan_info):
-
         # Skip other scan
         if scan_info.get("node_name") != self.scan_name:
             return False
-
+        if scan_info["state"] not in (ScanState.STOPPING, ScanState.DONE):
+            # why is there STOPPING here?
+            return False
         return True
 
     def on_scan_new(self, scan_info):
-
         if self.is_new_scan_valid(scan_info):
-
             self.scan_is_running = True
             self.scan_name = scan_info.get("node_name")
             self.scan_steps_index = 0
@@ -514,17 +499,17 @@ class _ScanPrinterBase:
 
             self.collect_channels_info(scan_info)
             self.print_scan_header(scan_info)
+            self.print_data_header(scan_info)
 
     def on_scan_data(self, scan_info, data):
         raise NotImplementedError
 
     def on_scan_end(self, scan_info):
         if self.is_end_scan_valid(scan_info):
+            self.scan_is_running = False
             end = datetime.datetime.fromtimestamp(time.time())
             start = datetime.datetime.fromtimestamp(scan_info["start_timestamp"])
             dt = end - start
-
-            self.scan_is_running = False
 
             for msg in self._warning_messages:
                 print(msg)
@@ -532,74 +517,175 @@ class _ScanPrinterBase:
             print(f"\n   Took {dt}[s] \n")
 
 
-class ScanPrinter(_ScanPrinterBase):
+class ScanMotorListener:
+    def __init__(self):
+        self.real_motors = []
+
+    def connect_real_motors(self, scan):
+        self.real_motors = scan._get_data_axes()
+
+        for motor in self.real_motors:
+            dispatcher.connect(
+                self._on_motor_position_changed, signal="position", sender=motor
+            )
+
+    def _on_motor_position_changed(self, position, signal=None, sender=None):
+        raise NotImplementedError
+
+    def disconnect_real_motors(self):
+        for motor in self.real_motors:
+            dispatcher.connect(
+                self._on_motor_position_changed, signal="position", sender=motor
+            )
+
+
+class ScanPrinter(_ScanPrinterBase, ScanMotorListener):
     """compose scan output"""
 
     HEADER = ""
 
     def __init__(self):
-
         super().__init__()
 
-        self.real_motors = None
+        self._labels = []
+        self._ct_data = None
+
         set_scan_watch_callbacks(self.on_scan_new, self.on_scan_data, self.on_scan_end)
+
+    @property
+    def labels(self):
+        return self._labels
 
     def print_scan_info(self, scan, scan_info):
         """Print date + scan __repr__ at the beginning of the scan output"""
         user_print(f"   {scan_info['start_time_str']}: {scan}")
 
-    def find_and_connect_real_motors(self):
-        self.real_motors = []
-        for disp_name in self._possible_motors:
-            # we can suppose channel_fullname to be a motor name
-            motor = _find_obj(disp_name)
-            if isinstance(motor, Axis):
-                self.real_motors.append(motor)
-                if self.term.is_a_tty:
-                    dispatcher.connect(
-                        self._on_motor_position_changed, signal="position", sender=motor
-                    )
-
-    def disconnect_real_motors(self):
-        for motor in self.real_motors:
-            dispatcher.disconnect(
-                self._on_motor_position_changed, signal="position", sender=motor
-            )
+    def print_scan_line(self, *args, **kwargs):
+        """Forward the call to 'print', but allow subclasses to modify behaviour"""
+        # raw print is used because the scan happens in 'disable_user_output' context
+        print(*args, **kwargs)
 
     def on_scan_new(self, scan, scan_info):
-        self.term = Terminal(scan_info.get("stream"))
         self.print_scan_info(scan, scan_info)
         super().on_scan_new(scan_info)
-        self.find_and_connect_real_motors()
+        self.connect_real_motors(scan)
 
     def on_scan_data(self, scan_info, data):
-
         if self.is_new_data_valid(scan_info, data):
-            line = self.build_data_output(scan_info, data)
-
-            if self.term.is_a_tty and scan_info.get("type") == "ct":
-                monitor = scan_info.get("output_mode", "tail") == "monitor"
-                print("\r" + line, end=monitor and "\r" or "\n")
+            if scan_info.get("type") == "ct":
+                self._ct_data = data
             else:
-                print(line)
+                line = self.build_data_output(scan_info, data)
+                if line:
+                    self.print_scan_line(line)
 
             self.scan_steps_index += 1
 
     def on_scan_end(self, scan_info):
+        self.disconnect_real_motors()
+        if scan_info.get("type") == "ct":
+            if self.is_end_scan_valid(scan_info):
+                line = self.build_data_output(scan_info, self._ct_data)
+                self.print_scan_line(line)
         super().on_scan_end(scan_info)
-        self.disconnect_real_motors
 
     def _on_motor_position_changed(self, position, signal=None, sender=None):
-        labels = []
+        self._labels.clear()
         for motor in self.real_motors:
             pos = "{0:.03f}".format(motor.position if sender is not motor else position)
             unit = motor.config.get("unit", default=None)
             if unit:
                 pos += "[{0}]".format(unit)
-            labels.append("{0}: {1}".format(motor.name, pos))
+            self._labels.append("{0}: {1}".format(motor.name, pos))
 
-        print("\33[2K", end="")
-        print(*labels, sep=", ", end="\r")
+        # \33[2K means: erase current line
+        self.print_scan_line(f"\33[2K\r{', '.join(self._labels)}", end="\r")
+
+
+class CtProgressBar(tqdm):
+    def __init__(self, count_time):
+        self.__progress_greenlet = None
+
+        total = int(count_time / 0.1) or None
+
+        super().__init__(total=total, leave=False)
+
+    def _progress_task(self):
+        for i in range(self.total):  # _progress_bar.total):
+            gevent.sleep(0.1)
+            self.update()  # self._progress_bar.update()
+
+    def update(self):
+        # this is called from data update,
+        # but there is only 1 data event for 'ct',
+        # so it is not useful to show progress
+        # (this is why we have greenlet for updating here)
+        if self.__progress_greenlet is None:
+            self.__progress_greenlet = gevent.spawn(self._progress_task)
+        return super().update()
+
+    def close(self):
+        if self.__progress_greenlet:
+            self.__progress_greenlet.kill()
+        return super().close()
+
+
+class ScanPrinterWithProgressBar(ScanPrinter):
+    def __init__(self):
+        """ Alternate ScanPrinter to be used in parallel of a ScanDataListener.
+            Prints in the user shell a progress bar during the scan execution.
+            Prints data output of 'ct' scans only.
+        """
+        super().__init__()
+
+        self.progress_bar = None
+
+    def print_scan_header(self, scan_info):
+        if scan_info.get("type") == "ct":
+            return super().print_scan_header(scan_info)
+
+    def print_data_header(self, scan_info):  # , first=False):
+        if scan_info.get("type") == "ct":
+            return super().print_data_header(scan_info)
+
+    def build_data_output(self, scan_info, data):
+        if scan_info.get("type") == "ct":
+            return super().build_data_output(scan_info, data)
+        return None
+
+    def _on_motor_position_changed(self, position, signal=None, sender=None):
+        super()._on_motor_position_changed(position, signal, sender)
+        self.progress_bar.set_description(", ".join(self.labels))
+        self.progress_bar.refresh()
+
+    def on_scan_new(self, scan, scan_info):
+        super().on_scan_new(scan, scan_info)
+
+        # display progressbar only in repl
+        if not is_bliss_shell() or gevent.getcurrent().parent is not gevent.get_hub():
+            return
+
+        # allow prints for 'ct' scans only
+        scan_type = scan_info.get("type")
+        if scan_type == "ct":
+            self.progress_bar = CtProgressBar(scan_info["count_time"])
+            self.progress_bar.update()  # put in place the progress task
+        else:
+            self.progress_bar = tqdm(total=scan_info["npoints"], leave=False)
+
+    def on_scan_data(self, scan_info, data):
+        old_step = self.scan_steps_index
+        super().on_scan_data(scan_info, data)
+        if self.scan_steps_index > old_step:
+            # only update if there is a new scan line
+            if not scan_info["npoints"]:
+                self.progress_bar.total = self.scan_steps_index * 2
+                self.progress_bar.refresh()
+            self.progress_bar.update()
+
+    def on_scan_end(self, scan_info):
+        self.progress_bar.close()
+        super().on_scan_end(scan_info)
 
 
 class ScanDataListener(_ScanPrinterBase):
@@ -633,7 +719,7 @@ class ScanDataListener(_ScanPrinterBase):
                     requested_channels.remove(m)
             # Always use the masters
             requested_channels = self.master_channel_names + requested_channels
-        if requested_channels == []:
+        if not requested_channels:
             requested_channels = self.displayable_channel_names.copy()
 
         # Check if the content or the order have changed
@@ -648,7 +734,7 @@ class ScanDataListener(_ScanPrinterBase):
         return False
 
     def collect_channels_info(self, scan_info):
-        super(ScanDataListener, self).collect_channels_info(scan_info)
+        super().collect_channels_info(scan_info)
         # Update the displayed channels before printing the scan header
         self.update_displayed_channels_from_user_request()
 
@@ -656,11 +742,8 @@ class ScanDataListener(_ScanPrinterBase):
         pass
 
     def on_scan_new(self, scan_info):
-        if not self.scan_is_running:
-            self.update_header = True
-            self.first_header = True
-            self.scan_info = scan_info
-        super(ScanDataListener, self).on_scan_new(scan_info)
+        self.scan_info = scan_info
+        super().on_scan_new(scan_info)
 
     def on_scan_data(self, data_dim, master_name, channel_info):
         if data_dim != "0d":
@@ -671,26 +754,13 @@ class ScanDataListener(_ScanPrinterBase):
 
         if self.is_new_data_valid(scan_info, data):
             with nonblocking_print():
-                if scan_info.get("type") != "ct":
-                    updated = self.update_displayed_channels_from_user_request()
-                    self.update_header = self.update_header or updated
-                else:
-                    self.update_header = False
-
                 # Skip if partial data
                 for cname in self.sorted_channel_names:
                     if len(data[cname]) <= self.scan_steps_index:
                         return False
 
-                if self.update_header:
-                    self.update_header = False
-                    # The table header have to be updated
-                    # It is always the case the very first time
-                    self.print_data_header(scan_info, first=self.first_header)
-                    self.first_header = False
-
                 # Check if we receive more than one scan points (i.e. lines) per 'scan_data' event
-                bsize = min([len(data[cname]) for cname in data])
+                bsize = min(len(data[cname]) for cname in data)
 
                 for i in range(bsize - self.scan_steps_index):
                     # convert data in order to keep only the concerned line (one scalar per channel).
@@ -698,7 +768,8 @@ class ScanDataListener(_ScanPrinterBase):
                         cname: data[cname][self.scan_steps_index] for cname in data
                     }
                     line = self.build_data_output(scan_info, ndata)
-                    print(line)
+                    if line:
+                        print(line)
                     self.scan_steps_index += 1
 
     def reset_terminal(self):
@@ -748,177 +819,3 @@ class ScanDataListener(_ScanPrinterBase):
             )
         finally:
             g.kill()
-
-
-@contextlib.contextmanager
-def _local_pb(scan, repl, task):
-    # Shitty cyclic import
-    # we have to purge this :-(
-    from bliss.shell.cli import progressbar
-
-    def stop():
-        task.kill()
-
-    repl.register_application_stopper(stop)
-    try:
-        real_motors = list()
-        messages_dict = dict()
-
-        def set_scan_status(*messages):
-            messages_dict["status"] = ",".join(messages)
-            on_motor_position_changed(None)  # refresh progressbar label
-
-        def on_motor_position_changed(position, signal=None, sender=None):
-            labels = []
-            for motor in real_motors:
-                pos = "{0:.03f}".format(
-                    motor.position if sender is not motor else position
-                )
-                unit = motor.config.get("unit", default=None)
-                if unit:
-                    pos += "[{0}]".format(unit)
-                labels.append("{0}: {1}".format(motor.name, pos))
-            message_status = messages_dict.get("status")
-            if message_status:
-                labels.append(message_status)
-            pb.bar.label = ", ".join(labels)
-            pb.invalidate()
-
-        scan_info = scan.scan_info
-        master, channels = next(iter(scan_info["acquisition_chain"].items()))
-        for channel_fullname in channels["master"]["scalars"]:
-            channel_short_name = (
-                scan_info["channels"]
-                .get(channel_fullname, {})
-                .get("display_name", None)
-            )
-            motor = _find_obj(channel_short_name)
-            if isinstance(motor, Axis):
-                real_motors.append(motor)
-                dispatcher.connect(
-                    on_motor_position_changed, signal="position", sender=motor
-                )
-        if scan.scan_info.get("type") == "ct":
-
-            class CtProgressBar(progressbar.ProgressBar):
-                def __call__(self, queue, **keys):
-                    npoints = int(scan.scan_info.get("count_time", 1) // .1) or None
-                    keys["total"] = npoints
-                    self._ct_tick_task = None
-                    if npoints:
-
-                        def tick():
-                            for i in range(npoints):
-                                queue.put("-")
-                                gevent.sleep(.1)
-
-                        self._ct_tick_task = gevent.spawn(tick)
-                    return super().__call__(queue, **keys)
-
-                def __exit__(self, *args, **kwargs):
-                    if self._ct_tick_task is not None:
-                        self._ct_tick_task.kill()
-                    super().__exit__(*args, **kwargs)
-
-            with CtProgressBar(repl=repl) as pb:
-                yield pb
-        else:
-            with user_status_info.callback() as cbk:
-                cbk(set_scan_status)
-                with progressbar.ProgressBar(repl=repl) as pb:
-                    yield pb
-
-    except KeyboardInterrupt:
-        repl.stop_current_task(block=False, exception=KeyboardInterrupt)
-
-    finally:
-        repl.unregister_application_stopper(stop)
-        for motor in real_motors:
-            dispatcher.disconnect(
-                on_motor_position_changed, signal="position", sender=motor
-            )
-
-
-class ScanPrinterWithProgressBar(ScanPrinter):
-    def __init__(self, repl):
-        """ Alternate ScanPrinter to be used in parallel of a ScanDataListener.
-            Prints in the user shell a progress bar during the scan execution.
-            Prints data output of 'ct' scans only.
-        """
-
-        super().__init__()
-
-        self.repl = repl
-        self.progress_task = None
-        self._on_scan_data_values = None
-
-    def on_scan_new(self, scan, scan_info):
-
-        # allow prints for 'ct' scans only
-        scan_type = scan_info.get("type")
-        if scan_type == "ct":
-            super().on_scan_new(scan, scan_info)
-
-        # prepare progress bar for all type of scans
-        if self.progress_task:
-            self.progress_task.kill()
-
-        self._on_scan_data_values = None
-
-        # display progressbar only in repl greenlet
-        if self.repl.current_task != gevent.getcurrent():
-            return
-
-        started_event = gevent.event.Event()
-        self.progress_task = gevent.spawn(self._progress_bar, scan, started_event)
-        with gevent.Timeout(1.):
-            started_event.wait()
-
-    def on_scan_data(self, scan_info, values):
-        self._on_scan_data_values = scan_info, values
-
-    def on_scan_end(self, scan_info):
-        # allow prints for 'ct' scans only
-        scan_type = scan_info.get("type")
-        if scan_type == "ct":
-            super().on_scan_end(scan_info)
-
-    def _progress_bar(self, scan, started_event):
-
-        try:
-            npoints = scan.scan_info["npoints"]
-        except KeyError:
-            started_event.set()
-            return  # nothing to do
-        queue = gevent.queue.Queue()
-        task = self.progress_task
-
-        class Preset(ChainPreset):
-            class Iter(ChainIterationPreset):
-                def stop(self):
-                    queue.put("+")
-
-            def get_iterator(self, chain):
-                while True:
-                    yield Preset.Iter()
-
-            def stop(self, chain):
-                queue.put(StopIteration)
-                task.join()
-
-        preset = Preset()
-        scan.acq_chain.add_preset(preset)
-        started_event.set()
-        try:
-            with _local_pb(scan, self.repl, task) as pb:
-                it = pb(queue, remove_when_done=True, total=npoints or None)
-                pb.bar = it
-                for i in it:
-                    pass
-        finally:
-            if self._on_scan_data_values:
-                scan_info, values = self._on_scan_data_values
-                scan_type = scan_info.get("type")
-                if scan_type == "ct":
-                    line = self.build_data_output(scan_info, values)
-                    print(line)

@@ -46,6 +46,7 @@ tango >= 9.3.2
 tango-metadata >= 4.0.7
 tblib >= 1.7
 tmux >= 2.7
+tqdm
 treelib <= 1.5.5
 typeguard == 2.6.1
 typing_extensions

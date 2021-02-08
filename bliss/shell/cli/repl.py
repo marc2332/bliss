@@ -826,7 +826,7 @@ def embed(*args, **kwargs):
 
         if sys.platform not in ["win32", "cygwin"] and cmd_line_i.use_tmux:
             # Catch scan events to show the progress bar
-            seh = ScanPrinterWithProgressBar(cmd_line_i)
+            seh = ScanPrinterWithProgressBar()
         else:
             # set old style print methods for the scans
             scan_printer = ScanPrinter()

@@ -14,7 +14,8 @@ import os
 
 from prompt_toolkit.application import Application
 from prompt_toolkit.application.current import get_app
-from prompt_toolkit.eventloop import run_in_executor
+
+# from prompt_toolkit.eventloop import run_in_executor
 from prompt_toolkit.key_binding.bindings.focus import focus_next, focus_previous
 from prompt_toolkit.key_binding.defaults import load_key_bindings
 from prompt_toolkit.key_binding.key_bindings import KeyBindings, merge_key_bindings
@@ -51,7 +52,6 @@ __all__ = [
     "input_dialog",
     "message_dialog",
     "radiolist_dialog",
-    "progress_dialog",
     "BlissDialog",
 ]
 
@@ -367,56 +367,6 @@ def checkbox_dialog(
     )
 
     return _run_dialog(dialog, style, async_=async_, full_screen=full_screen)
-
-
-def progress_dialog(
-    title="", text="", run_callback=None, style=None, async_=False, full_screen=True
-):
-    """
-    :param run_callback: A function that receives as input a `set_percentage`
-        function and it does the work.
-    """
-    assert callable(run_callback)
-
-    progressbar = ProgressBar()
-    text_area = TextArea(
-        focusable=False,
-        # Prefer this text area as big as possible, to avoid having a window
-        # that keeps resizing when we add text to it.
-        height=D(preferred=10 ** 10),
-    )
-
-    dialog = Dialog(
-        body=HSplit(
-            [Box(Label(text=text)), Box(text_area, padding=D.exact(1)), progressbar]
-        ),
-        title=title,
-        with_background=True,
-    )
-    app = _create_app(dialog, style)
-
-    def set_percentage(value):
-        progressbar.percentage = int(value)
-        app.invalidate()
-
-    def log_text(text):
-        text_area.buffer.insert_text(text)
-        app.invalidate()
-
-    # Run the callback in the executor. When done, set a return value for the
-    # UI, so that it quits.
-    def start():
-        try:
-            run_callback(set_percentage, log_text)
-        finally:
-            app.exit()
-
-    run_in_executor(start)
-
-    if async_:
-        return app.run_async()
-    else:
-        return app.run()
 
 
 # ===========================================================================================

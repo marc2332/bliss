@@ -57,8 +57,6 @@ YAML_ configuration example:
 """
 
 import enum
-import collections
-
 import gevent
 
 from bliss.common.axis import AxisState
@@ -185,7 +183,7 @@ class SmarActMCS2Error(Exception):
         err = error.split(",")
         code = int(err[0])
         msg = err[1].strip()
-        if channel == None:
+        if channel is None:
             msg = "Error {}: {}".format(code, msg)
         else:
             msg = "Error {} on channel {}: {}".format(code, channel, msg)
@@ -369,7 +367,7 @@ class Channel:
         self.command(f":CAL{self.channel}")
         if wait:
             with gevent.Timeout(timeout):
-                while axis.channel.status.CALIBRATING:
+                while self.status.CALIBRATING:
                     gevent.sleep(0.1)
         self.ctrl.sync_hard()
 
@@ -408,7 +406,7 @@ class SmarAct_MCS2(Controller):
         cnt = int(self._comm.write_readline(request.encode()))
         for i in range(cnt):
             request = ":SYST:ERR?\n"
-            err = self._comm.write_readline(request.encode())
+            self._comm.write_readline(request.encode())
 
     def _check_error(self, channel=None):
         request = ":SYST:ERR:COUN?\n"
@@ -419,14 +417,14 @@ class SmarAct_MCS2(Controller):
             raise SmarActMCS2Error(err, channel)
 
     def write(self, cmd, channel=None):
-        chan = f":CHAN{channel}" if channel != None else ""
+        chan = f":CHAN{channel}" if channel is not None else ""
         request = f"{chan}{cmd}\n"
         log_debug(self, f"request = {request}")
         self._comm.write(request.encode())
         self._check_error(channel)
 
     def write_read(self, cmd, channel=None):
-        chan = f":CHAN{channel}" if channel != None else ""
+        chan = f":CHAN{channel}" if channel is not None else ""
         request = f"{chan}{cmd}\n"
         log_debug(self, f"request = {request}")
         reply = self._comm.write_readline(request.encode())

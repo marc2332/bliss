@@ -59,19 +59,3 @@ def flint_norpc(xvfb, beacon):
     with flint_norpc_context():
         yield session
     session.close()
-
-
-@pytest.fixture
-def local_flint(xvfb):
-    """Registed expected things
-    """
-    from silx.gui import qt
-    from bliss.flint import resources
-
-    app = qt.QApplication.instance()
-    if app is None:
-        app = qt.QApplication([])
-    resources.silx_integration()
-    yield
-    if app is not None:
-        app.closeAllWindows()

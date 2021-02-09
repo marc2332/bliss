@@ -1,0 +1,1 @@
+"""Tests depending on Qt"""

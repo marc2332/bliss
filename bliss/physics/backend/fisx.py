@@ -28,12 +28,12 @@ def _cs_from_library(Z, energies, kind):
     elif kind == kind.PAIR:
         return csdict["pair"]
     elif kind == kind.SCATTER:
-        f1, f2 = csdict["coherent"], csdict["compton"]
-
-        def func(energies):
-            return f1(energies) + f2(energies)
-
-        return func
+        coh = csdict["coherent"]
+        incoh = csdict["compton"]
+        if isinstance(csdict["coherent"], list):
+            coh = numpy.array(coh)
+            incoh = numpy.array(incoh)
+        return coh + incoh
     else:
         raise ValueError(f"{kind} not supported")
 

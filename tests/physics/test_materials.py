@@ -306,6 +306,17 @@ def test_element_cross_sections(backend):
     assert mat.transmission(10, 0.1).shape == (1,)
     assert mat.transmission([10, 20], 0.1).shape == (2,)
 
+    energies = numpy.linspace(1, 100, 10)
+    total = mat.cross_section(energies, kind="total")
+    pe = mat.cross_section(energies, kind="pe")
+    scatter = mat.cross_section(energies, kind="scatter")
+    if backend == "xraylib":
+        total2 = pe + scatter
+    else:
+        pair = mat.cross_section(energies, kind="pair")
+        total2 = pe + scatter + pair
+    numpy.testing.assert_allclose(total, total2)
+
 
 @pytest.mark.parametrize("backend", backend.MATERIAL_BACKENDS)
 def test_compound_cross_sections(backend):

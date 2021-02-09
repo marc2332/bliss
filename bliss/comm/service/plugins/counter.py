@@ -42,7 +42,9 @@ class _LocalCounterController(proxy.Proxy):
         except AttributeError:
             return False
         else:
-            return obj.connection_address == self.__target__.connection_address
+            return (
+                obj._rpc_connection.address == self.__target__._rpc_connection.address
+            )
 
     def __hash__(self):
         return id(self.__target__)

@@ -41,7 +41,7 @@ class Client(protocols.CounterContainer):
             logtools.log_warning(self, "Service %s not running", name)
 
     def __dir__(self):
-        attributes = ["close", "connect", "config", "__info__"]
+        attributes = ["close_connection", "connect", "config", "__info__"]
         try:
             self.connect()
         except ConnectionError:
@@ -102,10 +102,10 @@ class Client(protocols.CounterContainer):
     def config(self):
         return self._config_node
 
-    def close(self):
+    def close_connection(self):
         try:
-            if self._proxy:
-                self._proxy.close()
+            if self._proxy is not None:
+                self._proxy.close_connection()
         finally:
             self._proxy = None
 
@@ -126,7 +126,7 @@ class Client(protocols.CounterContainer):
                 )
 
             client = rpc.Client(
-                f"tcp://{hostname}:{port}", disconnect_callback=self.close
+                f"tcp://{hostname}:{port}", disconnect_callback=self.close_connection
             )
 
             self._proxy = plugins.get_local_client(client, port, self.config)
@@ -225,7 +225,7 @@ def main():
     finally:
         for info, server in services.values():
             try:
-                server.close()
+                server.close_connection()
             except:
                 pass
             # Set redis key to a time to live of 2 months

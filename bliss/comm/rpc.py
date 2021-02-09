@@ -265,7 +265,7 @@ class _ServerObject(object):
         sock.listen(512)
         self._socket = sock
 
-    def close(self):
+    def close_connection(self):
         if self._socket:
             if self._uds_name:
                 os.unlink(self._uds_name)
@@ -532,7 +532,7 @@ class _cnx(object):
         self._in_introspect = False
 
     def __del__(self):
-        self.close()
+        self.close_connection()
 
     def connect(self):
         self.try_connect()
@@ -695,11 +695,11 @@ class _cnx(object):
             ) and self._disconnect_callback is not None:
                 self._disconnect_callback()
 
-    def close(self):
+    def close_connection(self):
         if self._reading_task:
             self._reading_task.kill()
         for client in self._subclient.values():
-            client.close()
+            client.close_connection()
         self._subclient = weakref.WeakValueDictionary()
 
     @property
@@ -742,7 +742,7 @@ def Client(address, timeout=30., disconnect_callback=None, **kwargs):
             client.proxy = self
 
         def __getattribute__(self, name):
-            if name in ["close", "connect", "connection_address"]:
+            if name in ["close_connection", "connect", "connection_address"]:
                 return getattr(client, name)
 
             try:

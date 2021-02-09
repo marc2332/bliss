@@ -690,7 +690,9 @@ class _cnx(object):
             for name in self._class_member:
                 delattr(type(self.proxy), name)
             self._class_member = list()
-            if self._disconnect_callback is not None:
+            if (
+                exception is None or not self._queues
+            ) and self._disconnect_callback is not None:
                 self._disconnect_callback()
 
     def close(self):

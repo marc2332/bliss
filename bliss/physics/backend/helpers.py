@@ -33,5 +33,7 @@ def get_cs_kind(kind: str):
         return CrossSectionKind.INCOHERENT
     elif kind in ("scattering", "scatter"):
         return CrossSectionKind.SCATTER
+    elif kind in ("pair_production", "pair"):
+        return CrossSectionKind.PAIR
     else:
         raise ValueError(f"Unknown cross-section {repr(kind)}")

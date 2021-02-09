@@ -28,6 +28,19 @@ from bliss.config.conductor.client import get_redis_proxy
 _logger = logging.getLogger(__name__)
 
 
+triggerCounter = False
+
+
+class ContextTrigger(object):
+    def __enter__(self):
+        global triggerCounter
+        triggerCounter = True
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        global triggerCounter
+        triggerCounter = False
+
+
 class GroupMotors(qt.QObject):
     moving = qt.Signal(bool)
 
@@ -50,7 +63,8 @@ class GroupMotors(qt.QObject):
             disconnect(motor, "state", self.updateGroupState)
 
     def updateGroupState(self, state, sender):
-        if sender.name in self.index and sender.triggered:
+        global triggerCounter
+        if sender.name in self.index and triggerCounter:
             if "MOVING" in state:
                 self.movingMotors += 1
                 self.moving.emit(True)
@@ -82,10 +96,9 @@ class MotorPosition(qt.QLineEdit):
         gevent.spawn(self.moveToPosition, motor)
 
     def moveToPosition(self, motor):
-        new_pos = float(self.text())
-        motor.triggered = True
-        mv(motor, new_pos)
-        motor.triggered = False
+        with ContextTrigger():
+            new_pos = float(self.text())
+            mv(motor, new_pos)
 
 
 class TweakUI(qt.QMainWindow):
@@ -131,15 +144,20 @@ class TweakUI(qt.QMainWindow):
 
     def addMotor(self, motor):
         motor = self.cfg.get(motor)
-        motor.triggered = False
         self.motors.addMotor(motor)
         connect(motor, "position", self.updateMotorPosition)
         connect(motor, "state", self.updateMotorState)
 
     def removeMotor(self, motor):
-        delattr(motor, "triggered")
         disconnect(motor, "position", self.updateMotorPosition)
         disconnect(motor, "state", self.updateMotorState)
+
+    def checkEmpty(self, line):
+        if str(line.text()) == "":
+            line.setStyleSheet("""QLineEdit { background-color: red;}""")
+        else:
+            line.setStyleSheet("""QLineEdit { background-color: white;}""")
+        qt.QApplication.processEvents()
 
     def fill(self):
         self.combo_h.addItem("")
@@ -149,6 +167,7 @@ class TweakUI(qt.QMainWindow):
             step = qt.QLineEdit("1")
             step_validator = qt.QDoubleValidator(0, 9000, 3)
             step.setValidator(step_validator)
+            step.textChanged.connect(partial(self.checkEmpty, step))
             self.combo_h.addItem(motor.name)
             self.combo_v.addItem(motor.name)
             label = qt.QLabel(n)
@@ -186,6 +205,9 @@ class TweakUI(qt.QMainWindow):
 
         acq_validator = qt.QDoubleValidator(0, 9000, 3)
         self.acquisitionLine.setValidator(acq_validator)
+        self.acquisitionLine.textChanged.connect(
+            partial(self.checkEmpty, self.acquisitionLine)
+        )
 
     def getPID(self):
         return os.getpid()
@@ -216,6 +238,8 @@ class TweakUI(qt.QMainWindow):
 
     def startCt(self, moving):
         if not moving and self.ctButton.isChecked():
+            if self.acquisitionLine.text() == "":
+                self.acquisitionLine.setText("1")
             acq_time = float(self.acquisitionLine.text())
             event.send(self, "ct_requested", acq_time)
 
@@ -253,34 +277,32 @@ class TweakUI(qt.QMainWindow):
         self.addAction(down)
 
     def increase(self, motor):
-        motor.triggered = True
-        step = float(self.index[motor.name]["step"].text())
-        mvr(motor, step)
-        motor.triggered = False
+        with ContextTrigger():
+            if self.index[motor.name]["step"].text() != "":
+                step = float(self.index[motor.name]["step"].text())
+                mvr(motor, step)
 
     def decrease(self, motor):
-        motor.triggered = True
-        step = float(self.index[motor.name]["step"].text())
-        mvr(motor, -step)
-        motor.triggered = False
+        with ContextTrigger():
+            if self.index[motor.name]["step"].text() != "":
+                step = float(self.index[motor.name]["step"].text())
+                mvr(motor, -step)
 
     def move(self, sign, vertical):
-        try:
-            if vertical and self.motor_v:
-                self.motor_v.triggered = True
-                n = self.motor_v.name
-                step = float(self.index[n]["step"].text())
-                mvr(self.motor_v, step * sign)
-                self.motor_v.triggered = False
-            elif not vertical and self.motor_h:
-                self.motor_h.triggered = True
-                n = self.motor_h.name
-                step = float(self.index[n]["step"].text())
-                mvr(self.motor_h, step * sign)
-                self.motor_h.triggered = False
-        except RuntimeError as exc:
-            # Sould we raise it instead ?
-            print(exc)
+        with ContextTrigger():
+            try:
+                if vertical and self.motor_v:
+                    n = self.motor_v.name
+                    if self.index[n]["step"].text() != "":
+                        step = float(self.index[n]["step"].text())
+                        mvr(self.motor_v, step * sign)
+                elif not vertical and self.motor_h:
+                    n = self.motor_h.name
+                    if self.index[n]["step"].text() != "":
+                        step = float(self.index[n]["step"].text())
+                        mvr(self.motor_h, step * sign)
+            except RuntimeError:
+                sys.excepthook(*sys.exc_info())
 
     def startIncrease(self, motor):
         gevent.spawn(self.increase, motor)

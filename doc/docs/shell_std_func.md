@@ -157,7 +157,13 @@ with rockit(mm1, 10):
 
 ```
 
+### tw (Tweak)
+* `tw(<mot>)`: View motors in an user interface and move them
+```python
+tw(robz, roby, m0)
+```
 
+![Tweak screenshot](img/tweak_ui.png)
 ## counters
 
 ### lscnt (list counters)

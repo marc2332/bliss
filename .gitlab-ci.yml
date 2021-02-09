@@ -288,10 +288,6 @@ test_bliss_package:
     - tags
   tags:
     - bliss_master
-  artifacts:
-    paths:
-      - htmlcov/
-    expire_in: 7 days
   variables:
     PYTEST_ARGS: '--ignore tests/nexus_writer'
 
@@ -302,10 +298,6 @@ test_writer_package:
     - tags
   tags:
     - bliss_master
-  artifacts:
-    paths:
-      - htmlcov_writer/
-    expire_in: 7 days
   variables:
     PYTEST_ARGS: '-m writer --runwritertests'
 

@@ -342,7 +342,7 @@ class _ServerObject(object):
                     call_id = u[0]
                     try:
                         return_values = self._call__(*u[1:])
-                    except Exception as e:
+                    except BaseException as e:
                         with lock:
                             client_sock.sendall(
                                 msgpack.packb((call_id, e), use_bin_type=True)

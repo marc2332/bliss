@@ -81,6 +81,32 @@ def patch_qt():
             pass
 
 
+def patch_matplotlib():
+    """Patch memory leak created by matplotlib"""
+    try:
+        from matplotlib.cbook import CallbackRegistry
+
+        def patched_remove_proxy(self, proxy, *, _is_finalizing=sys.is_finalizing):
+            if _is_finalizing():
+                # Weakrefs can't be properly torn down at that point anymore.
+                return
+            for signal, proxies in list(self._func_cid_map.items()):
+                try:
+                    del self.callbacks[signal][proxies[proxy]]
+                    del self._func_cid_map[signal][proxy]
+                except KeyError:
+                    pass
+                if len(self.callbacks[signal]) == 0:
+                    del self.callbacks[signal]
+                    del self._func_cid_map[signal]
+
+        CallbackRegistry._remove_proxy = patched_remove_proxy
+        ROOT_LOGGER.info("matplotlib monkey-patch applied")
+    except Exception:
+        ROOT_LOGGER.debug("error while applying matplotlib monkey-patch", exc_info=True)
+        ROOT_LOGGER.error("matplotlib monkey-patch have failed")
+
+
 def create_flint_model(settings) -> flint_model.FlintState:
     """"
     Create Flint classes and main windows without interaction with the
@@ -398,6 +424,8 @@ def main():
             ROOT_LOGGER.warning("A QTimer for gevent loop will be created instead.")
             need_gevent_loop = True
 
+    # Patch matplotlib memory leak
+    patch_matplotlib()
     # Patch qt binding to remove few warnings
     patch_qt()
 

@@ -172,3 +172,23 @@ def test_encoder_disable_broken_init(default_session):
     enc.enable()
     assert enc.raw_read == 0.0
     assert not enc.disabled
+
+
+def test_initialized_cache(beacon):
+    roby = beacon.get("roby")
+    llbend1 = beacon.get("llbend1")
+
+    # /!\ check roby and llbend1 are on 2 different mockup controller instances
+    assert type(roby.controller) == type(llbend1.controller)
+    assert roby.controller != llbend1.controller
+
+    roby_controller_init_cache = channels.Cache(roby.controller, "initialized")
+    llbend1_controller_init_cache = channels.Cache(llbend1.controller, "initialized")
+    assert roby_controller_init_cache != llbend1_controller_init_cache
+    assert roby_controller_init_cache.name != llbend1_controller_init_cache.name
+
+    # check that another motor on the same controller has the same 'initialized' cache
+    m1 = beacon.get("m1")
+    assert roby.controller == m1.controller
+    m1_controller_init_cache = channels.Cache(m1.controller, "initialized")
+    assert m1_controller_init_cache == roby_controller_init_cache

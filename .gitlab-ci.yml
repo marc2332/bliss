@@ -124,7 +124,24 @@ test_bliss_cov:
     - python scripts/profiling2txt.py
     - sh scripts/print_test_profiling.sh
   variables:
-    PYTEST_ARGS: '--ignore tests/nexus_writer'
+    PYTEST_ARGS: '--ignore tests/nexus_writer --ignore tests/qt'
+
+test_qt_cov:
+  # Run BLISS tests depending on Qt with coverage for master only
+  extends: .template_test_source
+  only:
+    - master
+  tags:
+    - bliss_master
+  artifacts:
+    paths:
+      - htmlcov/
+    expire_in: 7 days
+  after_script:
+    - python scripts/profiling2txt.py
+    - sh scripts/print_test_profiling.sh
+  variables:
+    PYTEST_ARGS: 'tests/qt'
 
 test_writer_cov:
   # Run hdf5 writer tests with coverage for master only
@@ -288,12 +305,18 @@ test_bliss_package:
     - tags
   tags:
     - bliss_master
-  artifacts:
-    paths:
-      - htmlcov/
-    expire_in: 7 days
   variables:
-    PYTEST_ARGS: '--ignore tests/nexus_writer'
+    PYTEST_ARGS: '--ignore tests/nexus_writer --ignore tests/qt'
+
+test_qt_package:
+  # Run BLISS tests depending on Qt
+  extends: .template_test_package
+  only:
+    - tags
+  tags:
+    - bliss_master
+  variables:
+    PYTEST_ARGS: 'tests/qt'
 
 test_writer_package:
   # Run HDF5 writer tests using the bliss conda package
@@ -302,10 +325,6 @@ test_writer_package:
     - tags
   tags:
     - bliss_master
-  artifacts:
-    paths:
-      - htmlcov_writer/
-    expire_in: 7 days
   variables:
     PYTEST_ARGS: '-m writer --runwritertests'
 

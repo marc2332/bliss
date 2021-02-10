@@ -4,15 +4,6 @@ from bliss.shell.qtapp.tweak_ui import TweakUI
 from silx.gui import qt
 from unittest.mock import patch
 import time
-import pytest
-
-
-@pytest.fixture(scope="session")
-def qapp(xvfb):
-    app = qt.QApplication.instance()
-    if app is None:
-        app = qt.QApplication([])
-    yield app
 
 
 def test_qtapp(default_session, qapp):

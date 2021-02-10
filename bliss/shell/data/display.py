@@ -21,7 +21,7 @@ import typing
 import gevent.event
 import numbers
 
-from bliss.data.scan import watch_session_scans
+from bliss.data import scan as scan_mdl
 from bliss.common.utils import nonblocking_print
 from bliss.common.axis import Axis
 from bliss.common.event import dispatcher
@@ -799,23 +799,23 @@ class ScanDataListener(_ScanPrinterBase):
         msg = f" Watching scans from Bliss session: '{self.session_name}' "
         line = get_decorated_line(msg, deco=">", rdeco="<", head="\n", tail="\n")
 
-        ready_event = gevent.event.Event()
+        observer = scan_mdl.DefaultScansObserver()
+        observer.scan_new_callback = self.on_scan_new
+        observer.scan_new_child_callback = self.on_scan_new_child
+        observer.scan_data_callback = self.on_scan_data
+        observer.scan_end_callback = self.on_scan_end
+
+        watcher = scan_mdl.ScansWatcher(self.session_name)
+        watcher.set_observer(observer)
+        watcher.set_exclude_existing_scans(True)
 
         def print_ready():
-            ready_event.wait()
+            watcher.wait_ready()
             print(line)
 
         g = gevent.spawn(print_ready)
 
         try:
-            watch_session_scans(
-                self.session_name,
-                self.on_scan_new,
-                self.on_scan_new_child,
-                self.on_scan_data,
-                self.on_scan_end,
-                exclude_existing_scans=True,
-                ready_event=ready_event,
-            )
+            watcher.run()
         finally:
             g.kill()

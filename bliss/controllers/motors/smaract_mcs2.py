@@ -190,7 +190,7 @@ class SmarActMCS2Error(Exception):
         super().__init__(msg)
 
 
-class Channel:
+class Positioner:
 
     hold_time = InfiniteHoldTime
 
@@ -468,11 +468,11 @@ class SmarAct_MCS2(Controller):
 
     def initialize_axis(self, axis):
 
-        axis.channel = Channel(self, axis.config.get("channel", int))
-        if axis.channel.channel >= self.nb_channels:
+        axis.positioner = Positioner(self, axis.config.get("channel", int))
+        if axis.positioner.channel >= self.nb_channels:
             raise ValueError(
                 "This SmarAct MCS2 can only control {self.nb_channels} \
-                   axes and axis {axis.name} has channel set to {axis.channel}"
+                   axes and axis {axis.name} has channel set to {axis.positioner}"
             )
 
     def initialize_hardware_axis(self, axis):
@@ -480,13 +480,13 @@ class SmarAct_MCS2(Controller):
         # so we only write if we know it is not the correct one.
         if "positioner_type" in axis.config.config_dict:
             new_positioner_type = PositionerType[axis.config.get("positioner_type")]
-            curr_positioner_type = axis.channel.positioner_type
+            curr_positioner_type = axis.positioner.positioner_type
 
             if new_positioner_type != curr_positioner_type:
-                axis.channel.positioner_type = new_positioner_type
+                axis.positioner.positioner_type = new_positioner_type
         # Check if the axis has a valid position, power-on of the controller will
         # reset the positions
-        if not axis.channel.is_physical_position_known:
+        if not axis.positioner.is_physical_position_known:
             log_warning(
                 self,
                 "{0} physical position unknown (hint: do a "
@@ -495,19 +495,19 @@ class SmarAct_MCS2(Controller):
 
         # Apply power mode from config to enable, disable or power-save
         if "power_mode" in axis.config.config_dict:
-            axis.channel.power_mode = axis.config.get("power_mode")
+            axis.positioner.power_mode = axis.config.get("power_mode")
 
         # force closed-loop absolute versus relative position
-        self.write(":MMOD 0", axis.channel.channel)
+        self.write(":MMOD 0", axis.positioner.channel)
 
         if "hold_time" in axis.config.config_dict:
-            axis.channel.hold_time = axis.config.get("hold_time", int)
+            axis.positioner.hold_time = axis.config.get("hold_time", int)
 
     def get_axis_info(self, axis):
-        status, _, _ = self.read_status(axis.channel.channel)
-        ptype = axis.channel.positioner_type.name
-        pmode = axis.channel.power_mode.name
-        info_str = f"     channel: {axis.channel.channel} type: {ptype}\n"
+        status, _, _ = self.read_status(axis.positioner.channel)
+        ptype = axis.positioner.positioner_type.name
+        pmode = axis.positioner.power_mode.name
+        info_str = f"     channel: {axis.positioner.channel} type: {ptype}\n"
         info_str += "     status:"
         info_str += f" POWER: {pmode}"
         info_str += f"    CLOOP: {status.CLOSED_LOOP_ACTIVE}"
@@ -544,9 +544,9 @@ class SmarAct_MCS2(Controller):
         state = self._smaract_state.new()
 
         axis_status, module_status, device_status = self.read_status(
-            axis.channel.channel
+            axis.positioner.channel
         )
-        enabled = axis.channel.power_mode
+        enabled = axis.positioner.power_mode
 
         # set some extra states
         if axis_status.END_STOP_REACHED:
@@ -582,15 +582,15 @@ class SmarAct_MCS2(Controller):
         return ""
 
     def stop(self, axis):
-        axis.channel.stop()
+        axis.positioner.stop()
         log_debug(self, "{0} sent stop".format(axis.name))
 
     def set_position(self, axis, pos):
-        axis.channel.set_position(pos)
+        axis.positioner.set_position(pos)
         return self.read_position(axis)
 
     def read_position(self, axis):
-        return axis.channel.position
+        return axis.positioner.position
 
     def start_all(self, *motion_list):
         # TODO: figure out out to use soft. trigger to move multiple axis
@@ -598,28 +598,28 @@ class SmarAct_MCS2(Controller):
             self.start_one(motion)
 
     def start_one(self, motion):
-        channel = motion.axis.channel
+        channel = motion.axis.positioner
         channel.move_absolute(motion.target_pos)
 
     def home_search(self, axis, switch):
         # counter-clockwise if positive
-        axis.channel.find_reference_mark(switch)
+        axis.positioner.find_reference_mark(switch)
 
     def home_state(self, axis):
-        if axis.channel.status.REFERENCING:
+        if axis.positioner.status.REFERENCING:
             return AxisState("MOVING")
         else:
             return AxisState("READY")
 
     def read_velocity(self, axis):
-        return axis.channel.closed_loop_speed
+        return axis.positioner.closed_loop_speed
 
     def set_velocity(self, axis, new_velocity):
-        axis.channel.closed_loop_speed = new_velocity
+        axis.positioner.closed_loop_speed = new_velocity
         return self.read_velocity(axis)
 
     def read_acceleration(self, axis):
-        return axis.channel.closed_loop_acceleration
+        return axis.positioner.closed_loop_acceleration
 
     def set_acceleration(self, axis, new_acceleration):
-        axis.channel.closed_loop_acceleration = new_acceleration
+        axis.positioner.closed_loop_acceleration = new_acceleration

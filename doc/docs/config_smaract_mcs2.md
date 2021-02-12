@@ -125,19 +125,19 @@ If you get the warning message above that means the controller have been power-o
 # SmarAct MCS2 specific commands
 
 The axes are working as standard BLISS axes, nevertheless this controller provides some extra functions to perform low level access or to execute special functions like the sensor calibration or a power off.
-All the specific commands are accessible by using the **channel** attribute of the bliss axis, e.g `<myaxis>.channel.status` :
+All the specific commands are accessible by using the **positioner** attribute of the bliss axis, e.g `<myaxis>.positioner.status` :
 
- - .channel.status
- - .channel.info_status
- - .channel.power_mode
- - .channel.hold_time
+ - .postioner.status
+ - .postioner.info_status
+ - .postioner.power_mode
+ - .postioner.hold_time
  
- - .channel.find_reference_mark()
- - .channel.calibrate()
+ - .postioner.find_reference_mark()
+ - .postioner.calibrate()
  
- - .channel.get_property()
- - .channel.set_property()
- - .channel.command()
+ - .postioner.get_property()
+ - .postioner.set_property()
+ - .postioner.command()
 
 ## Read hardware status
 The Device State, Module State and Channel State properties are used to obtain the current state

@@ -105,7 +105,7 @@ class Client(protocols.CounterContainer):
     def close_connection(self):
         try:
             if self._proxy is not None:
-                self._proxy.close_connection()
+                self._proxy._rpc_connection.close()
         finally:
             self._proxy = None
 
@@ -225,7 +225,7 @@ def main():
     finally:
         for info, server in services.values():
             try:
-                server.close_connection()
+                server._rpc_connection.close()
             except:
                 pass
             # Set redis key to a time to live of 2 months

@@ -12,6 +12,8 @@ import subprocess
 import tempfile
 import os.path
 
+from bliss.common.proxy import Proxy
+
 __all__ = ["Map", "format_node"]
 
 logger = logging.getLogger(__name__)
@@ -27,6 +29,8 @@ def map_id(node):
 
     Needed to avoid errors caused by changing of string id
     """
+    if isinstance(node, Proxy):
+        node = node.__wrapped__
     if isinstance(node, (str, int)):
         return node
     elif isinstance(node, weakref.ProxyTypes):
@@ -57,7 +61,6 @@ class Map:
         self._init()
 
     def _create_node(self, instance):
-        logger.debug(f"register: Creating node:{instance} id:{id(instance)}")
         if isinstance(instance, weakref.ProxyTypes):
             instance = instance.__repr__.__self__  # trick to get the hard reference
         try:
@@ -128,6 +131,9 @@ class Map:
     def _register(
         self, instance, parents_list=None, children_list=None, tag: str = None, **kwargs
     ):
+        if isinstance(instance, Proxy):
+            instance = instance.__wrapped__
+
         # check is `version` is not part of keyword
         if "version" in kwargs:
             raise ValueError("'version` is an internal keyword that cannot be used")
@@ -251,6 +257,9 @@ class Map:
         return len(self.G)
 
     def __getitem__(self, instance):
+        if isinstance(instance, Proxy):
+            instance = instance.__wrapped__
+
         return self.G.nodes[map_id(instance)]
 
     def __iter__(self):

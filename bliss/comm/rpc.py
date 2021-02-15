@@ -602,6 +602,9 @@ class RpcConnection:
                     if value.__traceback__ is None:
                         return value
                     else:
+                        if isinstance(value, gevent.Timeout):
+                            # the old exception cannot be re-raised => it blocks
+                            raise gevent.Timeout(value.seconds, value.exception)
                         raise value
                 elif isinstance(value, _SubServer):
                     sub_client = self._subclient.get(value.address)

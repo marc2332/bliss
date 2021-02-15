@@ -96,12 +96,13 @@ class Camera(CameraBase):
             "auto_summation",
             "efficiency_correction",
             "virtual_pixel_correction",
+            "threshold_diff_mode",
             "retrigger",
             "pixel_mask",
             "compression_type",
         ]
         info += self.__get_info_txt("Configuration", config)
-        calibration = ["photon_energy", "threshold_energy"]
+        calibration = ["photon_energy", "threshold_energy", "threshold_energy2"]
         info += self.__get_info_txt("Calibration", calibration)
         return info
 

@@ -381,6 +381,7 @@ def test_client_collision(beacon):
     gevent.sleep(0.4)
     client_car._rpc_connection.close()
 
+
 def test_timeout_exception(beacon):
     url = "tcp://127.0.0.1:12345"
 
@@ -392,3 +393,27 @@ def test_timeout_exception(beacon):
 
     client_car._rpc_connection.close()
 
+
+def test_disconnect_callback(beacon):
+    url = "tcp://127.0.0.1:12345"
+    disconnected = False
+
+    def server_disconnected():
+        nonlocal disconnected
+        disconnected = True
+
+    with rpc_server(url):
+        client_car = Client(url, disconnect_callback=server_disconnected)
+        client_car._rpc_connection.connect()
+
+    gevent.sleep(1)
+    assert disconnected
+
+    disconnected = False
+    with rpc_server(url):
+        client_car = Client(url, disconnect_callback=server_disconnected)
+        client_car._rpc_connection.connect()
+        client_car._rpc_connection.close()
+
+    gevent.sleep(1)
+    assert not disconnected

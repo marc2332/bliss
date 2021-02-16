@@ -1823,8 +1823,11 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         """
         subscan.logger.info("Save scan metadata")
         converter = IcatToNexus()
+        dataset_node = self.node.parent
+        if dataset_node is None:
+            raise RuntimeError("The scan parent node does not exist in Redis")
         try:
-            dataset = Dataset(self.node.parent)
+            dataset = Dataset(dataset_node)
         except RuntimeError:
             return  # No data policy
         metadict = dataset.get_current_icat_metadata(pattern="Sample")

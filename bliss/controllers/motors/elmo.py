@@ -5,14 +5,15 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 import gevent
-
 from bliss import global_map
 from bliss.comm.util import UDP, get_comm_type, get_comm
 from bliss.comm.tcp import SocketTimeout
 from bliss.common.utils import object_method
+from bliss.comm.serial import SerialTimeout
 from bliss.common.axis import AxisState
 from bliss.config.channels import Cache
 from bliss.controllers.motor import Controller
+from bliss.common.logtools import user_print, user_warning
 
 import time
 import sys
@@ -243,6 +244,11 @@ class Elmo(Controller):
         self._is_aborted = dict()
 
         self.off_limit_sleep_time = 1  # seconds
+        self.searching_limit = False
+
+        self.max_retries = (
+            3
+        )  # retries in case of communication problems on the serial line
 
     def initialize_hardware(self):
         # Check that the controller is alive
@@ -277,6 +283,12 @@ class Elmo(Controller):
     def set_on(self, axis):
         self._set_power(axis, True)
 
+        # be sure we are back with the encoder value
+        self._sync_pos(axis)
+        axis.sync_hard()
+        # wait for the motor to be on
+        time.sleep(0.1)
+
     def set_off(self, axis):
         self._set_power(axis, False)
 
@@ -286,16 +298,32 @@ class Elmo(Controller):
             self._query("OB[1]=%d" % activate)
 
         self._query("MO=%d" % activate)
+        # wait for the motor to be on
+        time.sleep(0.1)
 
     def _query(self, msg, in_error_code=False, **keys):
         send_message = msg + "\r"
-        raw_reply = self._cnx.write_readline(send_message.encode(), **keys)
-        raw_reply = raw_reply.decode()
-        if not raw_reply.startswith(send_message):  # something weird happened
-            self._cnx.close()
-            raise RuntimeError(
-                f"received reply: {raw_reply}\nExpected message starts with {msg}"
-            )
+        retry = 0
+        while retry < self.max_retries:
+            try:
+                raw_reply = self._cnx.write_readline(send_message.encode(), **keys)
+                raw_reply = raw_reply.decode()
+                if not raw_reply.startswith(send_message):  # something weird happened
+                    self._cnx.close()
+                    raise RuntimeError(
+                        "received reply: %s\n" "expected message starts with %s" % msg
+                    )
+                else:
+                    retry = self.max_retries
+            except (SerialTimeout, RuntimeError) as e:
+                retry = retry + 1
+                # print exception and number of tries done
+                user_warning(*sys.exc_info())
+
+                if retry >= self.max_retries:
+                    # re-throw the caught exception
+                    raise e
+
         reply = raw_reply[len(send_message) :]
         if not in_error_code and reply.endswith("?"):
             error_code = self._query("EC", in_error_code=True)
@@ -315,16 +343,14 @@ class Elmo(Controller):
         self._query("BG")
 
     def stop_jog(self, axis):
-        print("stop jog")
         self._query("JV=0")
         self._query("BG")
 
-        while int(self._query("MS")) in (1, 2):
+        while int(self._query("MS")) == 2:
             gevent.sleep(0.01)
 
-        # switch the position regulation
+        # switch to position regulation
         self.set_user_mode(axis, 5)
-        self._sync_pos(axis)
 
     def _enc_command(self, axis):
         return "PX"
@@ -335,6 +361,13 @@ class Elmo(Controller):
         if self._last_state[axis] is not None:
             if "MOVING" in self._last_state[axis]:
                 return float(self._query(self._enc_command(axis)))
+
+        # After a limit search in jog mode, the position needs to be re-synchronized!
+        if self.searching_limit == True:
+            user_print("Synchronize position after limit search")
+            self._sync_pos(axis)
+            self.searching_limit = False
+
         return float(self._query("PA"))
 
     def set_position(self, axis, new_pos):
@@ -367,6 +400,8 @@ class Elmo(Controller):
         # Start search
         velocity = int(axis.config_velocity * axis.steps_per_unit)
         self.start_jog(axis, velocity, limit)
+
+        self.searching_limit = True
 
         if sleep:
             time.sleep(self.off_limit_sleep_time)
@@ -529,6 +564,7 @@ class Elmo(Controller):
         self.set_on(axis)
 
         if mode == 5:
+            self._sync_pos(axis)
             axis.sync_hard()
         mode = int(self._query("UM"))
         axis._mode = mode

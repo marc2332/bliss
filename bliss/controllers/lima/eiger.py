@@ -6,6 +6,8 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import gevent
+import requests
+import json
 
 from bliss.common.logtools import user_print
 from .properties import LimaProperty
@@ -118,3 +120,23 @@ class Camera(CameraBase):
             flag = prop.fset and "RW" or "RO"
             info += f"    {name:{hlen}s}: {repr(value)}  [{flag}]\n"
         return info
+
+    def __get_request_address(self, subsystem, name):
+        dcu = self._proxy.detector_ip
+        api = self._proxy.api_version
+        return f"http://{dcu}/{subsystem}/api/{api}/{name}"
+
+    def raw_get(self, subsystem, name):
+        address = self.__get_request_address(subsystem, name)
+        request = requests.get(address)
+        if request.status_code != 200:
+            raise RuntimeError(f"Failed to get {address}")
+        return request.json()
+
+    def raw_put(self, subsystem, name, dict_data):
+        address = self.__get_request_address(subsystem, name)
+        data_json = json.dumps(dict_data)
+        request = requests.put(address, data=data_json)
+        if request.status_code != 200:
+            raise RuntimeError(f"Failed to put {address}")
+        return request.json()

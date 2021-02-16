@@ -23,6 +23,7 @@ from contextlib import contextmanager
 from bliss.data.node import get_node
 from bliss.icat.dataset import Dataset
 from bliss.icat.nexus import IcatToNexus
+from bliss.common import os_utils
 from . import devices
 from . import dataset_proxy
 from . import reference_proxy
@@ -79,6 +80,12 @@ cli_saveoptions = {
         "type": resource_profiling_from_string,
         "choices": list(resource_profiling_choices),
         "help": "Enable resource profiling",
+    },
+    "required_disk_space": {
+        "dest": "required_disk_space",
+        "default": 200,
+        "type": int,
+        "help": "Required disk space in MB",
     },
 }
 
@@ -218,6 +225,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         # self.publishorder = Order("C")  # not true for snake scans
         # self.plotorder = Order("C")  # currently the same as saveorder
         self._h5flush_task_period = 0.5  # flushing blocks the gevent loop
+        self._disk_check_period = 3  # stop writing when fails
 
         # Cache
         self._filename = None
@@ -270,6 +278,11 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         Tasks to be run periodically after succesfully processing a Redis event
         """
         super()._register_event_loop_tasks(**kwargs)
+        self._periodic_tasks.append(
+            base_subscriber.PeriodicTask(
+                self.check_required_disk_space, self._disk_check_period
+            )
+        )
         if nxroot is not None:
             self._periodic_tasks.append(
                 base_subscriber.PeriodicTask(nxroot.flush, self._h5flush_task_period)
@@ -462,6 +475,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         nxroot = self._nxroot.get(filename, None)
         if nxroot is None:
             if filename:
+                self.check_required_disk_space()
                 try:
                     with nexus.nxRoot(filename, **self._nxroot_kwargs) as nxroot:
                         try:
@@ -505,27 +519,39 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
                     yield nxroot
 
     @property
+    def required_disk_space(self):
+        """In MB
+        """
+        return self.saveoptions["required_disk_space"]
+
+    @property
     def has_write_permissions(self):
+        """This process has permission to write/create file and/or directory
         """
-        This process has permission to write/create file and/or directory
-        """
-        filename = self.filename
-        if os.path.exists(filename):
-            # Check whether we can write to the file
-            return os.access(filename, os.W_OK)
+        path = self.filename
+        if path:
+            return os_utils.has_write_permissions(path)
         else:
-            # Check whether we can create the file (and possibly subdirs)
-            dirname = os.path.dirname(filename)
-            while dirname and dirname != os.sep:
-                if os.path.exists(dirname):
-                    if os.path.isdir(dirname):
-                        return os.access(dirname, os.W_OK)
-                    else:
-                        return False
-                else:
-                    dirname = os.path.dirname(dirname)
-            else:
-                return False
+            return True
+
+    @property
+    def has_required_disk_space(self):
+        """Enough space on the disk?
+        """
+        path = self.filename
+        if path:
+            return os_utils.has_required_disk_space(path, self.required_disk_space)
+        else:
+            return True
+
+    def check_required_disk_space(self):
+        """
+        :raises RuntimeError: when not enough space on disk
+        """
+        if not self.has_required_disk_space:
+            raise RuntimeError(
+                "Free disk space below {:.0f} MB".format(self.required_disk_space)
+            )
 
     @contextmanager
     def nxentry(self, subscan):

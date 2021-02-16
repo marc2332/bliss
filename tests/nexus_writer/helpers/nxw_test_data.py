@@ -50,6 +50,7 @@ def validate_scan_data(
     alt=False,
     softtimer="master",
     save_images=True,
+    **kw,
 ):
     """
     :param bliss.scanning.scan.Scan scan:

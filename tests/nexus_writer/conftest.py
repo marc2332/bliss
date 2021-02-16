@@ -80,6 +80,24 @@ def nexus_writer_config(nexus_writer_session_policy, scan_tmpdir):
 
 
 @pytest.fixture
+def nexus_writer_limited_disk_space(nexus_writer_session_policy, scan_tmpdir):
+    """Like nexus_writer_config but require more disk space
+    than available.
+    """
+    statvfs = os.statvfs(scan_tmpdir)
+    free_space = statvfs.f_frsize * statvfs.f_bavail / 1024 ** 2
+    with nexus_writer(
+        nexus_writer_session_policy,
+        scan_tmpdir,
+        config=True,
+        alt=False,
+        policy=True,
+        required_disk_space=free_space * 10,
+    ) as info:
+        yield info
+
+
+@pytest.fixture
 def nexus_writer_config_nopolicy(nexus_writer_session, scan_tmpdir):
     """Writer session with a Nexus writer
     """
@@ -100,7 +118,9 @@ def nexus_writer_config_alt(nexus_writer_session_policy, scan_tmpdir):
 
 
 @contextmanager
-def nexus_writer(session, tmpdir, config=True, alt=False, policy=True):
+def nexus_writer(
+    session, tmpdir, config=True, alt=False, policy=True, required_disk_space=None
+):
     """Nexus writer for this session
 
     :param session:
@@ -108,6 +128,7 @@ def nexus_writer(session, tmpdir, config=True, alt=False, policy=True):
     :param bool policy:
     :param bool config:
     :param bool alt:
+    :param num required_disk_space:
     :returns dict:
     """
     info = {
@@ -116,6 +137,7 @@ def nexus_writer(session, tmpdir, config=True, alt=False, policy=True):
         "config": config,
         "alt": alt,
         "policy": policy,
+        "required_disk_space": required_disk_space,
     }
     prepare_objects(**info)
     prepare_scan_saving(**info)
@@ -178,7 +200,14 @@ def prepare_scan_saving(session=None, tmpdir=None, policy=True, **kwargs):
 
 
 @contextmanager
-def writer_tango(session=None, tmpdir=None, config=True, alt=False, **kwargs):
+def writer_tango(
+    session=None,
+    tmpdir=None,
+    config=True,
+    alt=False,
+    required_disk_space=None,
+    **kwargs,
+):
     """
     Run external writer as a Tango server
 
@@ -187,6 +216,7 @@ def writer_tango(session=None, tmpdir=None, config=True, alt=False, **kwargs):
     :param callable wait_for_fixture:
     :param bool config:
     :param bool alt:
+    :param num required_disk_space:
     :param kwargs: ignored
     :returns PopenGreenlet:
     """
@@ -200,7 +230,9 @@ def writer_tango(session=None, tmpdir=None, config=True, alt=False, **kwargs):
     # Rely on beacon registration from YAML description:
     device_name = "id00/bliss_nxwriter/" + session.name
     device_fqdn = "tango://{}/{}".format(env["TANGO_HOST"], device_name)
-    properties, attributes = writer_options(tango=True, config=config, alt=alt)
+    properties, attributes = writer_options(
+        tango=True, config=config, alt=alt, required_disk_space=required_disk_space
+    )
     db = Database()
     db.put_device_property(device_name, properties)
     exception = None
@@ -259,30 +291,36 @@ def writer_process(session=None, tmpdir=None, config=True, alt=False, **kwargs):
         yield greenlet
 
 
-def writer_options(tango=True, config=True, alt=False):
+def writer_options(tango=True, config=True, alt=False, required_disk_space=None):
     """
     :param bool tango: launch writer as process/tango server
     :param bool config: writer uses/ignores extra Redis info
     :param bool alt: anable all options (all disabled by default)
+    :param num required_disk_space:
     """
     fixed = (
         "copy_non_external",
         "resource_profiling",
         "noconfig",
         "disable_external_hdf5",
+        "required_disk_space",
     )
     options = all_cli_saveoptions(configurable=config)
     resource_profiling = options.pop("resource_profiling")["default"]
+    if required_disk_space is None:
+        required_disk_space = 0
     if tango:
         properties = {"copy_non_external": True}
         attributes = {}
         properties["noconfig"] = not config
+        properties["required_disk_space"] = required_disk_space
         attributes["resource_profiling"] = int(resource_profiling) - 1  # to tango enum
         properties.update({k: alt for k in options if k not in fixed})
     else:
         cliargs = ["--copy_non_external"]
         if not config:
             cliargs.append("--noconfig")
+        cliargs.append("--required_disk_space " + str(required_disk_space))
         cliargs.append("--resource_profiling " + resource_profiling.name)
         if alt:
             cliargs += ["--" + k for k in options if k not in fixed]

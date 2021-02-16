@@ -8,20 +8,16 @@
 import os
 import gevent
 import functools
-import logging
 import datetime
 from gevent.time import time
 from bliss.scanning.writer.file import FileWriter
 from bliss.scanning.writer.hdf5 import get_scan_entries
 from bliss import current_session
+from bliss.common import logtools
 from bliss.common.tango import DeviceProxy, DevState, DevFailed
 from tango import CommunicationFailed, ConnectionFailed
-from nexus_writer_service.io import nexus
 from nexus_writer_service import metadata
 from nexus_writer_service.nexus_register_writer import find_session_writer, get_uri
-
-
-logger = logging.getLogger(__name__)
 
 
 def deverror_parse(deverror, msg=None):
@@ -51,17 +47,9 @@ class Writer(FileWriter):
     FILE_EXTENSION = "h5"
 
     def __init__(self, root_path, images_root_path, data_filename, *args, **keys):
-        FileWriter.__init__(
-            self,
-            root_path,
-            images_root_path,
-            data_filename,
-            master_event_callback=self._on_event,
-            **keys,
-        )
+        super().__init__(root_path, images_root_path, data_filename, **keys)
         self._proxy = None
-        self._check_scan_time = time()
-        self._check_scan_period = 3
+
         self._fault = False
         self._state_checked = False
         self._scan_name = ""
@@ -86,7 +74,6 @@ class Writer(FileWriter):
 
     def prepare(self, scan):
         # Called at start of scan
-        self._check_scan_time = time()
         self._fault = False
         self._state_checked = False
         self._scan_name = scan.node.name
@@ -106,9 +93,14 @@ class Writer(FileWriter):
             fail_msg=f"Nexus writing for {self._scan_name} not started before {{time}}",
         )
         self._retry(
-            self.is_scan_permitted,
+            self.check_writer_permissions,
             timeout_msg="Cannot check Nexus writer permissions",
             fail_msg="Nexus writer does not have write permissions",
+        )
+        self._retry(
+            self.check_writer_disk_space,
+            timeout_msg="Cannot check Nexus writer disk space",
+            fail_msg="Not enough free disk space",
         )
         super().prepare(scan)
 
@@ -120,33 +112,29 @@ class Writer(FileWriter):
         # Called for all chain masters
         pass
 
-    def _on_event(self, parent, event_dict, signal, sender):
+    def _master_event_callback(self, parent, event_dict, signal, sender):
         # Called during scan
-        if signal == "new_data":
-            _check_scan_time = time()
-            # Make sure we do not check too often
-            if _check_scan_time > self._check_scan_time + self._check_scan_period:
-                self._check_scan_time = _check_scan_time
-                self._state_checked = True
-                self._retry(
-                    self.is_scan_notfault,
-                    timeout_msg="Cannot check Nexus writer scan state",
-                    fail_msg="Nexus writer error",
-                    timeout=0,
-                    raise_on_timeout=False,
-                )
+        if self._master_event_callback_tick:
+            self._state_checked = True
+            self._check_writer(timeout=0)
 
     @skip_when_fault
     def finalize_scan_entry(self, scan):
-        # TODO: is_scan_finished check in a different greenlet?
+        # We currently do not wait for the writer to finish
         if not self._state_checked:
-            self._retry(
-                self.is_scan_notfault,
-                timeout_msg="Cannot check Nexus writer scan state",
-                fail_msg="Nexus writer error",
-                timeout=0,
-                raise_on_timeout=False,
-            )
+            self._check_writer(timeout=10)
+
+    def _check_writer(self, timeout=0):
+        """
+        :raises RuntimeError:
+        """
+        self.warn_low_disk_space()
+        self._retry(
+            self.is_scan_notfault,
+            timeout_msg="Cannot check Nexus writer scan state",
+            timeout=timeout,
+            raise_on_timeout=False,
+        )
 
     def get_scan_entries(self):
         return get_scan_entries(self.filename)
@@ -211,8 +199,12 @@ class Writer(FileWriter):
         return self.proxy.scan_state_reason(self._scan_name)
 
     @property
-    def _scan_permitted(self):
-        return self.proxy.scan_permitted(self._scan_name)
+    def _scan_has_write_permissions(self):
+        return self.proxy.scan_has_write_permissions(self._scan_name)
+
+    @property
+    def _scan_has_required_disk_space(self):
+        return self.proxy.scan_has_required_disk_space(self._scan_name)
 
     @property
     def _scan_exists(self):
@@ -271,7 +263,7 @@ class Writer(FileWriter):
                 err_msg = deverror_parse(e.args[0], msg=timeout_msg)
                 raise_on_timeout = self._fault = True
                 break
-            except Exception as e:
+            except Exception:
                 raise_on_timeout = self._fault = True
                 raise
             gevent.sleep(0.1)
@@ -284,10 +276,10 @@ class Writer(FileWriter):
             # Do not repeat the same warning
             previous_msgs = self._warn_msg_dict.setdefault(method.__qualname__, set())
             if err_msg in previous_msgs:
-                logger.debug(err_msg_show)
+                logtools.log_debug(self, err_msg_show)
             else:
                 previous_msgs.add(err_msg)
-                logger.warning(err_msg_show)
+                logtools.log_warning(self, err_msg_show)
 
     def is_writer_on(self):
         """
@@ -336,13 +328,24 @@ class Writer(FileWriter):
         else:
             return True
 
-    def is_scan_permitted(self):
-        """
+    def check_writer_permissions(self):
+        """Checks whether the writer process has write permissions.
+
         :returns bool: writer can write
         :raises RuntimeError: invalid state
         """
-        if not self._scan_permitted:
+        if not self._scan_has_write_permissions:
             raise RuntimeError("Nexus writer does not have write permissions")
+        return True
+
+    def check_writer_disk_space(self):
+        """Checks disk space required by the writer, not by `warn_low_disk_space`.
+
+        :returns bool: writer can write
+        :raises RuntimeError: invalid state
+        """
+        if not self._scan_has_required_disk_space:
+            raise RuntimeError("Not enough free disk space")
         return True
 
     def scan_writer_started(self):

@@ -12,6 +12,7 @@ from nexus_writer_service.utils.scan_utils import scan_filename
 from nexus_writer_service.io.io_utils import mkdir
 from nexus_writer_service.io import nexus
 from tests.nexus_writer.helpers import nxw_test_utils
+from ..utils.os_utils import enable_write_permissions, disable_write_permissions
 
 
 def test_nxw_permissions(nexus_writer_config):
@@ -30,24 +31,6 @@ def _test_nxw_permissions(session=None, **kwargs):
         _test_process(session=session, **kwargs)
 
 
-def disable_permissions(path):
-    if os.geteuid():
-        os.chmod(path, 0o544)
-        return True
-    else:
-        status = os.system("chattr +i " + path)
-        return os.WEXITSTATUS(status) == 0
-
-
-def enable_permissions(path):
-    if os.geteuid():
-        os.chmod(path, 0o755)
-        return True
-    else:
-        status = os.system("chattr -i " + path)
-        return os.WEXITSTATUS(status) == 0
-
-
 def _test_tango(session=None, tmpdir=None, writer=None, **kwargs):
     detector = session.env_dict["diode3"]
 
@@ -63,21 +46,22 @@ def _test_tango(session=None, tmpdir=None, writer=None, **kwargs):
     mkdir(datasetdir)
 
     # File directory does not have write permissions (scan should not start)
-    if disable_permissions(datasetdir):
-        with pytest.raises(RuntimeError):
-            scans.sct(0.1, detector, save=True)
-        enable_permissions(datasetdir)
+    with disable_write_permissions(datasetdir) as disabled:
+        if disabled:
+            with pytest.raises(RuntimeError):
+                scans.sct(0.1, detector, save=True)
 
     # File already exists with wrong permission
     scan = scans.sct(0.1, detector, save=True)
     nxw_test_utils.wait_scan_data_exists([scan], writer=writer)
     filename = scan_filename(scan)
-    if disable_permissions(filename):
-        with pytest.raises(RuntimeError):
-            scans.sct(0.1, detector, save=True)
+    with disable_write_permissions(filename) as disabled:
+        if disabled:
+            with pytest.raises(RuntimeError):
+                scans.sct(0.1, detector, save=True)
 
-        # We should have permissions (scan should run)
-        enable_permissions(filename)
+    # We should have permissions (scan should run)
+    with enable_write_permissions(filename):
         scan = scans.sct(0.1, detector, save=True)
     nxw_test_utils.wait_scan_data_finished([scan], writer=writer)
 
@@ -88,11 +72,12 @@ def _test_process(session=None, tmpdir=None, writer=None, **kwargs):
     # File already exists with wrong permission
     scan = scans.sct(0.1, detector, save=True)
     filename = scan_filename(scan)
-    if disable_permissions(filename):
-        with pytest.raises(RuntimeError):
-            scans.sct(0.1, detector, save=True)
+    with disable_write_permissions(filename) as disabled:
+        if disabled:
+            with pytest.raises(RuntimeError):
+                scans.sct(0.1, detector, save=True)
 
-        # We should have permissions (scan should run)
-        enable_permissions(filename)
+    # We should have permissions (scan should run)
+    with enable_write_permissions(filename):
         scan = scans.sct(0.1, detector, save=True)
     nxw_test_utils.wait_scan_data_finished([scan], writer=writer)

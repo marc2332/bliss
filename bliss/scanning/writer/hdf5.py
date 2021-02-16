@@ -47,8 +47,7 @@ class Writer(FileWriter):
     FILE_EXTENSION = "h5"
 
     def __init__(self, root_path, images_root_path, data_filename, **keys):
-        FileWriter.__init__(
-            self,
+        super().__init__(
             root_path,
             images_root_path,
             data_filename,

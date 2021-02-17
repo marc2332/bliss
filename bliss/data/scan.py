@@ -179,7 +179,7 @@ class ScansObserver:
         """
         pass
 
-    def on_scan_finished(self, scan_db_name: str, scna_info: Dict):
+    def on_scan_finished(self, scan_db_name: str, scan_info: Dict):
         """
         Called upon scan end.
 
@@ -484,10 +484,10 @@ class DefaultScansObserver(ScansObserver):
         if self.scan_new_callback is not None:
             self.scan_new_callback(scan_info)
 
-    def on_scan_finished(self, scan_db_name: str, scna_info: Dict):
+    def on_scan_finished(self, scan_db_name: str, scan_info: Dict):
         self._running_scans.pop(scan_db_name)
         if self.scan_end_callback is not None:
-            self.scan_end_callback(scna_info)
+            self.scan_end_callback(scan_info)
 
     def on_child_created(self, scan_db_name: str, node):
         scan_desciption = self._get_scan_description(scan_db_name)

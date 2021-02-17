@@ -13,6 +13,10 @@ from typing import List
 from typing import Dict
 
 import numpy
+import logging
+
+
+_logger = logging.getLogger(__name__)
 
 
 class DataStorage:
@@ -20,6 +24,7 @@ class DataStorage:
         self.__data: Dict[str, numpy.ndarray] = {}
         self.__group: Dict[str, List[str]] = {}
         self.__groups: Dict[str, str] = {}
+        self.__last_size_per_group: Dict[str, int] = {}
 
     def clear(self):
         self.__data.clear()
@@ -41,9 +46,15 @@ class DataStorage:
     def get_data(self, channel_name) -> numpy.ndarray:
         return self.__data[channel_name]
 
-    def get_available_data_size(self, group_name: str) -> int:
-        """Returns the minimal available size for all of the channels from a
-        group."""
+    def get_last_group_size(self, group_name: str) -> int:
+        """Returns the last stored group size."""
+        return self.__last_size_per_group.get(group_name, 0)
+
+    def update_group_size(self, group_name: str) -> Optional[int]:
+        """Update the minimal available size for all of the channels.
+
+        If this size was update, the new size is returned, else None is returned
+        """
         size = None
         for channel_name in self.__group[group_name]:
             if channel_name in self.__data:
@@ -52,13 +63,23 @@ class DataStorage:
             else:
                 # This channel is not yet there
                 # Then it's the smaller one
-                return 0
+                return None
             if size is None:
                 size = data_size
             elif data_size < size:
                 size = len(data)
         assert size is not None
+        if self.get_last_group_size(group_name) == size:
+            return None
+        self.__last_size_per_group[group_name] = size
         return size
+
+    def append_data(self, channel_name: str, data: numpy.ndarray):
+        # NOTE: We could avoid reallocation by allocating bigger arrays and use
+        # memory view. But this was not speeding up anything for tested use cases
+        prev_data = self.__data.get(channel_name, [])
+        data = numpy.concatenate((prev_data, data))
+        self.__data[channel_name] = data
 
     def set_data(self, channel_name: str, data: numpy.ndarray):
         self.__data[channel_name] = data

@@ -33,18 +33,13 @@ def attached_flint_context():
     """
     flint = plot.get_flint()
     pid = flint._pid
+    flint.proxy_cleanup()
     # Release the object before calling attach_flint
     flint = None
     flint = plot.attach_flint(pid)
     yield pid
     flint = None  # Break the reference to the proxy
-    plot.reset_flint()
-    os.kill(pid, signal.SIGTERM)
-    try:
-        os.waitpid(pid, 0)
-    except OSError:
-        # It happens sometimes, for some reason
-        pass
+    plot.close_flint()
 
 
 @pytest.fixture

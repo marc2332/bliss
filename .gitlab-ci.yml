@@ -99,7 +99,15 @@ test_bliss:
   except:
     - master
   variables:
-    PYTEST_ARGS: '--ignore tests/nexus_writer'
+    PYTEST_ARGS: '--ignore tests/nexus_writer --ignore tests/qt'
+
+test_qt:
+  # Run bliss tests without coverage for any branches except the master
+  extends: .template_test_source
+  except:
+    - master
+  variables:
+    PYTEST_ARGS: 'tests/qt'
 
 test_writer:
   # Run hdf5 writer tests without coverage for any branches except the master

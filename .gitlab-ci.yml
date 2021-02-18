@@ -89,7 +89,7 @@ check_lint:
     - mv bliss bliss_
     # run tests on source
     - echo ${PYTEST_ARGS}
-    - pytest tests $PYTEST_ARGS
+    - pytest $PYTEST_ARGS
   variables:
     CHANGES: '\.(py|cfg)$|requirements|gitlab-ci|^(bin|extensions|scripts|spec|tests)/'
 

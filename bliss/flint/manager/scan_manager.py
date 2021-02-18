@@ -150,9 +150,8 @@ class ScanManager(bliss_scan.ScansObserver):
         self._refresh_task = None
         self.__cache: Dict[str, _ScanCache] = {}
 
-        self._last_event: Dict[
-            str, Union[_ScalarDataEvent, _NdimDataEvent, _LimaRefDataEvent]
-        ] = {}
+        self._last_events: Dict[str, Union[_NdimDataEvent, _LimaRefDataEvent]] = {}
+        self._last_scalar_events: Dict[str, Union[_ScalarDataEvent]] = {}
 
         self._end_scan_event = gevent.event.Event()
         """Event to allow to wait for the the end of current scans"""
@@ -355,7 +354,10 @@ class ScanManager(bliss_scan.ScansObserver):
         self.__push_scan_data(data_event)
 
     def __push_scan_data(self, data_event):
-        self._last_event[data_event.channel_name] = data_event
+        if isinstance(data_event, _ScalarDataEvent):
+            self._last_scalar_events[data_event.channel_name] = data_event
+        else:
+            self._last_events[data_event.channel_name] = data_event
 
         if self.__absorb_events:
             self._end_data_process_event.clear()
@@ -366,14 +368,19 @@ class ScanManager(bliss_scan.ScansObserver):
 
     def __refresh(self):
         try:
-            while self._last_event:
-                local_event = self._last_event
-                self._last_event = {}
-                for data_event in local_event.values():
-                    try:
-                        self.__process_data_event(data_event)
-                    except Exception:
-                        _logger.error("Error while reaching data", exc_info=True)
+            while self._last_events or self._last_scalar_events:
+                if self._last_scalar_events:
+                    bunch_scalar_events = self._last_scalar_events
+                    self._last_scalar_events = {}
+                    self.__process_bunch_of_scalar_data_event(bunch_scalar_events)
+                if self._last_events:
+                    local_events = self._last_events
+                    self._last_events = {}
+                    for data_event in local_events.values():
+                        try:
+                            self.__process_data_event(data_event)
+                        except Exception:
+                            _logger.error("Error while reaching data", exc_info=True)
         finally:
             self._refresh_task = None
             self._end_data_process_event.set()
@@ -483,10 +490,8 @@ class ScanManager(bliss_scan.ScansObserver):
 
         channel_name = data_event.channel_name
         if isinstance(data_event, _ScalarDataEvent):
-            # FIXME: This have to be processed by bunch of channels
-            # Not channels one by one
-            channel_data = cache.data_storage.get_data(channel_name)
-            self.__update_channel_data(cache, channel_name, channel_data)
+            # This object should go to another place
+            assert False
         elif isinstance(data_event, _NdimDataEvent):
             raw_data = data_event.data_bunch[-1]
             self.__update_channel_data(cache, channel_name, raw_data)
@@ -514,17 +519,28 @@ class ScanManager(bliss_scan.ScansObserver):
         else:
             assert False
 
-    def __update_channel_data(
-        self, cache: _ScanCache, channel_name, raw_data, frame_id=None, source=None
-    ):
+    def __process_bunch_of_scalar_data_event(self, bunch_scalar_events):
+        """Process scalar events and split then into groups in order to update
+        the GUI in synchonized way"""
+
         now = time.time()
-        scan = cache.scan
+        groups = {}
 
-        if cache.is_ignored(channel_name):
-            return
-
-        if cache.data_storage.has_channel(channel_name):
+        # Groups synchronized events together
+        for channel_name, data_event in bunch_scalar_events.items():
+            scan_db_name = data_event.scan_db_name
+            cache = self.__get_scan_cache(scan_db_name)
             group_name = cache.data_storage.get_group(channel_name)
+            key = scan_db_name, group_name
+            if key not in groups:
+                groups[key] = [channel_name]
+            else:
+                groups[key].append(channel_name)
+
+        # Check for update on each groups of data
+        for (scan_db_name, group_name), channel_names in groups.items():
+            cache = self.__get_scan_cache(scan_db_name)
+            scan = cache.scan
             updated_group_size = cache.data_storage.update_group_size(group_name)
             if updated_group_size is not None:
                 channel_names = cache.data_storage.get_channels_by_group(group_name)
@@ -549,6 +565,19 @@ class ScanManager(bliss_scan.ScansObserver):
                 else:
                     # FIXME: Should be fired by the Scan object (but here we have more informations)
                     scan._fireScanDataUpdated(channels=channels)
+
+    def __update_channel_data(
+        self, cache: _ScanCache, channel_name, raw_data, frame_id=None, source=None
+    ):
+        now = time.time()
+        scan = cache.scan
+
+        if cache.is_ignored(channel_name):
+            return
+
+        if cache.data_storage.has_channel(channel_name):
+            # This object should go to another place
+            assert False
         else:
             # Everything which do not except synchronization (images and MCAs)
             channel = scan.getChannelByName(channel_name)

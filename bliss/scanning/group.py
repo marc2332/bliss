@@ -128,13 +128,14 @@ class StatePreset(ScanPreset):
 
 
 class Sequence:
-    """ should have a scan as internal property that runs
+    """
+    Should have a scan as internal property that runs
     in a spawned mode in the background. Each new scan
     should publish itself (trigger a master inside the scan)
-    
-    there should be a possibiltiy of calc channels.
-    
-    progressbar for sequence??
+
+    There should be a possibility of calc channels.
+
+    TODO: How to handle progress bar for sequence?
     """
 
     def __init__(self, scan_info=None, title="sequence_of_scans"):

@@ -46,7 +46,7 @@ def abspath(*path):
 
 
 def generate_release_file():
-    dirname = os.path.dirname(__file__)
+    dirname = os.path.dirname(os.path.abspath(__file__))
     try:
         process = subprocess.run(
             ["git", "describe", "--tags", "--always"], capture_output=True, cwd=dirname
@@ -78,7 +78,7 @@ def generate_release_file():
 import os
 import subprocess
 
-dirname = os.path.dirname(__file__)
+dirname = os.path.dirname(os.path.abspath(__file__))
 
 name = "{name}"
 author = "{author}"

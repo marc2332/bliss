@@ -229,10 +229,9 @@ class ScanManager(bliss_scan.ScansObserver):
             _logger.debug("new_scan from %s ignored", scan_db_name)
             return
 
-        node_name = scan_info.get("node_name", None)
-        if node_name is not None:
+        if scan_db_name is not None:
             if self.__absorb_events:
-                node = get_node(node_name)
+                node = get_node(scan_db_name)
                 is_group = node is not None and node.type == "scan_group"
             else:
                 # FIXME: absorb_events is used here for testability

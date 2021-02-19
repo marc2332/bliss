@@ -140,7 +140,6 @@ class ScanManager(bliss_scan.ScansObserver):
 
     def __init__(self, flintModel: flint_model.FlintState):
         self.__flintModel = flintModel
-        self._scans_watch_task = None
         self._refresh_task = None
         self.__cache: Dict[str, _ScanCache] = {}
 
@@ -156,6 +155,11 @@ class ScanManager(bliss_scan.ScansObserver):
         self._end_scan_event.set()
         self._end_data_process_event.set()
 
+        self.__watcher: bliss_scan.ScansWatcher = None
+        """Process following scans events from a BLISS session"""
+        self.__scans_watch_task = None
+        """Process following scans events from a BLISS session"""
+
         self.__absorb_events = True
 
         if self.__flintModel is not None:
@@ -170,9 +174,12 @@ class ScanManager(bliss_scan.ScansObserver):
         self._spawn_scans_session_watch(session_name)
 
     def _spawn_scans_session_watch(self, session_name: str, clean_redis: bool = False):
-        if self._scans_watch_task:
-            self._scans_watch_task.kill()
-            self._scans_watch_task = None
+        if self.__watcher is not None:
+            self.__watcher.stop()
+            self.__watcher = None
+        if self.__scans_watch_task:
+            self.__scans_watch_task.kill()
+            self.__scans_watch_task = None
 
         if clean_redis:
             # FIXME: There is maybe a problem here. As the redis connection
@@ -199,11 +206,9 @@ class ScanManager(bliss_scan.ScansObserver):
             self._spawn_scans_session_watch(session_name, clean_redis=True)
 
         task.link_exception(exception_orrured)
-        self._scans_watch_task = task
 
-        watcher.wait_ready()
-
-        return task
+        self.__scans_watch_task = task
+        self.__watcher = watcher
 
     def _set_absorb_events(self, absorb_events: bool):
         self.__absorb_events = absorb_events
@@ -688,6 +693,15 @@ class ScanManager(bliss_scan.ScansObserver):
                         channel = scan.getChannelByName(channel_name)
                         channels.append(channel)
                     scan._fireScanDataUpdated(channels=channels)
+
+    def wait_ready(self, timeout=None):
+        """Wait until the scan manager is ready to follow the scan events from
+        the session.
+
+        If there is not yet a session, this does nothing.
+        """
+        if self.__watcher is not None:
+            self.__watcher.wait_ready(timeout=timeout)
 
     def wait_end_of_scans(self):
         self._end_scan_event.wait()

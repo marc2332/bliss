@@ -136,6 +136,8 @@ class FlintApi:
         self.wait_started()
         manager = self.__flintModel.mainManager()
         manager.updateBlissSessionName(session_name)
+        scanManager = self.__flintModel.scanManager()
+        scanManager.wait_ready()
 
     def set_tango_metadata_name(self, name: str):
         manager = self.__flintModel.mainManager()
@@ -292,6 +294,13 @@ class FlintApi:
         """
         manager = self.__flintModel.mainManager()
         manager.waitFlintStarted()
+        # In case a session was already defined
+        scanManager = self.__flintModel.scanManager()
+        scanManager.wait_ready()
+
+    def wait_ready(self):
+        manager = self.__flintModel.mainManager()
+        manager.waitFlintReady()
 
     def run_method(self, plot_id, method, args, kwargs):
         plot = self._get_plot_widget(plot_id)

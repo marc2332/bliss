@@ -9,6 +9,7 @@ import os
 import sys
 import inspect
 import subprocess
+import logging
 
 from setuptools.extension import Extension
 from setuptools import setup, find_packages
@@ -54,6 +55,10 @@ def generate_release_file():
         if process.returncode:
             raise Exception("Not a git repository")
     except Exception:
+        logging.error(
+            "Error while execution git to reach the version. Generate a dummy version instead",
+            exc_info=True,
+        )
         version = "0.0.0+master"
     else:
         version = process.stdout.strip().decode()

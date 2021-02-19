@@ -218,6 +218,7 @@ class ScanManager(bliss_scan.ScansObserver):
         return scan_db_name in self.__cache
 
     def on_scan_started(self, scan_db_name: str, scan_info: Dict):
+        _logger.debug("on_scan_started %s", scan_db_name)
         if scan_db_name in self.__cache:
             # We should receive a single new_scan per scan, but let's check anyway
             _logger.debug("new_scan from %s ignored", scan_db_name)
@@ -282,6 +283,7 @@ class ScanManager(bliss_scan.ScansObserver):
         index: int,
         data_bunch: Union[list, numpy.ndarray],
     ):
+        _logger.debug("on_scalar_data_received %s %s", scan_db_name, channel_name)
         if not self.__is_alive_scan(scan_db_name):
             _logger.error(
                 "New scalar data (%s) was received before the start of the scan (%s)",
@@ -311,6 +313,7 @@ class ScanManager(bliss_scan.ScansObserver):
         index: int,
         data_bunch: Union[list, numpy.ndarray],
     ):
+        _logger.debug("on_ndim_data_received %s %s", scan_db_name, channel_name)
         if not self.__is_alive_scan(scan_db_name):
             _logger.error(
                 "New ndim data (%s) was received before the start of the scan (%s)",
@@ -330,6 +333,7 @@ class ScanManager(bliss_scan.ScansObserver):
     def on_lima_ref_received(
         self, scan_db_name: str, channel_name: str, dim: int, source_node, event_data
     ):
+        _logger.debug("on_lima_ref_received %s %s", scan_db_name, channel_name)
         if not self.__is_alive_scan(scan_db_name):
             _logger.error(
                 "New lima ref (%s) was received before the start of the scan (%s)",
@@ -590,6 +594,7 @@ class ScanManager(bliss_scan.ScansObserver):
         return [v.scan for v in self.__cache.values()]
 
     def on_scan_finished(self, scan_db_name: str, scan_info: Dict):
+        _logger.debug("on_scan_finished %s", scan_db_name)
         if not self.__is_alive_scan(scan_db_name):
             _logger.debug("end_scan from %s ignored", scan_db_name)
             return

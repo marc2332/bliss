@@ -103,7 +103,8 @@ else:
     version = version.replace("-", "+", 1)
     short_version = version
 
-version_info = [x.split("-")[0] for x in version.split(".")]
+_package_version = version.split("+", 1)[0]
+version_info = [int(v) for v in _package_version.split(".")]
 """
     with open(os.path.join(dirname, "bliss", "release.py"), "w") as f:
         f.write(src)

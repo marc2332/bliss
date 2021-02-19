@@ -547,7 +547,7 @@ def test_read_scatter_data__different_groups():
             "bar": {"group": "scatter2", "axis-id": 0},
         }
     }
-    scan = scan_info_helper.create_scan_model(scan_info, False)
+    scan = scan_info_helper.create_scan_model(scan_info)
     foo = scan.getChannelByName("foo")
     scatterData = scan.getScatterDataByChannel(foo)
     assert scatterData is not None
@@ -566,7 +566,7 @@ def test_read_scatter_data__twice_axis_at_same_place():
             "bar": {"group": "scatter1", "axis-id": 1},
         }
     }
-    scan = scan_info_helper.create_scan_model(scan_info, False)
+    scan = scan_info_helper.create_scan_model(scan_info)
     foo = scan.getChannelByName("foo")
     scatterData = scan.getScatterDataByChannel(foo)
     assert scatterData is not None
@@ -610,7 +610,7 @@ def test_read_scatter_data__non_regular_3d():
         }
     }
 
-    scan = scan_info_helper.create_scan_model(scan_info, False)
+    scan = scan_info_helper.create_scan_model(scan_info)
     axis1 = scan.getChannelByName("axis1")
     scatterData = scan.getScatterDataByChannel(axis1)
     assert scatterData is not None

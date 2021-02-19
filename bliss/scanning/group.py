@@ -142,6 +142,7 @@ class Sequence:
         self.title = title
         self.scan = None
         self._scan_info = ScanInfo.normalize(scan_info)
+        self._scan_info["is-scan-sequence"] = True
         self.custom_channels = dict()
 
         self._scans = list()  # scan objects or scan nodes

@@ -47,7 +47,6 @@ from bliss.flint.helper import scan_info_helper
 from bliss.flint.model import flint_model
 from bliss.flint.model import scan_model
 from bliss.data.nodes import lima as lima_nodes
-from bliss.data.node import get_node
 
 
 _logger = logging.getLogger(__name__)
@@ -229,21 +228,10 @@ class ScanManager(bliss_scan.ScansObserver):
             _logger.debug("new_scan from %s ignored", scan_db_name)
             return
 
-        if scan_db_name is not None:
-            if self.__absorb_events:
-                node = get_node(scan_db_name)
-                is_group = node is not None and node.type == "scan_group"
-            else:
-                # FIXME: absorb_events is used here for testability
-                # it should be done in a better way
-                is_group = False
-        else:
-            is_group = False
-
         self._end_scan_event.clear()
 
         # Initialize cache structure
-        scan = scan_info_helper.create_scan_model(scan_info, is_group)
+        scan = scan_info_helper.create_scan_model(scan_info)
         cache = _ScanCache(scan_db_name, scan)
 
         group_name = scan_info.get("group", None)

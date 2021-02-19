@@ -128,7 +128,8 @@ def iter_channels(scan_info: Dict[str, Any]):
         yield channel
 
 
-def create_scan_model(scan_info: Dict, is_group: bool = False) -> scan_model.Scan:
+def create_scan_model(scan_info: Dict) -> scan_model.Scan:
+    is_group = scan_info.get("is-scan-sequence", False)
     if is_group:
         scan = scan_model.ScanGroup()
     else:

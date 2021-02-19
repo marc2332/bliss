@@ -53,12 +53,6 @@ from bliss.data.node import get_node
 _logger = logging.getLogger(__name__)
 
 
-USE_PREFERED_REFRESH_RATE = True
-"""Early feature for the restart (2020-02-28).
-This option all to switch it off in case of string problem.
-It could be removed at some point."""
-
-
 class _ScalarDataEvent(NamedTuple):
     """Store scalar data event before been processing in the display pipeline
 
@@ -406,16 +400,15 @@ class ScanManager(bliss_scan.ScansObserver):
             # Not yet data, then update is needed
             return True
 
-        if USE_PREFERED_REFRESH_RATE:
-            rate = stored_channel.preferedRefreshRate()
-            if rate is not None:
-                now = time.time()
-                # FIXME: This could be computed dinamically
-                time_to_receive_data = 0.01
-                next_image_time = (
-                    stored_data.receivedTime() + (rate / 1000.0) - time_to_receive_data
-                )
-                return now > next_image_time
+        rate = stored_channel.preferedRefreshRate()
+        if rate is not None:
+            now = time.time()
+            # FIXME: This could be computed dinamically
+            time_to_receive_data = 0.01
+            next_image_time = (
+                stored_data.receivedTime() + (rate / 1000.0) - time_to_receive_data
+            )
+            return now > next_image_time
 
         stored_frame_id = stored_data.frameId()
         if stored_frame_id is None:
@@ -664,19 +657,18 @@ class ScanManager(bliss_scan.ScansObserver):
                             channel_name,
                         )
 
-        if USE_PREFERED_REFRESH_RATE:
-            # Make sure the last image is displayed
-            # FIXME: We should not need to update everything
-            for channel_name, image_view in cache.image_views():
-                frame = self.__get_image(cache, image_view, channel_name)
-                if frame is not None:
-                    self.__update_channel_data(
-                        cache,
-                        channel_name,
-                        raw_data=frame.data,
-                        frame_id=frame.frame_number,
-                        source=frame.source,
-                    )
+        # Make sure the last image is displayed
+        for channel_name, image_view in cache.image_views():
+            frame = self.__get_image(cache, image_view, channel_name)
+            # FIXME: We should only update what it was updated
+            if frame is not None:
+                self.__update_channel_data(
+                    cache,
+                    channel_name,
+                    raw_data=frame.data,
+                    frame_id=frame.frame_number,
+                    source=frame.source,
+                )
 
         if len(updated_masters) > 0:
             # FIXME: Should be fired by the Scan object (but here we have more informations)

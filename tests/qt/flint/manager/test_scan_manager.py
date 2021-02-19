@@ -56,7 +56,6 @@ def test_interleaved_scans():
 
     manager = MockedScanManager(flintModel=None)
     # Disabled async consumption
-    manager._set_absorb_events(False)
 
     scans = manager.get_alive_scans()
     assert len(scans) == 0
@@ -69,6 +68,7 @@ def test_interleaved_scans():
     manager.emit_scan_started(scan_info_2)
     manager.emit_scalar_updated(scan_info_1, "axis:roby", numpy.arange(2))
     manager.emit_scalar_updated(scan_info_2, "axis:robz", numpy.arange(3))
+    manager.wait_data_processed()
     scans = manager.get_alive_scans()
     assert len(scans) == 2
 
@@ -87,11 +87,10 @@ def test_sequencial_scans():
     scan_info_2 = {"node_name": "scan2", "acquisition_chain": ACQUISITION_CHAIN_2}
 
     manager = MockedScanManager(flintModel=None)
-    # Disabled async consumption
-    manager._set_absorb_events(False)
 
     manager.emit_scan_started(scan_info_1)
     manager.emit_scalar_updated(scan_info_1, "axis:roby", numpy.arange(2))
+    manager.wait_data_processed()
     scans = manager.get_alive_scans()
     assert len(scans) == 1
     manager.emit_scan_finished(scan_info_1)
@@ -100,6 +99,7 @@ def test_sequencial_scans():
 
     manager.emit_scan_started(scan_info_2)
     manager.emit_scalar_updated(scan_info_2, "axis:robz", numpy.arange(3))
+    manager.wait_data_processed()
     scans = manager.get_alive_scans()
     assert len(scans) == 1
     manager.emit_scan_finished(scan_info_2)
@@ -111,8 +111,6 @@ def test_bad_sequence__end_before_new():
     scan_info_1 = {"node_name": "scan1", "acquisition_chain": ACQUISITION_CHAIN_1}
 
     manager = MockedScanManager(flintModel=None)
-    # Disabled async consumption
-    manager._set_absorb_events(False)
 
     manager.emit_scan_finished(scan_info_1)
     manager.emit_scan_started(scan_info_1)
@@ -165,8 +163,6 @@ def test_image__default():
     scan_info_3 = {"node_name": "scan1", "acquisition_chain": ACQUISITION_CHAIN_3}
 
     manager = MockedScanManager(flintModel=None)
-    # Disabled async consumption
-    manager._set_absorb_events(False)
 
     manager.emit_scan_started(scan_info_3)
     scan = manager.get_alive_scans()[0]
@@ -188,8 +184,6 @@ def test_image__disable_video():
     scan_info_3 = {"node_name": "scan1", "acquisition_chain": ACQUISITION_CHAIN_3}
 
     manager = MockedScanManager(flintModel=None)
-    # Disabled async consumption
-    manager._set_absorb_events(False)
 
     manager.emit_scan_started(scan_info_3)
     scan = manager.get_alive_scans()[0]
@@ -215,8 +209,6 @@ def test_image__decoding_error():
     scan_info_3 = {"node_name": "scan1", "acquisition_chain": ACQUISITION_CHAIN_3}
 
     manager = MockedScanManager(flintModel=None)
-    # Disabled async consumption
-    manager._set_absorb_events(False)
 
     manager.emit_scan_started(scan_info_3)
     scan = manager.get_alive_scans()[0]
@@ -242,8 +234,6 @@ def test_prefered_user_refresh():
     scan_info_3 = {"node_name": "scan1", "acquisition_chain": ACQUISITION_CHAIN_3}
 
     manager = MockedScanManager(flintModel=None)
-    # Disabled async consumption
-    manager._set_absorb_events(False)
 
     manager.emit_scan_started(scan_info_3)
     scan = manager.get_alive_scans()[0]

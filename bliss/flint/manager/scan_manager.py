@@ -159,8 +159,6 @@ class ScanManager(bliss_scan.ScansObserver):
         self.__scans_watch_task = None
         """Process following scans events from a BLISS session"""
 
-        self.__absorb_events = True
-
         if self.__flintModel is not None:
             self.__flintModel.blissSessionChanged.connect(self.__bliss_session_changed)
             self.__bliss_session_changed()
@@ -208,9 +206,6 @@ class ScanManager(bliss_scan.ScansObserver):
 
         self.__scans_watch_task = task
         self.__watcher = watcher
-
-    def _set_absorb_events(self, absorb_events: bool):
-        self.__absorb_events = absorb_events
 
     def __get_scan_cache(self, scan_id) -> Optional[_ScanCache]:
         """Returns the scna cache, else None"""
@@ -349,12 +344,9 @@ class ScanManager(bliss_scan.ScansObserver):
         else:
             self._last_events[data_event.channel_name] = data_event
 
-        if self.__absorb_events:
-            self._end_data_process_event.clear()
-            if self._refresh_task is None:
-                self._refresh_task = gevent.spawn(self.__refresh)
-        else:
-            self.__refresh()
+        self._end_data_process_event.clear()
+        if self._refresh_task is None:
+            self._refresh_task = gevent.spawn(self.__refresh)
 
     def __refresh(self):
         try:
@@ -692,3 +684,10 @@ class ScanManager(bliss_scan.ScansObserver):
 
     def wait_end_of_scans(self):
         self._end_scan_event.wait()
+
+    def wait_data_processed(self):
+        """Wait gevent processing of the already received data
+
+        This should only be used by use tests.
+        """
+        self._end_data_process_event.wait()

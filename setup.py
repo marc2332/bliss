@@ -53,10 +53,12 @@ def generate_release_file():
         )
         if process.returncode:
             raise Exception("Not a git repository")
-    except:
-        version = "master"
+    except Exception:
+        version = "0.0.0+master"
     else:
         version = process.stdout.strip().decode()
+        # Normalize to PEP 440
+        version = version.replace("-", "+", 1)
     name = "bliss"
     author = "BCU (ESRF)"
     author_email = ""
@@ -96,7 +98,10 @@ try:
 except:
     short_version = version = "{version}"
 else:
-    short_version = version = process.stdout.strip().decode()
+    version = process.stdout.strip().decode()
+    # Normalize to PEP 440
+    version = version.replace("-", "+", 1)
+    short_version = version
 
 version_info = [x.split("-")[0] for x in version.split(".")]
 """

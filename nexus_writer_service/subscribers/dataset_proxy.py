@@ -18,6 +18,7 @@ from gevent import sleep
 from collections import OrderedDict
 from contextlib import contextmanager
 from fabio.edfimage import EdfImage
+from silx.io import dictdump
 from .base_proxy import BaseProxy
 from ..io import nexus
 from ..io import h5_external
@@ -946,4 +947,4 @@ class DatasetProxy(BaseProxy):
         with self.open(ensure_existance=True) as destination:
             if parent:
                 destination = destination.parent
-            nexus.dicttonx(treedict, destination, **kwargs)
+            dictdump.dicttonx(treedict, destination, **kwargs)

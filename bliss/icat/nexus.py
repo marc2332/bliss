@@ -110,7 +110,7 @@ class IcatToNexus:
             return float(value)
 
     def create_nxtreedict(self, metadict):
-        """Convert ICAT metadata fields to a `dict` for `nxtodict`
+        """Convert ICAT metadata fields to a `dict` for `dicttonx`
         """
         nxtreedict = {}
         for fieldname, fieldvalue in metadict.items():

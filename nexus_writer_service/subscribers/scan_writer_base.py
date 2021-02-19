@@ -20,6 +20,7 @@ import traceback
 import logging
 import datetime
 from contextlib import contextmanager
+from silx.io import dictdump
 from bliss.data.node import get_node
 from bliss.icat.dataset import Dataset
 from bliss.icat.nexus import IcatToNexus
@@ -1203,7 +1204,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             if parent is None:
                 return dproxy
             # Save info associated to the device (not this specific dataset)
-            nexus.dicttonx(device["device_info"], parent, update=True)
+            dictdump.dicttonx(device["device_info"], parent, update_mode="modify")
             parent = parent.name
 
         # Everything is ready to create the dataset
@@ -1868,7 +1869,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             if parent is None:
                 return
             try:
-                nexus.dicttonx(nxtreedict, parent)
+                dictdump.dicttonx(nxtreedict, parent)
             except Exception as e:
                 self._set_state(self.STATES.FAULT, e)
                 subscan.logger.error(

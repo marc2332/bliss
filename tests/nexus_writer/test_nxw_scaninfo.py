@@ -23,9 +23,7 @@ def _test_nxw_scaninfo(session=None, writer=None, **kwargs):
     # Static information
     scan_info = {
         "instrument": {"diode3": {"@myattr": 1, "mydset": [1, 2, 3]}},
-        # TODO wait util nexus.dicttonx is replaced by the silx one
-        # "measurement": {"mylink": ">../instrument/diode3/mydset"},
-        "measurement": {"mylink": [1, 2, 3]},
+        "measurement": {">mylink": "../instrument/diode3/mydset"},
         "scan_meta_categories": ["measurement"],
     }
 
@@ -47,7 +45,7 @@ def _test_nxw_scaninfo(session=None, writer=None, **kwargs):
 
     uri = scan_utils.scan_uri(scan)
     with nexus.uriContext(uri) as nxentry:
-        expected = {"NX_class": "NXdetector", "myattr": "1"}
+        expected = {"NX_class": "NXdetector", "myattr": 1}
         actual = dict(nxentry["instrument/diode3"].attrs)
         assert actual == expected
         expected = [1, 2, 3]
@@ -56,7 +54,7 @@ def _test_nxw_scaninfo(session=None, writer=None, **kwargs):
         actual = nxentry["measurement/mylink"][()].tolist()
         assert actual == expected
 
-        expected = {"NX_class": "NXcollection", "myattr": "2"}
+        expected = {"NX_class": "NXcollection", "myattr": 2}
         actual = dict(nxentry["mygroup"].attrs)
         expected = [4, 5, 6]
         actual = nxentry["mygroup/mydset"][()].tolist()

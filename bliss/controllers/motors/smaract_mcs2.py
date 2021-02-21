@@ -194,9 +194,10 @@ class Positioner:
 
     hold_time = InfiniteHoldTime
 
-    def __init__(self, ctrl, channel):
+    def __init__(self, ctrl, channel, axis):
         self.ctrl = ctrl
         self.channel = channel
+        self.axis = axis
         self._positioner_type = None
 
     def get_property(self, prop):
@@ -294,7 +295,7 @@ class Positioner:
         position (int): nano-degree for rotary sensors or pico-meter for
                         linear sensors
         """
-        self.get_property(":POS", int(position))
+        self.set_property(":POS", int(position))
 
     def stop(self):
         self.command(f":STOP{self.channel}")
@@ -369,7 +370,7 @@ class Positioner:
             with gevent.Timeout(timeout):
                 while self.status.CALIBRATING:
                     gevent.sleep(0.1)
-        self.ctrl.sync_hard()
+        self.axis.sync_hard()
 
     @property
     def power_mode(self):
@@ -468,7 +469,7 @@ class SmarAct_MCS2(Controller):
 
     def initialize_axis(self, axis):
 
-        axis.positioner = Positioner(self, axis.config.get("channel", int))
+        axis.positioner = Positioner(self, axis.config.get("channel", int), axis)
         if axis.positioner.channel >= self.nb_channels:
             raise ValueError(
                 "This SmarAct MCS2 can only control {self.nb_channels} \

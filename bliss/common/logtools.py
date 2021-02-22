@@ -821,7 +821,7 @@ class Log:
         logging.getLogger().addHandler(handler)
 
         # handler for user input and exceptions
-        for log_name in ("user_input", "exceptions"):
+        for log_name in ("user_input", "exceptions", "startup"):
             log = logging.getLogger(log_name)
             log.addHandler(handler)
             log.setLevel(logging.INFO)

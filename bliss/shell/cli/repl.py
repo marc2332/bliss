@@ -600,10 +600,7 @@ def initialize(session_name=None, session_env=None) -> session_mdl.Session:
 
     # Conda environment
     try:
-        _conda_env = (
-            "(in {t.blue}%s{t.normal} Conda environment)".format(t=t)
-            % os.environ["CONDA_DEFAULT_ENV"]
-        )
+        _conda_env = "(in %s Conda environment)" % os.environ["CONDA_DEFAULT_ENV"]
     except KeyError:
         _conda_env = ""
 
@@ -671,6 +668,15 @@ def initialize(session_name=None, session_env=None) -> session_mdl.Session:
         print("")
 
     session_env["SCANS"] = current_session.scans
+
+    log = logging.getLogger("startup")
+    log.info(
+        f"Started BLISS version "
+        f"{_version} running on "
+        f"{_hostname} "
+        f"{_conda_env} "
+        f"connected to Beacon server {_host}"
+    )
 
     return session
 

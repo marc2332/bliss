@@ -9,6 +9,7 @@ import os
 import sys
 import inspect
 import subprocess
+import logging
 
 from setuptools.extension import Extension
 from setuptools import setup, find_packages
@@ -46,17 +47,23 @@ def abspath(*path):
 
 
 def generate_release_file():
-    dirname = os.path.dirname(__file__)
+    dirname = os.path.dirname(os.path.abspath(__file__))
     try:
         process = subprocess.run(
             ["git", "describe", "--tags", "--always"], capture_output=True, cwd=dirname
         )
         if process.returncode:
             raise Exception("Not a git repository")
-    except:
-        version = "master"
+    except Exception:
+        logging.error(
+            "Error while execution git to reach the version. Generate a dummy version instead",
+            exc_info=True,
+        )
+        version = "0.0.0+master"
     else:
         version = process.stdout.strip().decode()
+        # Normalize to PEP 440
+        version = version.replace("-", "+", 1)
     name = "bliss"
     author = "BCU (ESRF)"
     author_email = ""
@@ -78,7 +85,7 @@ def generate_release_file():
 import os
 import subprocess
 
-dirname = os.path.dirname(__file__)
+dirname = os.path.dirname(os.path.abspath(__file__))
 
 name = "{name}"
 author = "{author}"
@@ -96,9 +103,13 @@ try:
 except:
     short_version = version = "{version}"
 else:
-    short_version = version = process.stdout.strip().decode()
+    version = process.stdout.strip().decode()
+    # Normalize to PEP 440
+    version = version.replace("-", "+", 1)
+    short_version = version
 
-version_info = [x.split("-")[0] for x in version.split(".")]
+_package_version = version.split("+", 1)[0]
+version_info = [int(v) for v in _package_version.split(".")]
 """
     with open(os.path.join(dirname, "bliss", "release.py"), "w") as f:
         f.write(src)

@@ -91,3 +91,17 @@ with status_message() as p:
 ```
 
 
+
+## Beamline root config
+
+To read "root beamline config", usualy located in file:  
+`~/local/beamline_configuration/__init__.yml`  
+such a piece of code can be used:
+
+```python
+from bliss import current_session
+
+if current_session.config.root.get("display_initialized_objects"):
+    print("bla bla")
+
+```

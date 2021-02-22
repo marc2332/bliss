@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Flint
+    - Added `restart_flint` helper from `bliss.common.plot` to handle stucked Flint
+
 ### Changed
 
 ### Fixed

@@ -107,6 +107,13 @@ def configure_parser_arguments(parser: ArgumentParser):
         default=None,
         help="Store logs in a file.",
     )
+    parser.add_argument(
+        "--enable-watchdog",
+        dest="watchdog",
+        action="store_true",
+        default=False,
+        help="Enable a watchdog to log information and kill Flint if extra memory are used",
+    )
 
 
 def get_flint_key(pid=None) -> str:

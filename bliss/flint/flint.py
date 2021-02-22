@@ -32,6 +32,7 @@ environment.
 """
 
 import sys
+import os
 import logging
 import signal
 import functools
@@ -61,6 +62,9 @@ ROOT_LOGGER = logging.getLogger()
 """Application logger"""
 
 SAVE_OPENGL_CONFIG = True
+
+
+WATCHDOGS = []
 
 
 def patch_qt():
@@ -140,6 +144,37 @@ def create_flint_model(settings) -> flint_model.FlintState:
     flintModel.setWorkspace(workspace)
 
     return flintModel
+
+
+def create_watchdog():
+    """Create watchdog to monitor Flint execution"""
+    global WATCHDOGS
+    from bliss.flint.manager.watchdog import MemoryStateWatchDog
+    from bliss.flint.manager.watchdog import StackStateWatchDog
+    from bliss.flint.manager.watchdog import MemoryWatchDog
+
+    ROOT_LOGGER.info("Setup watchdogs")
+
+    ROOT_LOGGER.info(
+        "Setup a memory watchdog triggerable with -> kill -USR1 %i" % os.getpid()
+    )
+    memory_state = MemoryStateWatchDog()
+    memory_state.triggered
+    signal.signal(signal.SIGUSR1, memory_state.triggered)
+    WATCHDOGS.append(memory_state)
+
+    ROOT_LOGGER.info(
+        "Setup an execution watchdog triggerable with -> kill -USR2 %i" % os.getpid()
+    )
+    stack_state = StackStateWatchDog()
+    stack_state.triggered
+    signal.signal(signal.SIGUSR2, stack_state.triggered)
+    WATCHDOGS.append(stack_state)
+
+    ROOT_LOGGER.info("Setup a memory watchdog")
+    memory = MemoryWatchDog()
+    memory.start()
+    WATCHDOGS.append(memory)
 
 
 def start_flint(flintModel: flint_model.FlintState, options, splash):
@@ -437,6 +472,9 @@ def main():
     set_global_settings(settings, options)
 
     splash = create_spash_screen()
+
+    if options.watchdog:
+        create_watchdog()
 
     flintModel = create_flint_model(settings)
     qapp.aboutToQuit.connect(

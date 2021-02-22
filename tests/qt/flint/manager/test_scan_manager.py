@@ -34,36 +34,50 @@ ACQUISITION_CHAIN_3 = {
 }
 
 
+class MockedScanManager(scan_manager.ScanManager):
+    def emit_scan_started(self, scan_info):
+        self.on_scan_started(scan_info["node_name"], scan_info)
+
+    def emit_scan_finished(self, scan_info):
+        self.on_scan_finished(scan_info["node_name"], scan_info)
+
+    def emit_scalar_updated(self, scan_info, channel_name, data):
+        scan_db_name = scan_info["node_name"]
+        self.on_scalar_data_received(scan_db_name, channel_name, 0, data)
+
+    def emit_lima_ref_updated(self, scan_info, channel_name, source_node):
+        scan_db_name = scan_info["node_name"]
+        self.on_lima_ref_received(scan_db_name, channel_name, 2, source_node, None)
+
+
 def test_interleaved_scans():
     scan_info_1 = {"node_name": "scan1", "acquisition_chain": ACQUISITION_CHAIN_1}
     scan_info_2 = {"node_name": "scan2", "acquisition_chain": ACQUISITION_CHAIN_2}
 
-    manager = scan_manager.ScanManager(flintModel=None)
+    manager = MockedScanManager(flintModel=None)
     # Disabled async consumption
-    manager._set_absorb_events(False)
 
     scans = manager.get_alive_scans()
     assert len(scans) == 0
 
-    manager.new_scan(scan_info_1)
+    manager.emit_scan_started(scan_info_1)
     scans = manager.get_alive_scans()
     assert len(scans) == 1
     assert scans[0].scanInfo() == scan_info_1
 
-    manager.new_scan(scan_info_2)
-    data1 = {"scan_info": scan_info_1, "data": {"axis:roby": numpy.arange(2)}}
-    manager.new_scan_data("0d", "axis", data=data1)
-    data2 = {"scan_info": scan_info_2, "data": {"axis:robz": numpy.arange(3)}}
-    manager.new_scan_data("0d", "axis", data=data2)
+    manager.emit_scan_started(scan_info_2)
+    manager.emit_scalar_updated(scan_info_1, "axis:roby", numpy.arange(2))
+    manager.emit_scalar_updated(scan_info_2, "axis:robz", numpy.arange(3))
+    manager.wait_data_processed()
     scans = manager.get_alive_scans()
     assert len(scans) == 2
 
-    manager.end_scan(scan_info_1)
+    manager.emit_scan_finished(scan_info_1)
     scans = manager.get_alive_scans()
     assert len(scans) == 1
     assert scans[0].scanInfo() == scan_info_2
 
-    manager.end_scan(scan_info_2)
+    manager.emit_scan_finished(scan_info_2)
     scans = manager.get_alive_scans()
     assert len(scans) == 0
 
@@ -72,25 +86,23 @@ def test_sequencial_scans():
     scan_info_1 = {"node_name": "scan1", "acquisition_chain": ACQUISITION_CHAIN_1}
     scan_info_2 = {"node_name": "scan2", "acquisition_chain": ACQUISITION_CHAIN_2}
 
-    manager = scan_manager.ScanManager(flintModel=None)
-    # Disabled async consumption
-    manager._set_absorb_events(False)
+    manager = MockedScanManager(flintModel=None)
 
-    manager.new_scan(scan_info_1)
-    data1 = {"scan_info": scan_info_1, "data": {"axis:roby": numpy.arange(2)}}
-    manager.new_scan_data("0d", "axis", data=data1)
+    manager.emit_scan_started(scan_info_1)
+    manager.emit_scalar_updated(scan_info_1, "axis:roby", numpy.arange(2))
+    manager.wait_data_processed()
     scans = manager.get_alive_scans()
     assert len(scans) == 1
-    manager.end_scan(scan_info_1)
+    manager.emit_scan_finished(scan_info_1)
     assert manager.get_alive_scans() == []
     assert scans[0].scanInfo() == scan_info_1
 
-    manager.new_scan(scan_info_2)
-    data2 = {"scan_info": scan_info_2, "data": {"axis:robz": numpy.arange(3)}}
-    manager.new_scan_data("0d", "axis", data=data2)
+    manager.emit_scan_started(scan_info_2)
+    manager.emit_scalar_updated(scan_info_2, "axis:robz", numpy.arange(3))
+    manager.wait_data_processed()
     scans = manager.get_alive_scans()
     assert len(scans) == 1
-    manager.end_scan(scan_info_2)
+    manager.emit_scan_finished(scan_info_2)
     assert manager.get_alive_scans() == []
     assert scans[0].scanInfo() == scan_info_2
 
@@ -98,12 +110,10 @@ def test_sequencial_scans():
 def test_bad_sequence__end_before_new():
     scan_info_1 = {"node_name": "scan1", "acquisition_chain": ACQUISITION_CHAIN_1}
 
-    manager = scan_manager.ScanManager(flintModel=None)
-    # Disabled async consumption
-    manager._set_absorb_events(False)
+    manager = MockedScanManager(flintModel=None)
 
-    manager.end_scan(scan_info_1)
-    manager.new_scan(scan_info_1)
+    manager.emit_scan_finished(scan_info_1)
+    manager.emit_scan_started(scan_info_1)
     # FIXME What to do anyway then? The manager is locked
 
 
@@ -152,23 +162,18 @@ class MockedLimaNode:
 def test_image__default():
     scan_info_3 = {"node_name": "scan1", "acquisition_chain": ACQUISITION_CHAIN_3}
 
-    manager = scan_manager.ScanManager(flintModel=None)
-    # Disabled async consumption
-    manager._set_absorb_events(False)
+    manager = MockedScanManager(flintModel=None)
 
-    manager.new_scan(scan_info_3)
+    manager.emit_scan_started(scan_info_3)
     scan = manager.get_alive_scans()[0]
 
     image = numpy.arange(1).reshape(1, 1)
-    data = {}
-    data["scan_info"] = scan_info_3
-    data["channel_name"] = "lima:image"
-    data["channel_data_node"] = MockedLimaNode(
+    source_node = MockedLimaNode(
         frame_id=2, image=Exception(), last_image=Exception(), last_live_image=image
     )
-    manager.new_scan_data("2d", "axis", data)
+    manager.emit_lima_ref_updated(scan_info_3, "lima:image", source_node)
 
-    manager.end_scan(scan_info_3)
+    manager.emit_scan_finished(scan_info_3)
 
     result = scan.getChannelByName("lima:image").data()
     assert result.frameId() == 2
@@ -178,27 +183,22 @@ def test_image__default():
 def test_image__disable_video():
     scan_info_3 = {"node_name": "scan1", "acquisition_chain": ACQUISITION_CHAIN_3}
 
-    manager = scan_manager.ScanManager(flintModel=None)
-    # Disabled async consumption
-    manager._set_absorb_events(False)
+    manager = MockedScanManager(flintModel=None)
 
-    manager.new_scan(scan_info_3)
+    manager.emit_scan_started(scan_info_3)
     scan = manager.get_alive_scans()[0]
 
     image = numpy.arange(1).reshape(1, 1)
-    data = {}
-    data["scan_info"] = scan_info_3
-    data["channel_name"] = "lima:image"
-    data["channel_data_node"] = MockedLimaNode(
+    source_node = MockedLimaNode(
         frame_id=2,
         video_frame_have_meaning=False,
         image=Exception(),
         last_image=image,
         last_live_image=Exception(),
     )
-    manager.new_scan_data("2d", "axis", data)
+    manager.emit_lima_ref_updated(scan_info_3, "lima:image", source_node)
 
-    manager.end_scan(scan_info_3)
+    manager.emit_scan_finished(scan_info_3)
 
     image = scan.getChannelByName("lima:image").data()
     assert image.frameId() == 2
@@ -208,27 +208,22 @@ def test_image__disable_video():
 def test_image__decoding_error():
     scan_info_3 = {"node_name": "scan1", "acquisition_chain": ACQUISITION_CHAIN_3}
 
-    manager = scan_manager.ScanManager(flintModel=None)
-    # Disabled async consumption
-    manager._set_absorb_events(False)
+    manager = MockedScanManager(flintModel=None)
 
-    manager.new_scan(scan_info_3)
+    manager.emit_scan_started(scan_info_3)
     scan = manager.get_alive_scans()[0]
 
     image = numpy.arange(1).reshape(1, 1)
-    data = {}
-    data["scan_info"] = scan_info_3
-    data["channel_name"] = "lima:image"
-    data["channel_data_node"] = MockedLimaNode(
+    source_node = MockedLimaNode(
         frame_id=2,
         video_frame_have_meaning=True,
         image=Exception(),
         last_image=image,
         last_live_image=ImageFormatNotSupported(),
     )
-    manager.new_scan_data("2d", "axis", data)
+    manager.emit_lima_ref_updated(scan_info_3, "lima:image", source_node)
 
-    manager.end_scan(scan_info_3)
+    manager.emit_scan_finished(scan_info_3)
 
     image = scan.getChannelByName("lima:image").data()
     assert image.frameId() == 2
@@ -238,18 +233,16 @@ def test_image__decoding_error():
 def test_prefered_user_refresh():
     scan_info_3 = {"node_name": "scan1", "acquisition_chain": ACQUISITION_CHAIN_3}
 
-    manager = scan_manager.ScanManager(flintModel=None)
-    # Disabled async consumption
-    manager._set_absorb_events(False)
+    manager = MockedScanManager(flintModel=None)
 
-    manager.new_scan(scan_info_3)
+    manager.emit_scan_started(scan_info_3)
     scan = manager.get_alive_scans()[0]
     channel = scan.getChannelByName("lima:image")
     channel.setPreferedRefreshRate("foo", 500)
 
     image = numpy.arange(1).reshape(1, 1)
 
-    node = MockedLimaNode(
+    source_node = MockedLimaNode(
         frame_id=2,
         video_frame_have_meaning=False,
         image=Exception(),
@@ -257,16 +250,11 @@ def test_prefered_user_refresh():
         last_live_image=Exception(),
     )
 
-    data = {}
-    data["scan_info"] = scan_info_3
-    data["channel_name"] = "lima:image"
-    data["channel_data_node"] = node
-
     for i in range(10):
-        node.frame_id = i
-        manager.new_scan_data("2d", "axis", data)
+        source_node.frame_id = i
+        manager.emit_lima_ref_updated(scan_info_3, "lima:image", source_node)
 
-    manager.end_scan(scan_info_3)
+    manager.emit_scan_finished(scan_info_3)
 
     # The first end the last
     assert channel.updatedCount() == 2

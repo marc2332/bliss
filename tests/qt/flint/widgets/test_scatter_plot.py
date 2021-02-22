@@ -361,7 +361,7 @@ def test_scatter_normalization__normal():
     scan_info.set_channel_meta("a", axis_id=0, axis_points=3, axis_kind="forth")
     scan_info.set_channel_meta("b", axis_id=1, axis_points=3, axis_kind="forth")
     scan_info.add_scatter_plot("foo", x="a", y="b", value="c")
-    scan = scan_info_helper.create_scan_model(scan_info, False)
+    scan = scan_info_helper.create_scan_model(scan_info)
     plots = scan_info_helper.create_plot_model(scan_info, scan)
     item = plots[0].items()[0]
     scatterSize = 8
@@ -382,7 +382,7 @@ def test_scatter_normalization__normal_frame():
     scan_info.set_channel_meta("b", axis_id=1, axis_points=3, axis_kind="forth")
     scan_info.set_channel_meta("c", axis_id=2, axis_points=3, axis_kind="step")
     scan_info.add_scatter_plot("foo", x="a", y="b", value="d")
-    scan = scan_info_helper.create_scan_model(scan_info, False)
+    scan = scan_info_helper.create_scan_model(scan_info)
     plots = scan_info_helper.create_plot_model(scan_info, scan)
     plot = plots[0]
     item = plot.items()[0]
@@ -409,7 +409,7 @@ def test_scatter_normalization__backnforth():
         "b", axis_id=1, axis_points=3, group="g", axis_kind="forth"
     )
     scan_info.add_scatter_plot("foo", x="a", y="b", value="d")
-    scan = scan_info_helper.create_scan_model(scan_info, False)
+    scan = scan_info_helper.create_scan_model(scan_info)
     plots = scan_info_helper.create_plot_model(scan_info, scan)
     plot = plots[0]
     item = plot.items()[0]
@@ -439,7 +439,7 @@ def test_scatter_normalization__3d_backnforth():
         "c", axis_id=2, axis_points=4, group="g", axis_kind="forth"
     )
     scan_info.add_scatter_plot("foo", x="a", y="b", value="d")
-    scan = scan_info_helper.create_scan_model(scan_info, False)
+    scan = scan_info_helper.create_scan_model(scan_info)
     plots = scan_info_helper.create_plot_model(scan_info, scan)
     plot = plots[0]
     item = plot.items()[0]

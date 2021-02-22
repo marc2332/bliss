@@ -24,12 +24,13 @@ The :class:`ScanManager` is then responsible to:
   the GUI side).
 """
 from __future__ import annotations
+from typing import NamedTuple
 from typing import Optional
 from typing import Dict
-from typing import Tuple
 from typing import List
 from typing import Any
 from typing import Set
+from typing import Union
 
 import logging
 import numpy
@@ -46,16 +47,40 @@ from bliss.flint.helper import scan_info_helper
 from bliss.flint.model import flint_model
 from bliss.flint.model import scan_model
 from bliss.data.nodes import lima as lima_nodes
-from bliss.data.node import get_node
 
 
 _logger = logging.getLogger(__name__)
 
 
-USE_PREFERED_REFRESH_RATE = True
-"""Early feature for the restart (2020-02-28).
-This option all to switch it off in case of string problem.
-It could be removed at some point."""
+class _ScalarDataEvent(NamedTuple):
+    """Store scalar data event before been processing in the display pipeline
+
+    As the data have to be processed on the fly, it is stored at another place.
+    """
+
+    scan_db_name: str
+    channel_name: str
+
+
+class _NdimDataEvent(NamedTuple):
+    """Store an ndim data (like MCAs) data event before been processing in the
+    display pipeline"""
+
+    scan_db_name: str
+    channel_name: str
+    index: int
+    data_bunch: List[numpy.array]
+
+
+class _LimaRefDataEvent(NamedTuple):
+    """Store a lima ref data event before been processing in the
+    display pipeline"""
+
+    scan_db_name: str
+    channel_name: str
+    dim: int
+    source_node: Any
+    event_data: Any
 
 
 class _ScanCache:
@@ -104,7 +129,7 @@ class _ScanCache:
         self.video_frame_have_meaning[channel_name] = False
 
 
-class ScanManager:
+class ScanManager(bliss_scan.ScansObserver):
     """"Manage scan events emitted by redis.
 
     A new scan create a `scan_model.Scan` object. This object is registered to
@@ -114,13 +139,11 @@ class ScanManager:
 
     def __init__(self, flintModel: flint_model.FlintState):
         self.__flintModel = flintModel
-        self._scans_watch_task = None
         self._refresh_task = None
         self.__cache: Dict[str, _ScanCache] = {}
 
-        self._last_event: Dict[
-            Tuple[str, Optional[str]], Tuple[Dict[str, Any], str, numpy.ndarray]
-        ] = dict()
+        self._last_events: Dict[str, Union[_NdimDataEvent, _LimaRefDataEvent]] = {}
+        self._last_scalar_events: Dict[str, Union[_ScalarDataEvent]] = {}
 
         self._end_scan_event = gevent.event.Event()
         """Event to allow to wait for the the end of current scans"""
@@ -131,7 +154,10 @@ class ScanManager:
         self._end_scan_event.set()
         self._end_data_process_event.set()
 
-        self.__absorb_events = True
+        self.__watcher: bliss_scan.ScansWatcher = None
+        """Process following scans events from a BLISS session"""
+        self.__scans_watch_task = None
+        """Process following scans events from a BLISS session"""
 
         if self.__flintModel is not None:
             self.__flintModel.blissSessionChanged.connect(self.__bliss_session_changed)
@@ -145,9 +171,12 @@ class ScanManager:
         self._spawn_scans_session_watch(session_name)
 
     def _spawn_scans_session_watch(self, session_name: str, clean_redis: bool = False):
-        if self._scans_watch_task:
-            self._scans_watch_task.kill()
-            self._scans_watch_task = None
+        if self.__watcher is not None:
+            self.__watcher.stop()
+            self.__watcher = None
+        if self.__scans_watch_task:
+            self.__scans_watch_task.kill()
+            self.__scans_watch_task = None
 
         if clean_redis:
             # FIXME: There is maybe a problem here. As the redis connection
@@ -157,14 +186,8 @@ class ScanManager:
         if session_name is None:
             return
 
-        observer = bliss_scan.DefaultScansObserver()
-        observer.scan_new_callback = self.new_scan
-        observer.scan_new_child_callback = self.new_scan_child
-        observer.scan_data_callback = self.new_scan_data
-        observer.scan_end_callback = self.end_scan
-
         watcher = bliss_scan.ScansWatcher(session_name)
-        watcher.set_observer(observer)
+        watcher.set_observer(self)
         watcher.set_watch_scan_group(True)
         watcher.set_exclude_existing_scans(True)
         task = gevent.spawn(watcher.run)
@@ -180,56 +203,31 @@ class ScanManager:
             self._spawn_scans_session_watch(session_name, clean_redis=True)
 
         task.link_exception(exception_orrured)
-        self._scans_watch_task = task
 
-        watcher.wait_ready()
-
-        return task
-
-    def _set_absorb_events(self, absorb_events: bool):
-        self.__absorb_events = absorb_events
+        self.__scans_watch_task = task
+        self.__watcher = watcher
 
     def __get_scan_cache(self, scan_id) -> Optional[_ScanCache]:
         """Returns the scna cache, else None"""
         return self.__cache.get(scan_id, None)
 
-    def __get_scan_id(self, scan_info) -> str:
-        unique = scan_info.get("node_name", None)
-        if unique is not None:
-            return unique
-        # Lets try to use the dict as unique object
-        return str(id(scan_info))
-
-    def __is_alive_scan(self, scan_info) -> bool:
+    def __is_alive_scan(self, scan_db_name: str) -> bool:
         """Returns true if the scan using this scan info is still alive (still
         managed)."""
-        unique = self.__get_scan_id(scan_info)
-        return unique in self.__cache
+        return scan_db_name in self.__cache
 
-    def new_scan(self, scan_info):
-        unique = self.__get_scan_id(scan_info)
-        if unique in self.__cache:
+    def on_scan_started(self, scan_db_name: str, scan_info: Dict):
+        _logger.debug("on_scan_started %s", scan_db_name)
+        if scan_db_name in self.__cache:
             # We should receive a single new_scan per scan, but let's check anyway
-            _logger.debug("new_scan from %s ignored", unique)
+            _logger.debug("new_scan from %s ignored", scan_db_name)
             return
-
-        node_name = scan_info.get("node_name", None)
-        if node_name is not None:
-            if self.__absorb_events:
-                node = get_node(node_name)
-                is_group = node is not None and node.type == "scan_group"
-            else:
-                # FIXME: absorb_events is used here for testability
-                # it should be done in a better way
-                is_group = False
-        else:
-            is_group = False
 
         self._end_scan_event.clear()
 
         # Initialize cache structure
-        scan = scan_info_helper.create_scan_model(scan_info, is_group)
-        cache = _ScanCache(unique, scan)
+        scan = scan_info_helper.create_scan_model(scan_info)
+        cache = _ScanCache(scan_db_name, scan)
 
         group_name = scan_info.get("group", None)
         if group_name is not None:
@@ -255,53 +253,116 @@ class ScanManager:
         if self.__flintModel is not None:
             self.__flintModel.addAliveScan(scan)
 
-        self.__cache[unique] = cache
+        self.__cache[scan_db_name] = cache
 
         scan._setState(scan_model.ScanState.PROCESSING)
         scan.scanStarted.emit()
 
-    def new_scan_child(self, scan_info, data_channel):
-        if not self.__is_alive_scan(scan_info):
-            unique = self.__get_scan_id(scan_info)
-            _logger.debug("New scan child from %s ignored", unique)
+    def on_child_created(self, scan_db_name: str, node):
+        if not self.__is_alive_scan(scan_db_name):
+            _logger.debug("New scan child from %s ignored", scan_db_name)
             return
 
-    def new_scan_data(self, data_type, master_name, data):
-        scan_info = data["scan_info"]
-        if not self.__is_alive_scan(scan_info):
+    def on_scalar_data_received(
+        self,
+        scan_db_name: str,
+        channel_name: str,
+        index: int,
+        data_bunch: Union[list, numpy.ndarray],
+    ):
+        _logger.debug("on_scalar_data_received %s %s", scan_db_name, channel_name)
+        if not self.__is_alive_scan(scan_db_name):
             _logger.error(
-                "New scan data was received before new_scan (%s, %s)",
-                data_type,
-                master_name,
+                "New scalar data (%s) was received before the start of the scan (%s)",
+                channel_name,
+                scan_db_name,
             )
             return
 
-        if data_type in ("1d", "2d"):
-            key = master_name, data["channel_name"]
-        else:
-            key = master_name, None
+        # The data have to be stored here on the callback event
+        cache = self.__get_scan_cache(scan_db_name)
+        if cache is None:
+            return
+        # FIXME: The index have to be used in case there is hole between 2 bunch
+        # of data
+        cache.data_storage.append_data(channel_name, data_bunch)
 
-        self._last_event[key] = (scan_info, data_type, data)
-        if self.__absorb_events:
-            self._end_data_process_event.clear()
-            if self._refresh_task is None:
-                self._refresh_task = gevent.spawn(self.__refresh)
+        data_event = _ScalarDataEvent(
+            scan_db_name=scan_db_name, channel_name=channel_name
+        )
+        self.__push_scan_data(data_event)
+
+    def on_ndim_data_received(
+        self,
+        scan_db_name: str,
+        channel_name: str,
+        dim: int,
+        index: int,
+        data_bunch: Union[list, numpy.ndarray],
+    ):
+        _logger.debug("on_ndim_data_received %s %s", scan_db_name, channel_name)
+        if not self.__is_alive_scan(scan_db_name):
+            _logger.error(
+                "New ndim data (%s) was received before the start of the scan (%s)",
+                channel_name,
+                scan_db_name,
+            )
+            return
+
+        data_event = _NdimDataEvent(
+            scan_db_name=scan_db_name,
+            channel_name=channel_name,
+            index=index,
+            data_bunch=data_bunch,
+        )
+        self.__push_scan_data(data_event)
+
+    def on_lima_ref_received(
+        self, scan_db_name: str, channel_name: str, dim: int, source_node, event_data
+    ):
+        _logger.debug("on_lima_ref_received %s %s", scan_db_name, channel_name)
+        if not self.__is_alive_scan(scan_db_name):
+            _logger.error(
+                "New lima ref (%s) was received before the start of the scan (%s)",
+                channel_name,
+                scan_db_name,
+            )
+            return
+
+        data_event = _LimaRefDataEvent(
+            scan_db_name=scan_db_name,
+            channel_name=channel_name,
+            dim=dim,
+            source_node=source_node,
+            event_data=event_data,
+        )
+        self.__push_scan_data(data_event)
+
+    def __push_scan_data(self, data_event):
+        if isinstance(data_event, _ScalarDataEvent):
+            self._last_scalar_events[data_event.channel_name] = data_event
         else:
-            self.__refresh()
+            self._last_events[data_event.channel_name] = data_event
+
+        self._end_data_process_event.clear()
+        if self._refresh_task is None:
+            self._refresh_task = gevent.spawn(self.__refresh)
 
     def __refresh(self):
         try:
-            while self._last_event:
-                local_event = self._last_event
-                self._last_event = dict()
-                for (
-                    (master_name, _),
-                    (scan_info, data_type, data),
-                ) in local_event.items():
-                    try:
-                        self.__new_scan_data(scan_info, data_type, master_name, data)
-                    except Exception:
-                        _logger.error("Error while reaching data", exc_info=True)
+            while self._last_events or self._last_scalar_events:
+                if self._last_scalar_events:
+                    bunch_scalar_events = self._last_scalar_events
+                    self._last_scalar_events = {}
+                    self.__process_bunch_of_scalar_data_event(bunch_scalar_events)
+                if self._last_events:
+                    local_events = self._last_events
+                    self._last_events = {}
+                    for data_event in local_events.values():
+                        try:
+                            self.__process_data_event(data_event)
+                        except Exception:
+                            _logger.error("Error while reaching data", exc_info=True)
         finally:
             self._refresh_task = None
             self._end_data_process_event.set()
@@ -327,16 +388,15 @@ class ScanManager:
             # Not yet data, then update is needed
             return True
 
-        if USE_PREFERED_REFRESH_RATE:
-            rate = stored_channel.preferedRefreshRate()
-            if rate is not None:
-                now = time.time()
-                # FIXME: This could be computed dinamically
-                time_to_receive_data = 0.01
-                next_image_time = (
-                    stored_data.receivedTime() + (rate / 1000.0) - time_to_receive_data
-                )
-                return now > next_image_time
+        rate = stored_channel.preferedRefreshRate()
+        if rate is not None:
+            now = time.time()
+            # FIXME: This could be computed dinamically
+            time_to_receive_data = 0.01
+            next_image_time = (
+                stored_data.receivedTime() + (rate / 1000.0) - time_to_receive_data
+            )
+            return now > next_image_time
 
         stored_frame_id = stored_data.frameId()
         if stored_frame_id is None:
@@ -403,25 +463,23 @@ class ScanManager:
 
         return frame
 
-    def __new_scan_data(self, scan_info, data_type, master_name, data):
-        scan_id = self.__get_scan_id(scan_info)
-        cache = self.__get_scan_cache(scan_id)
+    def __process_data_event(self, data_event):
+        scan_db_name = data_event.scan_db_name
+        cache = self.__get_scan_cache(scan_db_name)
         if cache is None:
             return
 
-        if data_type == "0d":
-            channels_data = data["data"]
-            for channel_name, channel_data in channels_data.items():
-                self.__update_channel_data(cache, channel_name, channel_data)
-        elif data_type == "1d":
-            raw_data = data["channel_data_node"].get(-1)
-            channel_name = data["channel_name"]
+        channel_name = data_event.channel_name
+        if isinstance(data_event, _ScalarDataEvent):
+            # This object should go to another place
+            assert False
+        elif isinstance(data_event, _NdimDataEvent):
+            raw_data = data_event.data_bunch[-1]
             self.__update_channel_data(cache, channel_name, raw_data)
-        elif data_type == "2d":
-            channel_data_node = data["channel_data_node"]
+        elif isinstance(data_event, _LimaRefDataEvent):
+            channel_data_node = data_event.source_node
             channel_data_node.from_stream = True
             image_view = channel_data_node.get(-1)
-            channel_name = data["channel_name"]
             cache.store_last_image_view(channel_name, image_view)
             must_update = self.__is_image_must_be_read(
                 cache.scan, channel_name, image_view
@@ -442,21 +500,30 @@ class ScanManager:
         else:
             assert False
 
-    def __update_channel_data(
-        self, cache: _ScanCache, channel_name, raw_data, frame_id=None, source=None
-    ):
+    def __process_bunch_of_scalar_data_event(self, bunch_scalar_events):
+        """Process scalar events and split then into groups in order to update
+        the GUI in synchonized way"""
+
         now = time.time()
-        scan = cache.scan
+        groups = {}
 
-        if cache.is_ignored(channel_name):
-            return
-
-        if cache.data_storage.has_channel(channel_name):
+        # Groups synchronized events together
+        for channel_name, data_event in bunch_scalar_events.items():
+            scan_db_name = data_event.scan_db_name
+            cache = self.__get_scan_cache(scan_db_name)
             group_name = cache.data_storage.get_group(channel_name)
-            oldSize = cache.data_storage.get_available_data_size(group_name)
-            cache.data_storage.set_data(channel_name, raw_data)
-            newSize = cache.data_storage.get_available_data_size(group_name)
-            if newSize > oldSize:
+            key = scan_db_name, group_name
+            if key not in groups:
+                groups[key] = [channel_name]
+            else:
+                groups[key].append(channel_name)
+
+        # Check for update on each groups of data
+        for (scan_db_name, group_name), channel_names in groups.items():
+            cache = self.__get_scan_cache(scan_db_name)
+            scan = cache.scan
+            updated_group_size = cache.data_storage.update_group_size(group_name)
+            if updated_group_size is not None:
                 channel_names = cache.data_storage.get_channels_by_group(group_name)
                 channels = []
                 for channel_name in channel_names:
@@ -465,7 +532,7 @@ class ScanManager:
 
                     array = cache.data_storage.get_data(channel_name)
                     # Create a view
-                    array = array[0:newSize]
+                    array = array[0:updated_group_size]
                     # NOTE: No parent for the data, Python managing the life cycle of it (not Qt)
                     data = scan_model.Data(None, array, receivedTime=now)
                     channel.setData(data)
@@ -479,6 +546,19 @@ class ScanManager:
                 else:
                     # FIXME: Should be fired by the Scan object (but here we have more informations)
                     scan._fireScanDataUpdated(channels=channels)
+
+    def __update_channel_data(
+        self, cache: _ScanCache, channel_name, raw_data, frame_id=None, source=None
+    ):
+        now = time.time()
+        scan = cache.scan
+
+        if cache.is_ignored(channel_name):
+            return
+
+        if cache.data_storage.has_channel(channel_name):
+            # This object should go to another place
+            assert False
         else:
             # Everything which do not except synchronization (images and MCAs)
             channel = scan.getChannelByName(channel_name)
@@ -497,13 +577,13 @@ class ScanManager:
     def get_alive_scans(self) -> List[scan_model.Scan]:
         return [v.scan for v in self.__cache.values()]
 
-    def end_scan(self, scan_info: Dict):
-        scan_id = self.__get_scan_id(scan_info)
-        if not self.__is_alive_scan(scan_info):
-            _logger.debug("end_scan from %s ignored", scan_id)
+    def on_scan_finished(self, scan_db_name: str, scan_info: Dict):
+        _logger.debug("on_scan_finished %s", scan_db_name)
+        if not self.__is_alive_scan(scan_db_name):
+            _logger.debug("end_scan from %s ignored", scan_db_name)
             return
 
-        cache = self.__get_scan_cache(scan_id)
+        cache = self.__get_scan_cache(scan_db_name)
         if cache is None:
             return
         try:
@@ -566,19 +646,18 @@ class ScanManager:
                             channel_name,
                         )
 
-        if USE_PREFERED_REFRESH_RATE:
-            # Make sure the last image is diplayed
-            # FIXME: We should not need to update everything
-            for channel_name, image_view in cache.image_views():
-                frame = self.__get_image(cache, image_view, channel_name)
-                if frame is not None:
-                    self.__update_channel_data(
-                        cache,
-                        channel_name,
-                        raw_data=frame.data,
-                        frame_id=frame.frame_number,
-                        source=frame.source,
-                    )
+        # Make sure the last image is displayed
+        for channel_name, image_view in cache.image_views():
+            frame = self.__get_image(cache, image_view, channel_name)
+            # FIXME: We should only update what it was updated
+            if frame is not None:
+                self.__update_channel_data(
+                    cache,
+                    channel_name,
+                    raw_data=frame.data,
+                    frame_id=frame.frame_number,
+                    source=frame.source,
+                )
 
         if len(updated_masters) > 0:
             # FIXME: Should be fired by the Scan object (but here we have more informations)
@@ -594,5 +673,21 @@ class ScanManager:
                         channels.append(channel)
                     scan._fireScanDataUpdated(channels=channels)
 
+    def wait_ready(self, timeout=None):
+        """Wait until the scan manager is ready to follow the scan events from
+        the session.
+
+        If there is not yet a session, this does nothing.
+        """
+        if self.__watcher is not None:
+            self.__watcher.wait_ready(timeout=timeout)
+
     def wait_end_of_scans(self):
         self._end_scan_event.wait()
+
+    def wait_data_processed(self):
+        """Wait gevent processing of the already received data
+
+        This should only be used by use tests.
+        """
+        self._end_data_process_event.wait()

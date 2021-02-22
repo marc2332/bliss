@@ -354,8 +354,12 @@ def uriContext(uri, **kwargs):
     filename, path = splitUri(uri)
     try:
         with File(filename, **kwargs) as f:
-            yield f[path]
-    except (OSError, KeyError):
+            try:
+                item = f[path]
+            except KeyError:
+                item = None
+            yield item
+    except OSError:
         yield None
 
 

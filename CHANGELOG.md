@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Flint
     - Added `restart_flint` helper from `bliss.common.plot` to handle stucked Flint
+    - An histogram tool is provided when displaying image in custom plots
 
 ### Changed
 

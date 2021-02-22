@@ -97,11 +97,18 @@ class BasePlot(object):
             data_dict.clear()
             widget.clear()
 
+        def show_intensity_histogram(self, show: bool):
+            widget = self.widget()
+            widget.getIntensityHistogramAction().setVisible(show)
+
     def _register(self, flint, plot_id, register):
         """Register everything needed remotly"""
         self.__remote = self._remotifyClass(self.RemotePlot, register=register)
         if register:
             self._init_plot()
+
+    def _remote_plot(self):
+        return self.__remote
 
     def _init_plot(self):
         """Inherits it to custom the plot initialization"""
@@ -520,6 +527,7 @@ class Plot2D(BasePlot):
     def _init_plot(self):
         super(ImagePlot, self)._init_plot()
         self.submit("setKeepDataAspectRatio", True)
+        self._remote_plot().show_intensity_histogram(True)
 
     def select_mask(self, initial_mask: numpy.ndarray = None, directory: str = None):
         """Request a mask image from user selection.

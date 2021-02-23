@@ -7,6 +7,8 @@
 
 from bliss.common.greenlet_utils import AllowKill
 from bliss.data.node import DataNodeContainer
+from bliss.data.nodes.channel import ChannelDataNode
+from bliss.data.nodes.lima import LimaImageChannelDataNode
 from bliss.data.events import Event, EventType, EventData, EndScanEvent
 from bliss.config import settings
 
@@ -117,7 +119,9 @@ def get_data_from_nodes(pipeline, *nodes):
     scan_channel_get_data_func = dict()  # { channel_name: function }
     scan_image_get_view = dict()
     for node in nodes:
-        if node.type == "channel":
+        if isinstance(node, LimaImageChannelDataNode):
+            scan_image_get_view[node.fullname] = node.get(0, -1)
+        elif isinstance(node, ChannelDataNode):
             chan = node
             channel_name = chan.fullname
 
@@ -131,8 +135,6 @@ def get_data_from_nodes(pipeline, *nodes):
                 scan_channel_get_data_func[channel_name] = chan.get(0, -1)
             finally:
                 chan.db_connection = saved_db_connection
-        elif node.type == "lima":
-            scan_image_get_view[node.fullname] = node.get(0, -1)
 
     result = pipeline.execute()
 

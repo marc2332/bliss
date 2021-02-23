@@ -17,6 +17,7 @@ from typing import Dict
 from bliss.common.counter import Counter
 from bliss.common.axis import Axis
 from bliss.data.nodes.scan import get_data_from_nodes
+from bliss.data.nodes.channel import ChannelDataNode
 from bliss.data.node import get_or_create_node
 from bliss.common.utils import get_matching_names
 from bliss.config.streaming import DataStreamReaderStopHandler
@@ -26,7 +27,9 @@ def get_counter_names(scan):
     """
     Return a list of counter names
     """
-    return [node.name for node in scan.nodes.values() if node.type == "channel"]
+    return [
+        node.name for node in scan.nodes.values() if isinstance(node, ChannelDataNode)
+    ]
 
 
 def get_data(scan):

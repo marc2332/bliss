@@ -1128,8 +1128,12 @@ class SimpleObjSettingProp(SimpleSettingProp):
 
 
 class Struct:
-    def __init__(self, name, **keys):
-        self.__proxy = HashSetting(name, **keys)
+    def __init__(self, name, **kwargs):
+        object.__setattr__(self, "_Struct__proxy", HashSetting(name, **kwargs))
+
+    @property
+    def name(self):
+        return self._proxy.name
 
     @property
     def _proxy(self):
@@ -1149,21 +1153,20 @@ class Struct:
     def __repr__(self):
         return "<Struct with attributes: %s>" % self._proxy.keys()
 
-    def __getattribute__(self, name):
-        if name.startswith("_"):
-            return object.__getattribute__(self, name)
-        else:
-            return self._proxy.get(name)
+    def __getattr__(self, name):
+        if name.startswith("__"):
+            raise AttributeError(name)
+        return self._proxy.get(name)
 
     def __setattr__(self, name, value):
-        if name.startswith("_"):
-            return object.__setattr__(self, name, value)
+        if name in object.__dir__(self):
+            return super().__setattr__(name, value)
         else:
             self._proxy[name] = value
 
     def __delattr__(self, name):
-        if name.startswith("_"):
-            return object.__delattr__(self, name)
+        if name in object.__dir__(self):
+            return super().__delattr__(name)
         else:
             self._proxy.remove(name)
 

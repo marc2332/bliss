@@ -196,7 +196,7 @@ def main():
         "scipy",
         "mendeleev",
         "pint",
-        'silx >= 0.14.1b0; platform_machine == "x86_64"',
+        'silx >= 0.15.0a; platform_machine == "x86_64"',
         "psutil",
         "requests",
         "cffi",

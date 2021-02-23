@@ -1,38 +1,9 @@
-# Smaract motor controller
+# Smaract motor controllers
 
-### Supported features
+BLISS is supporting 2 very different models of SMARACT piezo controllers, the MCS (or MCS1) the brand new MCS2.
 
-Encoder | Shutter | Trajectories
-------- | ------- | ------------
-NO	| NO      | NO  
+Please check your controller model and refer the corresponding configuration documentation below.
 
-## Yaml sample configuration
 
-```YAML
-- class: SmarAct
-  tcp:
-     url: smaractid013
-  axes:
-  - name: a3
-    channel: 2
-    steps_per_unit: 1000
-    sensor_type: S
-    hold_time: 60
-    velocity: 2000
-    acceleration: 0
-    tolerance: 1e-1
-    user_tag: EH3.SMARACT
-  - name: b1
-    channel: 3
-    steps_per_unit: 1000
-    sensor_type: S
-    hold_time: 60
-    velocity: 2000
-    acceleration: 0
-    tolerance: 1e-1
-    user_tag: EH3.SMARACT
-
-```
-
-## Further reading at ESRF
-[bliss wiki: Smaract](http://wikiserv.esrf.fr/bliss/index.php/Smaract)
+* MCS1 (MCS) [smaract MCS1](config_smaract_mcs1.md)
+* MCS2       [smaract MCS1](config_smaract_mcs2.md)

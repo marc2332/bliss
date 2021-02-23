@@ -1801,20 +1801,20 @@ class SoftLoop(Loop):
                 else:
                     failures_in = 0
                     power_value = self.pid(input_value)
-                    self._last_output_value = output_value = self._get_power2unit(
-                        power_value
-                    )
+                    output_value = self._get_power2unit(power_value)
 
                     if not self._x_is_in_idleband(input_value):
                         try:
                             self.output.set_value(output_value)
-                            failures_out = 0
                         except Exception as e:
                             failures_out += 1
                             if failures_out > self.max_attempts_before_failure:
                                 raise TimeoutError(
                                     "too many attempts to set output value, regulation stopped"
                                 ) from e
+                        else:
+                            failures_out = 0
+                            self._last_output_value = output_value
 
             gevent.sleep(self.pid.sample_time)
 

@@ -12,5 +12,6 @@ pytest == 5.3.5
 pytest-cov
 pytest-mock
 pytest-rerunfailures
+pytest-xvfb
 scipy
 umodbus == 1.0.2.1

@@ -13,6 +13,7 @@ pytest
 pytest-cov
 pytest-mock
 pytest-rerunfailures
+pytest-xvfb
 scipy
 ser2net
 socat

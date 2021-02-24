@@ -172,7 +172,6 @@ test_writer_cov:
 # (they cannot run currently because of (at least) redis version for win64 is limited to v3.2.100)
 .test_bliss_windows:
   stage: tests
-  image: continuumio/miniconda3:latest
   tags:
     - conda
     - win
@@ -229,7 +228,6 @@ package:
 
 package_windows:
   stage: build
-  image: continuumio/miniconda3:latest
   tags:
     - conda
     - win

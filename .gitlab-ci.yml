@@ -229,12 +229,10 @@ package_windows:
     - win
   before_script:
     - call conda config --append channels conda-forge
-    - call conda config --append channels http://bcu-ci.esrf.fr/stable
     - call conda config --add channels defaults
     - call conda config --add channels esrf-bcu
     - call conda config --add channels tango-controls
     - call conda config --show channels
-    # - call conda config --remove channels http://bcu-ci.esrf.fr/stable
   script: 
     # create package env and install all requirements and conda-build
     # note: no need to install whole requirements.txt here (probably for linux either)

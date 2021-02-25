@@ -168,10 +168,11 @@ test_writer_cov:
   variables:
     PYTEST_ARGS: '-m writer --runwritertests'
 
-# Tests for windows are disabled for the moment (job begin with .)
+# Tests for windows are disabled for the moment (only do it manually)
 # (they cannot run currently because of (at least) redis version for win64 is limited to v3.2.100)
-.test_bliss_windows:
+test_bliss_windows:
   stage: tests
+  when: manual
   tags:
     - conda
     - win

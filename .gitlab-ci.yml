@@ -168,24 +168,30 @@ test_writer_cov:
   variables:
     PYTEST_ARGS: '-m writer --runwritertests'
 
-# Tests for windows are disabled for the moment (job begin with .)
+# Tests for windows are disabled for the moment (only do it manually)
 # (they cannot run currently because of (at least) redis version for win64 is limited to v3.2.100)
-.test_bliss_windows:
+test_bliss_windows:
   stage: tests
-  image: continuumio/miniconda3:latest
+  when: manual
   tags:
     - conda
     - win
+  variables:
+    CONDA_ENV: 'bliss-windows-%CI_JOB_ID%'
   before_script:
-    - call conda config --append channels conda-forge
-    - call conda config --add channels defaults
-    - call conda config --add channels esrf-bcu
-    - call conda config --add channels tango-controls
-  script:
-    - call conda create --quiet --name testenv --file requirements-conda-win64.txt --file requirements-test-conda-win64.txt
-    - call conda activate testenv
+    - call conda create -n %CONDA_ENV%
+    - call conda activate %CONDA_ENV%
+    - call conda config --env --append channels conda-forge
+    - call conda config --env --add channels defaults
+    - call conda config --env --add channels esrf-bcu
+    - call conda config --env --add channels tango-controls
+    - call conda install --quiet --file requirements-conda-win64.txt --file requirements-test-conda-win64.txt
     - call pip install . --no-deps
+  script:
     - call pytest tests -x --durations=30
+  after_script:
+    - call conda deactivate
+    - call conda env remove -n %CONDA_ENV%
 
 package:
   stage: build
@@ -223,23 +229,24 @@ package:
 
 package_windows:
   stage: build
-  image: continuumio/miniconda3:latest
   tags:
     - conda
     - win
+  variables:
+    CONDA_ENV: 'bliss-windows-%CI_JOB_ID%'
   before_script:
-    - call conda config --append channels conda-forge
-    - call conda config --append channels http://bcu-ci.esrf.fr/stable
-    - call conda config --add channels defaults
-    - call conda config --add channels esrf-bcu
-    - call conda config --add channels tango-controls
-    - call conda config --show channels
-    # - call conda config --remove channels http://bcu-ci.esrf.fr/stable
-  script: 
+    # Create a dedicated env to avoid to pollute the shared machine
+    - call conda create -n %CONDA_ENV%
+    - call conda activate %CONDA_ENV%
+    - call conda config --env --append channels conda-forge
+    - call conda config --env --add channels defaults
+    - call conda config --env --add channels esrf-bcu
+    - call conda config --env --add channels tango-controls
+    - call conda config --env --show channels
     # create package env and install all requirements and conda-build
     # note: no need to install whole requirements.txt here (probably for linux either)
-    - call conda create --yes --quiet --name buildenv python=3.7 conda-build lz4-c -c conda-forge
-    - call conda activate buildenv
+    - call conda install --yes --quiet python=3.7 conda-build lz4-c -c conda-forge
+  script:
     # triggering the creation of bliss/release.py file
     - python -c "from setup import generate_release_file;generate_release_file()"
     # creating the meta.yaml file for conda packet generation
@@ -251,6 +258,9 @@ package_windows:
     - mkdir conda-local-channel conda-local-channel\win-64
     - copy dist\win-64\*.tar.bz2 conda-local-channel\win-64\
     - call conda index conda-local-channel
+  after_script:
+    - call conda deactivate
+    - call conda env remove -n %CONDA_ENV%
   artifacts:
     paths:
       - dist/

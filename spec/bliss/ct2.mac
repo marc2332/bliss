@@ -108,9 +108,7 @@ def ct2_cmd(cnum, key, p1, p2) '{
         # nothing to do
     } else if (key == "halt_all") {
         tango_io(ctrl_dev, "stop_acq")
-		__ct2_profile key " stop_acq "
-    } else {
-        printf("CT2: %s WARNING: ignored: %s\n", FnId, key)
+	__ct2_profile key " stop_acq "
     }
 }'
 

@@ -38,19 +38,19 @@ def calc_coeff(num_points, pol_degree, diff_order=0):
     # ... you might use other interpolation points
     # and maybe other functions than monomials ....
 
-    x = numpy.arange(-num_points, num_points + 1, dtype=numpy.int)
+    x = numpy.arange(-num_points, num_points + 1, dtype=int)
 
     def monom(x, deg):
         return pow(x, deg)
 
-    A = numpy.zeros((2 * num_points + 1, pol_degree + 1), numpy.float)
+    A = numpy.zeros((2 * num_points + 1, pol_degree + 1), float)
     for i in range(2 * num_points + 1):
         for j in range(pol_degree + 1):
             A[i, j] = monom(x[i], j)
 
     # calculate diff_order-th row of inv(A^T A)
     ATA = numpy.dot(A.transpose(), A)
-    rhs = numpy.zeros((pol_degree + 1,), numpy.float)
+    rhs = numpy.zeros((pol_degree + 1,), float)
     rhs[diff_order] = 1
     wvec = numpy.linalg.solve(ATA, rhs)
 
@@ -80,8 +80,8 @@ if getSavitzkyGolay(10 * numpy.arange(10.), npoints=3, degree=1, order=1)[5] < 0
 
 
 def derivate(xdata, ydata, xlimits=None):
-    x = numpy.array(xdata, copy=False, dtype=numpy.float)
-    y = numpy.array(ydata, copy=False, dtype=numpy.float)
+    x = numpy.array(xdata, copy=False, dtype=float)
+    y = numpy.array(ydata, copy=False, dtype=float)
     if xlimits is not None:
         i1 = numpy.nonzero((xdata >= xlimits[0]) & (xdata <= xlimits[1]))[0]
         x = numpy.take(x, i1)

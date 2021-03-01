@@ -51,7 +51,7 @@ class XYOnRotation(CalcController):
         except KeyError:
             self.__inverted = 1
         else:
-            self.__inverted = -1 if inverted else -1
+            self.__inverted = -1 if inverted else 1
 
         try:
             self.__radian = self.config.get("radian", bool)

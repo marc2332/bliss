@@ -62,11 +62,7 @@ def kb_plot(curve, y_data, x_data, x_cursor_pos=None, y_label="y", x_label="x"):
     """
     helper to plot ??? to put in flint ???
     """
-    try:
-        curve.clear_data()
-    except:
-        # FLINT 1.5 BUG: clear_data can't be called twice
-        pass
+    curve.clear_data()
     data = {x_label: x_data}
     if isinstance(y_data, list):
         for i in range(len(y_data)):

@@ -152,14 +152,14 @@ def simple_time_profile(stats_dict, name, logger=None):
     try:
         call_start = time.time()
         if logger is not None:
-            logger.debug("Start " + name)
+            logger.debug("Start %s", name)
         yield
     finally:
         call_end = time.time()
         stat = stats_dict.setdefault(name, list())
         stat.append((call_start, call_end))
         if logger is not None:
-            logger.debug("End %s Took %fs" % (name, call_end - call_start))
+            logger.debug("End %s Took %fs", name, call_end - call_start)
 
 
 class SimpleTimeStatistics:

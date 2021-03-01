@@ -33,8 +33,6 @@ from bliss.common.utils import periodic_exec, deep_update
 from bliss.scanning.scan_meta import get_user_scan_meta, META_TIMING
 from bliss.common.motor_group import is_motor_group
 from bliss.common.utils import Null, update_node_info, round
-from bliss.common.profiling import SimpleTimeStatistics
-from bliss.common.profiling import simple_time_profile as time_profile
 from bliss.controllers.motor import Controller, get_real_axes
 from bliss.config.conductor.client import get_redis_proxy
 from bliss.data.node import create_node
@@ -647,21 +645,17 @@ class Scan:
         self._init_flint()
 
     def _init_scan_saving(self, scan_saving):
-        with time_profile(self._stats_dict, "scan.init.saving", logger=logger):
-            if scan_saving is None:
-                scan_saving = current_session.scan_saving
-            self.__scan_saving = scan_saving.clone()
+        if scan_saving is None:
+            scan_saving = current_session.scan_saving
+        self.__scan_saving = scan_saving.clone()
 
     def _init_scan_display(self):
-        with time_profile(self._stats_dict, "scan.init.display", logger=logger):
-            self.__scan_display = current_session.scan_display.clone()
+        self.__scan_display = current_session.scan_display.clone()
 
     def _init_acq_chain(self, chain):
         """Initialize acquisition chain"""
-        chain.reset_stats()
         self._acq_chain = chain
-        with time_profile(self._stats_dict, "scan.init.chain", logger=logger):
-            self._check_acq_chan_unique_name()
+        self._check_acq_chan_unique_name()
 
     def _check_acq_chan_unique_name(self):
         """Make channel names unique in the scope of the scan"""
@@ -692,42 +686,39 @@ class Scan:
 
     def _init_scan_info(self, scan_info=None, save=True):
         """Initialize `scan_info`"""
-        with time_profile(self._stats_dict, "scan.init.scan_info", logger=logger):
-            if scan_info is not None:
-                self._scan_info.update(scan_info)
-            scan_saving = self.__scan_saving
-            self._scan_info.setdefault("title", self.__name)
-            self._scan_info["session_name"] = scan_saving.session
-            self._scan_info["user_name"] = scan_saving.user_name
-            self._scan_info["data_writer"] = scan_saving.writer
-            self._scan_info["data_policy"] = scan_saving.data_policy
-            self._scan_info["shadow_scan_number"] = self._shadow_scan_number
-            self._scan_info["save"] = save
-            self._scan_info["publisher"] = "Bliss"
-            self._scan_info["publisher_version"] = publisher_version
-            self._scan_info.set_acquisition_chain_info(self._acq_chain)
+        if scan_info is not None:
+            self._scan_info.update(scan_info)
+        scan_saving = self.__scan_saving
+        self._scan_info.setdefault("title", self.__name)
+        self._scan_info["session_name"] = scan_saving.session
+        self._scan_info["user_name"] = scan_saving.user_name
+        self._scan_info["data_writer"] = scan_saving.writer
+        self._scan_info["data_policy"] = scan_saving.data_policy
+        self._scan_info["shadow_scan_number"] = self._shadow_scan_number
+        self._scan_info["save"] = save
+        self._scan_info["publisher"] = "Bliss"
+        self._scan_info["publisher_version"] = publisher_version
+        self._scan_info.set_acquisition_chain_info(self._acq_chain)
 
     def _init_writer(self, save=True, save_images=None):
         """Initialize the data writer if needed"""
-        with time_profile(self._stats_dict, "scan.init.writer", logger=logger):
-            scan_config = self.__scan_saving.get()
-            if save:
-                self.__writer = scan_config["writer"]
-            else:
-                self.__writer = NullWriter(
-                    scan_config["root_path"],
-                    scan_config["images_path"],
-                    os.path.basename(scan_config["data_path"]),
-                )
-            self.__writer._save_images = save if save_images is None else save_images
+        scan_config = self.__scan_saving.get()
+        if save:
+            self.__writer = scan_config["writer"]
+        else:
+            self.__writer = NullWriter(
+                scan_config["root_path"],
+                scan_config["images_path"],
+                os.path.basename(scan_config["data_path"]),
+            )
+        self.__writer._save_images = save if save_images is None else save_images
 
     def _init_flint(self):
         """Initialize flint if needed"""
-        with time_profile(self._stats_dict, "scan.init.flint", logger=logger):
-            if is_bliss_shell():
-                if self.__scan_display.auto:
-                    if self.is_flint_recommended():
-                        get_flint(mandatory=False)
+        if is_bliss_shell():
+            if self.__scan_display.auto:
+                if self.is_flint_recommended():
+                    get_flint(mandatory=False)
 
     def is_flint_recommended(self):
         """Return true if flint is recommended for this scan"""
@@ -916,10 +907,6 @@ class Scan:
             return self.__scan_saving.scan_number_format % self.__scan_number
         else:
             return "{scan_number}"
-
-    @property
-    def statistics(self):
-        return SimpleTimeStatistics(self._stats_dict)
 
     def get_plot(
         self, channel_item, plot_type, as_axes=False, wait=False, silent=False
@@ -1182,26 +1169,25 @@ class Scan:
             self._watchdog_task.trigger_data_event(sender, signal)
 
     def _channel_event(self, event_dict, signal=None, sender=None):
-        with time_profile(self._stats_dict, "scan.events.channel", logger=logger):
-            if self._USE_PIPELINE_MGR:
-                with KillMask():
-                    with self._rotating_pipeline_mgr.async_proxy() as async_proxy:
-                        self.nodes[sender].store(event_dict, cnx=async_proxy)
-                        async_proxy.add_execute_callback(
-                            self.__trigger_data_watch_callback, signal, sender
-                        )
-                        self.__trigger_watchdog_data_event(signal, sender)
-            else:
-                with KillMask():
-                    with self._stream_pipeline_lock:
-                        self.nodes[sender].store(
-                            event_dict, cnx=self._current_pipeline_stream
-                        )
-                        pending = self._pending_watch_callback.setdefault(
-                            self._current_pipeline_stream, list()
-                        )
-                        pending.append((signal, sender))
-                self._swap_pipeline()
+        if self._USE_PIPELINE_MGR:
+            with KillMask():
+                with self._rotating_pipeline_mgr.async_proxy() as async_proxy:
+                    self.nodes[sender].store(event_dict, cnx=async_proxy)
+                    async_proxy.add_execute_callback(
+                        self.__trigger_data_watch_callback, signal, sender
+                    )
+                    self.__trigger_watchdog_data_event(signal, sender)
+        else:
+            with KillMask():
+                with self._stream_pipeline_lock:
+                    self.nodes[sender].store(
+                        event_dict, cnx=self._current_pipeline_stream
+                    )
+                    pending = self._pending_watch_callback.setdefault(
+                        self._current_pipeline_stream, list()
+                    )
+                    pending.append((signal, sender))
+            self._swap_pipeline()
 
     def _pipeline_execute(self, pipeline, trigger_func):
         while True:
@@ -1236,41 +1222,36 @@ class Scan:
             return self._stream_pipeline_task
 
     def set_ttl(self):
-        with time_profile(self._stats_dict, "scan.finalize.set_ttl", logger=logger):
-            # node.get_db_names takes the most time
-            db_names = set()
-            nodes = list(self.nodes.values())
-            for node in nodes:
-                db_names |= set(node.get_db_names(include_parents=False))
-            db_names |= set(self.node.get_db_names())
-            self.node.apply_ttl(db_names)
-            for node in nodes:
-                node.detach_ttl_setter()
-            self.node.detach_ttl_setter()
+        # node.get_db_names takes the most time
+        db_names = set()
+        nodes = list(self.nodes.values())
+        for node in nodes:
+            db_names |= set(node.get_db_names(include_parents=False))
+        db_names |= set(self.node.get_db_names())
+        self.node.apply_ttl(db_names)
+        for node in nodes:
+            node.detach_ttl_setter()
+        self.node.detach_ttl_setter()
 
     def _device_event(self, event_dict=None, signal=None, sender=None):
-        with time_profile(self._stats_dict, "scan.events.device", logger=logger):
-            if signal == "end":
-                if self._USE_PIPELINE_MGR:
-                    self._rotating_pipeline_mgr.flush(raise_error=False)
-                    self.__trigger_data_watch_callback(signal, sender, sync=True)
-                    self.__trigger_watchdog_data_event(signal, sender)
-                else:
-                    task = self._swap_pipeline()
-                    if task is not None:
-                        task.join()
-                    self.__trigger_watchers_data_event(signal, sender, sync=True)
+        if signal == "end":
+            if self._USE_PIPELINE_MGR:
+                self._rotating_pipeline_mgr.flush(raise_error=False)
+                self.__trigger_data_watch_callback(signal, sender, sync=True)
+                self.__trigger_watchdog_data_event(signal, sender)
+            else:
+                task = self._swap_pipeline()
+                if task is not None:
+                    task.join()
+                self.__trigger_watchers_data_event(signal, sender, sync=True)
 
     def prepare(self, scan_info, devices_tree):
-        with time_profile(self._stats_dict, "scan.prepare.devices", logger=logger):
-            self._prepare_devices(devices_tree)
-        with time_profile(self._stats_dict, "scan.prepare.writer", logger=logger):
-            self.writer.prepare(self)
+        self._prepare_devices(devices_tree)
+        self.writer.prepare(self)
 
-        with time_profile(self._stats_dict, "scan.prepare.motion_hooks", logger=logger):
-            self._axes_in_scan = self._get_data_axes(include_calc_reals=True)
-            with execute_pre_scan_hooks(self._axes_in_scan):
-                pass
+        self._axes_in_scan = self._get_data_axes(include_calc_reals=True)
+        with execute_pre_scan_hooks(self._axes_in_scan):
+            pass
 
     def _prepare_devices(self, devices_tree):
         nodes = dict()
@@ -1351,17 +1332,13 @@ class Scan:
 
     def _update_scan_info_with_user_scan_meta(self, meta_timing):
         # be aware: this is patched in ct!
-        with time_profile(
-            self._stats_dict, "scan.prepare.user_scan_meta", logger=logger
-        ):
-            with KillMask(masked_kill_nb=1):
-                deep_update(
-                    self._scan_info,
-                    self.user_scan_meta.to_dict(self, timing=meta_timing),
-                )
-            original = set(self._scan_info.get("scan_meta_categories", []))
-            extra = set(self.user_scan_meta.used_categories_names())
-            self._scan_info["scan_meta_categories"] = list(original | extra)
+        with KillMask(masked_kill_nb=1):
+            deep_update(
+                self._scan_info, self.user_scan_meta.to_dict(self, timing=meta_timing)
+            )
+        original = set(self._scan_info.get("scan_meta_categories", []))
+        extra = set(self.user_scan_meta.used_categories_names())
+        self._scan_info["scan_meta_categories"] = list(original | extra)
 
     def _prepare_scan_meta(self):
         self._scan_info["filename"] = self.writer.filename
@@ -1403,19 +1380,18 @@ class Scan:
     def _fill_meta(self, method_name):
         """Fill metadata from devices using specified method
 
-        Method name can be either 'fill_meta_as_scan_start' or 'fill_meta_at_scan_end'
-        """
-        with time_profile(self._stats_dict, "scan.fill_metadata", logger=logger):
-            for dev in self.acq_chain.nodes_list:
-                node = self.nodes.get(dev)
-                if node is None:
-                    # prepare has not finished ?
-                    continue
-                with KillMask(masked_kill_nb=1):
-                    meth = getattr(dev, method_name)
-                    tmp = meth(self.user_scan_meta)
-                if tmp:
-                    update_node_info(node, tmp)
+            Method name can be either 'fill_meta_as_scan_start' or 'fill_meta_at_scan_end'
+            """
+        for dev in self.acq_chain.nodes_list:
+            node = self.nodes.get(dev)
+            if node is None:
+                # prepare has not finished ?
+                continue
+            with KillMask(masked_kill_nb=1):
+                meth = getattr(dev, method_name)
+                tmp = meth(self.user_scan_meta)
+            if tmp:
+                update_node_info(node, tmp)
 
     def run(self):
         """Run the scan
@@ -1446,54 +1422,41 @@ class Scan:
         )
 
         with capture_exceptions(raise_index=0) as capture:
-            with time_profile(self._stats_dict, "scan.prepare.node", logger=logger):
-                # check that icat metadata has been colleted for the dataset
-                self.__scan_saving.on_scan_run(not self._shadow_scan_number)
-                self._prepare_node()  # create scan node in redis
+            # check that icat metadata has been colleted for the dataset
+            self.__scan_saving.on_scan_run(not self._shadow_scan_number)
+            self._prepare_node()  # create scan node in redis
 
             # start data watch task, if needed
             if self._data_watch_callback is not None:
-                with time_profile(
-                    self._stats_dict, "scan.run.start_data_watcher", logger=logger
-                ):
-                    with capture():
-                        self._data_watch_callback.on_scan_new(self, self.scan_info)
-                    if capture.failed:
-                        # if the data watch callback for "new" scan failed,
-                        # better to not continue: let's put the final state
-                        # and end the scan node
-                        with time_profile(
-                            self._stats_dict, "scan.finalize.node", logger=logger
-                        ):
-                            self._end_node()
+                with capture():
+                    self._data_watch_callback.on_scan_new(self, self.scan_info)
+                if capture.failed:
+                    # if the data watch callback for "new" scan failed,
+                    # better to not continue: let's put the final state
+                    # and end the scan node
+                    self._end_node()
 
-                        self._set_state(ScanState.KILLED)
+                    self._set_state(ScanState.KILLED)
 
-                        with time_profile(
-                            self._stats_dict, "scan.finalize.caching", logger=logger
-                        ):
-                            self._disable_caching()
-                        return
-                    self._data_watch_running = False
-                    self._data_watch_task = gevent.spawn(
-                        Scan._data_watch,
-                        weakref.proxy(
-                            self, lambda _: self._data_watch_callback_event.set()
-                        ),
-                        self._data_watch_callback_event,
-                        self._data_watch_callback_done,
-                    )
+                    self._disable_caching()
+                    return
+                self._data_watch_running = False
+                self._data_watch_task = gevent.spawn(
+                    Scan._data_watch,
+                    weakref.proxy(
+                        self, lambda _: self._data_watch_callback_event.set()
+                    ),
+                    self._data_watch_callback_event,
+                    self._data_watch_callback_done,
+                )
 
             killed = killed_by_user = False
 
             with capture():
                 # start the watchdog task, if any
                 if self._watchdog_task is not None:
-                    with time_profile(
-                        self._stats_dict, "scan.run.start_watchdog", logger=logger
-                    ):
-                        self._watchdog_task.start()
-                        self._watchdog_task.on_scan_new(self, self.scan_info)
+                    self._watchdog_task.start()
+                    self._watchdog_task.on_scan_new(self, self.scan_info)
 
                 # get scan iterators
                 # be careful: this has to be done after "scan_new" callback,
@@ -1582,10 +1545,9 @@ class Scan:
             # Disconnect events
             self.disconnect_all()
 
-            with time_profile(self._stats_dict, "scan.finalize.node", logger=logger):
-                # counterpart of "_create_node"
-                with capture():
-                    self._end_node()
+            # counterpart of "_create_node"
+            with capture():
+                self._end_node()
 
             with capture():
                 # Close nodes
@@ -1646,17 +1608,13 @@ class Scan:
 
             if self.writer:
                 # write scan_info to file
-                with time_profile(
-                    self._stats_dict, "scan.finalize.writer", logger=logger
-                ):
-                    with capture():
-                        self.writer.finalize_scan_entry(self)
-                    with capture():
-                        self.writer.close()
+                with capture():
+                    self.writer.finalize_scan_entry(self)
+                with capture():
+                    self.writer.close()
 
             # disable connection caching
-            with time_profile(self._stats_dict, "scan.finalize.caching", logger=logger):
-                self._disable_caching()
+            self._disable_caching()
 
     def add_comment(self, comment):
         """
@@ -1738,19 +1696,12 @@ class Scan:
             return next_scan_number
 
     def _execute_preset(self, method_name):
-        with time_profile(
-            self._stats_dict, "scan.preset." + method_name, logger=logger
-        ):
-            preset_tasks = [
-                gevent.spawn(getattr(preset, method_name), self)
-                for preset in self._preset_list
-            ]
-            try:
-                gevent.joinall(preset_tasks, raise_error=True)
-            except BaseException:
-                gevent.killall(preset_tasks)
-                raise
-
-    @property
-    def _stats_dict(self):
-        return self._acq_chain._stats_dict
+        preset_tasks = [
+            gevent.spawn(getattr(preset, method_name), self)
+            for preset in self._preset_list
+        ]
+        try:
+            gevent.joinall(preset_tasks, raise_error=True)
+        except BaseException:
+            gevent.killall(preset_tasks)
+            raise

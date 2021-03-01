@@ -23,7 +23,6 @@ from bliss.common.greenlet_utils import KillMask
 from bliss.scanning.channel import AcquisitionChannelList, AcquisitionChannel
 from bliss.scanning.channel import duplicate_channel, attach_channels
 from bliss.common.validator import BlissValidator
-from bliss.common.profiling import simple_time_profile
 
 
 TRIGGER_MODE_ENUM = enum.IntEnum("TriggerMode", "HARDWARE SOFTWARE")
@@ -43,26 +42,6 @@ class StopTask(gevent.GreenletExit):
 # Normal chain stop
 class StopChain(StopTask):
     pass
-
-
-@contextmanager
-def profile(stats_dict, device_name, func_name):
-    name = f"{device_name}.{func_name}"
-    try:
-        if stats_dict is None:
-            _logger.error(f"No time profiling of {name}")
-            yield
-        else:
-            with simple_time_profile(stats_dict, name, logger=_logger):
-                yield
-    except StopTask:
-        raise
-    except BaseException as e:
-        msg = str(e)
-        if not msg:
-            msg = type(e).__name__
-        _logger.error(f"Exception caught in {name} ({msg})")
-        raise
 
 
 def join_tasks(greenlets, **kw):
@@ -260,7 +239,6 @@ class AcquisitionObject:
         prepare_once=False,
         start_once=False,
         ctrl_params=None,
-        stats_dict=None,
     ):
         self.__name = name
         self.__parent = None
@@ -277,8 +255,6 @@ class AcquisitionObject:
             self._ctrl_params = self.init_ctrl_params(self.device, ctrl_params)
         else:
             self._ctrl_params = ctrl_params
-
-        self._stats_dict = stats_dict
 
     def init_ctrl_params(self, device, ctrl_params):
         """ensure that ctrl-params have been completed"""
@@ -442,26 +418,24 @@ class AcquisitionObject:
         """Wait until reading task has finished
         """
         if self.has_reading_task():
-            with profile(self._stats_dict, self.name, "wait_reading"):
-                self.wait_reading()
+            self.wait_reading()
 
     def acq_wait_ready(self):
         """Wait until ready for next acquisition
-        """
-        with profile(self._stats_dict, self.name, "wait_ready"):
-            tasks = []
-            # The acquistion object is also considered to be
-            # ready when the reading task (if any) is not running.
-            if self.has_reading_task():
-                # No time profiling of wait_reading here!
-                tasks.append(gevent.spawn(self.wait_reading))
-            tasks.append(gevent.spawn(self.wait_ready))
-            join_tasks(tasks, count=1)
-            wait_ready_task = tasks.pop(-1)
-            try:
-                return wait_ready_task.get()
-            finally:
-                gevent.killall(tasks, exception=StopTask)
+            """
+        tasks = []
+        # The acquistion object is also considered to be
+        # ready when the reading task (if any) is not running.
+        if self.has_reading_task():
+            # No time profiling of wait_reading here!
+            tasks.append(gevent.spawn(self.wait_reading))
+        tasks.append(gevent.spawn(self.wait_ready))
+        join_tasks(tasks, count=1)
+        wait_ready_task = tasks.pop(-1)
+        try:
+            return wait_ready_task.get()
+        finally:
+            gevent.killall(tasks, exception=StopTask)
 
     # --------------------------- OVERLOAD ACQ. CHAIN METHODS ---------------------------------------------
 
@@ -585,64 +559,58 @@ class AcquisitionMaster(AcquisitionObject):
         self.__terminator = bool(terminator)
 
     def acq_prepare(self):
-        with profile(self._stats_dict, self.name, "prepare"):
-            if not self.__prepared:
+        if not self.__prepared:
 
-                for connect, _ in self.__duplicated_channels.values():
-                    connect()
-                self.__prepared = True
+            for connect, _ in self.__duplicated_channels.values():
+                connect()
+            self.__prepared = True
 
-            return self.prepare()
+        return self.prepare()
 
     def acq_start(self):
-        with profile(self._stats_dict, self.name, "start"):
-            dispatcher.send("start", self)
-            return_value = self.start()
-            return return_value
+        dispatcher.send("start", self)
+        return_value = self.start()
+        return return_value
 
     def acq_stop(self):
-        with profile(self._stats_dict, self.name, "stop"):
-            if self.__prepared:
-                for _, cleanup in self.__duplicated_channels.values():
-                    cleanup()
-                self.__prepared = False
-            return self.stop()
+        if self.__prepared:
+            for _, cleanup in self.__duplicated_channels.values():
+                cleanup()
+            self.__prepared = False
+        return self.stop()
 
     def acq_trigger(self):
-        with profile(self._stats_dict, self.name, "trigger"):
-            return self.trigger()
+        return self.trigger()
 
     def trigger_slaves(self):
-        with profile(self._stats_dict, self.name, "trigger_slaves"):
-            invalid_slaves = list()
-            for slave, task in self.__triggers:
-                if not slave.trigger_ready() or not task.successful():
-                    invalid_slaves.append(slave)
-                    if task.ready():
-                        task.get()  # raise task exception, if any
-                    # otherwise, kill the task with RuntimeError
-                    task.kill(
-                        RuntimeError(
-                            "%s: Previous trigger is not done, aborting" % self.name
-                        )
+        invalid_slaves = list()
+        for slave, task in self.__triggers:
+            if not slave.trigger_ready() or not task.successful():
+                invalid_slaves.append(slave)
+                if task.ready():
+                    task.get()  # raise task exception, if any
+                # otherwise, kill the task with RuntimeError
+                task.kill(
+                    RuntimeError(
+                        "%s: Previous trigger is not done, aborting" % self.name
                     )
-
-            self.__triggers = []
-
-            if invalid_slaves:
-                raise RuntimeError(
-                    "%s: Aborted due to bad triggering on slaves: %s"
-                    % (self.name, invalid_slaves)
                 )
-            else:
-                for slave in self.slaves:
-                    if slave.trigger_type == TRIGGER_MODE_ENUM.SOFTWARE:
-                        self.__triggers.append((slave, gevent.spawn(slave.acq_trigger)))
+
+        self.__triggers = []
+
+        if invalid_slaves:
+            raise RuntimeError(
+                "%s: Aborted due to bad triggering on slaves: %s"
+                % (self.name, invalid_slaves)
+            )
+        else:
+            for slave in self.slaves:
+                if slave.trigger_type == TRIGGER_MODE_ENUM.SOFTWARE:
+                    self.__triggers.append((slave, gevent.spawn(slave.acq_trigger)))
 
     def wait_slaves(self):
-        with profile(self._stats_dict, self.name, "wait_slaves"):
-            slave_tasks = [task for _, task in self.__triggers]
-            join_tasks(slave_tasks)
+        slave_tasks = [task for _, task in self.__triggers]
+        join_tasks(slave_tasks)
 
     def add_external_channel(
         self, device, name, rename=None, conversion=None, dtype=None
@@ -784,28 +752,24 @@ class AcquisitionSlave(AcquisitionObject):
         self._reading_task = None
 
     def acq_prepare(self):
-        with profile(self._stats_dict, self.name, "prepare"):
-            if self._reading_task:
-                raise RuntimeError("%s: Last reading task is not finished." % self.name)
-            return self.prepare()
+        if self._reading_task:
+            raise RuntimeError("%s: Last reading task is not finished." % self.name)
+        return self.prepare()
 
     def acq_start(self):
-        with profile(self._stats_dict, self.name, "start"):
-            dispatcher.send("start", self)
-            self.start()
-            if not self._reading_task:
-                self._reading_task = gevent.spawn(self.reading)
+        dispatcher.send("start", self)
+        self.start()
+        if not self._reading_task:
+            self._reading_task = gevent.spawn(self.reading)
 
     def acq_stop(self):
-        with profile(self._stats_dict, self.name, "stop"):
-            self.stop()
+        self.stop()
 
     def acq_trigger(self):
-        with profile(self._stats_dict, self.name, "trigger"):
-            if not self._reading_task:
-                dispatcher.send("start", self)
-                self._reading_task = gevent.spawn(self.reading)
-            self.trigger()
+        if not self._reading_task:
+            dispatcher.send("start", self)
+            self._reading_task = gevent.spawn(self.reading)
+        self.trigger()
 
     def wait_reading(self):
         if self._reading_task is not None:
@@ -1000,14 +964,12 @@ class AcquisitionChainIter:
     def _execute(self, func_name, master_to_slave=False, wait_between_levels=True):
         tasks = list()
         prev_level = None
-        stats_dict = self.__acquisition_chain_ref()._stats_dict
         if master_to_slave:
             acq_obj_iters = list(self._tree.expand_tree(mode=Tree.WIDTH))[1:]
         else:
             acq_obj_iters = reversed(list(self._tree.expand_tree(mode=Tree.WIDTH))[1:])
 
         for acq_obj_iter in acq_obj_iters:
-            acq_obj_iter.acquisition_object._stats_dict = stats_dict
             node = self._tree.get_node(acq_obj_iter)
             level = self._tree.depth(node)
             if wait_between_levels and prev_level != level:
@@ -1030,12 +992,6 @@ class AcquisitionChain:
         self._root_node = self._tree.create_node("acquisition chain", "root")
         self._presets_master_list = weakref.WeakKeyDictionary()
         self._parallel_prepare = parallel_prepare
-        self._stats_dict = dict()
-
-    def reset_stats(self):
-        """Reset time statistics
-        """
-        self._stats_dict.clear()
 
     @property
     def top_masters(self):

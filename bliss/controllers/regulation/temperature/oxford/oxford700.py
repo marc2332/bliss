@@ -5,7 +5,10 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import time
 import enum
+import gevent
+
 from bliss.common.logtools import log_info
 from bliss.controllers.regulator import Controller
 from .oxfordcryo import OxfordCryostream
@@ -48,13 +51,27 @@ class Oxford700(Controller):
     def __init__(self, config):
         super().__init__(config)
 
-        self.hw_controller = None
+        self._hw_controller = None
         self._ramp_rate = None
         self._ramprate_min = 1
         self._ramprate_max = 360
+        self._setpoint = None
+        self._cmd_max_try = 6
+
+    @property
+    def hw_controller(self):
+        if self._hw_controller is None:
+            self._hw_controller = OxfordCryostream(self.config)
+        return self._hw_controller
+
+    def reset_com(self):
+        if self._hw_controller is not None:
+            self._hw_controller.serial.close()
+            gevent.sleep(0.1)
+            self._hw_controller = OxfordCryostream(self.config)
 
     def __info__(self):
-        return self.hw_controller.statusPacket.__info__()
+        return self.hw_controller.status()
 
     # ------ init methods ------------------------
 
@@ -63,7 +80,7 @@ class Oxford700(Controller):
         Initializes the controller (including hardware).
         """
 
-        self.hw_controller = OxfordCryostream(self.config)
+        self.hw_controller
 
     def initialize_input(self, tinput):
         """
@@ -204,6 +221,8 @@ class Oxford700(Controller):
     def set_setpoint(self, tloop, sp, **kwargs):
         """
         Set the current setpoint (target value)
+
+        NOT USED BY OXFORD700 SEE start_ramp INSTEAD
         """
         # with oxford the setpoint is given through ramp and cool cmds only
         log_info(self, "Controller:set_setpoint: %s %s" % (tloop, sp))
@@ -214,7 +233,10 @@ class Oxford700(Controller):
         Get the current setpoint (target value)
         """
         log_info(self, "Controller:get_setpoint: %s" % (tloop))
-        return self.hw_controller.read_target_temperature()
+
+        if self._setpoint is None:
+            self._setpoint = self.hw_controller.read_target_temperature()
+        return self._setpoint
 
     def get_working_setpoint(self, tloop):
         """
@@ -232,20 +254,35 @@ class Oxford700(Controller):
 
         rate = self.get_ramprate(tloop)
 
-        if rate == 0:
-            if sp < self.get_setpoint(tloop):
-                self.hw_controller.cool(sp)
+        # retry cmds if it has been ignored by the controller
+        # (cryostream can ignore cmds sometime and does not acknowledge received cmds...)
+        for i in range(self._cmd_max_try):
+
+            # send the command
+            if rate == 0:
+                if sp < self.get_setpoint(tloop):
+                    self.hw_controller.cool(sp)
+                else:
+                    self.hw_controller.ramp(self._ramprate_max, sp)
             else:
-                self.hw_controller.ramp(self._ramprate_max, sp)
-        else:
-            self.hw_controller.ramp(rate, sp)
+                self.hw_controller.ramp(rate, sp)
+
+            # wait and check that the new setpoint has been applied
+            t0 = time.time()
+            while time.time() - t0 <= 3:
+                if self.hw_controller.read_target_temperature() == sp:
+                    self._setpoint = sp
+                    return
+                gevent.sleep(0.5)
+
+        raise RuntimeError(f"Oxford controller busy, cannot acknowledge new setpoint!")
 
     def stop_ramp(self, tloop):
         """
         Stop the current ramping
         """
         log_info(self, "Controller:stop_ramp: %s" % (tloop))
-        self.hw_controller.pause()
+        self.hw_controller.hold()
 
     def is_ramping(self, tloop):
         """
@@ -267,8 +304,9 @@ class Oxford700(Controller):
             self._ramp_rate = min(rate, self._ramprate_max)
 
         # ramp to current setpoint with the new ramprate
-        sp = self.get_setpoint(tloop)
-        self.start_ramp(tloop, sp)
+        if self.is_ramping:
+            sp = self.get_setpoint(tloop)
+            self.start_ramp(tloop, sp)
 
     def get_ramprate(self, tloop):
         """

@@ -411,10 +411,12 @@ class OxfordCryostream:
 
         self._status_packet = None
         self._update_task = gevent.spawn(self._update_status, weakref.proxy(self))
-        self._event = gevent.event.Event()
+        self._status_event = gevent.event.Event()
 
     def __exit__(self, etype, evalue, etb):
         self.serial.close()
+
+    # =========== send commands ======================================
 
     def restart(self):
         """Restart a Cryostream which has shutdown
@@ -492,6 +494,10 @@ class OxfordCryostream:
 
         temp = int(temp * 100)  # transfering to centi-Kelvin
         self.send_cmd(CSCMDSIZE.RAMP.value, CSCOMMAND.RAMP.value, int(rate), temp)
+
+    # ================ read StatusPacket commands =================================
+    def status(self):
+        return self.statusPacket.__info__()
 
     def is_ramping(self):
         return self.statusPacket.phase in ["Ramp", "Wait", "Cool"]
@@ -581,6 +587,13 @@ class OxfordCryostream:
         """
         return self.statusPacket.alarm
 
+    # ========= other commands =====================================
+
+    def wait_new_status(self):
+        with gevent.Timeout(2., "No new status received"):
+            self._status_event.clear()
+            self._status_event.wait()
+
     def send_cmd(self, size, command, *args):
         """Create a command packet and write it to the controller
            Args:
@@ -590,8 +603,9 @@ class OxfordCryostream:
            Returns:
               None
         """
-        self._event.clear()
-        self._event.wait()
+
+        self.wait_new_status()
+
         data = [bytes([size]), bytes([command])]
 
         if command == CSCOMMAND.TURBO.value:
@@ -604,6 +618,8 @@ class OxfordCryostream:
 
         data_str = b"".join(data)
         self.serial.write(data_str)
+
+    # ========= internal commands =====================================
 
     def _split_bytes(self, number):
         """ splits high and low byte (two less significant bytes)
@@ -636,7 +652,7 @@ class OxfordCryostream:
                 except Exception as error:
                     status = error
                 else:
-                    ctrl_proxy._event.set()  # command synchronization
+                    ctrl_proxy._status_event.set()  # command synchronization
                 ctrl_proxy._status_packet = status
         except ReferenceError:
             pass
@@ -648,7 +664,8 @@ class OxfordCryostream:
            Returns:
               None
         """
-        # read the data
+
+        # read the data without locking
         data = self.serial._read(32, 10)
 
         # check if data
@@ -657,6 +674,7 @@ class OxfordCryostream:
 
         if len(data) != 32:
             data = self.serial._read(32, 10)
+
         data = [nb for nb in data]
         if data[0] == 32:
             return StatusPacket(data)

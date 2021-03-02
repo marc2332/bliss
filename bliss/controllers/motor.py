@@ -9,10 +9,11 @@ import numpy
 import functools
 from gevent import lock
 
+# absolute import to avoid circular import
+import bliss.common.motor_group as motor_group
 from bliss.common.motor_config import MotorConfig
 from bliss.common.motor_settings import ControllerAxisSettings, floatOrNone
 from bliss.common.axis import Trajectory
-from bliss.common.motor_group import Group, TrajectoryGroup
 from bliss.common import event
 from bliss.controllers.counter import SamplingCounterController
 from bliss.physics import trajectory
@@ -528,7 +529,7 @@ class CalcController(Controller):
             event.connect(real_axis, "internal_position", self._real_position_update)
             event.connect(real_axis, "internal__set_position", self._real_setpos_update)
 
-        self._reals_group = Group(*self.reals)
+        self._reals_group = motor_group.Group(*self.reals)
         event.connect(self._reals_group, "move_done", self._real_move_done)
         global_map.register(self, children_list=self.reals)
 
@@ -892,7 +893,7 @@ class CalcController(Controller):
             Trajectory(axis, pvt[axis.name]) for axis in final_real_axes_position
         ]
 
-        return TrajectoryGroup(*trajectories, calc_axis=calc_axis)
+        return motor_group.TrajectoryGroup(*trajectories, calc_axis=calc_axis)
 
     def _check_trajectory(self, axis):
         if axis.controller.has_trajectory():

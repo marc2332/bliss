@@ -8,6 +8,9 @@
 import gevent
 import numpy
 import uuid
+
+# absolute import to avoid circular import
+import bliss.controllers.motor as motor
 from bliss.common.axis import (
     _prepare_one_controller_motions,
     _start_one_controller_motions,
@@ -29,11 +32,9 @@ def Group(*axes_list):
         axes[axis.name] = axis
     # ensure a pseudo axis is not present with one of its corresponding real axes
     def check_axes(*axes_to_check):
-        from bliss.controllers.motor import CalcController
-
         grp_axes = axes.values()
         for axis in axes_to_check:
-            if isinstance(axis.controller, CalcController):
+            if isinstance(axis.controller, motor.CalcController):
                 names = [
                     grp_axis.name
                     for grp_axis in grp_axes
@@ -85,8 +86,6 @@ class _Group(object):
     def _expand_axes_with_reals(self, axes_with_reals):
         """ return axes dict in argument with all reals added to it
         """
-        from bliss.controllers.motor import CalcController
-
         seen_mot_list = list()
         more_calc = True
 
@@ -95,12 +94,12 @@ class _Group(object):
             mot_list = list(axes_with_reals.values())
             for mot in mot_list:
                 if (
-                    isinstance(mot.controller, CalcController)
+                    isinstance(mot.controller, motor.CalcController)
                     and mot not in seen_mot_list
                 ):
                     for real in mot.controller.reals:
                         axes_with_reals[real.name] = real
-                        if isinstance(real.controller, CalcController):
+                        if isinstance(real.controller, motor.CalcController):
                             more_calc = True
                 seen_mot_list.append(mot)
 

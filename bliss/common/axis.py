@@ -1221,7 +1221,7 @@ class Axis(Scannable):
             # usage of get_axis_info() to pass axis as param.
             info_string += self.__controller.get_axis_info(self)
         except Exception:
-            info_string += f"{self.controller}\n"
+            info_string += "ERROR: Unable to get axis info from controller\n"
 
         # ENCODER
         try:

@@ -8,19 +8,15 @@
 from bliss.controllers.motor import Controller
 from bliss.common.utils import object_method
 from bliss.common.axis import AxisState
-from bliss.common.logtools import *
+from bliss.common.logtools import log_debug, log_error
 from bliss import global_map
 
 from . import pi_gcs
 from bliss.comm.util import TCP
-import gevent.lock
 
-import sys
-import time
 
 """
 Bliss controller for ethernet PI E727 piezo controller.
-CG+MP ESRF BLISS  2014-2017
 """
 
 
@@ -32,7 +28,7 @@ class PI_E727(Controller):
     # Init of controller.
     def initialize(self):
         """
-        Controller intialization : opens a single socket for all 3 axes.
+        Controller intialization : open a single socket for all 3 axes.
         """
         # acceleration is not mandatory in config
         self.axis_settings.config_setting["acceleration"] = False
@@ -43,12 +39,9 @@ class PI_E727(Controller):
         self.sock = pi_gcs.get_pi_comm(self.config, TCP)
         global_map.register(self, children_list=[self.sock])
 
-        # just in case
-        self.sock.flush()
-
     def finalize(self):
         """
-        Closes the controller socket.
+        Close the controller socket.
         """
         # not called at end of device server ??? :(
         # called on a new axis creation ???
@@ -110,7 +103,7 @@ class PI_E727(Controller):
     def set_velocity(self, axis, new_velocity):
         log_debug(self, "set_velocity new_velocity = %f" % new_velocity)
         _cmd = "VEL %s %f" % (axis.channel, new_velocity)
-        self.send_no_ans(axis, _cmd)
+        self.send_no_ans(_cmd)
         self.check_error(_cmd)
 
         return self.read_velocity(axis)
@@ -140,17 +133,17 @@ class PI_E727(Controller):
 
         axis = motion.axis
         _cmd = "MOV %s %g" % (axis.channel, motion.target_pos)
-        self.send_no_ans(axis, _cmd)
+        self.send_no_ans(_cmd)
 
         self.check_error(_cmd)
 
     def stop(self, axis):
         log_debug(self, "stop requested")
-        self.send_no_ans(axis, "STP %s" % (axis.channel))
+        self.send_no_ans("STP %s" % (axis.channel))
 
     """ COMMUNICATIONS"""
 
-    def send(self, axis, cmd, timeout=None):
+    def send(self, cmd, timeout=None):
         _cmd = self._append_eoc(cmd)
         _ans = self.sock.write_readline(_cmd.encode(), timeout=timeout).decode()
         _ans = self._remove_eoc(_ans)
@@ -166,8 +159,9 @@ class PI_E727(Controller):
             _str = 'ERROR on cmd "%s": #%d(%s)' % (cmd, _err_nb, _err_str)
             # by default, an exception will be raised
             log_error(self, _str)
+            raise RuntimeError(_str)
 
-    def send_no_ans(self, axis, cmd):
+    def send_no_ans(self, cmd):
         _cmd = self._append_eoc(cmd)
         self.sock.write(_cmd.encode())
 
@@ -183,25 +177,14 @@ class PI_E727(Controller):
 
     def raw_write_read(self, cmd):
         _cmd = self._append_eoc(cmd)
-        _ans = self.sock.write_readline(_cmd.encode()).decode()
-
-        # handle multiple lines answer
-        _ans = _ans + "\n"
-        try:
-            while True:
-                _ans = _ans + self.sock.raw_read(timeout=.1).decode()
-        except:
-            pass
-
-        _ans = self._remove_eoc(_ans)
-        return _ans
+        return self.sock.write_readline(_cmd.encode()).decode()
 
     def raw_write_readlines(self, cmd, lines):
         _cmd = self._append_eoc(cmd)
         ans = "\n".join(
             [
                 r.decode().strip()
-                for r in self._cnx.write_readlines(_cmd.encode(), lines)
+                for r in self.sock.write_readlines(_cmd.encode(), lines)
             ]
         )
         _ans = self._remove_eoc(ans)
@@ -225,34 +208,34 @@ class PI_E727(Controller):
 
     @object_method(types_info=("None", "str"))
     def get_identifier(self, axis, timeout=None):
-        return self.send(axis, "IDN?", timeout)
+        return self.send("IDN?", timeout)
 
     def get_voltage(self, axis):
-        """ Returns voltage read from controller."""
-        _ans = self.send(axis, "SVA?")
+        """ Return voltage read from controller."""
+        _ans = self.send("SVA?")
         _voltage = float(_ans.split("=")[1])
         return _voltage
 
     def set_voltage(self, axis, new_voltage):
-        """ Sets Voltage to the controller."""
+        """ Set Voltage to the controller."""
         _cmd = "SVA %s %g" % (axis.channel, new_voltage)
-        self.send_no_ans(axis, _cmd)
+        self.send_no_ans(_cmd)
         self.check_error(_cmd)
 
     def _get_velocity(self, axis):
         """
-        Returns velocity taken from controller.
+        Return velocity taken from controller.
         """
-        _ans = self.send(axis, "VEL? %s" % (axis.channel))
+        _ans = self.send("VEL? %s" % (axis.channel))
         _velocity = float(_ans.split("=")[1])
 
         return _velocity
 
     def _get_pos(self, axis):
         """
-        Returns real position read by capacitive sensor.
+        Return real position read by capacitive sensor.
         """
-        _ans = self.send(axis, "POS? %s" % (axis.channel))
+        _ans = self.send("POS? %s" % (axis.channel))
         _pos = float(_ans.split("=")[1])
         return _pos
 
@@ -260,16 +243,16 @@ class PI_E727(Controller):
 
     def _get_target_pos(self, axis):
         """
-        Returns last target position (setpoint value).
+        Return last target position (setpoint value).
         """
-        _ans = self.send(axis, "MOV? %s" % (axis.channel))
+        _ans = self.send("MOV? %s" % (axis.channel))
         # _ans should looks like "1=-8.45709419e+01"
         _pos = float(_ans.split("=")[1])
 
         return _pos
 
     def _get_on_target_status(self, axis):
-        _ans = self.send(axis, "ONT? %s" % (axis.channel))
+        _ans = self.send("ONT? %s" % (axis.channel))
 
         _status = _ans.split("=")[1]
 
@@ -284,7 +267,7 @@ class PI_E727(Controller):
     """ CLOSED LOOP"""
 
     def _get_closed_loop_status(self, axis):
-        _ans = self.send(axis, "SVO? %s" % (axis.channel))
+        _ans = self.send("SVO? %s" % (axis.channel))
 
         _status = _ans.split("=")[1]
 
@@ -301,7 +284,7 @@ class PI_E727(Controller):
             _cmd = "SVO %s 1" % (axis.channel)
         else:
             _cmd = "SVO %s 0" % (axis.channel)
-        self.send_no_ans(axis, _cmd)
+        self.send_no_ans(_cmd)
         self.check_error(_cmd)
 
     @object_method(types_info=("None", "None"))
@@ -319,17 +302,17 @@ class PI_E727(Controller):
 
         return (_error_number, _error_str)
 
-    def get_info(self, axis):
-        """
-        Returns a set of usefull information about controller.
-        Helpful to tune the device.
-        """
+    def __info__(self):
         _tab = 30
 
         (_err_nb, _err_str) = self._get_error()
         _txt = "%*s: %d (%s)\n" % (_tab, "Last Error", _err_nb, _err_str)
 
-        # use command "HDA?" to get add parameters address + description
+        _txt = _txt + "%*s:\n%s\n" % (
+            _tab,
+            "Communication parameters",
+            ",".join(self.raw_write_readlines("IFC?", 5).split("\n")),
+        )
         _infos = [
             ("Identifier", "IDN?"),
             ("Com level", "CCL?"),
@@ -339,6 +322,27 @@ class PI_E727(Controller):
             ("Firmware description", "SEP? 1 0xffff000d"),
             ("Firmware date", "SEP? 1 0xffff000e"),
             ("Firmware developer", "SEP? 1 0xffff000f"),
+        ]
+
+        for i in _infos:
+            _cmd = i[1]
+            _ans = self.send(_cmd)
+            _txt = _txt + "%*s: %s\n" % (_tab, i[0], _ans)
+            self.check_error(_cmd)
+        return _txt
+
+    def get_info(self, axis):
+        """
+        Return information about controller.
+        Helpful to tune the device.
+        """
+        axis.position  # force axis initialization
+
+        _tab = 30
+        _txt = ""
+
+        # use command "HPA?" to get parameters address + description
+        _infos = [
             ("Real Position", "POS? %s"),
             ("Setpoint Position", "MOV? %s"),
             ("On target", "ONT? %s"),
@@ -360,14 +364,11 @@ class PI_E727(Controller):
             _cmd = i[1]
             if "%s" in _cmd:
                 _cmd = _cmd % (axis.channel)
-            _ans = self.send(axis, _cmd)
+            _ans = self.send(_cmd)
             _txt = _txt + "%*s: %s\n" % (_tab, i[0], _ans)
             self.check_error(_cmd)
 
-        _txt = _txt + "%*s:\n%s\n" % (
-            _tab,
-            "Communication parameters",
-            self.raw_write_read("IFC?"),
-        )
-
         return _txt
+
+    def get_axis_info(self, axis):
+        return self.get_info(axis)

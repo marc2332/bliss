@@ -62,7 +62,9 @@ class _Group(object):
         self.__name = name
         self._group_move = GroupMove(self)
         self._axes = dict(axes_dict)
-        self._axes_with_reals = self._expand_axes_with_reals(self.axes.copy())
+        self._axes_with_reals = {
+            axis.name: axis for axis in motor.get_real_axes(*self.axes.values())
+        }
 
     def __info__(self):
         info = "MOTOR GROUP:"
@@ -82,28 +84,6 @@ class _Group(object):
     @property
     def axes_with_reals(self):
         return self._axes_with_reals
-
-    def _expand_axes_with_reals(self, axes_with_reals):
-        """ return axes dict in argument with all reals added to it
-        """
-        seen_mot_list = list()
-        more_calc = True
-
-        while more_calc is True:
-            more_calc = False
-            mot_list = list(axes_with_reals.values())
-            for mot in mot_list:
-                if (
-                    isinstance(mot.controller, motor.CalcController)
-                    and mot not in seen_mot_list
-                ):
-                    for real in mot.controller.reals:
-                        axes_with_reals[real.name] = real
-                        if isinstance(real.controller, motor.CalcController):
-                            more_calc = True
-                seen_mot_list.append(mot)
-
-        return axes_with_reals
 
     @property
     def is_moving(self):

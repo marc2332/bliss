@@ -44,19 +44,23 @@ class BgSub(object):
         try:
             bg.Stop()
             bg.RunLevel = run_level
+            bg.Start()
             bg.takeNextAcquisitionAsBackground()
             acq.expo_time = expo_time
             acq.nb_frames = nb_frames
             lima.prepareAcq()
             start = time.time()
             lima.startAcq()
-            with gevent.timeout.Timeout(expo_time + 1):
+            with gevent.timeout.Timeout(expo_time + 2):
                 while acq.status.lower() == "running":
                     gevent.sleep(0.1)
                     yield time.time() - start
         finally:
-            bg.Stop()
             lima.stopAcq()
             acq.expo_time = prev_expo_time
             acq.nb_frames = prev_nb_frames
+            bg.Stop()
             bg.RunLevel = prev_run_level
+            if lima.processing.use_background_substraction != "disable":
+                bg.Start()
+            

@@ -173,7 +173,6 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             # whole acquisition
             if self.npoints == 0:
                 wait_frame_id_iter = count()
-            image_waiting_number = 0
             while True:
                 try:
                     self.__current_wait_frame_id = next(wait_frame_id_iter)
@@ -350,10 +349,6 @@ class LimaAcquisitionMaster(AcquisitionMaster):
 
         with self.__lock:
             self._lima_controller.startAcq()
-
-            acq_trigger_mode = self.acq_params.get(
-                "acq_trigger_mode", "INTERNAL_TRIGGER"
-            )
 
         if not self._reading_task:
             self._reading_task = gevent.spawn(self.reading)

@@ -1,5 +1,6 @@
+import os
 import gevent
-
+from IPython.display import display
 from bliss import global_map
 from bliss.comm.util import get_comm
 from bliss.common.greenlet_utils import protect_from_kill
@@ -51,6 +52,15 @@ class Bcdu8:
 
     def command(self, cmd):
         return self._comm(cmd)
+
+    def save(self, file):
+        with open(file, "w") as f:
+            f.write(self.__info__())
+
+    def load(self, file):
+        with open(file, "r") as f:
+            for line in f.readlines()[6:]:
+                self.command(line.strip("\n"))
 
     """
     Check Methods
@@ -155,6 +165,16 @@ class Bcdu8CommandCalib:
         return self._bcdu8._comm(f"?{self._name} {output} {unit}")
 
 
+class Bcdu8OutputFormat:
+    def __init__(self, string):
+        self.info = string
+        for line in self.info.split("\n"):
+            self.__setattr__(line.split(":")[0], line.split(":")[1])
+
+    def __info__(self):
+        return self.info
+
+
 class Bcdu8CommandChan:
     def __init__(self, bcdu8):
         self._bcdu8 = bcdu8
@@ -164,7 +184,7 @@ class Bcdu8CommandChan:
         desc = "Command:\n"
         desc += '    chan.set("O<n>", "[{NORMAL|INVERTED}]", "[<period>]", "[<width>]", "[<delay>]")\n'
         desc += "       or\n"
-        desc += '    chan.set("O<n>" "{OFF|ON}")\n'
+        desc += '    chan.set("O<n>" "{OFF}")\n'
         desc += "Query:\n"
         desc += '    chan.get("O<n>")'
         return desc
@@ -181,14 +201,14 @@ class Bcdu8CommandChan:
         else:
             if polarity is not None:
                 self._bcdu8._check_polarity(polarity, "chan")
-                cmd += " {polarity}"
+                cmd += f" {polarity}"
             if period is not None:
                 self._bcdu8._check_period(period, "chan")
-                cmd += " PERIOD {period}"
+                cmd += f" PERIOD {period}"
             if width is not None:
-                cmd += " WIDTH {width}"
+                cmd += f" WIDTH {width}"
             if delay is not None:
-                cmd += " DELAY {delay}"
+                cmd += f" DELAY {delay}"
         self._bcdu8._comm(cmd)
 
     def get(self, output):
@@ -209,8 +229,9 @@ class Bcdu8CommandFreq:
     def get(self, output=None):
         if output is not None:
             self._bcdu8._check_output_all(output, "freq")
-            return self._bcdu8._comm(f"?{self._name} {output}")
-        return self._bcdu8._comm(f"?{self._name} ")
+            freq = self._bcdu8._comm(f"?{self._name} {output}")
+        freq = self._bcdu8._comm(f"?{self._name} ")
+        return Bcdu8OutputFormat(freq)
 
 
 class Bcdu8CommandDelay:
@@ -239,14 +260,14 @@ class Bcdu8CommandDelay:
         else:
             if polarity is not None:
                 self._bcdu8_check_polarity(polarity, "chan")
-                cmd += " {polarity}"
+                cmd += f" {polarity}"
             if period is not None:
                 self._bcdu8_check_period(period, "chan")
-                cmd += " PERIOD {period}"
+                cmd += f" PERIOD {period}"
             if width is not None:
-                cmd += " WIDTH {width}"
+                cmd += f" WIDTH {width}"
             if delay is not None:
-                cmd += " DELAY {delay}"
+                cmd += f" DELAY {delay}"
         self._bcdu8._comm(cmd)
 
     def get(self, output, unit=None):

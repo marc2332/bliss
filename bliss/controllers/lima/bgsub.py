@@ -25,38 +25,37 @@ class BgSub(object):
         try:
             self.proxy.delete_dark_after_read = delete_after
             self.proxy.setBackgroudImage(filename)
+            self.lima.processing.background = filename
+            # already loaded, no need to update on next acquisition
+            self.lima.processing._background_changed = False
         finally:
             self.proxy.delete_dark_after_read = prev_delete_after
 
     def take_background(self, expo_time, nb_frames=1, run_level=0):
-        for i in self.gen_take_background(
-            expo_time, nb_frames=nb_frames, run_level=run_level
-        ):
-            pass
+        if nb_frames != 1:
+            raise RuntimeError("Multi-frame background not yet implemented")
 
-    def gen_take_background(self, expo_time, nb_frames=1, run_level=0):
         bg = self.proxy
         lima = self.lima
         acq = self.lima.acquisition
-        prev_expo_time = acq.expo_time
-        prev_nb_frames = acq.nb_frames
         prev_run_level = bg.RunLevel
         try:
             bg.Stop()
             bg.RunLevel = run_level
+            bg.Start()
             bg.takeNextAcquisitionAsBackground()
             acq.expo_time = expo_time
             acq.nb_frames = nb_frames
             lima.prepareAcq()
             start = time.time()
             lima.startAcq()
-            with gevent.timeout.Timeout(expo_time + 1):
+            with gevent.timeout.Timeout(expo_time + 2):
                 while acq.status.lower() == "running":
                     gevent.sleep(0.1)
-                    yield time.time() - start
         finally:
-            bg.Stop()
             lima.stopAcq()
-            acq.expo_time = prev_expo_time
-            acq.nb_frames = prev_nb_frames
+            bg.Stop()
             bg.RunLevel = prev_run_level
+            lima.processing.background_source = "image"
+            if lima.processing.use_background:
+                bg.Start()

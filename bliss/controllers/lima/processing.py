@@ -13,9 +13,8 @@ import enum
 class LimaProcessing(BeaconObject):
 
     BG_SUB_MODES = {
-        "disable": "Disabled",
-        "enable_on_fly": "Enabled (Take bg-image on demand)",
-        "enable_file": "Enabled (Take bg-image from file)",
+        "image": "(Take bg-image on demand)",
+        "file": "(Take bg-image from file)",
     }
 
     def __init__(self, config, proxy, name):
@@ -92,6 +91,20 @@ class LimaProcessing(BeaconObject):
         assert isinstance(value, int)
         return value
 
+    background_source = BeaconObject.property_setting(
+        "background_source", default="image"
+    )
+
+    @background_source.setter
+    def background_source(self, value):
+        assert isinstance(value, str)
+        if value not in self.BG_SUB_MODES.keys():
+            modes = list(self.BG_SUB_MODES.keys())
+            raise ValueError(f"background_source should be in : {modes}")
+        if value == "file":
+            self._background_changed = True
+        return value
+
     background = BeaconObject.property_setting("background", default="")
 
     @background.setter
@@ -99,41 +112,43 @@ class LimaProcessing(BeaconObject):
         assert isinstance(value, str)
         if self.background != value:
             self._background_changed = True
+        self.background_source = "file"
         return value
 
-    use_background_substraction = BeaconObject.property_setting(
-        "use_background_substraction", default="disable"
-    )
+    use_background = BeaconObject.property_setting("use_background", default=False)
 
-    @use_background_substraction.setter
-    def use_background_substraction(self, value):
-        assert isinstance(value, str)
-        assert value in self.BG_SUB_MODES.keys()
+    @use_background.setter
+    def use_background(self, value):
+        assert isinstance(value, bool)
         return value
 
     def to_dict(self):
         return {
             "use_mask": self.use_mask,
             "use_flatfield": self.use_flatfield,
-            "use_background_substraction": self.use_background_substraction,
+            "use_background": self.use_background,
         }
 
     def __info__(self):
+        mask_file = len(self.mask) and self.mask or "** UNSET **"
+        flatfield_file = len(self.flatfield) and self.flatfield or "** UNSET **"
+        background_file = len(self.background) and self.background or "** UNSET **"
         return textwrap.dedent(
             f"""            Mask
             ----
             use mask: {self.use_mask}
-            mask image path: {self.mask}
+            mask image path: {mask_file}
             
             Flatfield
             ---------
             use flatfield: {self.use_flatfield}
-            flatfield image path: {self.flatfield} 
+            flatfield image path: {flatfield_file} 
             
             Background Substraction
             -----------------------
-            mode: {self.BG_SUB_MODES[self.use_background_substraction]}
-            background_image_path: {self.background}
+            use background: {self.use_background}
+            background source: {self.background_source} {self.BG_SUB_MODES[self.background_source]}
+            background image path: {background_file}
             
             Expert Settings
             ---------------

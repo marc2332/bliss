@@ -323,11 +323,11 @@ class Lima(CounterController):
                 self.processing._flatfield_changed = False
                 ff_proxy.Start()
 
-        use_bg_sub = ctrl_params.pop("use_background_substraction")
-        assert isinstance(use_bg_sub, str)
-        assert use_bg_sub in self.processing.BG_SUB_MODES.keys()
+        use_bg_sub = ctrl_params.pop("use_background")
+        assert type(use_bg_sub) == bool
+        # assert use_bg_sub in self.processing.BG_SUB_MODES.keys()
         if self.processing._background_changed or self._needs_update(
-            "use_background_substraction", use_bg_sub
+            "use_background", use_bg_sub
         ):
             bg_proxy = self._get_proxy("backgroundsubstraction")
             global_map.register(bg_proxy, parents_list=[self], tag="bg_sub")
@@ -339,12 +339,11 @@ class Lima(CounterController):
             )
             bg_proxy.Stop()
             bg_proxy.RunLevel = self.processing.runlevel_background
-            if use_bg_sub == "enable_on_fly":
-                log_debug(self, " starting background sub proxy of %s", self.name)
-                bg_proxy.Start()
-            elif use_bg_sub == "enable_file":
-                log_debug(self, " uploading background on %s", self.name)
-                bg_proxy.setbackgroundimage(self.processing.background)
+            if use_bg_sub:
+                if self.processing.background_source == "file":
+                    log_debug(self, " uploading background on %s", self.name)
+                    log_debug(self, " background file = %s", self.processing.background)
+                    bg_proxy.setbackgroundimage(self.processing.background)
                 log_debug(self, " starting background sub proxy of %s", self.name)
                 bg_proxy.Start()
 

@@ -677,7 +677,7 @@ def _get_available_proxy() -> typing.Optional[FlintClient]:
 
 
 def get_flint(
-    start_new=False, creation_allowed=True, mandatory=True
+    start_new=False, creation_allowed=True, mandatory=True, restart_if_stucked=False
 ) -> typing.Optional[FlintClient]:
     """Get the running flint proxy or create one.
 
@@ -688,11 +688,17 @@ def get_flint(
         mandatory: If True (default), a Flint proxy must be returned else
             an exception is raised.
             If False, try to return a Flint proxy, else None is returned.
+        restart_if_stucked: If True, if Flint is detected as stucked it is
+            restarted.
     """
     if not mandatory:
         # Protect call to flint
         try:
-            return get_flint(start_new=start_new, creation_allowed=creation_allowed)
+            return get_flint(
+                start_new=start_new,
+                creation_allowed=creation_allowed,
+                restart_if_stucked=restart_if_stucked,
+            )
         except KeyboardInterrupt:
             # A warning should already be displayed in case of problem
             return None
@@ -707,23 +713,24 @@ def get_flint(
 
     if not start_new:
         check_redis = True
-        FLINT_LOGGER.debug("Check cache")
 
-        flint = _get_available_proxy()
-        if flint is not None:
-            if psutil.pid_exists(flint._pid):
-                try:
-                    remote_session_name = flint.get_session_name()
-                except Exception:
-                    FLINT_LOGGER.error("Error while reaching Flint API. Restart Flint.")
-                    FLINT_LOGGER.debug("Backtrace", exc_info=True)
-                else:
-                    if session_name == remote_session_name:
-                        return flint
-
-                # Do not use this Redis PID if is is already this one
-                pid_from_redis = _get_flint_pid_from_redis(session_name)
-                check_redis = pid_from_redis != flint._pid
+        proxy = _get_singleton()
+        state = proxy.proxy_get_flint_state(timeout=2)
+        if state == _FlintState.NO_PROXY:
+            pass
+        elif state == _FlintState.IS_AVAILABLE:
+            remote_session_name = proxy.get_session_name()
+            if session_name == remote_session_name:
+                return proxy
+            # Do not use this Redis PID if is is already this one
+            pid_from_redis = _get_flint_pid_from_redis(session_name)
+            check_redis = pid_from_redis != proxy._pid
+        elif state == _FlintState.IS_STUCKED:
+            if restart_if_stucked:
+                return restart_flint()
+            raise RuntimeError("Flint is stucked")
+        else:
+            assert False, f"Unexpected state {state}"
 
         if check_redis:
             pid = _get_flint_pid_from_redis(session_name)

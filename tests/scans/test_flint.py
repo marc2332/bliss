@@ -145,6 +145,46 @@ def test_image_display(flint_session, lima_simulator, dummy_acq_device):
     assert isinstance(p, plots.ImagePlot)
 
 
+def test_restart_flint_if_stucked(
+    test_session_with_stucked_flint, lima_simulator, dummy_acq_device
+):
+    chain = AcquisitionChain()
+    lima_sim = test_session_with_stucked_flint.config.get("lima_simulator")
+    lima_master = LimaAcquisitionMaster(lima_sim, acq_nb_frames=1, acq_expo_time=0.1)
+    lima_master.add_counter(lima_sim.counters.image)
+    device = dummy_acq_device.get(None, name="dummy", npoints=1)
+    chain.add(lima_master, device)
+    with use_shell_mode():
+        with use_scan_display(auto=True, restart_flint_if_stucked=True):
+            scan = Scan(chain, "test")
+            scan.run()
+
+    # depricated access but kept for compatibilty with older versions...
+    p = scan.get_plot(lima_sim.image, plot_type="image", wait=True)
+    assert isinstance(p, plots.ImagePlot)
+
+    # new access
+    p = plot.get_plot(lima_sim.image, scan=scan, plot_type="image", wait=True)
+    assert isinstance(p, plots.ImagePlot)
+
+
+def test_ignore_flint_if_stucked(
+    test_session_with_stucked_flint, lima_simulator, dummy_acq_device
+):
+    chain = AcquisitionChain()
+    lima_sim = test_session_with_stucked_flint.config.get("lima_simulator")
+    lima_master = LimaAcquisitionMaster(lima_sim, acq_nb_frames=1, acq_expo_time=0.1)
+    lima_master.add_counter(lima_sim.counters.image)
+    device = dummy_acq_device.get(None, name="dummy", npoints=1)
+    chain.add(lima_master, device)
+    with use_shell_mode():
+        with use_scan_display(auto=True, restart_flint_if_stucked=False):
+            scan = Scan(chain, "test")
+            scan.run()
+
+    assert plot.get_flint(mandatory=False) is None
+
+
 @contextlib.contextmanager
 def active_video_live(lima):
     old = lima.proxy.video_live
@@ -183,7 +223,7 @@ def test_image_monitoring(test_session_without_flint, lima_simulator):
 
 
 @contextlib.contextmanager
-def use_scan_display(auto=None, motor_position=None):
+def use_scan_display(auto=None, motor_position=None, restart_flint_if_stucked=None):
     """Setup scan display with a specific value.
 
     The initial state is restored at the end of the context.
@@ -191,10 +231,13 @@ def use_scan_display(auto=None, motor_position=None):
     scan_display = ScanDisplay()
     old_auto = scan_display.auto
     old_motor_position = scan_display.motor_position
+    old_restart_flint_if_stucked = scan_display.restart_flint_if_stucked
     if auto is not None:
         scan_display.auto = True
     if motor_position is not None:
         scan_display.motor_position = motor_position
+    if restart_flint_if_stucked is not None:
+        scan_display.restart_flint_if_stucked = restart_flint_if_stucked
     try:
         yield
     finally:
@@ -202,6 +245,8 @@ def use_scan_display(auto=None, motor_position=None):
             scan_display.auto = old_auto
         if motor_position is not None:
             scan_display.motor_position = old_motor_position
+        if restart_flint_if_stucked is not None:
+            scan_display.restart_flint_if_stucked = old_restart_flint_if_stucked
 
 
 @contextlib.contextmanager

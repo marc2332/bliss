@@ -31,6 +31,7 @@ class ScanDisplay(ParametersWardrobe):
                 "_scan_metadata": {},
                 "displayed_channels": [],
                 "scan_display_filter_enabled": True,
+                "restart_flint_if_stucked": False,
             },
             property_attributes=("session", "extra_args", "flint_output_enabled"),
             not_removable=(
@@ -39,6 +40,7 @@ class ScanDisplay(ParametersWardrobe):
                 "displayed_channels",
                 "_scan_metadata",
                 "scan_display_filter_enabled",
+                "restart_flint_if_stucked",
             ),
             connection=get_redis_proxy(caching=True),
         )

@@ -885,7 +885,8 @@ def test_lima_ctrl_params_uploading(default_session, lima_simulator, caplog):
     simulator.processing.use_flatfield = True
 
     simulator.processing.background = img
-    simulator.processing.use_background_substraction = "enable_file"
+    assert simulator.processing.background_source == "file"
+    simulator.processing.use_background = True
 
     caplog.clear()
     with caplog.at_level(logging.DEBUG, logger="global.controllers.lima_simulator"):
@@ -898,7 +899,7 @@ def test_lima_ctrl_params_uploading(default_session, lima_simulator, caplog):
 
     simulator.processing.use_mask = False
     simulator.processing.use_flatfield = False
-    simulator.processing.use_background_substraction = "disable"
+    simulator.processing.use_background = False
 
     # check if aqcuistion still works
     caplog.clear()
@@ -906,8 +907,9 @@ def test_lima_ctrl_params_uploading(default_session, lima_simulator, caplog):
         scan = loopscan(1, 0.1, simulator, save=False)
 
     simulator.processing.background = "not_existing_file"
-    simulator.processing.use_background_substraction = "enable_on_fly"
+    simulator.processing.use_background = True
     simulator.bg_sub.take_background(.1)
+    assert simulator.processing.background_source == "image"
 
     caplog.clear()
     with caplog.at_level(logging.DEBUG, logger="global.controllers.lima_simulator"):

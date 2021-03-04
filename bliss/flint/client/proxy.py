@@ -67,6 +67,7 @@ class FlintClient:
         self._greenlets = None
         self._callbacks = None
         self._shortcuts = set()
+        self._on_new_pid = None
 
     @property
     def pid(self) -> typing.Optional[int]:
@@ -195,8 +196,7 @@ class FlintClient:
             FLINT_LOGGER.warning("You should restart Flint.")
 
         proxy.set_session(session_name)
-        self._proxy = proxy
-        self._pid = process.pid
+        self._set_new_proxy(proxy, process.pid)
 
         if hasattr(process, "stdout"):
             # process which comes from subprocess, and was pipelined
@@ -318,6 +318,12 @@ class FlintClient:
         if self._greenlets is not None:
             gevent.killall(self._greenlets, timeout=2.0)
         self._greenlets = None
+
+    def _set_new_proxy(self, proxy, pid):
+        self._proxy = proxy
+        self._pid = pid
+        if self._on_new_pid is not None:
+            self._on_new_pid(pid)
 
     def proxy_attach_pid(self, pid):
         """Attach the proxy to another Flint PID.

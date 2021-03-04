@@ -26,8 +26,9 @@ def test_ascan(test_session_without_flint, lima_simulator):
     roby = session.config.get("roby")
     diode = session.config.get("diode")
 
-    with use_shell_command_with_scan_display():
-        ascan(roby, 0, 5, 5, 0.001, diode, lima)
+    with use_shell_mode():
+        with use_scan_display(auto=True, motor_position=True):
+            ascan(roby, 0, 5, 5, 0.001, diode, lima)
 
     flint = plot.get_flint()
     flint.wait_end_of_scans()
@@ -77,8 +78,9 @@ def test_ct_image(test_session_without_flint, lima_simulator):
     session = test_session_without_flint
     lima = session.config.get("lima_simulator")
     ct = session.env_dict["ct"]
-    with use_shell_command_with_scan_display():
-        ct(0.1, lima)
+    with use_shell_mode():
+        with use_scan_display(auto=True, motor_position=True):
+            ct(0.1, lima)
     flint = plot.get_flint(creation_allowed=False)
     assert flint is not None
 
@@ -88,8 +90,9 @@ def test_live_plot_image(test_session_without_flint, lima_simulator):
     session = test_session_without_flint
     lima = session.config.get("lima_simulator")
     ct = session.env_dict["ct"]
-    with use_shell_command_with_scan_display():
-        ct(0.1, lima)
+    with use_shell_mode():
+        with use_scan_display(auto=True, motor_position=True):
+            ct(0.1, lima)
     flint = plot.get_flint(creation_allowed=False)
     assert flint is not None
 
@@ -116,8 +119,9 @@ def test_ct_diode(test_session_without_flint):
     session = test_session_without_flint
     ct = session.env_dict["ct"]
     diode = session.config.get("diode")
-    with use_shell_command_with_scan_display():
-        ct(0.1, diode)
+    with use_shell_mode():
+        with use_scan_display(auto=True, motor_position=True):
+            ct(0.1, diode)
     flint = plot.get_flint(creation_allowed=False)
     assert flint is None
 
@@ -164,11 +168,12 @@ def test_image_monitoring(test_session_without_flint, lima_simulator):
 
     with active_video_live(lima):
         # start flint and the monitoring
-        with use_shell_command_with_scan_display():
-            flint = plot.get_flint()
-            flint.start_image_monitoring(channel_name, tango_address)
-            gevent.sleep(2)
-            flint.stop_image_monitoring(channel_name)
+        with use_shell_mode():
+            with use_scan_display(auto=True, motor_position=True):
+                flint = plot.get_flint()
+                flint.start_image_monitoring(channel_name, tango_address)
+                gevent.sleep(2)
+                flint.stop_image_monitoring(channel_name)
 
         # it should display an image
         plot_id = flint.get_live_scan_plot(channel_name, "image")
@@ -178,20 +183,40 @@ def test_image_monitoring(test_session_without_flint, lima_simulator):
 
 
 @contextlib.contextmanager
-def use_shell_command_with_scan_display():
+def use_scan_display(auto=None, motor_position=None):
+    """Setup scan display with a specific value.
+
+    The initial state is restored at the end of the context.
+    """
     scan_display = ScanDisplay()
     old_auto = scan_display.auto
     old_motor_position = scan_display.motor_position
+    if auto is not None:
+        scan_display.auto = True
+    if motor_position is not None:
+        scan_display.motor_position = motor_position
+    try:
+        yield
+    finally:
+        if auto is not None:
+            scan_display.auto = old_auto
+        if motor_position is not None:
+            scan_display.motor_position = old_motor_position
+
+
+@contextlib.contextmanager
+def use_shell_mode():
+    """
+    Force the use of the BLISS shell mode.
+
+    The initial state is restored at the end of the context.
+    """
     old_shell = bliss.is_bliss_shell()
     bliss.set_bliss_shell_mode(True)
-    scan_display.auto = True
-    scan_display.motor_position = True
     try:
         yield
     finally:
         bliss.set_bliss_shell_mode(old_shell)
-        scan_display.auto = old_auto
-        scan_display.motor_position = old_motor_position
 
 
 def test_motor_position_in_plot(test_session_with_flint):
@@ -212,8 +237,9 @@ def test_motor_position_in_plot(test_session_with_flint):
     flint.wait_end_of_scans()
 
     # display the motor destination to flint
-    with use_shell_command_with_scan_display():
-        scan.goto_cen(diode)
+    with use_shell_mode():
+        with use_scan_display(auto=True, motor_position=True):
+            scan.goto_cen(diode)
     gevent.sleep(1)
 
 

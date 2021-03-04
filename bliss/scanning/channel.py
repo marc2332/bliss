@@ -183,6 +183,7 @@ class AcquisitionChannel:
 
         # Permissive reshaping
         data.shape = (-1,) + self.shape
+
         return data
 
 

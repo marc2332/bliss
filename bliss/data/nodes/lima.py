@@ -48,6 +48,7 @@ class LimaDataView:
         """
         self.update()
         last_index = self.last_image_ready
+
         if self._to_index >= 0:
             return min(self._to_index, last_index)
         else:
@@ -70,10 +71,11 @@ class LimaDataView:
         """
         events = self._queue.rev_range(count=1)
         if events:
-            index, raw = events[0]
+            index, raw = events[-1]  # [0]
             ev = LimaImageStatusEvent(raw=raw)
         else:  # Lima acqusition has not yet started.
             ev = LimaImageStatusEvent({})
+
         try:
             ev.info = self.first_ref_data
         except IndexError:
@@ -215,7 +217,7 @@ class LimaDataView:
             # To be consistant with ChannelDataNode
             return list(self)[0]
         else:
-            return numpy.asarray(self)
+            return numpy.asarray(list(self))
 
     def __len__(self):
         length = self.to_index - self.from_index + 1

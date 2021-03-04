@@ -78,12 +78,13 @@ class Writer(FileWriter):
         return measurement
 
     def _on_event(self, parent, event_dict, signal, sender):
+        # parent is an h5py obj (group)
         if signal == "start":
-            device = sender
-            for channel in device.channels:
-                maxshape = tuple([None] + [None] * len(channel.shape))
-                npoints = device.npoints or 1
-                shape = tuple([npoints] + list(channel.shape))
+            acqobj = sender  # sender is an AcquisitionObject
+            for channel in acqobj.channels:
+                maxshape = (None,) + (None,) * len(channel.shape)
+                npoints = acqobj.npoints or 1
+                shape = (npoints,) + channel.shape
                 chan_name = channel.fullname
                 if not channel.reference and chan_name not in parent:
                     dataset = parent.create_dataset(
@@ -96,34 +97,53 @@ class Writer(FileWriter):
                     )
 
                     self.last_point_index[channel] = 0
+
         elif signal == "new_data":
-            channel = sender
+            channel = sender  # sender is an AcquisitionChannel
             if channel.reference:
                 return
-            data = event_dict.get("data")
 
             dataset = parent[channel.fullname]
-
             if not dataset.id.valid:
                 print("Writer is closed. Spurious data point ignored")
                 return
-            last_point_index = self.last_point_index[channel]
-            data_len = data.shape[0]
-            new_point_index = last_point_index + data_len
 
+            data = event_dict.get("data")
+            num_of_points = data.shape[0]
+            dim = len(dataset.shape)
+            # check that points data are ALWAYS stacked on first axis
+            # assert dim == len(channel.shape) + 1
+
+            last_point_index = self.last_point_index[channel]
+            new_point_index = last_point_index + num_of_points
+
+            # if receiving more points than expecting
             if dataset.shape[0] < new_point_index:
                 dataset.resize(new_point_index, axis=0)
 
-            ## needed if # of points per sample is not defined e.g. SamplingMode.SAMPLES
-            if len(dataset.shape) > 1 and dataset.shape[1] < sender.shape[0]:
-                dataset.resize(sender.shape[0], axis=1)
-
-            if len(dataset.shape) <= 1:
+            # Handle data with dynamic shapes (i.e not known at dataset creation time)
+            if dim == 1:
                 dataset[last_point_index:new_point_index] = data
-            else:
+
+            elif dim == 2:  # case stack of 1D data
+                if dataset.shape[1] < channel.shape[0]:
+                    dataset.resize(channel.shape[0], axis=1)
+
                 dataset[last_point_index:new_point_index, 0 : data.shape[1]] = data
 
-            self.last_point_index[channel] += data_len
+            elif dim > 2:  # case stack of 2D data
+                if dataset.shape[1] < channel.shape[0]:
+                    dataset.resize(channel.shape[0], axis=1)
+                if dataset.shape[2] < channel.shape[1]:
+                    dataset.resize(channel.shape[1], axis=2)
+
+                dataset[
+                    last_point_index:new_point_index,
+                    0 : data.shape[1],
+                    0 : data.shape[2],
+                ] = data
+
+            self.last_point_index[channel] = new_point_index
 
     def finalize_scan_entry(self, scan):
         if self.file is None:  # nothing to finalize, scan didn't record anything

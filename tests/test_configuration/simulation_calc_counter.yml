@@ -126,3 +126,17 @@
 
   outputs:
     - name: times2out_1d
+      dim: 1
+
+
+- plugin: bliss
+  module: simulation_calc_counter
+  class: Times2CalcCounterController
+  name: times2_2d
+  inputs:
+    - counter: $lima_simulator.counters.image
+      tags: data1
+
+  outputs:
+    - name: times2out_2d
+      dim: 2

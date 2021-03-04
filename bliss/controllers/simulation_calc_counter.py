@@ -7,6 +7,7 @@
 
 from bliss.controllers.counter import CalcCounterController
 
+
 """
 config example:
 
@@ -46,13 +47,5 @@ class MeanCalcCounterController(CalcCounterController):
 # output is twice the input
 class Times2CalcCounterController(CalcCounterController):
     def calc_function(self, input_dict):
-        csum = 0
-        for cnt in self.inputs:
-            csum += input_dict[self.tags[cnt.name]]
-
-        csum = csum / float(len(self.inputs))
-
-        return {
-            self.tags[self.outputs[0].name]: input_dict[self.tags[self.inputs[0].name]]
-            * 2
-        }
+        inputdata = input_dict[self.tags[self.inputs[0].name]]
+        return {self.tags[self.outputs[0].name]: inputdata * 2}

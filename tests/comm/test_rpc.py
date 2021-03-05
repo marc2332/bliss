@@ -95,6 +95,10 @@ class Car(object):
     def play_music(self, data):
         pass
 
+    def raise_timeout_exception(self):
+        with gevent.Timeout(0.01):
+            gevent.sleep(1)
+
     def __int__(self):
         return int(self.horsepower)
 
@@ -254,7 +258,6 @@ def test_event():
         event.send(car, "test", 3)
         assert results.get() == (3,)
 
-
     with rpc_server(url) as (server, car):
         # Synchronize
         client_car.position
@@ -377,3 +380,15 @@ def test_client_collision(beacon):
 
     gevent.sleep(0.4)
     client_car._rpc_connection.close()
+
+def test_timeout_exception(beacon):
+    url = "tcp://127.0.0.1:12345"
+
+    with rpc_server(url):
+        client_car = Client(url)
+
+        with pytest.raises(gevent.Timeout):
+            client_car.raise_timeout_exception()
+
+    client_car._rpc_connection.close()
+

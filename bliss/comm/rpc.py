@@ -209,7 +209,19 @@ def _discover_object(obj):
     )
 
 
-class _ServerObject(object):
+class Server:
+    """
+    Create a rpc server for the given object with a pythonic API
+
+    Args:
+        obj: any python object
+    Keyword Args:
+        stream (bool): supply a stream listening to events coming from obj
+        tcp_low_latency (bool): specify if the server needs low latency communication
+    Return:
+        a rpc server
+    """
+
     def __init__(self, obj, stream=False, tcp_low_latency=False):
         self._log = logging.getLogger(f"{__name__}.{type(obj).__name__}")
         self._object = obj
@@ -403,20 +415,6 @@ class _ServerObject(object):
                 return delattr(self._object, name)
             else:
                 raise ServerError("Unknown call type {0!r}".format(code))
-
-
-def Server(obj, stream=False, tcp_low_latency=False, **kwargs):
-    """
-    Create a rpc server for the given object with a pythonic API
-
-    Args:
-        obj: any python object
-    Keyword Args:
-        stream (bool): supply a stream listening to events coming from obj
-    Return:
-        a rpc server
-    """
-    return _ServerObject(obj, stream=stream, tcp_low_latency=tcp_low_latency)
 
 
 # Client code

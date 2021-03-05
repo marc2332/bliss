@@ -82,7 +82,7 @@ class FlintClient:
     def __getattr__(self, name):
         if self._proxy is None:
             raise AttributeError(
-                "Attribute '%s' unknown. Flint proxy not yet created" % name
+                "No Flint proxy created. Access to '%s' ignored." % name
             )
         attr = self._proxy.__getattribute__(name)
         # Shortcut the lookup attribute
@@ -320,6 +320,11 @@ class FlintClient:
         self._greenlets = None
 
     def _set_new_proxy(self, proxy, pid):
+        # Make sure no cached functions are used
+        for s in self._shortcuts:
+            delattr(self, s)
+        self._shortcuts = set()
+        # Setup the new proxy
         self._proxy = proxy
         self._pid = pid
         if self._on_new_pid is not None:

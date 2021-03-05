@@ -161,6 +161,10 @@ class ServerError(Exception):
     pass
 
 
+class RpcConnectionError(ConnectionError):
+    pass
+
+
 def _discover_object(obj):
     if isinstance(obj, proxy.Proxy):
         obj = obj.__wrapped__
@@ -497,7 +501,7 @@ class RpcConnection:
             self._event.set()
             self._event.clear()
 
-    def __init__(self, address, disconnect_callback, timeout=None):
+    def __init__(self, address, disconnect_callback, timeout=3):
         global_map.register(self, parents_list=["comms"], tag=f"rpc client:{address}")
 
         if address.startswith("tcp"):
@@ -578,7 +582,7 @@ class RpcConnection:
                     global_map.register(self.__proxy, children_list=[self])
         return self.__proxy
 
-    def _call__(self, code, args, kwargs):
+    def _call__(self, code, args, kwargs, retry_on_disconnect=True):
         log_debug(self, f"rpc client ({self._address}): '{code}' args={args}")
 
         # Check if already return a sub client
@@ -599,6 +603,15 @@ class RpcConnection:
                     # FIXME: checking the traceback is an approximation
                     # It would be better to know it was a raised exception
                     # from the server msg
+                    if isinstance(value, RpcConnectionError):
+                        if retry_on_disconnect:
+                            # try again once
+                            self.connect()
+                            return self._call__(
+                                code, args, kwargs, retry_on_disconnect=False
+                            )
+                        else:
+                            raise value
                     if value.__traceback__ is None:
                         return value
                     else:
@@ -641,6 +654,8 @@ class RpcConnection:
             exception = e
             sys.excepthook(*sys.exc_info())
         finally:
+            for _, wq in self._queues.items():
+                wq.put(RpcConnectionError("Disconnected"))
             if (exception is None or not self._queues) and callable(
                 self._disconnect_callback
             ):

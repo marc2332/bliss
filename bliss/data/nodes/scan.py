@@ -75,13 +75,13 @@ class ScanNode(DataNodeContainer):
             kw["priority"] = 1
         super()._subscribe_stream(stream_suffix, reader, first_index=first_index, **kw)
 
-    def _subscribe_all_streams(self, reader, first_index=None, **kw):
+    def _subscribe_streams(self, reader, first_index=None, **kw):
         """Subscribe to all associated streams of this node.
 
         :param DataStreamReader reader:
         :param **kw: see DataNodeContainer
         """
-        super()._subscribe_all_streams(reader, first_index=first_index, **kw)
+        super()._subscribe_streams(reader, first_index=first_index, **kw)
         self._subscribe_stream(
             "data", reader, first_index=0, create=True, ignore_excluded=True
         )

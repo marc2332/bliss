@@ -1217,7 +1217,7 @@ class DataNode(metaclass=DataNodeMetaClass):
                 include_filter = filter
         if exclude_existing_children is None:
             exclude_existing_children = exclude_children
-        self._subscribe_all_streams(
+        self._subscribe_streams(
             reader,
             include_filter=include_filter,
             exclude_children=exclude_existing_children,
@@ -1290,7 +1290,7 @@ class DataNode(metaclass=DataNodeMetaClass):
         :param str or int first_index: Redis stream index (None is now)
         :param bool yield_events: yield Event or DataNode
         """
-        self._subscribe_all_streams(
+        self._subscribe_streams(
             reader,
             include_filter=include_filter,
             exclude_children=exclude_children,
@@ -1362,7 +1362,7 @@ class DataNode(metaclass=DataNodeMetaClass):
         stream = self._create_nonassociated_stream(stream_name)
         reader.add_streams(stream, node=self, first_index=first_index, **kw)
 
-    def _subscribe_all_streams(
+    def _subscribe_streams(
         self,
         reader,
         include_filter=None,
@@ -1493,7 +1493,7 @@ class DataNodeContainer(DataNode):
                 reader, include_filter, exclude_children, first_index, yield_events
             )
 
-    def _subscribe_all_streams(
+    def _subscribe_streams(
         self,
         reader,
         include_filter=None,
@@ -1509,18 +1509,27 @@ class DataNodeContainer(DataNode):
         :param str or int first_index: Redis stream index (None is now)
         :param bool yield_events: yield Event or DataNode
         """
+        # Do not use the include_filter for *_children_list. Maybe we don't
+        # want the events from the direct children but may want the events
+        # from their children.
+        exclude_my_children = self._excluded(exclude_children)
+        if not exclude_my_children:
+            self._subscribe_stream(
+                "children_list", reader, create=True, first_index=first_index
+            )
+
+        # Below we subscribe to all existing streams of all children, not only
+        # the direct children. This reduces the delay between publishing events
+        # and receiving them. However it puts too much stress on the Redis server.
+        # So we will subscribe to the streams of each node when receiving that
+        # node's NEW_NODE event.
+        return
+
+        # Subscribe to the streams of all children, not only the direct children.
         # TODO: this assumes that all streams to subscribe too are called
         #       "*_children_list" and "*_data". Can be solved with DataNode
         #       derived class self-registration and each class adding
         #       stream suffixes and orders.
-
-        # Do not use the include_filter for *_children_list. Maybe we don't want the node's
-        # events but we may want the events from its children
-        self_exclude_children = self._excluded(exclude_children)
-        if not self_exclude_children:
-            self._subscribe_stream(
-                "children_list", reader, create=True, first_index=first_index
-            )
 
         # Subscribe to streams found by a recursive search
         nodes_with_data = list()
@@ -1542,7 +1551,7 @@ class DataNodeContainer(DataNode):
                     strict_recursive_exclude=False,
                 )
             )
-        if not self_exclude_children:
+        if not exclude_my_children:
             node_names = self._search_nodes_with_streams(
                 "children_list", excluded_stream_names, include_parent=False
             )

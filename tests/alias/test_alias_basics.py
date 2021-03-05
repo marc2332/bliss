@@ -1,7 +1,9 @@
 import pytest
+import gevent
 from bliss.shell.standard import wm
 from bliss import global_map
 from bliss.common.scans import loopscan
+from bliss.common import event
 
 alias_dump = """Alias    Original fullname
 -------  ----------------------------------
@@ -220,3 +222,17 @@ def test_encoder_alias(default_session):
 
     s4 = loopscan(1, .01, mot_maxee_enc)
     assert "encoder:mot_maxee_enc" in list(s4.get_data())
+
+
+def test_alias_connect(alias_session):
+    robzz = alias_session.env_dict["robzz"]
+    move_done = gevent.event.Event()
+
+    def callback(done):
+        if done:
+            move_done.set()
+
+    event.connect(robzz, "move_done", callback)
+
+    robzz.rmove(0.1)
+    assert move_done.is_set()

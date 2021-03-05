@@ -7,24 +7,74 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import time
+import numpy
+import gevent
 import numpy as np
 import io
 import socket
 import struct
+from bliss.common.utils import autocomplete_property
+from bliss.controllers.oscilloscope import (
+    Oscilloscope,
+    OscilloscopeHardwareController,
+    OscilloscopeAnalogChannel,
+    OscAnalogChanData,
+    OscMeasData,
+    OscilloscopeTrigger,
+    OscilloscopeCounterController,
+)
 
 HEADER_FORMAT = ">BBBBL"
 DATA_FLAG = 0x80
+HEADER_LIST = [
+    "WAVE_DESCRIPTOR",
+    "WAVE_ARRAY_1",
+    "INSTRUMENT_NUMBER",
+    "PNTS_PER_SCREEN",
+    "FIRST_VALID_PNT",
+    "LAST_VALID_PNT",
+    "FIRST_POINT",
+    "SPARSING_FACTOR",
+    "SEGMENT_INDEX",
+    "SUBARRAY_COUNT",
+    "SWEEPS_PER_ACQ",
+    "POINTS_PER_PAIR",
+    "PAIR_OFFSET",
+    "VERTICAL_GAIN",
+    "VERTICAL_OFFSET",
+    "MAX_VALUE",
+    "MIN_VALUE",
+    "NOMINAL_BITS",
+    "NOM_SUBARRAY_COUNT",
+    "HORIZ_INTERVAL",
+    "HORIZ_OFFSET",
+    "PIXEL_OFFSET",
+    "HORIZ_UNCERTAINTY",
+    "ACQ_DURATION",
+    "PROBE_ATT",
+    "VERTICAL_VERNIER",
+    "ACQ_VERT_VERNIER",
+]
 
 
-class Lecroy620zi(object):
+class LecroyOscCtrl(OscilloscopeHardwareController):
     """
     Define the methods used with the Lecroy scope Wave Runner 620Zi.
     """
 
-    def __init__(self, host, port=1861, timeout=5.0):
+    def __init__(self, config):
+        host = config["host"]
+        port = 1861
+        if "timeout" in config:
+            timeout = config["timeout"]
+        else:
+            timeout = 5.0
+        self.counters = config["counters"]
         self._comm = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._comm.connect((host, port))
         self._comm.settimeout(timeout)
+        self.done = True
+        self.set_waveformFormat("WORD")
 
     def send(self, msg):
         if not msg.endswith("\n"):
@@ -34,21 +84,110 @@ class Lecroy620zi(object):
         self._comm.sendall(b"".join([header, msg]))
 
     def recv(self, decode=True):
-        dtstr = []
+        """Return a message from the scope."""
+        reply = []
         while True:
-            data = self._comm.recv(8)
-            head_data = struct.unpack("B3BI", data)  # get response (header from device)
-            lnt = socket.ntohl(head_data[-1])  # data length to be captured
-            flg = head_data[0]
-            dtstr.append(self._comm.recv(lnt))
-            if flg != DATA_FLAG:  # data flag 0x80
+            header = []
+
+            while len(b"".join(header)) < 8:
+                header.append(self._comm.recv(8 - len(b"".join(header))))
+
+            operation, headerver, seqnum, spare, totalbytes = struct.unpack(
+                HEADER_FORMAT, b"".join(header)
+            )
+
+            buffer = []
+
+            while len(b"".join(buffer)) < totalbytes:
+                buffer.append(self._comm.recv(totalbytes - len(b"".join(buffer))))
+
+            reply.append(b"".join(buffer))
+
+            if operation % 2:
                 break
-        answr = b"".join(dtstr)
+
+        answr = b"".join(reply)
         if decode:
             answr = answr.decode()
             if answr.endswith("\n"):
                 answr = answr[:-1]
+
         return answr
+
+    # def recv2(self, decode=True):
+    #     dtstr = []
+    #     while True:
+    #         data = self._comm.recv(8)
+    #         head_data = struct.unpack("B3BI", data)  # get response (header from device)
+    #         lnt = socket.ntohl(head_data[-1])  # data length to be captured
+    #         flg = head_data[0]
+    #         dtstr.append(self._comm.recv(lnt))
+    #         if flg != DATA_FLAG:  # data flag 0x80
+    #             break
+    #     answr = b"".join(dtstr)
+    #     if decode:
+    #         answr = answr.decode()
+    #         if answr.endswith("\n"):
+    #             answr = answr[:-1]
+    #     return answr
+
+    def wait_ready(self, timeout=5):
+        with gevent.timeout.Timeout(timeout):
+            while not self.done:
+                gevent.sleep(.1)
+
+    def acq_read_channel(self, name, length=None):
+        # Wait for trigger...
+        # still to be handled...
+
+        header, length, data = self.get_waveform(name)
+        header = self.header_to_dict(header)
+        self.header = header
+        raw_data = data
+        data = data.astype(numpy.float) + float(header["PIXEL_OFFSET"])
+
+        return OscAnalogChanData(length, raw_data, data, header)
+
+    def get_channel_names(self):
+        channels_names = []
+        for dic in self.counters:
+            channels_names.append(dic["counter_name"])
+        return channels_names
+
+    def get_measurement_names(self):
+        return HEADER_LIST
+
+    def acq_prepare(self):
+        self.set_waveformFormat("WORD")
+
+    def acq_read_measurement(self, ch):
+        return OscMeasData(float(self.header[ch]), ch)
+
+    def acq_start(self):
+        pass
+
+    def acq_done(self):
+        return self.done
+
+    def header_to_dict(self, header_string):
+        res = {}
+        for entry in header_string.strip("====").split("\n"):
+            if " : " in entry:
+                key, value = entry.split(" : ")
+                res[key] = value
+            if " : " in entry:
+                key, value = entry.split(" : ")
+                res[key] = value
+        return res
+
+    def stop(self):
+        pass
+
+    def read(self):
+        pass
+
+    def __close__(self):
+        self._comm.close()
 
     def rst(self):
         """Initiate a device reset."""
@@ -206,7 +345,7 @@ class Lecroy620zi(object):
 
     def set_waveformSetup(self, sp=256, np=0, fp=0, sn=0):
         """
-        Selected the amount of data in a waveform to be transmitted (WFSU).
+        Select the amount of data in a waveform to be transmitted (WFSU).
         Default: sp=256,np=0,fp=0,sn=0
         """
         sp = str(sp)
@@ -217,7 +356,7 @@ class Lecroy620zi(object):
 
     def get_waveformSetup(self):
         """
-        Selected the amount of data in a waveform to be transmitted (WFSU).
+        Get the amount of data in a waveform to be transmitted (WFSU).
         Default: sp=0,np=0,fp=0,sn=0
         """
         self.send("WFSU?")
@@ -239,7 +378,7 @@ class Lecroy620zi(object):
 
     def get_opc(self):
         """
-        Return the INR status.
+        Return state of last operation.
         """
         self.send("*OPC?")
         opc = self.recv()
@@ -282,8 +421,8 @@ class Lecroy620zi(object):
         command = "VBS? RETURN=app.Math." + mathChan + ".Operator1Setup.Sweeps"
         self.send(command)
         ans = self.recv()
-        a, value = ans.split(" ")
-        return value
+        # a, value = ans.split(" ")
+        return ans
 
     def get_math_out_sweeps(self, mathChan):
         """
@@ -641,7 +780,7 @@ class Lecroy620zi(object):
 
     def ask_waveform(self, ch):
         tdiv = float(self.get_tdiv().split()[1])
-        cptr_time = tdiv * 10 + 1
+        cptr_time = tdiv * 10.0 + 0.1
         self.send(ch + ":WF? ALL")
         time.sleep(cptr_time)
 
@@ -656,5 +795,53 @@ class Lecroy620zi(object):
         Example: get_waveform("C1")
         """
 
+        self.done = False
         self.ask_waveform(ch)
-        return self.answer_waveform(ch)
+        answer = self.answer_waveform(ch)
+        self.done = True
+        return answer
+
+
+class LecroyAnalogChannel(OscilloscopeAnalogChannel):
+    pass
+
+
+class LecroyOsc(Oscilloscope):
+    # user exposed object
+    def __init__(self, name, config):
+        self._device = LecroyOscCtrl(config)
+        Oscilloscope.__init__(self, name, config)
+
+    def _channel_counter(self, name):
+        return LecroyAnalogChannel(name, self._counter_controller)
+
+    def __close__(self):
+        self._device.__close__()
+
+    @autocomplete_property
+    def trigger(self):
+        return LecroyTrigger(self._device)
+
+
+class LecroyTrigger(OscilloscopeTrigger):
+    def __info__(self):
+        return (
+            f"trigger info \n"
+            + f"source: {self._device.get_trmd()}"
+            #      + f"type:   {current['TYPE']}"
+        )
+
+    def _get_settings(self):
+        raise NotImplementedError
+
+    def set_trigger_setting(self, param, value):
+        raise NotImplementedError
+
+
+# class LecroyCntr(OscilloscopeCounterController):
+#     def __init__(self, scope):
+#         OscilloscopeCounterController.__init__(self, scope)
+#
+#     @property
+#     def counters(self):
+#         return self._scope.counters

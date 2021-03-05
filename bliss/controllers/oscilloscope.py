@@ -6,7 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.common.utils import autocomplete_property
-from bliss.controllers.counter import CounterController
+from bliss.controllers.counter import CounterController, CounterContainer
 from bliss.common.counter import Counter
 from bliss.scanning.acquisition.oscilloscope import (
     OscilloscopeAcquisitionSlave,
@@ -16,10 +16,11 @@ from bliss.scanning.acquisition.oscilloscope import (
 from bliss.controllers.counter import counter_namespace
 
 
-class Oscilloscope:
+class Oscilloscope(CounterContainer):
     """Base class for user level objects for oscilloscopes"""
 
     def __init__(self, name, config):
+        super().__init__()
         # inhereted class should initialise OscilloscopeController that holds the comm as self._device before getting here
         assert self._device is not None
 

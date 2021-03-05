@@ -514,8 +514,9 @@ def test_walk_after_nodes_disappeared(session):
 def test_children_timing(beacon, session):
     diode2 = session.env_dict["diode2"]
 
-    def walker(scan_node):
+    def walker(db_name):
         # print("LISTENING TO", scan_node.db_name)
+        scan_node = get_node(db_name)
         for event_type, node, event_data in scan_node.walk_events():
             if event_type != event_type.NEW_NODE:
                 continue
@@ -533,7 +534,7 @@ def test_children_timing(beacon, session):
     # force existance of scan node before starting the scan
     s._prepare_node()
 
-    g = gevent.spawn(walker, s.node)
+    g = gevent.spawn(walker, s.node.db_name)
     # print("BEFORE RUN", list([n.db_name for n in s.node.children()]))
     s.run()
     # print("AFTER RUN", list([n.db_name for n in s.node.children()]))
@@ -567,7 +568,8 @@ def test_scan_end_timing(
 
     event = gevent.event.Event()
 
-    def g(scan_node):
+    def g(db_name):
+        scan_node = get_node(db_name)
         parent = scan_node.parent
         event.set()
         first_index = int(time.time() * 1000)
@@ -590,7 +592,7 @@ def test_scan_end_timing(
     # force existance of scan node before starting the scan
     scan._prepare_node()
 
-    gg = gevent.spawn(g, scan.node)
+    gg = gevent.spawn(g, scan.node.db_name)
     with gevent.Timeout(1.):
         event.wait()
     scan.run()

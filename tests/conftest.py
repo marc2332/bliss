@@ -64,6 +64,18 @@ def eprint(*args):
 
 
 def wait_terminate(process, timeout=10):
+    """
+    Try to terminate a process then kill it.
+
+    This ensure the process is terminated.
+
+    Arguments:
+        process: A process object from `subprocess` or `psutil`, or an PID int
+        timeout: Timeout to way before using a kill signal
+
+    Raises:
+        gevent.Timeout: If the kill fails
+    """
     if isinstance(process, int):
         try:
             name = str(process)
@@ -83,7 +95,7 @@ def wait_terminate(process, timeout=10):
     except gevent.Timeout:
         eprint(f"Process {name} doesn't finish: try to kill it...")
         process.kill()
-        with gevent.Timeout(timeout):
+        with gevent.Timeout(10):
             process.wait()
 
 
@@ -716,7 +728,11 @@ def flint_context(with_flint=True, stucked=False):
             pass
     yield
     for pid in pids:
-        wait_terminate(pid, timeout=0.1)
+        try:
+            wait_terminate(pid, timeout=0.1)
+        except gevent.Timeout:
+            # This could happen, if the kill fails, after 10s
+            pass
 
     flint_singleton._on_new_pid = None
     flint_singleton.proxy_cleanup()

@@ -1380,18 +1380,6 @@ class DataNode(metaclass=DataNodeMetaClass):
         """
         pass
 
-    def _subscribe_on_new_node_after_yield(
-        self, reader, include_filter=None, first_index=None, yield_events=False
-    ):
-        """Subscribe to new streams after yielding the NEW_NODE event.
-
-        :param DataStreamReader reader:
-        :param include_filter: only these nodes are included (all by default)
-        :param str or int first_index: Redis stream index (None is now)
-        :param bool yield_events: yield Event or DataNode
-        """
-        pass
-
     def get_children_stream_index(self):
         """Get the node's stream ID in parent node's _children_list stream
 
@@ -1573,18 +1561,6 @@ class DataNodeContainer(DataNode):
 
         # Exclude searched Redis keys from further subscription attempts
         reader.excluded_stream_names |= excluded_stream_names
-
-    def _subscribe_on_new_node_after_yield(
-        self, reader, include_filter=None, first_index=None, yield_events=False
-    ):
-        """Subscribe to new streams after yielding the NEW_NODE event.
-
-        :param DataStreamReader reader:
-        :param tuple include_filter: only these nodes are included (all by default)
-        :param str or int first_index: Redis stream index (None is now)
-        :param bool yield_events: yield Event or DataNode
-        """
-        pass
 
     def _search_nodes_with_streams(
         self, stream_suffix, excluded_stream_names=None, include_parent=False

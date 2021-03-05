@@ -843,9 +843,10 @@ def umvdr(*args):
 def __umove(*args, **kwargs):
     kwargs["wait"] = False
     group, motor_pos = __move(*args, **kwargs)
+    motors = list(group.axes_with_reals.values())
     with error_cleanup(group.stop):
         motor_names = list()
-        for axis in motor_pos:
+        for axis in motors:
             if axis.unit:
                 motor_names.append(
                     "{}[{}]".format(global_map.alias_or_name(axis), axis.unit)
@@ -864,28 +865,28 @@ def __umove(*args, **kwargs):
         magic_char = "\033[F"
 
         while group.is_moving:
-            positions = group.position
-            dials = group.dial
+            positions = group.position_with_reals
+            dials = group.dial_with_reals
             row = "".join(
                 [
                     "user ",
-                    __row_positions(positions, motor_pos, rfmt, sep="  "),
+                    __row_positions(positions, motors, rfmt, sep="  "),
                     "\ndial ",
-                    __row_positions(dials, motor_pos, rfmt, sep="  "),
+                    __row_positions(dials, motors, rfmt, sep="  "),
                 ]
             )
             ret_depth = magic_char * row.count("\n")
             print("{}{}".format(ret_depth, row), end="", flush=True)
             sleep(0.1)
         # print last time for final positions
-        positions = group.position
-        dials = group.dial
+        positions = group.position_with_reals
+        dials = group.dial_with_reals
         row = "".join(
             [
                 "user ",
-                __row_positions(positions, motor_pos, rfmt, sep="  "),
+                __row_positions(positions, motors, rfmt, sep="  "),
                 "\ndial ",
-                __row_positions(dials, motor_pos, rfmt, sep="  "),
+                __row_positions(dials, motors, rfmt, sep="  "),
             ]
         )
         ret_depth = magic_char * row.count("\n")

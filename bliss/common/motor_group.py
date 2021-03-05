@@ -8,6 +8,9 @@
 import gevent
 import numpy
 import uuid
+
+# absolute import to avoid circular import
+import bliss.controllers.motor as motor
 from bliss.common.axis import (
     _prepare_one_controller_motions,
     _start_one_controller_motions,
@@ -29,11 +32,9 @@ def Group(*axes_list):
         axes[axis.name] = axis
     # ensure a pseudo axis is not present with one of its corresponding real axes
     def check_axes(*axes_to_check):
-        from bliss.controllers.motor import CalcController
-
         grp_axes = axes.values()
         for axis in axes_to_check:
-            if isinstance(axis.controller, CalcController):
+            if isinstance(axis.controller, motor.CalcController):
                 names = [
                     grp_axis.name
                     for grp_axis in grp_axes
@@ -61,6 +62,9 @@ class _Group(object):
         self.__name = name
         self._group_move = GroupMove(self)
         self._axes = dict(axes_dict)
+        self._axes_with_reals = {
+            axis.name: axis for axis in motor.get_real_axes(*self.axes.values())
+        }
 
     def __info__(self):
         info = "MOTOR GROUP:"
@@ -76,6 +80,10 @@ class _Group(object):
     @property
     def axes(self):
         return self._axes
+
+    @property
+    def axes_with_reals(self):
+        return self._axes_with_reals
 
     @property
     def is_moving(self):
@@ -110,16 +118,30 @@ class _Group(object):
 
     @property
     def position(self):
-        positions_dict = dict()
-        for axis in self.axes.values():
-            positions_dict[axis] = axis.position
-        return positions_dict
+        return self._dial_or_position("position")
 
     @property
     def dial(self):
+        return self._dial_or_position("dial")
+
+    @property
+    def position_with_reals(self):
+        return self._dial_or_position("position", with_reals=True)
+
+    @property
+    def dial_with_reals(self):
+        return self._dial_or_position("dial", with_reals=True)
+
+    def _dial_or_position(self, attr, with_reals=False):
         positions_dict = dict()
-        for axis in self.axes.values():
-            positions_dict[axis] = axis.dial
+
+        if with_reals:
+            axes = self._axes_with_reals
+        else:
+            axes = self.axes
+
+        for axis in axes.values():
+            positions_dict[axis] = getattr(axis, attr)
         return positions_dict
 
     def _check_ready(self):

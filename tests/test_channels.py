@@ -170,7 +170,7 @@ server.run()
     yield p, test_subprocess
 
     p.terminate()
-    test_subprocess.close()
+    test_subprocess._rpc_connection.close()
 
 
 def test_with_another_process(channel_subprocess):

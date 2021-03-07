@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="ASCII"?>
 <pogoDsl:PogoSystem xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pogoDsl="http://www.esrf.fr/tango/pogo/PogoDsl">
   <classes name="NexusWriter" pogoRevision="9.7">
-    <description description="" title="Bliss writer service" sourcePath="/mntdirect/_data_id21_inhouse/wout/dev/blissmain/nexus_writer_service/tango/servers" language="PythonHL" filestogenerate="XMI   file,Code files,Protected Regions" license="LGPL" copyright="Code is maintained by the ESRF Data Analysis Unit.&#xA;&#xA;Original author: Wout de Nolf&#xA;&#xA;Copyright (c) 2015-2020 ESRF" hasMandatoryProperty="true" hasConcreteProperty="true" hasAbstractCommand="false" hasAbstractAttribute="false">
+    <description description="" title="Bliss writer service" sourcePath="/home/denolf/dev/bliss/nexus_writer_service/tango/servers" language="PythonHL" filestogenerate="XMI   file,Code files,Protected Regions" license="LGPL" copyright="Code is maintained by the ESRF Data Analysis Unit.&#xA;&#xA;Original author: Wout de Nolf&#xA;&#xA;Copyright (c) 2015-2020 ESRF" hasMandatoryProperty="true" hasConcreteProperty="true" hasAbstractCommand="false" hasAbstractAttribute="false">
       <inheritances classname="Device_Impl" sourcePath=""/>
       <identification contact="at esrf.fr - wout.de_nolf" author="wout.de_nolf" emailDomain="esrf.fr" classFamily="SoftwareSystem" siteSpecific="ESRF" platform="Unix Like" bus="Not Applicable" manufacturer="none" reference=""/>
     </description>
@@ -44,6 +44,11 @@
       <status abstract="false" inherited="false" concrete="true" concreteHere="true"/>
       <DefaultPropValue>False</DefaultPropValue>
     </deviceProperties>
+    <deviceProperties name="required_disk_space" description="Minimum required disk space in MB to allow the writer to start">
+      <type xsi:type="pogoDsl:DoubleType"/>
+      <status abstract="false" inherited="false" concrete="true" concreteHere="true"/>
+      <DefaultPropValue>200</DefaultPropValue>
+    </deviceProperties>
     <commands name="State" description="This command gets the device state (stored in its device_state data member) and returns it to the caller." execMethod="dev_state" displayLevel="OPERATOR" polledPeriod="0" isDynamic="false">
       <argin description="none">
         <type xsi:type="pogoDsl:VoidType"/>
@@ -80,7 +85,7 @@
       </argout>
       <status abstract="false" inherited="false" concrete="true" concreteHere="true"/>
     </commands>
-    <commands name="scan_permitted" description="Check whether the scan data can be written." execMethod="scan_permitted" displayLevel="OPERATOR" polledPeriod="0" isDynamic="false">
+    <commands name="scan_has_write_permissions" description="Check whether the scan data can be written." execMethod="scan_has_write_permissions" displayLevel="OPERATOR" polledPeriod="0" isDynamic="false">
       <argin description="scan name">
         <type xsi:type="pogoDsl:StringType"/>
       </argin>
@@ -158,6 +163,15 @@
       </argin>
       <argout description="">
         <type xsi:type="pogoDsl:VoidType"/>
+      </argout>
+      <status abstract="false" inherited="false" concrete="true" concreteHere="true"/>
+    </commands>
+    <commands name="scan_has_required_disk_space" description="Check whether there is enough disk space for the scan" execMethod="scan_has_required_disk_space" displayLevel="OPERATOR" polledPeriod="0" isDynamic="false">
+      <argin description="scan name">
+        <type xsi:type="pogoDsl:StringType"/>
+      </argin>
+      <argout description="">
+        <type xsi:type="pogoDsl:BooleanType"/>
       </argout>
       <status abstract="false" inherited="false" concrete="true" concreteHere="true"/>
     </commands>

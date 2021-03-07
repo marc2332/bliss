@@ -196,6 +196,9 @@ class NexusWriter(Device):
         stackmca
             - Merged MCA datasets in application definition
             - Type:'DevBoolean'
+        required_disk_space
+            - Minimum required disk space in MB to allow the writer to start
+            - Type:'DevDouble'
     """
 
     # PROTECTED REGION ID(NexusWriter.class_variable) ENABLED START #
@@ -213,6 +216,9 @@ class NexusWriter(Device):
 
     @property
     def saveoptions(self):
+        """When an option is not a device property or attribute,
+        use the hard-coded default.
+        """
         saveoptions = session_writer.default_saveoptions()
         for name, info in session_writer.all_cli_saveoptions().items():
             if "action" in info:
@@ -253,6 +259,8 @@ class NexusWriter(Device):
     noconfig = device_property(dtype="DevBoolean", default_value=False)
 
     stackmca = device_property(dtype="DevBoolean", default_value=False)
+
+    required_disk_space = device_property(dtype="DevDouble", default_value=200)
 
     # ----------
     # Attributes
@@ -500,8 +508,8 @@ class NexusWriter(Device):
 
     @command(dtype_in="DevString", doc_in="scan name", dtype_out="DevBoolean")
     @DebugIt()
-    def scan_permitted(self, argin):
-        # PROTECTED REGION ID(NexusWriter.scan_permitted) ENABLED START #
+    def scan_has_write_permissions(self, argin):
+        # PROTECTED REGION ID(NexusWriter.scan_has_write_permissions) ENABLED START #
         """
 
         :param argin: 'DevString'
@@ -509,7 +517,7 @@ class NexusWriter(Device):
         :return:'DevBoolean'
         """
         return self.session_writer.scan_has_write_permissions(argin)
-        # PROTECTED REGION END #    //  NexusWriter.scan_permitted
+        # PROTECTED REGION END #    //  NexusWriter.scan_has_write_permissions
 
     @command(dtype_in="DevString", doc_in="scan name", dtype_out="DevBoolean")
     @DebugIt()
@@ -623,6 +631,21 @@ class NexusWriter(Device):
         """
         self.session_writer.purge_scan_writers(delay=False)
         # PROTECTED REGION END #    //  NexusWriter.purge_scans
+
+    @command(dtype_in="DevString", doc_in="scan name", dtype_out="DevBoolean")
+    @DebugIt()
+    def scan_has_required_disk_space(self, argin):
+        # PROTECTED REGION ID(NexusWriter.scan_has_required_disk_space) ENABLED START #
+        """
+        Check whether there is enough disk space for the scan
+
+        :param argin: 'DevString'
+        scan name
+
+        :return:'DevBoolean'
+        """
+        return self.session_writer.scan_has_required_disk_space(argin)
+        # PROTECTED REGION END #    //  NexusWriter.scan_has_required_disk_space
 
 
 # ----------

@@ -143,7 +143,8 @@ def poll_writer(dev_name, timeout, condition, scan_name, pollinterval=0):
     tango_scan_methods = [
         "scan_state",
         "scan_uri",
-        "scan_permitted",
+        "scan_has_write_permissions",
+        "scan_has_required_disk_space",
         "scan_state_reason",
     ]
     tango_attributes = [

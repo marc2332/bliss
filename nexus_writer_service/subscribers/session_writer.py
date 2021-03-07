@@ -498,6 +498,17 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
         else:
             return writer.has_write_permissions
 
+    def scan_has_required_disk_space(self, name):
+        """
+        :param str name: scan name
+        :returns bool:
+        """
+        writer = self.writers.get(name, None)
+        if writer is None:
+            raise ValueError(f"No writer for scan {repr(name)} exists")
+        else:
+            return writer.has_required_disk_space
+
 
 def start_session_writer(session_name, **saveoptions):
     """

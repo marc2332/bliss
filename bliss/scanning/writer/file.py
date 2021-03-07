@@ -8,9 +8,12 @@
 import itertools
 import errno
 import os
+from time import time
 
 from bliss.scanning.chain import AcquisitionSlave, AcquisitionMaster
 from bliss.common.event import connect, disconnect
+from bliss.common import logtools
+from bliss.common.os_utils import has_required_disk_space
 
 
 class _EventReceiver(object):
@@ -39,8 +42,9 @@ class _EventReceiver(object):
         self.device = None
 
 
-class FileWriter(object):
+class FileWriter:
     FILE_EXTENSION = None
+    DISK_SPACE_WARNING_LEVEL = 1024  # MB
 
     def __init__(
         self,
@@ -58,9 +62,15 @@ class FileWriter(object):
         self._data_filename_template = data_filename
         self._template_dict = {}
         self._images_root_path_template = images_root_path
+        if master_event_callback is None:
+            master_event_callback = self._master_event_callback
         self._master_event_callback = master_event_callback
         self._device_event_callback = device_event_callback
         self._event_receivers = list()
+
+        # Parameters for the default master event callback
+        self._master_event_callback_time = time()
+        self._master_event_callback_period = 3
 
     @property
     def template(self):
@@ -137,6 +147,8 @@ class FileWriter(object):
         self._event_receivers = []
 
     def prepare(self, scan):
+        self._master_event_callback_time = time()
+        self.warn_low_disk_space()
         self.create_path(self.root_path)
         self.new_file(scan.node.name, scan.scan_info)
         scan_entry = self.new_scan(scan.node.name, scan.scan_info)
@@ -190,3 +202,29 @@ class FileWriter(object):
         no scan exists in the file.
         """
         return 0
+
+    @property
+    def _master_event_callback_tick(self):
+        tm = time()
+        tmmax = self._master_event_callback_time + self._master_event_callback_period
+        if tm > tmmax:
+            self._master_event_callback_time = tm
+            return True
+        else:
+            return False
+
+    def _master_event_callback(self, parent, event_dict, signal, sender):
+        if not self.DISK_SPACE_WARNING_LEVEL:
+            return
+        if self._master_event_callback_tick:
+            self.warn_low_disk_space()
+
+    def warn_low_disk_space(self):
+        """Print a warning disk space is lower than the required amount.
+        """
+        level = self.DISK_SPACE_WARNING_LEVEL
+        if not level:
+            return
+        if not has_required_disk_space(self.root_path, level):
+            msg = "Free disk space below {:.0f} MB".format(level)
+            logtools.log_warning(self, msg)

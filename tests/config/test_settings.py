@@ -9,6 +9,7 @@ import datetime
 import os
 import pickle
 import gevent
+from collections import OrderedDict
 
 import pytest
 
@@ -72,9 +73,75 @@ def test_simple_setting_types(session):
     assert type(ttt.get()) is str
 
 
+def _assert_dict_api(pyDict, redisDict):
+    def mysorted(items):
+        if isinstance(pyDict, OrderedDict):
+            return list(items)
+        else:
+            return sorted(items)
+
+    def validate_getters():
+        assert redisDict.get_all() == pyDict
+        assert len(redisDict) == len(pyDict)
+        assert mysorted(redisDict.items()) == mysorted(pyDict.items())
+        assert mysorted(redisDict.values()) == mysorted(pyDict.values())
+        assert mysorted(redisDict.keys()) == mysorted(pyDict.keys())
+        for key in pyDict:
+            assert redisDict[key] == pyDict[key]
+
+    validate_getters()
+
+    pyDict["key3"] = "value3"
+    redisDict["key3"] = "value3"
+    validate_getters()
+
+    pyDict["key2"] += "suffix"
+    redisDict["key2"] += "suffix"
+    validate_getters()
+
+    del pyDict["key2"]
+    del redisDict["key2"]
+    validate_getters()
+
+    add = [("key4", "value4"), ("key5", "value5")]
+    pyDict.update(add)
+    redisDict.update(OrderedDict(add))
+    validate_getters()
+
+    assert pyDict.pop("key4") == redisDict.pop("key4")
+    assert pyDict.pop("key6", None) == redisDict.pop("key6", None)
+    validate_getters()
+
+    assert pyDict.get("key5") == redisDict.get("key5")
+    assert pyDict.get("key6") == redisDict.get("key6")
+    assert pyDict.get("key6", "value6") == redisDict.get("key6", "value6")
+    validate_getters()
+
+
+def test_basehash_setting_dictapi(session):
+    pyDict = {"key1": "value1", "key2": "value2"}
+    redisDict = settings.BaseHashSetting("pyDict")
+    redisDict.update(pyDict)
+    _assert_dict_api(pyDict, redisDict)
+
+
+def test_hash_setting_dictapi(session):
+    pyDict = {"key1": "value1", "key2": "value2"}
+    redisDict = settings.HashSetting("pyDict")
+    redisDict.update(pyDict)
+    _assert_dict_api(pyDict, redisDict)
+
+
+def test_orderedhash_setting_dictapi(session):
+    pyDict = OrderedDict([("key1", "value1"), ("key2", "value2")])
+    redisDict = settings.OrderedHashSetting("pyDict")
+    redisDict.update(pyDict)
+    _assert_dict_api(pyDict, redisDict)
+
+
 def test_basehash_setting(session):
     my_dict = {"C1": "riri", "C2": "fifi"}
-    shs = settings.BaseHashSetting("newkey")  # note the s :)
+    shs = settings.BaseHashSetting("newkey")
     for k, v in my_dict.items():
         shs[k] = v
 
@@ -95,7 +162,7 @@ def test_basehash_settings_ttl(session):
 
 def test_hash_setting(session):
     myDict = {"C1": "riri", "C2": "fifi"}
-    shs = settings.HashSetting("myHkey", default_values=myDict)  # note the s :)
+    shs = settings.HashSetting("myHkey", default_values=myDict)
     assert list(myDict.items()) == list(shs.items())
     assert list(myDict.values()) == list(shs.values())
     assert list(shs.keys()) == list(myDict.keys())
@@ -103,12 +170,16 @@ def test_hash_setting(session):
 
 def test_hash_setting_default_value(beacon):
     shs = settings.HashSetting("myNewHkey")
-
     test_object = DummyObject()
-
     assert shs.get("a") is None
     setting_object = shs.get("a", default=test_object)
     assert test_object is setting_object
+
+    default_values = {"key1": "value1", "key2": "value2"}
+    shs = settings.HashSetting("myNewHkey", default_values=default_values)
+    assert default_values == shs.get_all()
+    shs.remove("key1")
+    assert default_values == shs.get_all()
 
 
 def test_hash_setting_default_value_readwrite_conv(beacon):
@@ -123,6 +194,24 @@ def test_hash_setting_default_value_readwrite_conv(beacon):
     assert shs.get("a") is None
     setting_object = shs.get("a", default=test_object)
     assert test_object is setting_object
+
+
+def test_struct(session):
+    pyDict = {"key1": "value1", "key2": "value2"}
+    defaults = {"key1": "default1"}
+    redisStruct = settings.Struct("pyDict", default_values=defaults)
+
+    redisStruct.key1 = pyDict["key1"]
+    redisStruct.key2 = pyDict["key2"]
+    assert redisStruct.key1 == pyDict["key1"]
+    assert redisStruct.key2 == pyDict["key2"]
+    assert sorted(dir(redisStruct)) == ["key1", "key2"]
+
+    del redisStruct.key1
+    del redisStruct.key2
+    assert redisStruct.key1 == defaults["key1"]
+    assert redisStruct.key2 is None
+    assert sorted(dir(redisStruct)) == ["key1"]
 
 
 """

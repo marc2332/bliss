@@ -10,9 +10,10 @@ from bliss.scanning.scan import Scan, ScanState, DataWatchCallback
 from bliss.scanning.toolbox import ChainBuilder
 from bliss.controllers.lima.lima_base import Lima
 from bliss.common.utils import BOLD, RED
-from bliss.common.utils import typeguardTypeError_to_hint
+from bliss.common.utils import shorten_signature, typeguardTypeError_to_hint
 from bliss.data.lima_image import read_video_last_image
 from bliss.common.tango import DevFailed
+
 
 _log = logging.getLogger("bliss.scans")
 
@@ -63,23 +64,43 @@ def limastat(*limadevs):
 
 
 def _limatake_parse_args(args):
-    alldict = dict()
+    lima_acq_params = [
+        "acq_nb_frames",
+        "acq_expo_time",
+        "acq_trigger_mode",
+        "latency_time",
+        "wait_frame_id",
+        "saving_statistics_history",
+        "saving_mode",
+        "acq_mode",
+        "acc_time_mode",
+    ]
+    alldict = dict(acq_params=dict(), ctrl_params=dict())
     devdict = dict()
     for (name, value) in args.items():
         if type(value) == dict:
             if name not in devdict.keys():
-                devdict[name] = dict()
-            devdict[name].update(value)
+                devdict[name] = dict(acq_params=dict(), ctrl_params=dict())
+            for (parname, parvalue) in value.items():
+                if parname in lima_acq_params:
+                    devdict[name]["acq_params"][parname] = parvalue
+                else:
+                    devdict[name]["ctrl_params"][parname] = parvalue
         else:
-            alldict[name] = value
+            if name in lima_acq_params:
+                alldict["acq_params"][name] = value
+            else:
+                alldict["ctrl_params"][name] = value
     return alldict, devdict
 
 
 @typeguardTypeError_to_hint
 @typeguard.typechecked
+@shorten_signature(hidden_kwargs=[])
 def limatake(
     expotime: numbers.Real,
     nbframes: numbers.Integral = 1,
+    *limadevs,
     save: bool = False,
     run: bool = True,
     **kwargs,
@@ -106,11 +127,13 @@ def limatake(
         limatake (0.1, 10, saving_frame_per_file=5, basler1=ccd1, save=True)
 
     """
+    limadevs = list(limadevs)
+    showtree = len(limadevs) == 0
+    title = kwargs.pop("title", "limatake")
+    full_title = title + " {0:.4f} {1}".format(expotime, nbframes)
     (all_args, dev_args) = _limatake_parse_args(kwargs)
 
-    title = kwargs.get("title", "limatake")
-    full_title = title + " {0:.4f} {1}".format(expotime, nbframes)
-
+    # default acq parameters
     lima_params = {
         "acq_nb_frames": nbframes,
         "acq_expo_time": expotime,
@@ -123,10 +146,10 @@ def limatake(
         lima_params["saving_statistics_history"] = int(nbframes)
 
     # merge all other non Lima device related parameters
-    lima_params.update(all_args)
+    lima_params.update(all_args["acq_params"])
 
     chain = AcquisitionChain(parallel_prepare=True)
-    builder = ChainBuilder([])
+    builder = ChainBuilder(limadevs)
 
     limaused = list()
     limadevs = list()
@@ -135,10 +158,13 @@ def limatake(
         limadevs.append(node.controller)
 
         # get the parameters for every Lima device
-        acq_params = lima_params
-        acq_params.update(dev_args.get(node.controller.name, {}))
+        dev_params = dev_args.get(node.controller.name, {})
+        acq_params = dict(lima_params)
+        acq_params.update(dev_params.get("acq_params", {}))
+        ctrl_params = dict(all_args["ctrl_params"])
+        ctrl_params.update(dev_params.get("ctrl_params", {}))
 
-        node.set_parameters(acq_params=acq_params)
+        node.set_parameters(acq_params=acq_params, ctrl_params=ctrl_params)
         chain.add(node)
 
     # raise an exception if no detector was found in the measurement group
@@ -153,16 +179,17 @@ def limatake(
 
     scan_info = lima_params
     scan_info.update(acq_params)
-    scan_info["title"] = f"limatake {expotime:.4f} {nbframes}"
+    scan_info["title"] = full_title
     scan_info["type"] = "limatake"
     scan = Scan(
         chain,
         scan_info=scan_info,
-        name=full_title,
+        name=title,
         save=save,
         data_watch_callback=LimaTakeDisplay(*limadevs),
     )
-    print(scan.acq_chain._tree)
+    if showtree:
+        print(scan.acq_chain._tree)
     if run:
         scan.run()
 

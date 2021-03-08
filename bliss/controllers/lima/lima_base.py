@@ -21,7 +21,11 @@ from bliss import current_session
 
 from bliss.config.channels import Cache, clear_cache
 
-from bliss.controllers.lima.properties import LimaProperties, LimaProperty
+from bliss.controllers.lima.properties import (
+    LimaProperties,
+    LimaProperty,
+    LimaAttrGetterSetter,
+)
 from bliss.controllers.lima.bpm import Bpm
 from bliss.controllers.lima.roi import RoiCounters, RoiProfileController
 from bliss.controllers.lima.image import ImageCounter
@@ -37,6 +41,9 @@ class LimaBeaconObject(BeaconObject):
     def to_dict(self):
         # inherits from 'prefix' from LimaAttrGetterSetter
         return {self.prefix + k: v for k, v in self.settings.items()}
+
+    def __info__(self):
+        return LimaAttrGetterSetter.__info__(self)
 
 
 class CameraBase(object):

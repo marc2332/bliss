@@ -312,6 +312,11 @@ class FlintClient:
         for s in self._shortcuts:
             delattr(self, s)
         self._shortcuts = set()
+        if self._proxy is not None:
+            try:
+                self._proxy.close()
+            except Exception:
+                pass
         self._proxy = None
         self._pid = None
         self._process = None

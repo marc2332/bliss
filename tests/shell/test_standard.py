@@ -338,7 +338,7 @@ def test_open_kill_flint(test_session_without_flint):
     assert f is not None
     pid = f.pid
     assert psutil.pid_exists(pid)
-    f.kill9()
+    f.kill()
     try:
         process = psutil.Process(pid)
     except psutil.NoSuchProcess:

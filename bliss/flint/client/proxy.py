@@ -378,7 +378,7 @@ class FlintClient:
             raise RuntimeError("No proxy connected")
         self._proxy.set_window_focus()
 
-    def kill(self):
+    def terminate(self):
         """Interrupt Flint with SIGTERM and clean up this proxy."""
         if self._pid is None:
             raise RuntimeError("No proxy connected")
@@ -386,13 +386,17 @@ class FlintClient:
         self._wait_for_closed(self._pid, timeout=4.0)
         self._proxy_cleanup()
 
-    def kill9(self):
+    def kill(self):
         """Interrupt Flint with SIGKILL and clean up this proxy."""
         if self._pid is None:
             raise RuntimeError("No proxy connected")
         os.kill(self._pid, signal.SIGKILL)
         self._wait_for_closed(self._pid, timeout=4.0)
         self._proxy_cleanup()
+
+    def kill9(self):
+        """Deprecated. Provided for compatibility only"""
+        self.kill()
 
     def _proxy_start_flint(self):
         """

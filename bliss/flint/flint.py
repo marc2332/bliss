@@ -530,8 +530,7 @@ def main():
         sys.exit(qapp.exec_())
     finally:
         server.join()
-
-    ROOT_LOGGER.debug("End")
+        ROOT_LOGGER.debug("End")
 
 
 if __name__ == "__main__":

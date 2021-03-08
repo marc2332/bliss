@@ -427,18 +427,16 @@ def hklscan(hkl1, hkl2, npoints, count_time, *counter_args, **kwargs):
     k_motor = diffracto.get_axis("hkl_k")
     l_motor = diffracto.get_axis("hkl_l")
 
-    motpos_args = [h_motor, h_pos, k_motor, k_pos, l_motor, l_pos]
-    motpos_args += counter_args
+    motpos_args = [(h_motor, h_pos), (k_motor, k_pos), (l_motor, l_pos)]
 
-    kwargs.setdefault("type", "hklscan")
+    kwargs.setdefault("scan_type", "hklscan")
     kwargs.setdefault("name", "hklscan")
     kwargs.setdefault(
         "title", "hklscan {0} {1} {2} {3}".format(hkl1, hkl2, npoints, count_time)
     )
-    kwargs.setdefault("start", [h1, k1, l1])
-    kwargs.setdefault("stop", [h2, k2, l2])
+    kwargs.setdefault("scan_info", {"start": [h1, k1, l1], "stop": [h2, k2, l2]})
 
-    return lookupscan(count_time, *motpos_args, **kwargs)
+    return lookupscan(motpos_args, count_time, *counter_args, **kwargs)
 
 
 def hdscan(dh1, dh2, npoints, count_time, *counter_args, **kwargs):
@@ -470,21 +468,19 @@ def hkldscan(dhkl1, dhkl2, npoints, count_time, *counter_args, **kwargs):
     k_motor = diffracto.get_axis("hkl_k")
     l_motor = diffracto.get_axis("hkl_l")
 
-    motpos_args = [h_motor, h_pos, k_motor, k_pos, l_motor, l_pos]
-    motpos_args += counter_args
+    motpos_args = [(h_motor, h_pos), (k_motor, k_pos), (l_motor, l_pos)]
 
     kwargs.setdefault("type", "hkldscan")
     kwargs.setdefault("name", "hkldscan")
     kwargs.setdefault(
         "title", "hkldscan {0} {1} {2} {3}".format(dhkl1, dhkl2, npoints, count_time)
     )
-    kwargs.setdefault("start", [dh1, dk1, dl1])
-    kwargs.setdefault("stop", [dh2, dk2, dl2])
+    kwargs.setdefault("scan_info", {"start": [dh1, dk1, dl1], "stop": [dh2, dk2, dl2]})
 
     with cleanup(
         h_motor, k_motor, l_motor, restore_list=(cleanup_axis.POS,), verbose=True
     ):
-        scan = lookupscan(count_time, *motpos_args, **kwargs)
+        scan = lookupscan(motpos_args, count_time, *counter_args, **kwargs)
 
     return scan
 
@@ -576,7 +572,7 @@ def _calc_hkl_radial(axis1, axis2, angle, start, stop, npoints, **kwargs):
 
 
 def _do_hkl_line_scan(
-    name, value, start, stop, npoints, count_time, *motpos_args, **kwargs
+    name, value, start, stop, npoints, count_time, motpos_args, *counter_args, **kwargs
 ):
     kwargs.setdefault("type", name)
     kwargs.setdefault("name", name)
@@ -584,4 +580,4 @@ def _do_hkl_line_scan(
         "title",
         "{0} {1} {2} {3} {4} {5}".format(name, value, start, stop, npoints, count_time),
     )
-    return lookupscan(count_time, *motpos_args, **kwargs)
+    return lookupscan(motpos_args, count_time, *counter_args, **kwargs)

@@ -48,7 +48,7 @@
         tags: hkl_k
       - name: Lz
         tags: hkl_l
-      - name: Qz
-        tags: q2_q
-      - name: Az
-        tags: q2_alpha
+      # - name: Qz
+      #   tags: q2_q
+      # - name: Az
+      #   tags: q2_alpha

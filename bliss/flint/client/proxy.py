@@ -90,7 +90,7 @@ class FlintClient:
         setattr(self, name, attr)
         return attr
 
-    def proxy_get_flint_state(self, timeout=2) -> _FlintState:
+    def _proxy_get_flint_state(self, timeout=2) -> _FlintState:
         """Returns one of the state describing the life cycle of Flint"""
         pid = self._pid
         if pid is None:
@@ -248,7 +248,7 @@ class FlintClient:
                 else:
                     FLINT_LOGGER.warning("Elogbook for Flint is not available")
 
-    def proxy_close_proxy(self, timeout=5):
+    def _proxy_close_proxy(self, timeout=5):
         proxy = self._proxy
         if proxy is not None:
             for i in range(4):
@@ -290,10 +290,10 @@ class FlintClient:
                         break
                     os.kill(pid, signal.SIGABRT)
 
-        self.proxy_cleanup()
+        self._proxy_cleanup()
         # FIXME: here we should clean up redis keys
 
-    def proxy_cleanup(self):
+    def _proxy_cleanup(self):
         """Disconnect Flint if there is such connection.
 
         Flint application stay untouched.
@@ -335,14 +335,14 @@ class FlintClient:
         if self._on_new_pid is not None:
             self._on_new_pid(pid)
 
-    def proxy_attach_pid(self, pid):
+    def _proxy_attach_pid(self, pid):
         """Attach the proxy to another Flint PID.
 
         If a Flint application is already connected, it will stay untouched,
         but will not be connected anymore, anyway the new PID exists or is
         responsive.
         """
-        self.proxy_cleanup()
+        self._proxy_cleanup()
         process = psutil.Process(pid)
         self._proxy_create_flint_proxy(process)
 
@@ -370,7 +370,7 @@ class FlintClient:
         with gevent.Timeout(timeout):
             self._proxy.close_application()
         self._wait_for_closed(self._pid, timeout=4.0)
-        self.proxy_cleanup()
+        self._proxy_cleanup()
 
     def focus(self):
         """Set the focus to the Flint window."""
@@ -384,7 +384,7 @@ class FlintClient:
             raise RuntimeError("No proxy connected")
         os.kill(self._pid, signal.SIGTERM)
         self._wait_for_closed(self._pid, timeout=4.0)
-        self.proxy_cleanup()
+        self._proxy_cleanup()
 
     def kill9(self):
         """Interrupt Flint with SIGKILL and clean up this proxy."""
@@ -392,9 +392,9 @@ class FlintClient:
             raise RuntimeError("No proxy connected")
         os.kill(self._pid, signal.SIGKILL)
         self._wait_for_closed(self._pid, timeout=4.0)
-        self.proxy_cleanup()
+        self._proxy_cleanup()
 
-    def proxy_start_flint(self):
+    def _proxy_start_flint(self):
         """
         Start a new Flint application and connect a proxy to it.
         """
@@ -509,7 +509,7 @@ class FlintClient:
     def is_available(self, timeout=2):
         """Returns true if Flint is available and not stucked.
         """
-        state = self.proxy_get_flint_state(timeout=timeout)
+        state = self._proxy_get_flint_state(timeout=timeout)
         return state == _FlintState.IS_AVAILABLE
 
     #
@@ -732,7 +732,7 @@ def get_flint(
         check_redis = True
 
         proxy = _get_singleton()
-        state = proxy.proxy_get_flint_state(timeout=2)
+        state = proxy._proxy_get_flint_state(timeout=2)
         if state == _FlintState.NO_PROXY:
             pass
         elif state == _FlintState.IS_AVAILABLE:
@@ -764,7 +764,7 @@ def get_flint(
         return None
 
     proxy = _get_singleton()
-    proxy.proxy_start_flint()
+    proxy._proxy_start_flint()
     return proxy
 
 
@@ -784,7 +784,7 @@ def attach_flint(pid: int) -> FlintClient:
         pid: Process identifier of Flint
     """
     flint = _get_singleton()
-    flint.proxy_attach_pid(pid)
+    flint._proxy_attach_pid(pid)
     return flint
 
 
@@ -796,14 +796,14 @@ def restart_flint(creation_allowed: bool = True):
             Else, nothing will happen.
     """
     proxy = _get_singleton()
-    state = proxy.proxy_get_flint_state(timeout=2)
+    state = proxy._proxy_get_flint_state(timeout=2)
     if state == _FlintState.NO_PROXY:
         if not creation_allowed:
             return
     elif state == _FlintState.IS_AVAILABLE:
-        proxy.proxy_close_proxy()
+        proxy._proxy_close_proxy()
     elif state == _FlintState.IS_STUCKED:
-        proxy.proxy_close_proxy()
+        proxy._proxy_close_proxy()
     else:
         assert False, f"Unexpected state {state}"
     flint = get_flint(start_new=True, mandatory=True)
@@ -814,13 +814,13 @@ def close_flint():
     """Close the current flint proxy.
     """
     proxy = _get_singleton()
-    state = proxy.proxy_get_flint_state(timeout=2)
+    state = proxy._proxy_get_flint_state(timeout=2)
     if state == _FlintState.NO_PROXY:
         pass
     elif state == _FlintState.IS_AVAILABLE:
-        proxy.proxy_close_proxy()
+        proxy._proxy_close_proxy()
     elif state == _FlintState.IS_STUCKED:
-        proxy.proxy_close_proxy()
+        proxy._proxy_close_proxy()
     else:
         assert False, f"Unexpected state {state}"
 

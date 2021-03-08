@@ -33,7 +33,7 @@ def attached_flint_context():
     """
     flint = plot.get_flint()
     pid = flint._pid
-    flint.proxy_cleanup()
+    flint._proxy_cleanup()
     # Release the object before calling attach_flint
     flint = None
     flint = plot.attach_flint(pid)

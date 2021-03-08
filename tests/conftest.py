@@ -739,7 +739,7 @@ def flint_context(with_flint=True, stucked=False):
             pass
 
     flint_singleton._on_new_pid = None
-    flint_singleton.proxy_cleanup()
+    flint_singleton._proxy_cleanup()
 
 
 @pytest.fixture

@@ -346,15 +346,22 @@ class FlintClient:
         process = psutil.Process(pid)
         self._proxy_create_flint_proxy(process)
 
-    def _wait_for_closed(self, pid, timeout=None):
+    @staticmethod
+    def _wait_for_closed(pid, timeout=None):
         """"Wait for the PID to be closed"""
         try:
-            p = psutil.Process(self._pid)
+            p = psutil.Process(pid)
         except psutil.NoSuchProcess:
             # process already closed
+            return
+
+        try:
+            with gevent.Timeout(timeout):
+                # gevent timeout have to be used here
+                # See https://github.com/gevent/gevent/issues/622
+                p.wait(timeout=None)
+        except gevent.Timeout:
             pass
-        else:
-            psutil.wait_procs([p], timeout=timeout)
 
     def close(self, timeout=None):
         """Close Flint and clean up this proxy."""

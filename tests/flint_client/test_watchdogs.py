@@ -29,8 +29,11 @@ def kill_flint(pid):
         pass
     else:
         try:
-            psutil.wait_procs([p], timeout=4.0)
-        except Exception:
+            with gevent.Timeout(4.0):
+                # gevent timeout have to be used here
+                # See https://github.com/gevent/gevent/issues/622
+                p.wait(timeout=None)
+        except gevent.Timeout:
             assert False, "Flint was not closed as expected"
 
 

@@ -91,11 +91,15 @@ def wait_terminate(process, timeout=10):
     process.terminate()
     try:
         with gevent.Timeout(timeout):
+            # gevent timeout have to be used here
+            # See https://github.com/gevent/gevent/issues/622
             process.wait()
     except gevent.Timeout:
         eprint(f"Process {name} doesn't finish: try to kill it...")
         process.kill()
         with gevent.Timeout(10):
+            # gevent timeout have to be used here
+            # See https://github.com/gevent/gevent/issues/622
             process.wait()
 
 

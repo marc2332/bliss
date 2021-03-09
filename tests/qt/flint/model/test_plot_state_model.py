@@ -17,11 +17,20 @@ class CurveMock(qt.QObject, plot_item_model.CurveMixIn):
         self._xx = xx
         self._yy = yy
 
-    def xArray(self, scan) -> numpy.ndarray:
-        return self._xx
+    def xData(self, scan):
+        return scan_model.Data(array=self._xx)
 
-    def yArray(self, scan) -> numpy.ndarray:
-        return self._yy
+    def yData(self, scan):
+        return scan_model.Data(array=self._yy)
+
+
+class ChannelMock(qt.QObject, plot_item_model.CurveMixIn):
+    def __init__(self, array: numpy.ndarray):
+        super(ChannelMock, self).__init__()
+        self._array = array
+
+    def array(self, scan) -> numpy.ndarray:
+        return self._array
 
 
 def test_max_compute():
@@ -150,3 +159,22 @@ def test_derivative_incremental_compute():
     numpy.testing.assert_array_almost_equal(expected.xx, result.xx, decimal=5)
     numpy.testing.assert_array_almost_equal(expected.yy, result.yy)
     numpy.testing.assert_array_almost_equal(expected.nb_points, result.nb_points)
+
+
+def test_normalized_curve_item():
+    yy = numpy.array([1, 0, 1, 2, 3, 4, 5])
+    xx = numpy.arange(len(yy))
+    monitor = numpy.array([0, 0, 2, 2, 2, -2, -2])
+    expected = numpy.array([numpy.inf, numpy.nan, 0.5, 1, 1.5, -2, -2.5])
+
+    curveItem = CurveMock(xx=xx, yy=yy)
+    channelMonitor = ChannelMock(monitor)
+
+    scan = scan_model.Scan()
+    item = plot_state_model.NormalizedCurveItem()
+    item.setSource(curveItem)
+    item.setMonitorChannel(channelMonitor)
+    resulty = item.yData(scan).array()
+    resultx = item.xData(scan).array()
+    numpy.testing.assert_array_almost_equal(resulty, expected, decimal=5)
+    numpy.testing.assert_array_almost_equal(resultx, xx, decimal=5)

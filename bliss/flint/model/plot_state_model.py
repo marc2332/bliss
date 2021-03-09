@@ -575,7 +575,7 @@ class NormalizedCurveItem(plot_model.ChildItem, plot_item_model.CurveMixIn):
         if data is None or monitor is None:
             return None
         # FIXME: Could be cached
-        with numpy.errstate(divide="ignore"):
+        with numpy.errstate(all="ignore"):
             yy = data / monitor
         return scan_model.Data(None, yy)
 

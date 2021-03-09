@@ -18,6 +18,7 @@ import signal
 import logging
 import json
 import pytest
+import psutil
 import redis
 import redis.connection
 import collections.abc
@@ -40,9 +41,9 @@ from bliss.controllers.wago.wago import ModulesConfig
 from bliss.controllers.wago.emulator import WagoEmulator
 from bliss.controllers import simulation_diode
 from bliss.controllers import tango_attr_as_counter
+from bliss.flint.client import proxy
 from bliss.common import plot
-from bliss.common.tango import Database, DeviceProxy, DevFailed, ApiUtil, DevState
-from bliss.common.utils import grouped
+from bliss.common.tango import Database, DeviceProxy, ApiUtil, DevState
 from bliss.tango.clients.utils import wait_tango_device, wait_tango_db
 from bliss import logging_startup
 from bliss.scanning import scan_meta
@@ -62,19 +63,43 @@ def eprint(*args):
     print(*args, file=sys.stderr, flush=True)
 
 
-def wait_terminate(process):
-    cmd = repr(" ".join(process.args))
-    if process.poll() is not None:
-        eprint(f"Process {cmd} already terminated with code {process.returncode}")
-        return
+def wait_terminate(process, timeout=10):
+    """
+    Try to terminate a process then kill it.
+
+    This ensure the process is terminated.
+
+    Arguments:
+        process: A process object from `subprocess` or `psutil`, or an PID int
+        timeout: Timeout to way before using a kill signal
+
+    Raises:
+        gevent.Timeout: If the kill fails
+    """
+    if isinstance(process, int):
+        try:
+            name = str(process)
+            process = psutil.Process(process)
+        except Exception:
+            # PID is already dead
+            return
+    else:
+        name = repr(" ".join(process.args))
+        if process.poll() is not None:
+            eprint(f"Process {name} already terminated with code {process.returncode}")
+            return
     process.terminate()
     try:
-        with gevent.Timeout(10):
+        with gevent.Timeout(timeout):
+            # gevent timeout have to be used here
+            # See https://github.com/gevent/gevent/issues/622
             process.wait()
     except gevent.Timeout:
-        eprint(f"Process {cmd} doesn't finish: try to kill it ...")
+        eprint(f"Process {name} doesn't finish: try to kill it...")
         process.kill()
         with gevent.Timeout(10):
+            # gevent timeout have to be used here
+            # See https://github.com/gevent/gevent/issues/622
             process.wait()
 
 
@@ -676,21 +701,45 @@ def wago_emulator(beacon):
 
 
 @contextmanager
-def flint_context(with_flint=True):
+def flint_context(with_flint=True, stucked=False):
+    """Helper to capture and clean up all new Flint process created during the
+    context.
+
+    It also provides few arguments to request a specific Flint state.
+    """
+    flint_singleton = proxy._get_singleton()
+
+    pids = set()
+
+    def register_new_flint_pid(pid):
+        nonlocal pids
+        pids.add(pid)
+
+    assert flint_singleton._on_new_pid is None
+    flint_singleton._on_new_pid = register_new_flint_pid
+
     if with_flint:
         flint = plot.get_flint()
-    else:
-        flint = plot.get_flint(creation_allowed=False)
-        if flint is not None:
-            flint.close()
-            flint = None  # Break the reference to the proxy
-            plot.reset_flint()
+
+    if stucked:
+        assert with_flint is True
+        try:
+            with gevent.Timeout(seconds=0.1):
+                # This command does not return that is why it is
+                # aborted with a timeout
+                flint.test_infinit_loop()
+        except gevent.Timeout:
+            pass
     yield
-    flint = plot.get_flint(creation_allowed=False)
-    if flint is not None:
-        flint.close()
-        flint = None  # Break the reference to the proxy
-    plot.reset_flint()
+    for pid in pids:
+        try:
+            wait_terminate(pid, timeout=0.1)
+        except gevent.Timeout:
+            # This could happen, if the kill fails, after 10s
+            pass
+
+    flint_singleton._on_new_pid = None
+    flint_singleton._proxy_cleanup()
 
 
 @pytest.fixture
@@ -706,6 +755,12 @@ def flint_session(xvfb, beacon, scan_tmpdir):
 @pytest.fixture
 def test_session_with_flint(xvfb, session):
     with flint_context():
+        yield session
+
+
+@pytest.fixture
+def test_session_with_stucked_flint(xvfb, session):
+    with flint_context(stucked=True):
         yield session
 
 

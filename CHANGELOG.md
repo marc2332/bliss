@@ -10,8 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Flint
-    - Added `restart_flint` helper from `bliss.common.plot` to handle stucked Flint
     - An histogram tool is provided when displaying image in custom plots
+    - Better handling of timeout, and try not to have 30s
+    - Better handling of stucked state
+        - Added `restart_flint` command from `bliss.common.plot`
+        - Added `restart_if_stucked` argument to `get_flint()` (False by default)
+        - Added `restart_flint_if_stucked` attribute to `SCAN_DISPLAY`, used when
+          `auto=True`
+    - Monitoring problems
+        - Added `USR1` and `USR2` signals to interrupt and log internal information
+        - Added `--enable-watchdog` command line argument to log and kill Flint if
+          too much memory is used
 
 ### Changed
 

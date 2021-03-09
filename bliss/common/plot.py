@@ -168,7 +168,8 @@ __all__ = [
 get_flint = flint_proxy.get_flint
 check_flint = flint_proxy.check_flint
 attach_flint = flint_proxy.attach_flint
-reset_flint = flint_proxy.reset_flint
+reset_flint = flint_proxy.close_flint
+close_flint = flint_proxy.close_flint
 restart_flint = flint_proxy.restart_flint
 
 

@@ -5,7 +5,6 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from numpy import float as npfloat
 from bliss.scanning.chain import AcquisitionSlave, ChainNode
 from bliss.scanning.channel import AcquisitionChannel
 from bliss.common.event import dispatcher
@@ -62,7 +61,7 @@ class CalcChannelAcquisitionSlave(AcquisitionSlave):
             if isinstance(chan_out, AcquisitionChannel):
                 self.channels.append(chan_out)
             elif isinstance(chan_out, str):
-                self.channels.append(AcquisitionChannel(chan_out, npfloat, ()))
+                self.channels.append(AcquisitionChannel(chan_out, float, ()))
             else:
                 raise TypeError(f"Object '{chan_out}'' is not an AcquisitionChannel")
 

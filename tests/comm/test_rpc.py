@@ -12,6 +12,7 @@ import subprocess
 import sys
 import os
 import numpy
+import pytest
 
 from bliss.common import event
 from bliss.comm.rpc import Server, Client
@@ -219,6 +220,19 @@ def test_exceptions():
         e2 = client_car.returns_exception()
         assert isinstance(e2, RuntimeError)
         assert e2.args[0] == "foo"
+
+    # close client
+    client_car.close()
+
+
+def test_wrong_api():
+    url = "inproc://test"
+
+    with rpc_server(url) as (server, car):
+        client_car = Client(url)
+
+        with pytest.raises(AttributeError, match="unexisting_method"):
+            client_car.unexisting_method()
 
     # close client
     client_car.close()

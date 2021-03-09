@@ -28,7 +28,7 @@ from bliss.common.hook import group_hooks, execute_pre_scan_hooks
 from bliss.common.event import connect, disconnect
 from bliss.common.cleanup import error_cleanup, axis as cleanup_axis, capture_exceptions
 from bliss.common.greenlet_utils import KillMask
-from bliss.common.plot import get_flint
+from bliss.common import plot as plot_mdl
 from bliss.common.utils import periodic_exec, deep_update
 from bliss.scanning.scan_meta import get_user_scan_meta, META_TIMING
 from bliss.common.motor_group import is_motor_group
@@ -716,9 +716,13 @@ class Scan:
     def _init_flint(self):
         """Initialize flint if needed"""
         if is_bliss_shell():
-            if self.__scan_display.auto:
+            scan_display = self.__scan_display
+            if scan_display.auto:
                 if self.is_flint_recommended():
-                    get_flint(mandatory=False)
+                    plot_mdl.get_flint(
+                        restart_if_stucked=scan_display.restart_flint_if_stucked,
+                        mandatory=False,
+                    )
 
     def is_flint_recommended(self):
         """Return true if flint is recommended for this scan"""

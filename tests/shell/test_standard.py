@@ -4,6 +4,7 @@ import builtins
 import pytest
 import numpy
 import psutil
+import gevent
 
 from bliss.shell import standard
 from bliss.shell.standard import wa, wm, sta, stm, _launch_silx, umv
@@ -337,13 +338,19 @@ def test_open_kill_flint(test_session_without_flint):
     assert f is not None
     pid = f.pid
     assert psutil.pid_exists(pid)
-    f.kill9()
+    f.kill()
     try:
         process = psutil.Process(pid)
     except psutil.NoSuchProcess:
         pass
     else:
-        psutil.wait_procs([process], timeout=1)
+        try:
+            with gevent.Timeout(1):
+                # gevent timeout have to be used here
+                # See https://github.com/gevent/gevent/issues/622
+                process.wait(timeout=None)
+        except gevent.Timeout:
+            pass
     assert not psutil.pid_exists(pid)
 
 

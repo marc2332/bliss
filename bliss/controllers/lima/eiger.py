@@ -16,10 +16,8 @@ from bliss.common.logtools import user_print
 from .properties import LimaProperty
 from .lima_base import CameraBase
 
-DECTRIS_TO_NUMPY = {
-    "<u4" : numpy.uint32,
-    "<f4" : numpy.float32,
-}
+DECTRIS_TO_NUMPY = {"<u4": numpy.uint32, "<f4": numpy.float32}
+
 
 class Camera(CameraBase):
     def __init__(self, name, limadev, proxy):
@@ -137,7 +135,9 @@ class Camera(CameraBase):
         address = self.__get_request_address(subsystem, name)
         request = requests.get(address)
         if request.status_code != 200:
-            raise RuntimeError(f"Failed to get {address}\nStatus code = {request.status_code}")
+            raise RuntimeError(
+                f"Failed to get {address}\nStatus code = {request.status_code}"
+            )
         return request.json()
 
     def raw_put(self, subsystem, name, dict_data):
@@ -148,16 +148,30 @@ class Camera(CameraBase):
             raise RuntimeError(f"Failed to put {address}")
         return request.json()
 
-    def get_array(self, subsystem, name):
-        get_data = self.raw_get(subsystem, name)
-        raw_data = base64.standard_b64decode(get_data["value"]["data"])
-        data_type = DECTRIS_TO_NUMPY.get(get_data["value"]["type"])
-        arr_data = numpy.fromstring(raw_data, dtype=data_type)
-        arr_data.shape = tuple(get_data["value"]["shape"])
+    def get(self, subsystem, name):
+        raw_data = self.raw_get(subsystem, name)
+        if type(raw_data["value"]) == dict:
+            return self.__raw2numpy(raw_data)
+        else:
+            return raw_data["value"]
+
+    def __raw2numpy(self, raw_data):
+        str_data = base64.standard_b64decode(raw_data["value"]["data"])
+        data_type = DECTRIS_TO_NUMPY.get(raw_data["value"]["type"])
+        arr_data = numpy.fromstring(str_data, dtype=data_type)
+        arr_data.shape = tuple(raw_data["value"]["shape"])
         return arr_data
 
     def array2edf(self, subsystem, name, filename):
-        arr_data = self.get_array(subsystem, name)
+        arr_data = self.get(subsystem, name)
+        if type(arr_data) != numpy.ndarray:
+            address = self.__get_request_address(subsystem, name)
+            raise ValueError(f"{address} does not return an array !!")
         edf_file = fabio.edfimage.EdfImage(arr_data)
         edf_file.save(filename)
 
+    def mask2lima(self, filename):
+        arr_data = self.get("detector", "config/pixel_mask")
+        lima_data = numpy.array(arr_data == 0, dtype=numpy.uint8)
+        edf_file = fabio.edfimage.EdfImage(lima_data)
+        edf_file.save(filename)

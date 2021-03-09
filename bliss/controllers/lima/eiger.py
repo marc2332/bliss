@@ -8,11 +8,18 @@
 import gevent
 import requests
 import json
+import base64
+import numpy
+import fabio
 
 from bliss.common.logtools import user_print
 from .properties import LimaProperty
 from .lima_base import CameraBase
 
+DECTRIS_TO_NUMPY = {
+    "<u4" : numpy.uint32,
+    "<f4" : numpy.float32,
+}
 
 class Camera(CameraBase):
     def __init__(self, name, limadev, proxy):
@@ -130,7 +137,7 @@ class Camera(CameraBase):
         address = self.__get_request_address(subsystem, name)
         request = requests.get(address)
         if request.status_code != 200:
-            raise RuntimeError(f"Failed to get {address}")
+            raise RuntimeError(f"Failed to get {address}\nStatus code = {request.status_code}")
         return request.json()
 
     def raw_put(self, subsystem, name, dict_data):
@@ -140,3 +147,17 @@ class Camera(CameraBase):
         if request.status_code != 200:
             raise RuntimeError(f"Failed to put {address}")
         return request.json()
+
+    def get_array(self, subsystem, name):
+        get_data = self.raw_get(subsystem, name)
+        raw_data = base64.standard_b64decode(get_data["value"]["data"])
+        data_type = DECTRIS_TO_NUMPY.get(get_data["value"]["type"])
+        arr_data = numpy.fromstring(raw_data, dtype=data_type)
+        arr_data.shape = tuple(get_data["value"]["shape"])
+        return arr_data
+
+    def array2edf(self, subsystem, name, filename):
+        arr_data = self.get_array(subsystem, name)
+        edf_file = fabio.edfimage.EdfImage(arr_data)
+        edf_file.save(filename)
+

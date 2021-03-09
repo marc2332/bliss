@@ -6,10 +6,17 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import gevent
+import requests
+import json
+import base64
+import numpy
+import fabio
 
 from bliss.common.logtools import user_print
 from .properties import LimaProperty
 from .lima_base import CameraBase
+
+DECTRIS_TO_NUMPY = {"<u4": numpy.uint32, "<f4": numpy.float32}
 
 
 class Camera(CameraBase):
@@ -96,12 +103,13 @@ class Camera(CameraBase):
             "auto_summation",
             "efficiency_correction",
             "virtual_pixel_correction",
+            "threshold_diff_mode",
             "retrigger",
             "pixel_mask",
             "compression_type",
         ]
         info += self.__get_info_txt("Configuration", config)
-        calibration = ["photon_energy", "threshold_energy"]
+        calibration = ["photon_energy", "threshold_energy", "threshold_energy2"]
         info += self.__get_info_txt("Calibration", calibration)
         return info
 
@@ -117,3 +125,53 @@ class Camera(CameraBase):
             flag = prop.fset and "RW" or "RO"
             info += f"    {name:{hlen}s}: {repr(value)}  [{flag}]\n"
         return info
+
+    def __get_request_address(self, subsystem, name):
+        dcu = self._proxy.detector_ip
+        api = self._proxy.api_version
+        return f"http://{dcu}/{subsystem}/api/{api}/{name}"
+
+    def raw_get(self, subsystem, name):
+        address = self.__get_request_address(subsystem, name)
+        request = requests.get(address)
+        if request.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get {address}\nStatus code = {request.status_code}"
+            )
+        return request.json()
+
+    def raw_put(self, subsystem, name, dict_data):
+        address = self.__get_request_address(subsystem, name)
+        data_json = json.dumps(dict_data)
+        request = requests.put(address, data=data_json)
+        if request.status_code != 200:
+            raise RuntimeError(f"Failed to put {address}")
+        return request.json()
+
+    def get(self, subsystem, name):
+        raw_data = self.raw_get(subsystem, name)
+        if type(raw_data["value"]) == dict:
+            return self.__raw2numpy(raw_data)
+        else:
+            return raw_data["value"]
+
+    def __raw2numpy(self, raw_data):
+        str_data = base64.standard_b64decode(raw_data["value"]["data"])
+        data_type = DECTRIS_TO_NUMPY.get(raw_data["value"]["type"])
+        arr_data = numpy.fromstring(str_data, dtype=data_type)
+        arr_data.shape = tuple(raw_data["value"]["shape"])
+        return arr_data
+
+    def array2edf(self, subsystem, name, filename):
+        arr_data = self.get(subsystem, name)
+        if type(arr_data) != numpy.ndarray:
+            address = self.__get_request_address(subsystem, name)
+            raise ValueError(f"{address} does not return an array !!")
+        edf_file = fabio.edfimage.EdfImage(arr_data)
+        edf_file.save(filename)
+
+    def mask2lima(self, filename):
+        arr_data = self.get("detector", "config/pixel_mask")
+        lima_data = numpy.array(arr_data == 0, dtype=numpy.uint8)
+        edf_file = fabio.edfimage.EdfImage(lima_data)
+        edf_file.save(filename)

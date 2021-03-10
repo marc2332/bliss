@@ -243,7 +243,7 @@ class BasePlot(object):
         proxy.FLINT_LOGGER.warning("Waiting for selection in Flint window.")
         flint = self._flint
         results = gevent.queue.Queue()
-        event.connect(flint, request_id, results.put)
+        event.connect(flint._proxy, request_id, results.put)
         try:
             result = results.get()
             return result

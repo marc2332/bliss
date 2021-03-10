@@ -84,7 +84,7 @@ class FlintClient:
             raise AttributeError(
                 "No Flint proxy created. Access to '%s' ignored." % name
             )
-        attr = self._proxy.__getattribute__(name)
+        attr = getattr(self._proxy, name)
         # Shortcut the lookup attribute
         self._shortcuts.add(name)
         setattr(self, name, attr)

@@ -1509,6 +1509,8 @@ class DataNodeContainer(DataNode):
         :param str or int first_index: Redis stream index (None is now)
         :param bool yield_events: yield Event or DataNode
         """
+        search_child_streams = not reader.n_subscribed_streams
+
         # Do not use the include_filter for *_children_list. Maybe we don't
         # want the events from the direct children but may want the events
         # from their children.
@@ -1518,12 +1520,17 @@ class DataNodeContainer(DataNode):
                 "children_list", reader, create=True, first_index=first_index
             )
 
-        # Below we subscribe to all existing streams of all children, not only
-        # the direct children. This reduces the delay between publishing events
-        # and receiving them. However it puts too much stress on the Redis server.
-        # So we will subscribe to the streams of each node when receiving that
-        # node's NEW_NODE event.
-        return
+        # Subscribing to child streams requires searching for Redis keys
+        # which is an expensive operation for the Redis server so skip it
+        # when possible.
+        if not search_child_streams:
+            return
+
+        # Delay subscribing to *_data streams to the moment we receive the
+        # NEW_NODE events of those nodes. Same reason as above: search Redis
+        # keys is expensive.
+        # search_data_streams = yield_events
+        search_data_streams = False
 
         # Subscribe to the streams of all children, not only the direct children.
         # TODO: this assumes that all streams to subscribe too are called
@@ -1535,7 +1542,7 @@ class DataNodeContainer(DataNode):
         nodes_with_data = list()
         nodes_with_children = list()
         excluded_stream_names = set(reader.excluded_stream_names)
-        if yield_events:
+        if search_data_streams:
             # Make sure the NEW_NODE event always arrives before the NEW_DATA event:
             # - assume "...:parent_children_list" is created BEFORE "...parent:child_data"
             # - search for *_children_list AFTER searching for *_data

@@ -26,3 +26,33 @@ def test_read_stored_state_bliss_1_7(local_flint):
     ]
     print(result)
     assert result == expectedRois
+
+
+def test_read_write_profiles(local_flint):
+    plot = plot_helper.FlintPlot()
+    action = profile_action.ProfileAction(plot, None, "image")
+
+    m = action.manager()
+    roiManager = m.getRoiManager()
+
+    r = rois.ProfileImageLineROI()
+    r.setEndPoints((10, 10), (20, 20))
+    roiManager.addRoi(r)
+    r = rois.ProfileImageCrossROI()
+    r.setPosition((10, 10))
+    roiManager.addRoi(r)
+
+    r = rois.ProfileScatterLineROI()
+    r.setEndPoints((10, 10), (20, 20))
+    roiManager.addRoi(r)
+    r = rois.ProfileScatterCrossROI()
+    r.setPosition((10, 10))
+    roiManager.addRoi(r)
+
+    state = action.saveState()
+
+    plot2 = plot_helper.FlintPlot()
+    action2 = profile_action.ProfileAction(plot2, None, "image")
+    action2.restoreState(state)
+    state2 = action2.saveState()
+    assert state == state2

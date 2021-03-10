@@ -671,10 +671,11 @@ class RpcConnection:
         self._subclient = weakref.WeakValueDictionary()
 
 
-class RpcProxy(proxy.Proxy):
-    def __init__(self, rpc_connection):
+class Client(proxy.Proxy):
+    def __init__(self, address, timeout=3., disconnect_callback=None):
+        rpc_connection = RpcConnection(address, disconnect_callback, timeout)
         object.__setattr__(self, "_rpc_connection", rpc_connection)
-        object.__setattr__(self, "_RpcProxy__class", None)
+        object.__setattr__(self, "_Client__class", None)
         super().__init__(lambda: rpc_connection._proxy)
 
     @property
@@ -682,14 +683,8 @@ class RpcProxy(proxy.Proxy):
         if self.__class is None:
             try:
                 object.__setattr__(
-                    self, "_RpcProxy__class", self._rpc_connection.get_class()
+                    self, "_Client__class", self._rpc_connection.get_class()
                 )
             except Exception:
-                object.__setattr__(self, "_RpcProxy__class", type(self))
+                object.__setattr__(self, "_Client__class", type(self))
         return self.__class
-
-
-def Client(address, timeout=3., disconnect_callback=None, **kwargs):
-    rpc_connection = RpcConnection(address, disconnect_callback, timeout)
-    proxy = RpcProxy(rpc_connection)
-    return proxy

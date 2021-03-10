@@ -116,9 +116,9 @@ class Car(object):
 
 
 @contextmanager
-def rpc_server(bind="inproc://test", heartbeat=1.0):
+def rpc_server(bind="inproc://test"):
     obj = Car("yellow", 120, turbo=True)
-    server = Server(obj, stream=True, heartbeat=heartbeat)
+    server = Server(obj, stream=True)
     server.bind(bind)
     task = gevent.spawn(server.run)
     yield server, obj
@@ -298,8 +298,8 @@ def test_event_with_lost_remote():
     def callback(*args):
         results.put(args)
 
-    with rpc_server(url, heartbeat=0.1) as (server, car):
-        client_car = Client(url, heartbeat=0.1)
+    with rpc_server(url) as (server, car):
+        client_car = Client(url)
         client_car._rpc_connection.connect()
 
         event.connect(client_car, "test", callback)
@@ -369,8 +369,8 @@ def test_client_collision(beacon):
 
     data = numpy.empty((1024 * 1024 * 40), dtype=numpy.uint8)
 
-    with rpc_server(url, heartbeat=0.1):
-        client_car = Client(url, heartbeat=0.1)
+    with rpc_server(url):
+        client_car = Client(url)
         client_car._rpc_connection.connect()
 
         g1 = gevent.spawn(monitor_car, client_car)

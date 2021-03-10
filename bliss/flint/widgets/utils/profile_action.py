@@ -95,6 +95,26 @@ class ProfileAction(qt.QWidgetAction):
         """Returns the profile manager"""
         return self.__manager
 
+    def getGeometry(self, roi):
+        """Get a geometry from a ROI"""
+        if hasattr(roi, "getPosition"):
+            geometry = roi.getPosition()
+        elif hasattr(roi, "getEndPoints"):
+            geometry = roi.getEndPoints()
+        else:
+            _logger.error("Unsupported geometry for ROI %s", type(roi))
+            geometry = None
+        return geometry
+
+    def setGeometry(self, roi, geometry):
+        """Set a geometry to a ROI"""
+        if geometry is None:
+            return
+        if hasattr(roi, "getPosition"):
+            roi.setPosition(geometry)
+        elif hasattr(roi, "getEndPoints"):
+            roi.setEndPoints(*geometry)
+
     def saveState(self):
         """Save the profile content"""
         manager = self.manager().getRoiManager()
@@ -106,7 +126,8 @@ class ProfileAction(qt.QWidgetAction):
                 continue
             try:
                 # FIXME: Make this object pickelable
-                result.append((type(roi), roi.getName(), roi.getPosition()))
+                geometry = self.getGeometry(roi)
+                result.append((type(roi), roi.getName(), geometry))
             except Exception:
                 _logger.error("Error while pickeling ROIs", exc_info=True)
                 return None
@@ -125,12 +146,12 @@ class ProfileAction(qt.QWidgetAction):
             return False
 
         error = False
-        for classObj, name, pos in rois:
+        for classObj, name, geometry in rois:
             try:
                 # FIXME: Make this object pickelable
                 roi = classObj()
                 roi.setName(name)
-                roi.setPosition(pos)
+                self.setGeometry(roi, geometry)
                 manager.addRoi(roi)
             except Exception:
                 _logger.error("Error while importing ROI", exc_info=True)

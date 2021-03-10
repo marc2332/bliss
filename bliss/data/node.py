@@ -1509,7 +1509,7 @@ class DataNodeContainer(DataNode):
         :param str or int first_index: Redis stream index (None is now)
         :param bool yield_events: yield Event or DataNode
         """
-        search_child_streams = not reader.n_subscribed_streams
+        search_child_streams = not reader.n_subscribed_streams and first_index
 
         # Do not use the include_filter for *_children_list. Maybe we don't
         # want the events from the direct children but may want the events

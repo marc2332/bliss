@@ -352,10 +352,18 @@ class DataStreamReader:
     def __str__(self):
         return "{}({} subscribed, {} activate, {} consumer".format(
             self.__class__.__name__,
-            len(self._streams),
-            len(self._active_streams),
+            self.n_subscribed_streams,
+            self.n_active_streams,
             self._consumer_state.name,
         )
+
+    @property
+    def n_subscribed_streams(self):
+        return len(self._streams)
+
+    @property
+    def n_active_streams(self):
+        return len(self._active_streams)
 
     @property
     def _consumer_state(self):

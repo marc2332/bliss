@@ -20,10 +20,13 @@ SCAN_INFO = {
     },
     "channels": {
         "diode:diode": {"display_name": "diode"},
-        "timer:elapsed_time": {"display_name": "elapsed_time", "unit": "s"},
+        "timer:elapsed_time": {
+            "display_name": "elapsed_time",
+            "unit": "s",
+            "points": 10,
+        },
         "timer:epoch": {"display_name": "epoch", "unit": "s"},
     },
-    "requests": {"timer:elapsed_time": {"points": 10}},
     "positioners": {
         "positioners_start": {"slit_bottom": 1.0, "slit_top": -1.0},
         "positioners_end": {"slit_bottom": 2.0, "slit_top": -2.0},
@@ -261,7 +264,7 @@ def test_amesh_scan_with_image_and_mca():
         "count_time": 0.001,
         "npoints1": 31,
         "npoints2": 31,
-        "requests": {
+        "channels": {
             "axis:sy": {
                 "start": -0.75,
                 "stop": 0.75,
@@ -541,7 +544,7 @@ def test_read_plot_models__scatter_axis():
 
 def test_read_scatter_data__different_groups():
     scan_info = {
-        "requests": {
+        "channels": {
             "foo": {"group": "scatter1", "axis-id": 0},
             "foo2": {"group": "scatter1", "axis-id": 1},
             "bar": {"group": "scatter2", "axis-id": 0},
@@ -560,7 +563,7 @@ def test_read_scatter_data__different_groups():
 
 def test_read_scatter_data__twice_axis_at_same_place():
     scan_info = {
-        "requests": {
+        "channels": {
             "foo": {"group": "scatter1", "axis-id": 0},
             "foo2": {"group": "scatter1", "axis-id": 0},
             "bar": {"group": "scatter1", "axis-id": 1},
@@ -579,7 +582,7 @@ def test_read_scatter_data__twice_axis_at_same_place():
 
 def test_read_scatter_data__non_regular_3d():
     scan_info = {
-        "requests": {
+        "channels": {
             "axis1": {
                 "axis-id": 0,
                 "axis-points-hint": 10,

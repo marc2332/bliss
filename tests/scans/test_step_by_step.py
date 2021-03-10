@@ -120,11 +120,11 @@ def test_d2scan(session):
     )
     assert numpy.array_equal(scan_data["sim_ct_gauss"], simul_counter.data)
 
-    requests = s.scan_info["requests"]
-    assert requests["axis:robz2"]["start"] == pytest.approx(-1.2)
-    assert requests["axis:robz2"]["stop"] == pytest.approx(-0.8)
-    assert requests["axis:robz"]["start"] == pytest.approx(0.9)
-    assert requests["axis:robz"]["stop"] == pytest.approx(1.1)
+    channels = s.scan_info["channels"]
+    assert channels["axis:robz2"]["start"] == pytest.approx(-1.2)
+    assert channels["axis:robz2"]["stop"] == pytest.approx(-0.8)
+    assert channels["axis:robz"]["start"] == pytest.approx(0.9)
+    assert channels["axis:robz"]["stop"] == pytest.approx(1.1)
 
 
 def test_lineup(session):

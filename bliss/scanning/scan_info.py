@@ -90,9 +90,9 @@ class ScanInfo(dict):
             axis_points_hint: Number of approximate points expected in the axis
                 when this number of points is not regular
         """
-        requests = self._scan_info.setdefault("requests", {})
+        channels = self._scan_info.setdefault("channels", {})
         assert axis_kind in set([None, "forth", "backnforth", "step"])
-        meta = requests.setdefault(name, {})
+        meta = channels.setdefault(name, {})
         if start is not None:
             meta["start"] = start
         if stop is not None:
@@ -214,25 +214,19 @@ class ScanInfo(dict):
                 self._get_channels_dict(acq_object, channels)
         self._scan_info["acquisition_chain"] = chain_dict
 
-        # Feed channels key
-        channels = {}
+        # Update channels key
+        channels = self._scan_info.setdefault("channels", {})
         for path in tree.paths_to_leaves():
             for acq_object in path[1:]:
                 for acq_chan in acq_object.channels:
                     fullname = acq_chan.fullname
-                    if fullname in channels:
-                        continue
-                    channel_dict = {}
-                    units = acq_chan.unit
-                    if units is not None:
-                        channel_dict["unit"] = units
+                    meta = channels.setdefault(fullname, {})
+                    unit = acq_chan.unit
+                    if unit is not None:
+                        meta["unit"] = unit
                     display_name = acq_chan.short_name
                     if display_name is not None:
-                        channel_dict["display_name"] = display_name
-                    if len(channel_dict) != 0:
-                        # If there is something to store
-                        channels[fullname] = channel_dict
-        self._scan_info["channels"] = channels
+                        meta["display_name"] = display_name
 
         # Feed Lima ROIs into the scan_info
         rois = {}

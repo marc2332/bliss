@@ -22,8 +22,8 @@ def test_1_set_request():
         axis_kind="forth",
         group="g",
     )
-    assert "requests" in scan_info
-    assert "foo" in scan_info["requests"]
+    assert "channels" in scan_info
+    assert "foo" in scan_info["channels"]
     expected = {
         "start": 1,
         "stop": 2,
@@ -35,14 +35,14 @@ def test_1_set_request():
         "axis-kind": "forth",
         "group": "g",
     }
-    assert scan_info["requests"]["foo"] == expected
+    assert scan_info["channels"]["foo"] == expected
 
 
 def test_2_set_request():
     scan_info = ScanInfo()
     scan_info.set_channel_meta("foo", group="a")
     scan_info.set_channel_meta("bar", group="b")
-    assert len(scan_info["requests"]) == 2
+    assert len(scan_info["channels"]) == 2
 
 
 def test_add_scatter_plot():

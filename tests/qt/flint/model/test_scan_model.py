@@ -19,7 +19,7 @@ SCATTER_SCAN_INFO = {
         }
     },
     "channels": {
-        "device2_channel1": {"unit": "mm"},
+        "device2:channel1": {"unit": "mm"},
         "device3:channel1": {"unit": "mm"},
         "master_time1:index": {"unit": "s"},
     },
@@ -30,15 +30,15 @@ SCATTER_SCAN_INFO = {
 def test_scan_data_update_whole_channels():
     scan = scan_info_helper.create_scan_model(SCATTER_SCAN_INFO)
     event = scan_model.ScanDataUpdateEvent(scan)
-    expected = {
-        "master_time1:index",
+    expected = [
         "device1:channel1",
         "device2:channel1",
         "device2:channel2",
         "device3:channel1",
         "device4:channel1",
-    }
-    assert event.updatedChannelNames() == expected
+        "master_time1:index",
+    ]
+    assert sorted(event.updatedChannelNames()) == sorted(expected)
 
 
 def test_scan_data_update_single_channel():

@@ -38,7 +38,7 @@ class OscilloscopeAcquisitionSlave(BaseCounterAcquisitionSlave):
         )
 
     def _do_add_counter(self, counter):
-        from bliss.controllers.oscilloscope import OscilloscopeAnalogChannel
+        from bliss.controllers.oscilloscope.base import OscilloscopeAnalogChannel
 
         super()._do_add_counter(counter)  # add the 'default' counter
 
@@ -66,7 +66,7 @@ class OscilloscopeAcquisitionSlave(BaseCounterAcquisitionSlave):
 
     def reading(self):
         data = [numpy.nan] * len(self.channels)  # is this really needed?
-        from bliss.controllers.oscilloscope import (
+        from bliss.controllers.oscilloscope.base import (
             OscilloscopeAnalogChannel,
             OscilloscopeMeasurement,
         )

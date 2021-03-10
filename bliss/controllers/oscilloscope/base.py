@@ -2,7 +2,7 @@
 #
 # This file is part of the bliss project
 #
-# Copyright (c) 2015-2020 Beamline Control Unit, ESRF
+# Copyright (c) 2015-2021 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.common.utils import autocomplete_property

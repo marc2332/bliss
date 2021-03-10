@@ -3,7 +3,7 @@
 #
 # This file is part of the bliss project
 #
-# Copyright (c) 2015-2020 Beamline Control Unit, ESRF
+# Copyright (c) 2015-2021 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import time
@@ -14,7 +14,7 @@ import io
 import socket
 import struct
 from bliss.common.utils import autocomplete_property
-from bliss.controllers.oscilloscope import (
+from bliss.controllers.oscilloscope.base import (
     Oscilloscope,
     OscilloscopeHardwareController,
     OscilloscopeAnalogChannel,
@@ -26,35 +26,6 @@ from bliss.controllers.oscilloscope import (
 
 HEADER_FORMAT = ">BBBBL"
 DATA_FLAG = 0x80
-HEADER_LIST = [
-    "WAVE_DESCRIPTOR",
-    "WAVE_ARRAY_1",
-    "INSTRUMENT_NUMBER",
-    "PNTS_PER_SCREEN",
-    "FIRST_VALID_PNT",
-    "LAST_VALID_PNT",
-    "FIRST_POINT",
-    "SPARSING_FACTOR",
-    "SEGMENT_INDEX",
-    "SUBARRAY_COUNT",
-    "SWEEPS_PER_ACQ",
-    "POINTS_PER_PAIR",
-    "PAIR_OFFSET",
-    "VERTICAL_GAIN",
-    "VERTICAL_OFFSET",
-    "MAX_VALUE",
-    "MIN_VALUE",
-    "NOMINAL_BITS",
-    "NOM_SUBARRAY_COUNT",
-    "HORIZ_INTERVAL",
-    "HORIZ_OFFSET",
-    "PIXEL_OFFSET",
-    "HORIZ_UNCERTAINTY",
-    "ACQ_DURATION",
-    "PROBE_ATT",
-    "VERTICAL_VERNIER",
-    "ACQ_VERT_VERNIER",
-]
 
 
 class LecroyOscCtrl(OscilloscopeHardwareController):
@@ -65,11 +36,9 @@ class LecroyOscCtrl(OscilloscopeHardwareController):
     def __init__(self, config):
         host = config["host"]
         port = 1861
-        if "timeout" in config:
-            timeout = config["timeout"]
-        else:
-            timeout = 5.0
+        timeout = config.get("timeout", 5)
         self.counters = config["counters"]
+        self.measurements = config["measurements"]
         self._comm = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._comm.connect((host, port))
         self._comm.settimeout(timeout)
@@ -85,51 +54,31 @@ class LecroyOscCtrl(OscilloscopeHardwareController):
 
     def recv(self, decode=True):
         """Return a message from the scope."""
-        reply = []
+        answr = b""
         while True:
-            header = []
-
-            while len(b"".join(header)) < 8:
-                header.append(self._comm.recv(8 - len(b"".join(header))))
-
+            header = b""
+            while len(header) < 8:
+                header += self._comm.recv(8 - len(header))
             operation, headerver, seqnum, spare, totalbytes = struct.unpack(
-                HEADER_FORMAT, b"".join(header)
+                HEADER_FORMAT, header[:8]
             )
+            buffer = b""
+            while len(buffer) < totalbytes:
+                buffer += self._comm.recv(totalbytes - len(buffer))
 
-            buffer = []
-
-            while len(b"".join(buffer)) < totalbytes:
-                buffer.append(self._comm.recv(totalbytes - len(b"".join(buffer))))
-
-            reply.append(b"".join(buffer))
-
+            answr += buffer
             if operation % 2:
                 break
 
-        answr = b"".join(reply)
         if decode:
             answr = answr.decode()
             if answr.endswith("\n"):
                 answr = answr[:-1]
-
         return answr
 
-    # def recv2(self, decode=True):
-    #     dtstr = []
-    #     while True:
-    #         data = self._comm.recv(8)
-    #         head_data = struct.unpack("B3BI", data)  # get response (header from device)
-    #         lnt = socket.ntohl(head_data[-1])  # data length to be captured
-    #         flg = head_data[0]
-    #         dtstr.append(self._comm.recv(lnt))
-    #         if flg != DATA_FLAG:  # data flag 0x80
-    #             break
-    #     answr = b"".join(dtstr)
-    #     if decode:
-    #         answr = answr.decode()
-    #         if answr.endswith("\n"):
-    #             answr = answr[:-1]
-    #     return answr
+    def command(self, msg):
+        self.send(msg)
+        return self.recv()
 
     def wait_ready(self, timeout=5):
         with gevent.timeout.Timeout(timeout):
@@ -144,7 +93,7 @@ class LecroyOscCtrl(OscilloscopeHardwareController):
         header = self.header_to_dict(header)
         self.header = header
         raw_data = data
-        data = data.astype(numpy.float) + float(header["PIXEL_OFFSET"])
+        # data = data.astype(numpy.float) + float(header["PIXEL_OFFSET"])
 
         return OscAnalogChanData(length, raw_data, data, header)
 
@@ -155,7 +104,7 @@ class LecroyOscCtrl(OscilloscopeHardwareController):
         return channels_names
 
     def get_measurement_names(self):
-        return HEADER_LIST
+        return [measurement["measurement_name"] for measurement in self.measurements]
 
     def acq_prepare(self):
         self.set_waveformFormat("WORD")

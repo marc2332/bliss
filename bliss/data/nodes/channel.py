@@ -75,14 +75,14 @@ class _ChannelDataNodeBase(DataNode):
             first_index = 0
         super()._subscribe_stream(stream_suffix, reader, first_index=first_index, **kw)
 
-    def _subscribe_all_streams(self, reader, yield_events=False, **kw):
+    def _subscribe_streams(self, reader, yield_events=False, **kw):
         """Subscribe to all associated streams of this node.
 
         :param DataStreamReader reader:
         :param bool yield_events: yield Event or DataNode
         :param **kw: see DataNode
         """
-        super()._subscribe_all_streams(reader, yield_events=yield_events, **kw)
+        super()._subscribe_streams(reader, yield_events=yield_events, **kw)
         if yield_events:
             self._subscribe_stream(
                 "data", reader, first_index=0, create=True, ignore_excluded=True

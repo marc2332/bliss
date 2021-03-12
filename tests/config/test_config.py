@@ -5,13 +5,17 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import sys
+import os
+from unittest.mock import patch
+import pytest
+import ruamel
+
 from bliss.config.conductor import client
 from bliss.config.static import ConfigNode
+from bliss.comm.exceptions import CommunicationError
+
 from tests.motors.conftest import s1hg, s1vo, m0
-import pytest
-from unittest.mock import patch
-import sys, os
-import ruamel
 
 
 @pytest.mark.parametrize(
@@ -273,7 +277,7 @@ def test_config_save_reference(beacon, beacon_directory):
 def test_bad_icepap_host(beacon):
     bad_mot = beacon.get("v6biturbo")
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(CommunicationError):
         a = bad_mot.position
 
 

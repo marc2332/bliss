@@ -10,7 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Flint
-    - An histogram tool is provided when displaying image in custom plots
+    - Added histogram tool when displaying image in custom plots
+    - Added a content menu option to center profile ROIs in image/scatter
+    - Added an overlay with size of Lima rect ROIs
     - Better handling of timeout, and try not to have 30s
     - Better handling of stucked state
         - Added `restart_flint` command from `bliss.common.plot`
@@ -25,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 ### Fixed
+
+- Flint
+    - Fix storage of line profiles in the image/scatter plot
 
 ### Removed
 

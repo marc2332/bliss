@@ -23,22 +23,42 @@ from bliss.scanning.scan_display import ScanDisplay
 
 
 @contextmanager
-def grab_lines(subproc, timeout=30, finish_line="Took "):
+def grab_lines(process, timeout=30, finish_line="Took "):
     lines = []
+    errors = []
+
+    def read_stderr():
+        while True:
+            line = process.stderr.readline()
+            errors.append(line)
+
+    gerr = gevent.spawn(read_stderr)
+
     try:
         with gevent.Timeout(timeout):
-            for line in subproc.stdout:
+            while True:
+                line = process.stdout.readline()
                 lines.append(line)
                 if finish_line in line:
                     break
     except gevent.Timeout:
+        print("==== STDOUT ====")
         print("".join(lines))
+        print("==== STDERR ====")
+        print("".join(errors))
+        print("================")
         raise TimeoutError
+    finally:
+        gerr.kill()
 
     try:
         yield lines
     except Exception:
+        print("==== STDOUT ====")
         print("".join(lines))
+        print("==== STDERR ====")
+        print("".join(errors))
+        print("================")
         raise
 
 

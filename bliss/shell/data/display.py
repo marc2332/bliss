@@ -218,7 +218,9 @@ class _ScanPrinterBase:
 
         channels_meta = {}
         for channel_name, meta in scan_info["channels"].items():
-            display_name = meta["display_name"]
+            display_name = meta.get("display_name")
+            if display_name is None:
+                display_name = channel_name.split(":")[-1]
             unit = meta.get("unit")
             metadata = ChannelMetadata(display_name, unit)
             channels_meta[channel_name] = metadata

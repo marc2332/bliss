@@ -1,5 +1,6 @@
 """Testing for profile action"""
 
+import numpy
 from bliss.flint.widgets.utils import profile_action
 from bliss.flint.widgets.utils import plot_helper
 from silx.gui.plot.tools.profile import rois
@@ -56,3 +57,46 @@ def test_read_write_profiles(local_flint):
     action2.restoreState(state)
     state2 = action2.saveState()
     assert state == state2
+
+
+def test_profile_centering_image_line():
+    plot = plot_helper.FlintPlot()
+    action = profile_action.ProfileAction(plot, None, "image")
+
+    image = numpy.arange(100 * 100)
+    image.shape = 100, 100
+    plot.addImage(image)
+
+    p = rois.ProfileImageLineROI()
+    action.manager().getRoiManager().centerRoi(p)
+    p1, p2 = p.getEndPoints()
+    numpy.testing.assert_array_equal((p1 + p2) * 0.5, (50.0, 50.0))
+
+
+def test_profile_centering_image_cross():
+    plot = plot_helper.FlintPlot()
+    action = profile_action.ProfileAction(plot, None, "image")
+
+    image = numpy.arange(100 * 100)
+    image.shape = 100, 100
+    plot.addImage(image)
+
+    p = rois.ProfileImageCrossROI()
+    action.manager().getRoiManager().centerRoi(p)
+    p = p.getPosition()
+    numpy.testing.assert_array_equal(p, (50.0, 50.0))
+
+
+def test_profile_centering_scatter_cross():
+    plot = plot_helper.FlintPlot()
+    action = profile_action.ProfileAction(plot, None, "image")
+
+    x = numpy.arange(101)
+    y = numpy.arange(101)
+    v = numpy.arange(101)
+    plot.addScatter(x, y, v)
+
+    p = rois.ProfileScatterCrossROI()
+    action.manager().getRoiManager().centerRoi(p)
+    p = p.getPosition()
+    numpy.testing.assert_array_equal(p, (50.0, 50.0))

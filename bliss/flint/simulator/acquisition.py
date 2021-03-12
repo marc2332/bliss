@@ -388,7 +388,7 @@ class AcquisitionSimulator(qt.QObject):
 
         requests = {}
         requests[device1_channel1.name()] = {"start": start, "stop": stop}
-        scan.scan_info["requests"] = requests
+        scan.scan_info["channels"] = requests
 
         # Every 2 ticks
         nbPoints1 = (duration // interval) // 2
@@ -664,7 +664,7 @@ class AcquisitionSimulator(qt.QObject):
             "axis-points": nbY,
             "axis-kind": "slow",
         }
-        scan.scan_info["requests"] = requests
+        scan.scan_info["channels"] = requests
 
     def __createScan(self, interval, duration, name=None) -> _VirtualScan:
         print("Preparing data...")

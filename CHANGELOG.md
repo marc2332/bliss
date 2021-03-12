@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
         - Added `USR1` and `USR2` signals to interrupt and log internal information
         - Added `--enable-watchdog` command line argument to log and kill Flint if
           too much memory is used
+    - `scan_info["requests"]` is not anymore read (replaced by `channels`)
 
 ### Changed
 

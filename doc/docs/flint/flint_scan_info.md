@@ -12,8 +12,9 @@ scans, you have to feed useful information on your own.
 
 The `scan_info` dictionary allows you to add extra information to a scan.
 
-A field `requests` can be provided to `scan_info` to annotate each channel with
-information.
+And a field `channels`, already feed by the `Scan` object is used to annotate
+each channel with information. An helper is provided to feed this dictionary.
+Better not to edit the dictionary manually.
 
 # Global metadata
 
@@ -23,8 +24,8 @@ This metadata must be at the root of `scan_info`.
 - `npoints1` (int): Number of expected points of the first axis of a mesh scan
 - `npoints2` (int): Number of expected points of the second axis of a mesh scan
 
-Flint can compute a progress bar for the scan using this information. If the
-channels do not have the same size, you can use `requests` to specify the expected
+That's one available option used Flint to compute a progress bar for a scan.
+
 size per channels.
 
 - `data_dim` (int): Dimensionality of the scan
@@ -32,34 +33,15 @@ size per channels.
 
 Flint uses this metadata to display the data as a scatter if equals to 2.
 
-# Request metadata
+# Channel's metadata
 
-Here is an example to register few metadata to a channel named `my_channel`:
-```
-requests = {}
-requests["my_channel"] = {
-    "start": 1,
-    "stop": 2,
-}
-
-scan_info = {}
-scan_info["requests"] = requests
-
-scan = Scan(
-    chain,
-    scan_info=scan_info,
-    ...
-)
-```
-
-An helper is provided to simplify the creation of your `scan_info`. The
-following code is the exact same as the previous one. It is recommended to use
-this way.
+Here is an example to update few metadata to a channel named `my_channel`:
 
 ```
 from bliss.scanning.scan_info import ScanInfo
 scan_info = ScanInfo()
-scan_info.set_channel_meta("my_channel", start=1, stop=2)
+# The channel name is a fullname
+scan_info.set_channel_meta("my_channel_name", start=1, stop=2)
 
 scan = Scan(
     chain,
@@ -68,9 +50,12 @@ scan = Scan(
 )
 ```
 
-## List of `requests` metadata
+## List of channel's metadata
 
 Everything is optional, but have to be well typed.
+
+Better to refer to the documentation of `ScanInfo.set_channel_meta` which is
+probably up-to-date.
 
 - For `curve/scatter`
     - `start` (float): Start position of the axis
@@ -81,18 +66,18 @@ Everything is optional, but have to be well typed.
                       channel. It is used to compute the scan progress. And it
                       could be used to optimize memory allocation.
 - For `scatter`
-    - `axis-points` (int): Amount of points for the axis (see scatter below)
-    - `axis-kind` (string): Kind of axis. It can be one of:
+    - `axis_points` (int): Amount of points for the axis (see scatter below)
+    - `axis_kind` (string): Kind of axis. It can be one of:
         - `forth`: For an axis always starting from start to stop
         - `backnforth`: For an axis which goes forth, increment the slower axis
                         and then goes back
         - `step`: For extra dimensions for axis which have discrete position
-    - `axis-points` (int): Amount of axis points contained in the channel.
+    - `axis_points` (int): Amount of axis points contained in the channel.
                            For scatter this amount of points will differ from
                            the amount of point owned by the same row, or column.
-    - `axis-id` (int): Interleaved position of the axis in the scatter.
+    - `axis_id` (int): Interleaved position of the axis in the scatter.
                        Smaller is faster. `0` is the fastest.
-    - `axis-points-hint` (int): Used for irregular scatters. Flint will use it
+    - `axis_points_hint` (int): Used for irregular scatters. Flint will use it
                                 to display this scatter as an 2D histogram.
                                 This hint became the number of bins to use
                                 (number of pixels)
@@ -104,12 +89,7 @@ Everything is optional, but have to be well typed.
                         If nothing is set, Flint will group the channel using
                         it's top master channel name from the acquisition chain.
 
-Unsupported keys will not be used, and Flint will warn about it in the logs.
-
 ## Curve rendering
-
-Right now this features is not used to display the curves. But it will be
-done at one point.
 
 - `min/max` will be used to constraint the default displayed view.
 - `start/end` will be also used to constrain the displayed view.
@@ -141,6 +121,23 @@ For now only scatters are supported.
 
 Here is an example.
 ```
+from bliss.scanning.scan_info import ScanInfo
+scan_info = ScanInfo()
+scan_info.add_scatter_plot(name="unique-plot-name",
+                           x="axis:sx",
+                           y="axis:sy",
+                           value="diode2")
+```
+
+The plot name is not mandatory. It will be used by Flint to reuse the same plot
+widget between scans. A single plot without name will use the default scatter
+plot provided by Flint.
+
+
+For your information in BLISS 1.7, the previous code will generate a dictionary
+looking like the following one. But it is not recommended to generate it
+manually, in case of changes.
+```
 plots = [
     {
         "name": "unique-plot-name"
@@ -152,25 +149,9 @@ plots = [
 ]
 ```
 
-The plot name is not mandatory. It will be used by Flint to reuse the same plot
-widget between scans. A single plot without name will use the default scatter
-plot provided by Flint.
-
-An helper is provided to simplify the creation of your `scan_info`. It is
-recommended to use it.
-
-```
-from bliss.scanning.scan_info import ScanInfo
-scan_info = ScanInfo()
-scan_info.add_scatter_plot(name="unique-plot-name",
-                           x="axis:sx",
-                           y="axis:sy",
-                           value="diode2")
-```
-
 # Examples
 
-For example which can be used in BLISS shell, you can take a look at
+Few working examples are provided at
 [scan_info examples](flint_scan_info_examples.md).
 
 # Scan sequence

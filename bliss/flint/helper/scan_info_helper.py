@@ -114,7 +114,7 @@ def iter_channels(scan_info: Dict[str, Any]):
             yield channel
             channels.add(channel_name)
 
-    requests = scan_info.get("requests", {})
+    requests = scan_info.get("channels", {})
     if not isinstance(requests, dict):
         _logger.warning("scan_info.requests is not a dict")
         requests = {}
@@ -242,9 +242,9 @@ def create_scan_model(scan_info: Dict) -> scan_model.Scan:
             channel.setDisplayName(display_name)
 
     scatterDataDict: Dict[str, scan_model.ScatterData] = {}
-    requests = scan_info.get("requests", None)
-    if requests:
-        for channel_name, metadata_dict in requests.items():
+    channels = scan_info.get("channels", None)
+    if channels:
+        for channel_name, metadata_dict in channels.items():
             channel = channelsDict.get(channel_name, None)
             if channel is not None:
                 metadata = parse_channel_metadata(metadata_dict)
@@ -956,12 +956,12 @@ def _create_progress_strategies(scan: scan_model.Scan) -> List[_ProgressStrategy
         strategy = _ProgressOfSequence(scan)
         strategies.append(strategy)
 
-    requests = scan_info.get("requests", None)
-    if requests:
+    channels = scan_info.get("channels", None)
+    if channels:
         # Reach on channel per npoints (in case of many top masters without
         # same size)
         strategy_per_npoints: Dict[int, _ProgressStrategy] = {}
-        for channel_name, metadata_dict in requests.items():
+        for channel_name, metadata_dict in channels.items():
             if "points" in metadata_dict:
                 try:
                     npoints = int(metadata_dict["points"])

@@ -71,7 +71,7 @@ class Pace:
               (str): current rate mode
         """
         cmd = "SOUR%1d:SLEW:MODE" % channel
-        if mode:
+        if mode is not None:
             try:
                 self._send_comm(cmd + " %s" % mode.upper())
             except RuntimeError as e:
@@ -91,7 +91,7 @@ class Pace:
            (float): Current pressure set-point value.
         """
         cmd = ":SOUR%1d:PRES" % channel
-        if pressure:
+        if pressure is not None:
             try:
                 self._send_comm(cmd + " %f" % pressure)
             except RuntimeError as e:
@@ -111,7 +111,7 @@ class Pace:
             (float): Current rate in selected pressure units per second
         """
         cmd = "SOUR%1d:PRES:SLEW" % channel
-        if rate:
+        if rate is not None:
             try:
                 self._send_comm(cmd + " %f" % rate)
             except RuntimeError as e:
@@ -131,7 +131,7 @@ class Pace:
            (string): The pressure in the current units
         """
         cmd = ":UNIT%1d:PRES" % channel
-        if unit:
+        if unit is not None:
             if unit.upper() in self._units:
                 try:
                     self._send_comm(cmd + " %s" % unit)
@@ -296,11 +296,11 @@ class pace(Controller):
            RuntimeError: the ramp rate is not set
         """
         try:
-            rate = int(kwargs.get("rate", self.__ramp_rate))
+            rate = kwargs.get("rate", self.__ramp_rate)
         except TypeError:
             raise RuntimeError("Cannot start ramping, ramp rate not set")
 
-        self._pace.ramp(self.channel, sp, rate)
+        self._pace.ramp(sp, rate, self.channel)
 
     def set_ramprate(self, toutput, rate, **kwargs):
         """ Set the ramp rate.
@@ -309,9 +309,8 @@ class pace(Controller):
             toutput (object): Output class type object
             rate (float): Desired rate in pressure units per second
         """
-        self.__ramp_rate = rate
-        toutput.rampval(rate)
         self._pace._ramprate(self.channel, rate)
+        self.__ramp_rate = rate
 
     def read_ramprate(self, toutput):
         """ Read the ramp rate.
@@ -321,7 +320,7 @@ class pace(Controller):
            (float): Current rate in selected pressure units per second
                     None if no ramp rate set
         """
-        self.__ramp_rate = self._pace._ramprate(self.channel)
+        self.__ramp_rate = float(self._pace._ramprate(self.channel))
         return self.__ramp_rate
 
     def set(self, toutput, sp, **kwargs):

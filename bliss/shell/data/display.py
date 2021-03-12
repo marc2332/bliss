@@ -15,22 +15,17 @@ import numpy
 import shutil
 import signal
 import atexit
-import contextlib
-import gevent
 import typing
-import gevent.event
+import gevent
 import numbers
 
 from bliss.data import scan as scan_mdl
 from bliss.common.utils import nonblocking_print
-from bliss.common.axis import Axis
 from bliss.common.event import dispatcher
 from bliss.common.logtools import user_print
-from bliss.common import user_status_info
 from bliss.scanning.scan import set_scan_watch_callbacks, ScanState
 from bliss.scanning.scan_display import ScanDisplay
 from bliss import global_map, is_bliss_shell
-from bliss.scanning.chain import ChainPreset, ChainIterationPreset
 from bliss.shell.formatters.table import IncrementalTable
 
 

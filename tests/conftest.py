@@ -808,7 +808,7 @@ def deep_compare(d, u):
                     if isinstance(v, numpy.ndarray) and v.size > 1:
                         assert d[k].shape == v.shape
                         d[k].dtype == v.dtype
-                        if d[k].dtype != numpy.object:
+                        if d[k].dtype != object:
                             assert all(
                                 numpy.isnan(d[k].flatten()) == numpy.isnan(v.flatten())
                             )

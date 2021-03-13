@@ -331,7 +331,7 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
     @property
     def state(self):
         if self._state == self.STATES.ON:
-            if any(writer.active for writer in list(self.writers.values())):
+            if any(writer.alive for writer in list(self.writers.values())):
                 return self.STATES.RUNNING
         return self._state
 

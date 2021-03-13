@@ -182,7 +182,7 @@ def test_fast_scan_display(session, scan_data_listener_process):
                 start_once=True,
             )
             self.event = gevent.event.Event()
-            self.channels.append(AcquisitionChannel("block_data", numpy.int, ()))
+            self.channels.append(AcquisitionChannel("block_data", int, ()))
             self.pending_trigger = 0
             self.chunk = chunk
 
@@ -203,7 +203,7 @@ def test_fast_scan_display(session, scan_data_listener_process):
             return True
 
         def reading(self):
-            data = numpy.arange(self.npoints, dtype=numpy.int)
+            data = numpy.arange(self.npoints, dtype=int)
             acq_npoint = 0
             chunk = self.chunk
             i = 0

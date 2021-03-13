@@ -303,7 +303,7 @@ def test_SampCnt_mode_SINGLE(session):
 
     # check that there is no averaging for diode10
     assert all(diode8_dat.astype(float) == diode8_dat)
-    assert not all(diode2_dat.astype(numpy.int) == diode2_dat)
+    assert not all(diode2_dat.astype(int) == diode2_dat)
 
 
 def test_SampCnt_mode_SINGLE_conv_func(session):

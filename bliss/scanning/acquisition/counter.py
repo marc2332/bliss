@@ -440,7 +440,7 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
             timest = str(datetime.fromtimestamp(timest)) if timest != None else None
             return SamplingCounterAcquisitionSlave.stats_nt(
                 mean,
-                numpy.int(count),
+                int(count),
                 numpy.sqrt(variance),
                 variance,
                 Min,

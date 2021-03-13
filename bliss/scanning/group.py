@@ -301,7 +301,7 @@ class GroupingMaster(AcquisitionMaster):
 
         self.channels.append(self._node_channel)
 
-        self._number_channel = AcquisitionChannel("scan_numbers", numpy.int, ())
+        self._number_channel = AcquisitionChannel("scan_numbers", int, ())
         self.channels.append(self._number_channel)
 
         # Synchronize GroupingMaster iteration and wait_all_published

@@ -296,7 +296,7 @@ class GroupingMaster(AcquisitionMaster):
         self.scan_queue = Queue()
 
         self._node_channel = AcquisitionChannel(
-            "scans", numpy.str, (), reference=True, data_node_type="node_ref_channel"
+            "scans", str, (), reference=True, data_node_type="node_ref_channel"
         )
 
         self.channels.append(self._node_channel)

@@ -68,7 +68,7 @@ class BaseSubscriber:
         """
         * INIT: initializing (not listening to events yet)
         * ON: listening to events
-        * OFF: not listening to events
+        * OFF: not listening to events and resources released
         * FAULT: not listening to events due to exception
         """
 
@@ -410,9 +410,8 @@ class BaseSubscriber:
             )
             raise
         finally:
+            self.end_time = datetime.datetime.now()
             self._set_state(self.STATES.OFF, "Finished succesfully")
-            if self.end_time is None:
-                self.end_time = datetime.datetime.now()
 
     @property
     def resource_profiling(self):
@@ -537,8 +536,7 @@ class BaseSubscriber:
         """
         Executed at the end of the event loop
         """
-        self.end_time = datetime.datetime.now()
-        self._set_state(self.STATES.OFF, "Stop listening to Redis events")
+        self.logger.info("Stop listening to Redis events")
 
     def _register_event_loop_tasks(self, **kwargs):
         """

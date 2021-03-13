@@ -132,7 +132,7 @@ def test_sequence_empty_in_seq(session):
 def test_sequence_custom_channel(session):
     diode = session.config.get("diode")
     seq = Sequence(scan_info={"something": "else"})
-    seq.add_custom_channel(AcquisitionChannel("mychannel", numpy.float, ()))
+    seq.add_custom_channel(AcquisitionChannel("mychannel", float, ()))
     with seq.sequence_context() as seq_context:
         s1 = scans.loopscan(3, .1, diode, run=False)
         seq_context.add(s1)

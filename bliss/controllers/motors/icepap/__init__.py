@@ -723,7 +723,7 @@ class Icepap(Controller):
             _ackcommand(self._cnx, "%s:LISTDAT CLEAR" % address)
             return
 
-        dial_positions = axis.user2dial(numpy.array(positions, dtype=numpy.float))
+        dial_positions = axis.user2dial(numpy.array(positions, dtype=float))
         step_positions = numpy.array(
             dial_positions * axis.steps_per_unit, dtype=numpy.int32
         )

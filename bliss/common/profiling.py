@@ -171,8 +171,7 @@ class SimpleTimeStatistics:
 
     def __init__(self, profile):
         self._profile = {
-            key: numpy.array(values, dtype=numpy.float)
-            for key, values in profile.items()
+            key: numpy.array(values, dtype=float) for key, values in profile.items()
         }
 
     @property

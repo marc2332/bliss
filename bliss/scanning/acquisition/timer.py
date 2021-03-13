@@ -24,7 +24,7 @@ class SoftwareTimerMaster(AcquisitionMaster):
             AcquisitionChannel(f"{self.name}:elapsed_time", numpy.double, (), unit="s")
         )
         self.channels.append(
-            AcquisitionChannel(f"{self.name}:epoch", numpy.float, (), unit="s")
+            AcquisitionChannel(f"{self.name}:epoch", float, (), unit="s")
         )
 
         self._nb_point = 0

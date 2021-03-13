@@ -129,13 +129,9 @@ def fullfield_tomo(session, nchunks=4, expo=1e-6):
         return flatten([numpy.arange(npixels)] * len(spectra))
 
     channelmap = {}
-    seq.add_custom_channel(
-        AcquisitionChannel("translation", numpy.float, (), unit="px")
-    )
-    seq.add_custom_channel(
-        AcquisitionChannel("rotation", numpy.float, (), unit="degree")
-    )
-    seq.add_custom_channel(AcquisitionChannel("sinogram", numpy.float, ()))
+    seq.add_custom_channel(AcquisitionChannel("translation", float, (), unit="px"))
+    seq.add_custom_channel(AcquisitionChannel("rotation", float, (), unit="degree"))
+    seq.add_custom_channel(AcquisitionChannel("sinogram", float, ()))
     channelmap[f"axis:{rotmot.name}"] = [{"name": "rotation", "process": replicate}]
     channelmap[detector.fullname] = [
         {"name": "sinogram", "process": flatten},

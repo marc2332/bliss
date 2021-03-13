@@ -828,7 +828,7 @@ class CalcController(Controller):
         for caxis in self.pseudos:
             if caxis is calc_axis:
                 continue
-            cpos = numpy.zeros(len(calc_positions), dtype=numpy.float)
+            cpos = numpy.zeros(len(calc_positions), dtype=float)
             cpos[:] = caxis.position
             positions[self._axis_tag(caxis)] = cpos
 
@@ -934,7 +934,7 @@ class CalcController(Controller):
                     axis_tag = ctrl._axis_tag(caxis)
                     if caxis is axis or axis_tag in local_real_positions:
                         continue
-                    cpos = numpy.zeros(len(axis_position), dtype=numpy.float)
+                    cpos = numpy.zeros(len(axis_position), dtype=float)
                     cpos[:] = caxis.position
                     local_real_positions[ctrl._axis_tag(caxis)] = cpos
 

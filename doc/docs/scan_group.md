@@ -53,8 +53,8 @@ It is possible to publish additional channels that are not part of any of the sc
 		      ...: from bliss.scanning.chain import AcquisitionChannel
 		      ...: import numpy
 		      ...: seq=Sequence()
-		      ...: seq.add_custom_channel(AcquisitionChannel('mychannel',numpy.float,()))
-		      ...: seq.add_custom_channel(AcquisitionChannel('sum',numpy.float,()))
+		      ...: seq.add_custom_channel(AcquisitionChannel('mychannel',float,()))
+		      ...: seq.add_custom_channel(AcquisitionChannel('sum',float,()))
 		      ...: with seq.sequence_context() as scan_seq:
 		      ...:     s1=loopscan(5,.1,diode,run=False)
 		      ...:     s2=loopscan(5,.1,diode,run=False)

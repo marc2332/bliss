@@ -47,8 +47,8 @@ def _test_nxw_scangroup(session=None, tmpdir=None, writer=None, **kwargs):
     motor = session.env_dict["robx"]
 
     seq = Sequence()
-    seq.add_custom_channel(AcquisitionChannel("customdata", numpy.float, ()))
-    seq.add_custom_channel(AcquisitionChannel("diode34", numpy.float, ()))
+    seq.add_custom_channel(AcquisitionChannel("customdata", float, ()))
+    seq.add_custom_channel(AcquisitionChannel("diode34", float, ()))
     with gevent.Timeout(30):
         with seq.sequence_context() as scan_seq:
             scan1 = scans.loopscan(npoints, .1, detector1, run=False)

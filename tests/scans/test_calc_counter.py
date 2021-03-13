@@ -131,7 +131,7 @@ def test_calc_channels_convert_func(default_session):
     def func(sender, data_dict):
         return {"position": data_dict["roby"] * 0.1}
 
-    # calc_chan_out = AcquisitionChannel("position", numpy.float, ())
+    # calc_chan_out = AcquisitionChannel("position", float, ())
     calc_chan_acq = CalcChannelAcquisitionSlave(
         "calc_chan_acq", [acq_master], func, ["position"]
     )
@@ -193,7 +193,7 @@ def test_calc_channels_mean_position(default_session):
             self.last_data = stop
             return {"mean_pos": numpy.array([mean])}
 
-    calc_chan_out = AcquisitionChannel("mean_pos", numpy.float, ())
+    calc_chan_out = AcquisitionChannel("mean_pos", float, ())
     calc_chan_acq = CalcChannelAcquisitionSlave(
         "calc_chan_acq", [acq_master], MyHook(), [calc_chan_out]
     )

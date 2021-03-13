@@ -845,7 +845,7 @@ class AcqDevice(AcquisitionSlave):
         self.counters = list()
         
     def add_counter(self, counter):
-        channels = [AcquisitionChannel(self, f'{counter.name}:{k}', numpy.float, ())
+        channels = [AcquisitionChannel(self, f'{counter.name}:{k}', float, ())
                     for k in ['bid','ask']]
         self.channels.extend(channels)
         self.counters.append(counter)

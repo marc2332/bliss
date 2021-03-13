@@ -86,7 +86,7 @@ def find_data_start(lines, fields):
 def extract_data(lines, shape, col_sep="|"):
     """ extract text data as numpy array """
     _h, w = shape
-    arry = numpy.empty(shape, dtype=numpy.float)
+    arry = numpy.empty(shape, dtype=float)
 
     incr = 0
     for line in lines:

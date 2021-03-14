@@ -67,7 +67,8 @@ def reachAllCurveItemFromDevice(
         assert itemChannel is not None
         channelName = itemChannel.name()
         channel = scan.getChannelByName(channelName)
-        assert channel is not None
+        if channel is None:
+            continue
         itemMaster = channel.device().topMaster()
         if itemMaster is topMaster:
             curves.append(item)

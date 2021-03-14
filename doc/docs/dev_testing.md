@@ -228,14 +228,67 @@ Their role is to ease the definition of tests by factorizing some procedures.
 Examples:
 
 * `beacon`: to give access to the configuration in the test function via `config`
-* `session`: to run testss within a BLISS session
+* `session`: to run tests within a BLISS session
 * `log_context`: allows to get access to logging mechanisms
     - results are readable via `caplog` module
 * other examples: `lima_simulator`, `dummy_tango_server`, `wago_tango_server`
 
+#### session
+
+`session` fixture gives access to `test_session` Bliss session:
+
+* config
+
+```python
+
+def test_SampCnt_statistics(session):
+    diode = session.config.get("diode")
+    diode2 = session.config.get("diode2")
+```
+
+
+* env_dict
+
+```python
+def test_SampCnt_mode_SINGLE(session):
+    env_dict = session.env_dict
+
+    diode2 = env_dict["diode2"]
+    diode8 = env_dict["diode8"]
+```
+
+* `config_app_port`
+* `homepage_app_port`
+* `beacon_tmpdir`
+* `beacon_directory`
+* `log_directory`
+* `images_directory`
+* ports:
+    - `redis_port`
+    - `redis_data_port`
+    - `tango_port`
+    - `beacon_port`
+    - `cfgapp_port`
+    - `logserver_port`
+    - `homepage_port`
+
+
 #### capsys
 
-`capsys` module gives access to the standard output and error.
+`capsys` fixture gives access to the standard output and error.
+
+
+example:
+```
+def test_bench(beacon, setup_globals, capsys):
+    with bench():
+        gevent.sleep(1)
+
+    captured = capsys.readouterr()
+    assert "Execution time: 1s" in captured.out
+```
+
+see also: `capsysbinary`, `capfd`, and `capfdbinary` fixtures.
 
 
 #### approx

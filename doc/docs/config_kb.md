@@ -1,4 +1,3 @@
-
 ## KB Mirror control and focusing
 
 
@@ -39,7 +38,7 @@ These features are implemented as a `KbController` class offering:
   package: bliss.controller.kb
   class: KbFocus
   name: hfocus
-  offset_motor: $kbho
+  offset_motor: $kbho        <- Slit offset motor in front of the KB system
   offset_start: 0.0          <- Start position of the iterative dscan
   bender_upstream: $kbh1
   bender_downstream: $kbh2
@@ -72,29 +71,5 @@ These features are implemented as a `KbController` class offering:
       tags: tilt
     - name: kbvtz       <- vertical/horizontal translation
       tags: height
-
-- plugin: emotion
-  class: Kb2LegCalcMotor
-  name: uxasx
-  axes:
-    - name: $tx1
-      tags: real leg1
-    - name: $tx2
-      tags: real leg2
-    - name: uxastx
-      tags: trans
-
-- plugin: emotion
-  class: Kb3LegCalcMotor
-  name: uxasz
-  axes:
-    - name: $tz1
-      tags: real leg1
-    - name: $tz2
-      tags: real leg2
-    - name: $tz3
-      tags: real leg3
-    - name: uxastz
-      tags: trans
 
 ```

@@ -241,14 +241,14 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             self.acq_params["saving_mode"] = self.acq_params.setdefault(
                 "saving_mode", "AUTO_FRAME"
             )
-            assert self.acq_params["saving_mode"] != "MANUAL"
+            assert self.acq_params["saving_mode"] != "NOSAVING"
             self.acq_params["saving_directory"] = self._lima_controller.get_mapped_path(
                 directory
             )
             self._unmapped_path = directory
             self.acq_params.setdefault("saving_prefix", prefix)
         else:
-            self.acq_params["saving_mode"] = "MANUAL"
+            self.acq_params["saving_mode"] = "NOSAVING"
 
     def _stop_video_live(self):
         # external live preview processes may use the cam_proxy in video_live or in an infinit loop (acq_nb_frames=0)
@@ -275,7 +275,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                 {"acq_trigger_mode": self.acq_params["acq_trigger_mode"]}
             )
 
-            if self.acq_params["saving_mode"] != "MANUAL":
+            if self.acq_params["saving_mode"] != "NOSAVING":
                 self._image_channel.description.update(self._get_saving_description())
 
         # make sure that parameters are in the good order for lima:
@@ -285,6 +285,10 @@ class LimaAcquisitionMaster(AcquisitionMaster):
 
         for param_name, param_value in self.acq_params.items():
             if not (param_value is None):
+                # need to have a difference with MANUAL saving and NOSAVING in bliss
+                # but with Lima device there is only MANUAL
+                if param_name == "saving_mode" and param_value == "NOSAVING":
+                    param_value = "MANUAL"
                 setattr(self.device.proxy, param_name, param_value)
 
         self.device.proxy.video_source = "LAST_IMAGE"

@@ -54,6 +54,7 @@ from bliss.common.utils import rounder
 from bliss import global_map
 from bliss.common.session import get_current_session
 from bliss.scanning.scan import ScanPreset
+from bliss.scanning.chain import ChainPreset, ChainIterationPreset
 from bliss.common.axis import Axis
 from bliss.common.cleanup import cleanup, axis as cleanup_axis
 from bliss.common.types import _countable
@@ -288,6 +289,8 @@ class AutoFilter(BeaconObject):
 
         # Flag that indicates that transmission needs to be recalculated
         self._energy_changed = True
+        # current point index
+        self.current_point = 0
 
     def _set_energy_changed(self, new_energy):
         self._energy_changed = True
@@ -497,7 +500,7 @@ class AutoFilter(BeaconObject):
         save_flag = kwargs.get("save", True)
         # only add twice max number of filter iteration to the total nb points
         # to be programed to counter devices.
-        programed_device_intervals = (intervals + 1) + (2 * self.max_nb_iter)
+        programed_device_intervals = (intervals + 1) + (4 * self.max_nb_iter)
         npoints = intervals + 1
         if scan_info is None:
             scan_info = dict()
@@ -605,6 +608,143 @@ class AutoFilter(BeaconObject):
         args += [intervals, count_time]
         template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
         title = template.format(*args)
+        scan_info["title"] = title
+
+        #  finally the scan
+        timer = final_chain.top_masters.pop(0)
+        final_chain.add(top_master, timer)
+        s = scan.Scan(
+            final_chain,
+            scan_info=scan_info,
+            name=name,
+            save=kwargs.get("save", True),
+            save_images=kwargs.get("save_images"),
+            data_watch_callback=scan.StepScanDataWatch(),
+        )
+
+        # Add a presetscan
+        preset = AutoFilterPreset(self)
+        s.add_preset(preset)
+        # Preset to incr point nb
+        current_point = IncrCurrentPoint(self)
+        s.acq_chain.add_preset(current_point)
+
+        if kwargs.get("run", True):
+            s.run()
+        return s
+
+    def lookupscan(
+        self,
+        motor_pos_tuple_list,
+        count_time,
+        *counter_args,
+        scan_info=None,
+        scan_type=None,
+        **kwargs,
+    ):
+        npoints = len(motor_pos_tuple_list[0][1])
+        motors_positions = list()
+        scan_axes = set()
+
+        for m_tup in motor_pos_tuple_list:
+            mot = m_tup[0]
+            if mot in scan_axes:
+                raise ValueError(f"Duplicated axis {mot.name}")
+            scan_axes.add(mot)
+            assert len(m_tup[1]) == npoints
+            motors_positions.extend((mot, m_tup[1]))
+
+        # initialize the filterset
+        # maybe better to use a ScanPreset
+        self.initialize()
+        if not self.__initialized:
+            raise RuntimeError(
+                f"Cannot run AutoFilter scan, your energy is not valid: {self.energy_axis.position} keV"
+            )
+        save_flag = kwargs.get("save", True)
+        # only add twice max number of filter iteration to the total nb points
+        # to be programed to counter devices.
+        programed_device_intervals = npoints + (4 * self.max_nb_iter)
+        if scan_info is None:
+            scan_info = dict()
+        scan_info.update(
+            {
+                "npoints": programed_device_intervals,
+                "count_time": count_time,
+                "sleep_time": kwargs.get("sleep_time"),
+                "save": save_flag,
+            }
+        )
+
+        # Check detector exists
+        detector_counter_name = self.detector_counter_name
+        if not detector_counter_name:
+            raise RuntimeError("'detector_counter_name' missing from configuration")
+        counters, missing = _get_counters_from_names([detector_counter_name])
+        if missing:
+            raise RuntimeError(
+                f"Can't find detector counter named {detector_counter_name}"
+            )
+        detector_counter = counters[0]
+
+        # Check monitor exists
+        monitor_counter_name = self.monitor_counter_name
+        if not monitor_counter_name:
+            raise RuntimeError("'monitor_counter_name' missing from configuration")
+        counters, missing = _get_counters_from_names([monitor_counter_name])
+        if missing:
+            raise RuntimeError(
+                f"Can't find monitor counter named {monitor_counter_name}"
+            )
+        monitor_counter = counters[0]
+
+        if not counter_args:  # use the default measurement group
+            counter_args = [get_active_mg()] + [detector_counter, monitor_counter]
+        else:
+            counter_args = list(counter_args) + [detector_counter, monitor_counter]
+
+        default_chain = scans.DEFAULT_CHAIN.get(scan_info, counter_args)
+        final_chain, detector_channel = self._patch_chain(
+            default_chain, npoints, detector_counter
+        )
+
+        class Validator:
+            def __init__(self, autofilter):
+                self.__autofilter = weakref.proxy(autofilter)
+                self._point_nb = 0
+                dispatcher.connect(
+                    self.new_detector_value, "new_data", detector_channel
+                )
+
+            def new_detector_value(self, event_dict=None, signal=None, sender=None):
+                data = event_dict.get("data")
+                if data is not None:
+                    # check for filter change, return false
+                    # if filter has been changed, and count must be repeated
+                    valid = self.__autofilter.check_filter(count_time, data)
+                    for node in final_chain.nodes_list:
+                        if hasattr(node, "validate_point"):
+                            node.validate_point(self._point_nb, valid)
+                    self._point_nb += 1
+
+        # TODO: what happens when run=False. Don't we need to keep
+        # a reference to this object?
+        validator = Validator(self)
+
+        title = "lookupscan %f on motors (%s)" % (
+            count_time,
+            ",".join(x[0].name for x in motor_pos_tuple_list),
+        )
+
+        top_master = acquisition_objects.VariableStepTriggerMaster(*motors_positions)
+
+        # scan type is forced to be either aNscan or dNscan
+        scan_type = "autof.lookupscan"
+
+        name = kwargs.setdefault("name", None)
+        if not name:
+            name = scan_type
+
         scan_info["title"] = title
 
         #  finally the scan
@@ -752,3 +892,26 @@ class AutoFilterPreset(ScanPreset):
                 self.auto_filter.filterset.set_back_filter()
         finally:
             next(self._user_status, None)
+
+
+class IncrCurrentPoint(ChainPreset):
+    """
+    Increment current point number
+    """
+
+    class Iterator(ChainIterationPreset):
+        def __init__(self, auto_filter, iteration_nb):
+            self.iteration = iteration_nb
+            self.auto_filter = auto_filter
+
+        def start(self):
+            self.auto_filter.current_point = self.iteration
+
+    def __init__(self, auto_filter):
+        self.auto_filter = weakref.proxy(auto_filter)
+
+    def get_iterator(self, acq_chain):
+        current_point = 0
+        while True:
+            yield IncrCurrentPoint.Iterator(self.auto_filter, current_point)
+            current_point += 1

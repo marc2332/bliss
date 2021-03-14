@@ -430,7 +430,7 @@ class FilterSet:
                     self._min_idx = fidx + 1
 
                 if new_fidx < self._min_idx:
-                    new_fidx = self.min_idx
+                    new_fidx = self._min_idx
                 elif new_fidx > self._max_idx:
                     new_fidx = self._max_idx
 
@@ -444,7 +444,7 @@ class FilterSet:
         if repeat:
             self._nb_cycles += 1
             log_debug(self, "Repeating count")
-            self._print(f"Autof: {int(data[new_fidx, 0])}->{fidx}")
+            self._print(f"Autof: {fidx}->{int(data[new_fidx, 0])}")
         else:
             log_debug(self, "no filter change")
             self._nb_cycles = 0
@@ -477,7 +477,7 @@ class FilterSet:
             return nfiltset - 1
 
         pidx = idx
-        for idx in range(pidx, 0, -1):
+        for idx in range(pidx, -1, -1):
             if data[idx, 1] > max_transm:
                 idx += 1
                 break

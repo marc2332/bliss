@@ -235,7 +235,9 @@ _FLOAT_FORMAT = ".05f"
 
 
 def _print_errors_with_traceback(errors, device_type="motor"):
-    """ RE-raise caught errors with original traceback """
+    """
+    RE-raise caught errors with original traceback
+    """
     for (label, error_with_traceback_obj) in errors:
         exc_type, exc_val, exc_tb = error_with_traceback_obj.exc_info
         try:
@@ -327,14 +329,14 @@ def lslog(glob: str = None, debug_only: bool = False):
 
 def lsdebug(glob: str = None, debug_only=False) -> None:
     """
-    Displays current Loggers at DEBUG level
+    Display current Loggers at DEBUG level
     """
     lslog(glob, debug_only=True)
 
 
 def debugon(glob_logger_pattern_or_obj) -> None:
     """
-    Activates debug-level logging for a specifig logger or an object
+    Activate debug-level logging for a specifig logger or an object
 
     Args:
         glob_logger_pattern_or_obj: glob style pattern matching for logger name, or instance
@@ -400,7 +402,8 @@ def lscnt(counter_container: typing.Union[CounterContainer, Counter, None] = Non
 
 
 def _lsmg():
-    """Return the list of measurment groups
+    """
+    Return the list of measurment groups
     Indicate the current active one with a star char: '*'
     """
     active_mg_name = measurementgroup.get_active_name()
@@ -416,7 +419,8 @@ def _lsmg():
 
 
 def lsmg():
-    """Print the list of measurment groups
+    """
+    Print the list of measurment groups
     Indicate the current active one with a star char: '*'
     """
     print(_lsmg())
@@ -436,7 +440,8 @@ def _lsobj(pattern=None):
 
 
 def lsobj(pattern=None):
-    """ Print the list of BLISS object in current session matching the
+    """
+    Print the list of BLISS object in current session matching the
     <pattern> string.
     <pattern> can contain jocker characters like '*' or '?'.
     NB: print also badly initilized objects...
@@ -448,7 +453,8 @@ def lsobj(pattern=None):
 
 
 def wid():
-    """ Print the list of undulators defined in the session
+    """
+    Print the list of undulators defined in the session
     and their positions.
     Print all axes of the ID device server.
     """
@@ -458,7 +464,7 @@ def wid():
 @typeguard.typechecked
 def stm(*axes: _scannable_or_name, read_hw: bool = False):
     """
-    Displays state information of the given axes
+    Display state information of the given axes
 
     Args:
         axis (~bliss.common.axis.Axis): motor axis
@@ -595,7 +601,7 @@ def _tw_ct_requested(acq_time, sender):
 
 def wa(**kwargs):
     """
-    Displays all positions (Where All) in both user and dial units
+    Display all positions (Where All) in both user and dial units
     """
     print("Current Positions: user")
     print("                   dial")
@@ -632,7 +638,7 @@ def wa(**kwargs):
 
 def lsmot():
     """
-    Displays names of all motors
+    Display names of all motors
     """
 
     for name in global_map.get_axes_names_iter():
@@ -673,7 +679,11 @@ def wm(*axes: _scannable_or_name, **kwargs):
            Low      -456.00000  -456.00000     -inf
     """
     if not axes:
-        print("need at least one axis name/object")
+        print(
+            "wm() needs at least one axis name/object as parameter.\n"
+            "example: wm(mot1)\n"
+            "         wm(mot1, mot2, ... motN)"
+        )
         return
 
     max_cols = kwargs.get("max_cols", _MAX_COLS)
@@ -778,7 +788,7 @@ def wm(*axes: _scannable_or_name, **kwargs):
 @typecheck_var_args_pattern([_scannable, _float])
 def umv(*args):
     """
-    Moves given axes to given absolute positions providing updated display of
+    Move given axes to given absolute positions providing updated display of
     the motor(s) position(s) while it(they) is(are) moving.
 
     Arguments are interleaved axis and respective absolute target position.
@@ -796,7 +806,7 @@ def umv(*args):
 @typecheck_var_args_pattern([_scannable, _float])
 def umvr(*args):
     """
-    Moves given axes to given relative positions providing updated display of
+    Move given axes to given relative positions providing updated display of
     the motor(s) position(s) while it(they) is(are) moving.
 
     Arguments are interleaved axis and respective relative target position.
@@ -814,7 +824,7 @@ def umvr(*args):
 @typecheck_var_args_pattern([_scannable, _float])
 def umvd(*args):
     """
-    Moves given axes to given absolute dial positions providing updated display of
+    Move given axes to given absolute dial positions providing updated display of
     the motor(s) user position(s) while it(they) is(are) moving.
 
     Arguments are interleaved axis and respective absolute target position.
@@ -832,7 +842,7 @@ def umvd(*args):
 @typecheck_var_args_pattern([_scannable, _float])
 def umvdr(*args):
     """
-    Moves given axes to given relative dial positions providing updated display of
+    Move given axes to given relative dial positions providing updated display of
     the motor(s) user position(s) while it(they) is(are) moving.
 
     Arguments are interleaved axis and respective relative target position.
@@ -903,7 +913,7 @@ def __pyhighlight(code, bg="dark", outfile=None):
 
 def prdef(obj_or_name):
     """
-    Shows the text of the source code for an object or the name of an object.
+    Show the text of the source code for an object or the name of an object.
     """
     is_arg_str = isinstance(obj_or_name, str)
     if is_arg_str:
@@ -955,7 +965,7 @@ def prdef(obj_or_name):
 @typeguard.typechecked
 def plotinit(*counters: _providing_channel):
     """
-    Selects counters to plot and to use only with the next scan command.
+    Select counters to plot and to use only with the next scan command.
 
     User-level function built on top of bliss.common.scans.plotinit()
     """
@@ -991,7 +1001,7 @@ example:
 @typeguard.typechecked
 def plotselect(*counters: _providing_channel):
     """
-    Selects counters to plot and used by alignment functions (cen, peak, etc).
+    Select counters to plot and used by alignment functions (cen, peak, etc).
 
     User-level function built on top of bliss.common.plot.plotselect()
     """
@@ -1025,7 +1035,7 @@ example:
 
 def flint():
     """
-    Returns a proxy to the running Flint application used by BLISS, else create
+    Return a proxy to the running Flint application used by BLISS, else create
     one.
 
     If there is problem to create or to connect to Flint, an exception is
@@ -1139,8 +1149,9 @@ def edit_roi_counters(detector: Lima, acq_time: Optional[float] = None):
 
 
 def interlock_show(wago_obj=None):
-    """Displays interlocks configuration on given Wago object (if given)
-    or displays configuration of all known Wagos
+    """
+    Display interlocks configuration on given Wago object (if given)
+    or display configuration of all known Wagos
     """
     if wago_obj:
         wago_obj.interlock_show()
@@ -1162,7 +1173,8 @@ def interlock_show(wago_obj=None):
 
 
 def menu(obj=None, dialog_type: str = None, *args, **kwargs):
-    """Will display a dialog for acting on the object if this is implemented
+    """
+    Display a dialog for acting on the object if this is implemented
 
     Args:
         obj: the object on which you want to operate, if no object is provided
@@ -1238,7 +1250,9 @@ def bench():
 
 
 def clear():
-    """Clear terminal screen"""
+    """
+    Clear terminal screen
+    """
     if sys.platform == "win32":
         os.system("cls")
     else:
@@ -1311,7 +1325,8 @@ def edit_mg(mg: MeasurementGroup):
 @typeguard.typechecked
 @logtools.elogbook.disable_command_logging
 def newproposal(proposal_name: Optional[str] = None):
-    """Change the proposal name used to determine the saving path.
+    """
+    Change the proposal name used to determine the saving path.
     """
     current_session.scan_saving.newproposal(proposal_name)
 
@@ -1319,7 +1334,8 @@ def newproposal(proposal_name: Optional[str] = None):
 @typeguard.typechecked
 @logtools.elogbook.disable_command_logging
 def newsample(collection_name: Optional[str] = None, description: Optional[str] = None):
-    """Same as `newcollection` with sample name equal to the collection name.
+    """
+    Same as `newcollection` with sample name equal to the collection name.
     """
     current_session.scan_saving.newsample(collection_name, description=description)
 
@@ -1331,7 +1347,8 @@ def newcollection(
     sample_name: Optional[str] = None,
     sample_description: Optional[str] = None,
 ):
-    """Change the collection name used to determine the saving path.
+    """
+    Change the collection name used to determine the saving path.
     Metadata can be modified later if needed.
     """
     current_session.scan_saving.newcollection(
@@ -1347,7 +1364,8 @@ def newdataset(
     sample_name: Optional[str] = None,
     sample_description: Optional[str] = None,
 ):
-    """Change the dataset name used to determine the saving path.
+    """
+    Change the dataset name used to determine the saving path.
 
     The description can be modified until the dataset is closed.
     """
@@ -1361,14 +1379,16 @@ def newdataset(
 
 @logtools.elogbook.disable_command_logging
 def endproposal():
-    """Close the active dataset and move to the default inhouse proposal.
+    """
+    Close the active dataset and move to the default inhouse proposal.
     """
     current_session.scan_saving.endproposal()
 
 
 @logtools.elogbook.disable_command_logging
 def enddataset():
-    """Close the active dataset.
+    """
+    Close the active dataset.
     """
     current_session.scan_saving.enddataset()
 
@@ -1378,7 +1398,9 @@ def enddataset():
 
 @typeguard.typechecked
 def silx_view(scan: typing.Union[Scan, None] = None):
-    """Open silx view on a given scan (default last scan)"""
+    """
+    Open silx view on a given scan (default last scan)
+    """
 
     filename = None
     try:
@@ -1402,7 +1424,9 @@ def _launch_silx(filename: typing.Union[str, None] = None):
 
 @typeguard.typechecked
 def pymca(scan: typing.Union[Scan, None] = None):
-    """Open PyMCA on a given scan (default last scan)"""
+    """
+    Open PyMCA on a given scan (default last scan)
+    """
 
     filename = None
     try:

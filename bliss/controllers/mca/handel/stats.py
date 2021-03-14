@@ -1,14 +1,23 @@
 """Statistics handling."""
 
-from warnings import warn
-from collections import namedtuple
+import logging
+import typing
 
 CLOCK_TICK = 320e-9
 
-Stats = namedtuple(
-    "Stats",
-    "realtime trigger_livetime energy_livetime triggers events icr ocr deadtime",
-)
+
+class Stats(typing.NamedTuple):
+    realtime: float
+    trigger_livetime: float
+    energy_livetime: float
+    triggers: int
+    events: int
+    icr: float
+    ocr: float
+    deadtime: float
+
+
+_logger = logging.getLogger(__name__)
 
 # trigger_livetime = fast channel livetime (input)
 # energy_livetime = slow channel livetime (output)
@@ -29,20 +38,20 @@ def stats_from_normal_mode(array):
     # Double check the ICR computation
     expected_icr = triggers / trigger_livetime if trigger_livetime != 0 else 0.0
     if expected_icr != icr:
-        msg = "ICR buffer inconsistency: {} != {} (expected/handel)"
-        warn(msg.format(icr, expected_icr))
+        msg = "ICR buffer inconsistency: %s != %s (expected/handel)"
+        _logger.warning(msg, icr, expected_icr)
 
     # Double check the OCR computation
     expected_ocr = total_events / realtime if realtime != 0 else 0.0
     if expected_ocr != ocr:
-        msg = "OCR buffer inconsistency: {} != {} (expected/handel)"
-        warn(msg.format(ocr, expected_ocr))
+        msg = "OCR buffer inconsistency: %s != %s (expected/handel)"
+        _logger.warning(msg, ocr, expected_ocr)
 
     # Double check the energy_livetime computation
     expected_e_livetime = events / icr if icr != 0 else 0.0
     if expected_e_livetime != energy_livetime:
-        msg = "Energy_Livetime inconsistency: {} != {}  (expected/handel)"
-        warn(msg.format(energy_livetime, expected_e_livetime))
+        msg = "Energy_Livetime inconsistency: %s != %s  (expected/handel)"
+        _logger.warning(msg, energy_livetime, expected_e_livetime)
 
     # Note that the OCR reported by handel includes underflows and overflows,
     # while the computed OCR in the returned statistics does not.

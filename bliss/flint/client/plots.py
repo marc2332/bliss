@@ -118,6 +118,15 @@ class BasePlot(object):
             self.submit("setGraphYLabel", self._ylabel)
 
     @property
+    def title(self):
+        return self._title
+
+    @title.setter
+    def title(self, txt):
+        self._title = str(txt)
+        self.submit("setGraphTitle", self._title)
+
+    @property
     def xlabel(self):
         return self._xlabel
 

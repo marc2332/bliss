@@ -876,17 +876,25 @@ def test_jog(robz):
 
 
 def test_jog2(jogger):
+    # Start jog movement.
     jogger.jog(
         300
     )  # this should go in the opposite direction because steps_per_unit < 0
+
+    # wait for arbitrary time.
     t = 1 + jogger.jog_acctime
     start_time = time.time()
     time.sleep(t)
+
+    # Compare observed position and theoretical one with accuracy at 5%
+    # (1% accuracy was too strong for CI timing)
     hw_position = jogger._hw_position
     elapsed_time = (time.time() - start_time) - jogger.jog_acctime
-    assert hw_position == pytest.approx(
-        300 * elapsed_time + jogger.acceleration * 0.5 * jogger.jog_acctime ** 2, 1e-2
+    theoretical_position = (
+        300 * elapsed_time + jogger.acceleration * 0.5 * jogger.jog_acctime ** 2
     )
+    assert hw_position == pytest.approx(theoretical_position, 5e-2)
+
     jogger.stop()
 
 

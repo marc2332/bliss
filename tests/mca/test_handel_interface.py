@@ -288,7 +288,7 @@ def test_is_running(interface):
 # Statistics
 
 
-def test_get_module_statistics(interface):
+def test_get_module_statistics(interface, caplog):
     m = interface.handel.xiaGetRunData
 
     def side_effect(channel, dtype, arg):
@@ -340,18 +340,10 @@ def test_get_module_statistics(interface):
                 # Second test
                 raw[5] = 4.56  # ICR inconsistency
                 raw[6] = 1.23  # OCR inconsistency
-                with pytest.warns(UserWarning) as ctx:
-                    interface.get_module_statistics("module3")
-                assert (
-                    ctx[0]
-                    .message.args[0]
-                    .startswith("ICR buffer inconsistency: 4.56 != 3131.7208")
-                )
-                assert (
-                    ctx[1]
-                    .message.args[0]
-                    .startswith("OCR buffer inconsistency: 1.23 != 2724.3282")
-                )
+
+                interface.get_module_statistics("module3")
+                assert "ICR buffer inconsistency: 4.56 != 3131.7208" in caplog.text
+                assert "OCR buffer inconsistency: 1.23 != 2724.3282" in caplog.text
 
     # Make sure errors have been checked
     interface.check_error.assert_called_with(0)

@@ -74,17 +74,12 @@ class FlintClient:
         """"Returns the PID of the Flint application connected by this proxy, else None"""
         return self._pid
 
-    @property
-    def __wrapped__(self):
-        """See bliss.common.event"""
-        return self._proxy
-
     def __getattr__(self, name):
         if self._proxy is None:
             raise AttributeError(
                 "No Flint proxy created. Access to '%s' ignored." % name
             )
-        attr = self._proxy.__getattribute__(name)
+        attr = getattr(self._proxy, name)
         # Shortcut the lookup attribute
         self._shortcuts.add(name)
         setattr(self, name, attr)

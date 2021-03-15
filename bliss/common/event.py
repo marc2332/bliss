@@ -7,6 +7,7 @@
 
 import sys
 from gevent import GreenletExit
+from bliss.common.proxy import Proxy
 
 from louie import dispatcher
 from louie.dispatcher import get_receivers
@@ -16,10 +17,8 @@ from louie import Any
 
 
 def _get_sender(sender):
-    try:
+    if isinstance(sender, Proxy):
         sender = sender.__wrapped__
-    except AttributeError:
-        pass
     return sender
 
 

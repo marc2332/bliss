@@ -87,14 +87,14 @@ class _LocalLoopObject(_LocalCounterController):
     @property
     def input(self):
         remote_input = self.__target__.input
-        connection_address = self.__target__.connection_address
+        connection_address = self.__target__._rpc_connection.address
         port = int(connection_address.split(":")[-1])
         return _LocalTempObject(remote_input, port, remote_input.config)
 
     @property
     def output(self):
         remote_output = self.__target__.output
-        connection_address = self.__target__.connection_address
+        connection_address = self.__target__._rpc_connection.address
         port = int(connection_address.split(":")[-1])
         return _LocalTempObject(remote_output, port, remote_output.config)
 

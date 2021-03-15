@@ -14,6 +14,8 @@ import msgpack
 import msgpack_numpy
 import pickle
 import tblib
+import gevent
+from gevent.timeout import _FakeTimer
 
 
 def encode_tb_exception(exception):
@@ -25,6 +27,9 @@ def encode_tb_exception(exception):
     """
     if not isinstance(exception, BaseException):
         raise TypeError("Unsupported encoding for non-exception")
+    if isinstance(exception, gevent.Timeout):
+        if isinstance(exception.timer, _FakeTimer.__class__):
+            exception.timer = None  # '_FakeTimer' cannot be pickled
 
     traceback_dict = None
     if exception.__traceback__:

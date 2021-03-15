@@ -95,6 +95,10 @@ class Car(object):
     def play_music(self, data):
         pass
 
+    def raise_timeout_exception(self):
+        with gevent.Timeout(0.01):
+            gevent.sleep(1)
+
     def __int__(self):
         return int(self.horsepower)
 
@@ -112,9 +116,9 @@ class Car(object):
 
 
 @contextmanager
-def rpc_server(bind="inproc://test", heartbeat=1.0):
+def rpc_server(bind="inproc://test"):
     obj = Car("yellow", 120, turbo=True)
-    server = Server(obj, stream=True, heartbeat=heartbeat)
+    server = Server(obj, stream=True)
     server.bind(bind)
     task = gevent.spawn(server.run)
     yield server, obj
@@ -131,8 +135,8 @@ def test_equality(caplog):
         debugon(client_car)
         debugon(client_car2)
 
-        client_car.connect()
-        client_car2.connect()
+        client_car._rpc_connection.connect()
+        client_car2._rpc_connection.connect()
 
         assert {}.get(client_car) is None
         assert not client_car in (None, "bla")
@@ -142,8 +146,8 @@ def test_equality(caplog):
         assert client_car != client_car2
         assert hash(client_car) != hash(client_car2)
 
-    client_car.close()
-    client_car2.close()
+    client_car._rpc_connection.close()
+    client_car2._rpc_connection.close()
 
 
 def test_api():
@@ -152,8 +156,8 @@ def test_api():
     with rpc_server(url) as (server, car):
         client_car = Client(url)
 
-        # class name
-        assert type(client_car).__name__ == type(car).__name__ == "Car"
+        # class
+        assert isinstance(client_car, type(car))
         # doc
         assert client_car.__doc__ == car.__doc__
         # class member
@@ -180,7 +184,7 @@ def test_api():
         assert client_car.position == car.position == 32
 
     # close client
-    client_car.close()
+    client_car._rpc_connection.close()
 
 
 def test_logging(caplog):
@@ -198,7 +202,7 @@ def test_logging(caplog):
     assert "rpc client (inproc://test): 'call' args=['move', 11]" in caplog.text
 
     # close client
-    client_car.close()
+    client_car._rpc_connection.close()
 
 
 def test_exceptions():
@@ -222,7 +226,7 @@ def test_exceptions():
         assert e2.args[0] == "foo"
 
     # close client
-    client_car.close()
+    client_car._rpc_connection.close()
 
 
 def test_wrong_api():
@@ -235,7 +239,7 @@ def test_wrong_api():
             client_car.unexisting_method()
 
     # close client
-    client_car.close()
+    client_car._rpc_connection.close()
 
 
 def test_event():
@@ -248,7 +252,7 @@ def test_event():
 
     with rpc_server(url) as (server, car):
         client_car = Client(url)
-        client_car.connect()
+        client_car._rpc_connection.connect()
 
         event.connect(client_car, "test", callback)
         event.send(car, "test", 3)
@@ -262,7 +266,7 @@ def test_event():
         assert results.get() == (4,)
 
     # close client
-    client_car.close()
+    client_car._rpc_connection.close()
 
 
 def test_remote_task():
@@ -275,7 +279,7 @@ def test_remote_task():
 
     with rpc_server(url) as (server, car):
         client_car = Client(url)
-        client_car.connect()
+        client_car._rpc_connection.connect()
 
         task_id = car.request_task(3)
         event.connect(client_car, task_id, callback)
@@ -283,7 +287,7 @@ def test_remote_task():
         assert results.get() == (6,)
 
     # close client
-    client_car.close()
+    client_car._rpc_connection.close()
 
 
 def test_event_with_lost_remote():
@@ -294,9 +298,9 @@ def test_event_with_lost_remote():
     def callback(*args):
         results.put(args)
 
-    with rpc_server(url, heartbeat=0.1) as (server, car):
-        client_car = Client(url, heartbeat=0.1)
-        client_car.connect()
+    with rpc_server(url) as (server, car):
+        client_car = Client(url)
+        client_car._rpc_connection.connect()
 
         event.connect(client_car, "test", callback)
         event.send(car, "test", 3)
@@ -312,7 +316,7 @@ def test_event_with_lost_remote():
         assert results.get() == (4,)
 
     # close client
-    client_car.close()
+    client_car._rpc_connection.close()
 
 
 def test_issue_1944(beacon):
@@ -344,7 +348,7 @@ def test_issue_1944(beacon):
         assert beacon.names_list == names
     finally:
         script.terminate()
-        client_obj.close()
+        client_obj._rpc_connection.close()
 
 
 def test_client_collision(beacon):
@@ -365,9 +369,9 @@ def test_client_collision(beacon):
 
     data = numpy.empty((1024 * 1024 * 40), dtype=numpy.uint8)
 
-    with rpc_server(url, heartbeat=0.1):
-        client_car = Client(url, heartbeat=0.1)
-        client_car.connect()
+    with rpc_server(url):
+        client_car = Client(url)
+        client_car._rpc_connection.connect()
 
         g1 = gevent.spawn(monitor_car, client_car)
         g2 = gevent.spawn(play_music, client_car, data)
@@ -375,4 +379,41 @@ def test_client_collision(beacon):
         gevent.joinall([g1, g2])
 
     gevent.sleep(0.4)
-    client_car.close()
+    client_car._rpc_connection.close()
+
+
+def test_timeout_exception(beacon):
+    url = "tcp://127.0.0.1:12345"
+
+    with rpc_server(url):
+        client_car = Client(url)
+
+        with pytest.raises(gevent.Timeout):
+            client_car.raise_timeout_exception()
+
+    client_car._rpc_connection.close()
+
+
+def test_disconnect_callback(beacon):
+    url = "tcp://127.0.0.1:12345"
+    disconnected = False
+
+    def server_disconnected():
+        nonlocal disconnected
+        disconnected = True
+
+    with rpc_server(url):
+        client_car = Client(url, disconnect_callback=server_disconnected)
+        client_car._rpc_connection.connect()
+
+    gevent.sleep(1)
+    assert disconnected
+
+    disconnected = False
+    with rpc_server(url):
+        client_car = Client(url, disconnect_callback=server_disconnected)
+        client_car._rpc_connection.connect()
+        client_car._rpc_connection.close()
+
+    gevent.sleep(1)
+    assert not disconnected

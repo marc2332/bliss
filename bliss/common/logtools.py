@@ -16,6 +16,7 @@ import weakref
 import gevent
 from time import time
 
+from bliss.common.proxy import Proxy
 from bliss.common.mapping import format_node, map_id
 from bliss import global_map, current_session
 
@@ -105,6 +106,8 @@ def get_logger(instance):
     Returns:
         BlissLogger instance for the specific instance
     """
+    if isinstance(instance, Proxy):
+        instance = instance.__wrapped__
     try:
         node = global_map[instance]
     except KeyError:
@@ -118,11 +121,11 @@ def get_logger(instance):
         return node["_logger"]
     else:  # update the logger
         logger = node.get("_logger")
+        logger_name = create_logger_name(
+            global_map.G, map_id(instance)
+        )  # get name from map
         if logger:
             existing_logger_name = logger.name
-            logger_name = create_logger_name(
-                global_map.G, map_id(instance)
-            )  # get name from map
             # the logger exists, update the name if necessary
             if existing_logger_name != logger_name:
                 manager = logger.manager
@@ -133,11 +136,8 @@ def get_logger(instance):
         else:
             # if the logger does not exist create it
             # use our own Logger class
-            new_logger_name = create_logger_name(
-                global_map.G, map_id(instance)
-            )  # get proper name
             with bliss_logger():
-                logger = logging.getLogger(new_logger_name)
+                logger = logging.getLogger(logger_name)
                 node["_logger"] = logger
 
         node["_logger_version"] = node_version
@@ -785,6 +785,8 @@ class Log:
         loggers = {}
         manager = logging.getLogger().manager
         get_logger(obj)
+        if isinstance(obj, Proxy):
+            obj = obj.__wrapped__
         for node in global_map.walk_node(obj):
             logger = node.get("_logger")
             if logger and logger in manager.loggerDict.values():

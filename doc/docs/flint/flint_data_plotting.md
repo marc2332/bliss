@@ -47,7 +47,6 @@ plot_mdl.plot_curve(data=y, x=x, name="My heart")
   * the images order can be controlled using a depth parameter
   * the plot is created using `plot_image`
 
-
 ### Image + histogram plot
 
 `class HistogramImagePlot(BasePlot)`
@@ -55,6 +54,26 @@ plot_mdl.plot_curve(data=y, x=x, name="My heart")
   * plot a single 2D image (greyscale or colormap)
   * two histograms along the X and Y dimensions are displayed
   * the plot is created using `plot_image_with_histogram`
+
+### Curve stack
+
+This plot displays a single curve from a selectable list of curves.
+
+THe selection is done with a slider.
+
+```python
+f = flint()
+
+p = f.get_plot(plot_class="curvestack", name="curve-stack")
+
+curves = numpy.empty((10, 100))
+for i in range(10):
+    curves[i] = numpy.sin(numpy.arange(100) / 30 + i * 6)
+x = numpy.arange(100) * 10
+p.set_data(curves=curves, x=x)
+```
+
+![Screenshot](img/custom-plot-curve-stack.png)
 
 ### Image stack plot
 
@@ -66,7 +85,6 @@ plot_mdl.plot_curve(data=y, x=x, name="My heart")
 
 An extra helper called `plot` is provided to automatically infer
 a suitable type of plot from the data provided.
-
 
 ## Basic interface
 

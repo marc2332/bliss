@@ -102,7 +102,7 @@ class BasePlot(object):
             widget.getIntensityHistogramAction().setVisible(show)
 
     def _register(self, flint, plot_id, register):
-        """Register everything needed remotly"""
+        """Register everything needed remotely"""
         self.__remote = self._remotifyClass(self.RemotePlot, register=register)
         if register:
             self._init_plot()

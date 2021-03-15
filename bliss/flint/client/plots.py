@@ -98,6 +98,10 @@ class BasePlot(object):
             widget = self.widget()
             widget.getIntensityHistogramAction().setVisible(show)
 
+        def get_data_range(self):
+            widget = self.widget()
+            return widget.getDataRange()
+
     def _register(self, flint, plot_id, register):
         """Register everything needed remotely"""
         self.__remote = self._remotifyClass(self.RemotePlot, register=register)
@@ -248,6 +252,10 @@ class BasePlot(object):
 
     def get_data(self, field=None):
         return self.__remote.get_data(field=field)
+
+    def get_data_range(self):
+        """Returns the current data range used by this plot"""
+        return self.__remote.get_data_range()
 
     # Plotting
 

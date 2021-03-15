@@ -799,10 +799,7 @@ class Lima(CounterController):
             counters += list(self.counter_groups.bpm)
         counters += list(self.counter_groups.roi_counters)
         counters += list(self.counter_groups.roi_profiles)
-        if (
-            self.roi_collection is not None
-        ):  # CHECK IF LIMA SERVER COLLECTION PLUGIN IS AVAILABLE (see lima server version)
-            counters += list(self.counter_groups.roi_collection)
+        counters += list(self.counter_groups.roi_collection)
         return counter_namespace(counters)
 
     @autocomplete_property
@@ -840,33 +837,26 @@ class Lima(CounterController):
         else:
             # Specific roi_profiles counters
             for counter in self.roi_profiles.counters:
-                dct[
-                    counter.name
-                ] = (
-                    counter
-                )  # ??? or (for symmetry) counter_namespace([counter]) => cnt = cam.counter_groups['s2']['s2'] ???
+                dct[counter.name] = counter
 
         # All roi_collection counters
-        if self.roi_collection is not None:
-            try:
+        try:
+            if self.roi_collection is not None:
                 dct["roi_collection"] = counter_namespace(self.roi_collection.counters)
-            except (RuntimeError, DevFailed):
-                dct["roi_collection"] = counter_namespace([])
-            else:
-                # Specific roi_collection counters
-                for counter in self.roi_collection.counters:
-                    dct[counter.name] = counter  # ???
+        except (RuntimeError, DevFailed):
+            dct["roi_collection"] = counter_namespace([])
+        else:
+            # Specific roi_collection counters
+            for counter in self.roi_collection.counters:
+                dct[counter.name] = counter
 
         # Default grouped
         default_counters = (
             list(dct["images"])
             + list(dct["roi_counters"])
             + list(dct["roi_profiles"])
-            # + list(dct["roi_collection"])
+            + list(dct["roi_collection"])
         )
-
-        if self.roi_collection is not None:
-            default_counters += list(dct["roi_collection"])
 
         dct["default"] = counter_namespace(default_counters)
 

@@ -580,7 +580,6 @@ def test_unresponsive_lima_dev_counters_iter(default_session, caplog, log_contex
         lima_simulator = default_session.config.get("lima_simulator")
 
     # here Lima server has been terminated
-
     assert len(lima_simulator.counters) == len(list(global_map.get_counters_iter()))
 
     with mock.patch(

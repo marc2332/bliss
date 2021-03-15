@@ -9,17 +9,17 @@ class TFLensMaterialGroup:
     def __init__(self, material, lens_id, lens_nb):
         self.material = material
         self.lens_id = lens_id
-        self.lens_nb = numpy.array(lens_nb, numpy.int)
+        self.lens_nb = numpy.array(lens_nb, int)
         self.naxis = len(lens_id)
 
         # --- axis bit values and mask
-        self.axis_id = 1 << numpy.array(self.lens_id, numpy.int)
+        self.axis_id = 1 << numpy.array(self.lens_id, int)
         self.mask = numpy.sum(self.axis_id)
 
         # --- build all possible combinations array
         # index 0 : number of lenses
         # index 1 : axis value
-        values = numpy.zeros(((2 ** self.naxis), 2), numpy.int)
+        values = numpy.zeros(((2 ** self.naxis), 2), int)
         validx = 0
         for combination in itertools.product(range(2), repeat=self.naxis):
             comb_arr = numpy.array(combination)

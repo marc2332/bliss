@@ -33,9 +33,7 @@ def fwdKin(leg1, leg2, leg3):
     l3.w = numpy.dot(R, l3.w)
 
     # compute the forward kinematics
-    u = numpy.array(
-        [L1.u, L2.u, L3.u], dtype=numpy.float
-    )  # get the z positions of the jacks
+    u = numpy.array([L1.u, L2.u, L3.u], dtype=float)  # get the z positions of the jacks
     du = u - u[0]  # get the differential position of the jacks
 
     # step1: compute the postion of the axis which has one additional dof
@@ -93,25 +91,25 @@ def fwdKin(leg1, leg2, leg3):
     # 0 = (a1 + dcC_1)^2 + (a2 + dcC_2)^2 + a3;
     # 0 = (b1 + dcC_1)^2 + (b2 + dcC_2)^2 + b3;
     # use the newton methode for solving this problem
-    x = numpy.zeros((2, 1), numpy.float)  # starting value with x = [dcC_1; dcC_2]
+    x = numpy.zeros((2, 1), float)  # starting value with x = [dcC_1; dcC_2]
     for k in range(100):
         J = numpy.array(
             [
                 [2 * a1 + 2 * x[0, 0], 2 * a2 + 2 * x[1, 0]],
                 [2 * b1 + 2 * x[0, 0], 2 * b2 + 2 * x[1, 0]],
             ],
-            dtype=numpy.float,
+            dtype=float,
         )
         F = numpy.array(
             [
                 (a1 + x[0, 0]) ** 2 + (a2 + x[1, 0]) ** 2 + a3,
                 (b1 + x[0, 0]) ** 2 + (b2 + x[1, 0]) ** 2 + b3,
             ],
-            dtype=numpy.float,
+            dtype=float,
         ).reshape(2, 1)
         x = x - numpy.dot(numpy.linalg.inv(J), F)
 
-    daC = dac + numpy.array([x[0, 0], x[1, 0], dcC_3], dtype=numpy.float).reshape(3, 1)
+    daC = dac + numpy.array([x[0, 0], x[1, 0], dcC_3], dtype=float).reshape(3, 1)
     # print("daC")
     # print(daC)
 
@@ -193,7 +191,7 @@ def fwdKin(leg1, leg2, leg3):
     # print("rz = ", rz)
     # print("rx = ", rx)
     csry = numpy.array(
-        [[cos(rz), sin(rx) * sin(rz)], [sin(rx) * sin(rz), -cos(rz)]], dtype=numpy.float
+        [[cos(rz), sin(rx) * sin(rz)], [sin(rx) * sin(rz), -cos(rz)]], dtype=float
     )
     csry = numpy.dot(
         numpy.linalg.inv(csry), numpy.concatenate((R[0:1], R[2:3]), axis=0)

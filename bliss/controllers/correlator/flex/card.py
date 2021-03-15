@@ -206,14 +206,13 @@ class Card(object):
     @staticmethod
     def _calc_delay(linear_nb, nb_segment, nb_val_per_segment):
         flex_delay = Card.FLEX_DELAY
-        delay = numpy.arange(1, linear_nb + 1, dtype=numpy.float) * flex_delay
+        delay = numpy.arange(1, linear_nb + 1, dtype=float) * flex_delay
         for i in range(nb_segment):
             flex_delay += flex_delay
             offset = delay[-1]
             sub_delay = (
                 offset
-                + numpy.arange(1, nb_val_per_segment + 1, dtype=numpy.float)
-                * flex_delay
+                + numpy.arange(1, nb_val_per_segment + 1, dtype=float) * flex_delay
             )
             delay = numpy.append(delay, sub_delay)
         return delay

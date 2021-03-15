@@ -231,9 +231,9 @@ MEASURE:VOLTAGE:DC?;:MEASURE:CURRENT:DC?
         header = header["WFMOUTPRE"]
 
         raw_data = numpy.frombuffer(datastring, dtype=numpy.int16)[-length:]
-        data = (raw_data.astype(numpy.float) - header["YOFF"]) * header[
-            "YMULT"
-        ] + header["YZERO"]
+        data = (raw_data.astype(float) - header["YOFF"]) * header["YMULT"] + header[
+            "YZERO"
+        ]
 
         return OscAnalogChanData(length, raw_data, data, header)
 

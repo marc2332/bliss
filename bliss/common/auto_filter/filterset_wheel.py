@@ -199,7 +199,7 @@ class FilterSet_Wheel(FilterSet):
             # store just the index of the filters as the possible pattern
             p.append(self._config_filters.index(filter))
             t.append(filter["transmission_calc"])
-        self._fpattern = np.array(p, dtype=np.int)
+        self._fpattern = np.array(p, dtype=int)
         self._ftransm = np.array(t)
 
         return len(self._fpattern)

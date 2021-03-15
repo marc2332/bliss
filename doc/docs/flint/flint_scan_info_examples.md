@@ -37,7 +37,7 @@ def simulate_scan(scan_info, data):
     step = 2
     seq = Sequence(scan_info=scan_info)
     for channel_name, array in data.items():
-        seq.add_custom_channel(AcquisitionChannel(channel_name, numpy.float, ()))
+        seq.add_custom_channel(AcquisitionChannel(channel_name, float, ()))
     with seq.sequence_context() as scan_seq:
         array = list(data.values())[0]
         for i in range(0, len(array) - 1, step):

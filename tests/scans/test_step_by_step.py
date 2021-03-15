@@ -618,7 +618,7 @@ def test_typeguard_scanable(default_session):
     check_typeguard(True, m0, diode)
     check_typeguard(False, diode, diode)
     check_typeguard(False, m0, m0)
-    check_typeguard(True, m0, diode, myint=numpy.int(3), myfloat=numpy.float(.1))
+    check_typeguard(True, m0, diode, myint=int(3), myfloat=float(.1))
     check_typeguard(True, m0, diode, myint=numpy.uint8(3), myfloat=numpy.float64(.1))
     check_typeguard(True, m0, diode, myint=numpy.uint8(3), myfloat=1)
     check_typeguard(True, m0, diode, myint=numpy.uint8(3), myfloat=numpy.uint8(1))

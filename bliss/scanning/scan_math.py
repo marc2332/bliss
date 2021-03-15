@@ -79,7 +79,7 @@ def com(x: numpy.ndarray, y: numpy.ndarray, visual=True) -> float:
         if visual:
             x, y = _extract_unique(x, y)
             y -= y.min()
-        return numpy.sum(x * _calc_weights(y), dtype=numpy.float)
+        return numpy.sum(x * _calc_weights(y), dtype=float)
     return numpy.nan
 
 
@@ -203,11 +203,11 @@ def _calc_weights(y):
     """
     if (y < 0).any():
         y -= y.min()
-    ysum = numpy.sum(y, dtype=numpy.float)
+    ysum = numpy.sum(y, dtype=float)
     if ysum:
         return y / ysum
     else:
-        return numpy.float(1 / y.size)  # no need to replicate
+        return float(1 / y.size)  # no need to replicate
 
 
 def _optimize_gradient(gradient, i, grad_down):

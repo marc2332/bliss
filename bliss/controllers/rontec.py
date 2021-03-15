@@ -534,7 +534,7 @@ class Rontec(object):
         if calib:
             x = self.calib_c[0] + self.calib_c[1] * x + self.calib_c[2] * x ** 2
 
-        return numpy.array([x, y], dtype=numpy.float)
+        return numpy.array([x, y], dtype=float)
 
     def read_raw_data(self, chmin=0, chmax=4095, save_data=False):
         """Reads raw data

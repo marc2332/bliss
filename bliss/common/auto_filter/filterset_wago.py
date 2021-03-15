@@ -235,7 +235,7 @@ class FilterSet_Wago(FilterSet):
             self._built_filters.append(
                 {"position": filt_id, "transmission_calc": trans}
             )
-        self._fpattern = np.array(p, dtype=np.int)
+        self._fpattern = np.array(p, dtype=int)
         self._ftransm = np.array(t)
         return len(self._fpattern)
 

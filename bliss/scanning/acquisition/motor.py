@@ -720,7 +720,7 @@ class VariableStepTriggerMaster(AcquisitionMaster):
         if self.broadcast_len > 1:
             self.channels.update_from_iterable(
                 [
-                    numpy.ones(self.broadcast_len, numpy.float) * axis.position
+                    numpy.ones(self.broadcast_len, float) * axis.position
                     for axis in self._monitor_axes
                 ]
             )

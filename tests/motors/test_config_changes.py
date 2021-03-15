@@ -126,7 +126,7 @@ def test_1st_time_cfg_wrong_acc_vel(beacon, beacon_directory):
     assert m.acceleration == 100
 
     m = beacon.get("invalid_vel")
-    with pytest.raises(RuntimeError):
+    with pytest.raises(ValueError):
         m.position
     m.config.set("velocity", 10)
     m.config.save()

@@ -20,7 +20,7 @@ from bliss.common import event
 from bliss.common.greenlet_utils import protect_from_one_kill
 from bliss.common.utils import with_custom_members, safe_get
 from bliss.config.channels import Channel
-from bliss.common.logtools import log_debug, user_print
+from bliss.common.logtools import log_debug, user_print, log_warning
 from bliss.common.utils import rounder
 from bliss.common.utils import autocomplete_property
 from bliss.comm.exceptions import CommunicationError
@@ -1273,9 +1273,31 @@ class Axis(Scannable):
             new_velocity
         )  # accepts both float or numpy array of 1 element
         self._check_velocity_limits(new_velocity)
-        self.__controller.set_velocity(self, new_velocity * abs(self.steps_per_unit))
+
+        if new_velocity < 0:
+            raise RuntimeError(
+                "Invalid velocity, the velocity cannot be a negative value"
+            )
+
+        try:
+            self.__controller.set_velocity(
+                self, new_velocity * abs(self.steps_per_unit)
+            )
+        except Exception as err:
+            raise ValueError(
+                "Cannot set value {} for {}".format(new_velocity, self.name)
+            ) from err
+
         _user_vel = self.__controller.read_velocity(self) / abs(self.steps_per_unit)
+
+        if new_velocity != _user_vel:
+            log_warning(
+                self,
+                f"Controller velocity ({_user_vel}) is different from set velocity ({new_velocity})",
+            )
+
         self.settings.set("velocity", _user_vel)
+
         return _user_vel
 
     @property

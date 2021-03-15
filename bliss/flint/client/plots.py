@@ -588,6 +588,40 @@ class Plot2D(BasePlot):
         return self._wait_for_user_selection(request_id)
 
 
+class CurveStack(BasePlot):
+    # Name of the corresponding silx widget
+    WIDGET = "bliss.flint.custom_plots.curve_stack.CurveStack"
+
+    # Available name to identify this plot
+    ALIASES = ["curvestack"]
+
+    # Name of the method to add data to the plot
+    METHOD = "setData"
+
+    # Single / Multiple data handling
+    MULTIPLE = False
+
+    # Data input number for a single representation
+    DATA_INPUT_NUMBER = 1
+
+    def set_data(self, curves, x=None, reset_zoom=None):
+        """
+        Set the data displayed in this plot.
+
+        Arguments:
+            curves: The data of the curves (first dim is curve index, second dim
+                    is the x index)
+            x: Mapping of the real X axis values to use
+            reset_zoom: If True force reset zoom, else the user selection is
+                        applied
+        """
+        data_field = self.upload_data_if_needed("data", curves)
+        x_field = self.upload_data_if_needed("x", x)
+        self._remote_plot().set_data(
+            self.METHOD, data_field, x_field, resetZoom=reset_zoom
+        )
+
+
 class ImageView(BasePlot):
 
     # Name of the corresponding silx widget
@@ -658,7 +692,7 @@ class LiveMcaPlot(Plot1D):
     ALIASES = ["mca"]
 
 
-CUSTOM_CLASSES = [Plot1D, Plot2D, ScatterView, ImageView, StackView]
+CUSTOM_CLASSES = [Plot1D, Plot2D, ScatterView, ImageView, StackView, CurveStack]
 
 LIVE_CLASSES = [LiveCurvePlot, LiveImagePlot, LiveScatterPlot, LiveMcaPlot]
 

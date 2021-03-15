@@ -184,11 +184,11 @@ Example for mercury:
 
 Example for FalconX:
 ```yaml
-- name: fxid21
+- name: fxid42
   module: mca
   class: FalconX
-  url: tcp://wid214:8000
-  configuration_directory: C:\\blissadm\\falconx\\config\\ID21
+  url: tcp://wid421:8000
+  configuration_directory: C:\\blissadm\\falconx\\config\\ID42
   default_configuration: falconxn.ini
 ```
 

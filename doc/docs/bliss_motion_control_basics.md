@@ -287,10 +287,10 @@ DEMO [11]: mot1 ⏎
                acctime (RW):         0.40000  (config:    0.90000)
                velocity (RW):        4.00000  (config:    9.00000)
           ICEPAP CONTROLLER:
-               controller: iceid212
+               controller: iceid421
                version: 3.17
           ICEPAP:
-               host: iceid212 (ID: 0008.01A1.49C6) (VER: 3.17)
+               host: iceid421 (ID: 0008.01A1.49C6) (VER: 3.17)
                address: 42
                status: POWER: ON    CLOOP: ON    WARNING: NONE    ALARM: NO
                IcepapEncoders(ENCIN='393759', ABSENC='-1687552', INPOS='0',

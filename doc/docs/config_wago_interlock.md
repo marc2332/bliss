@@ -182,12 +182,12 @@ the given `wago_instance`.
 ### interlock_show ##
 
 ```python
-BLISS [16]: wcid21hpps = config.get("wcid21hpps")
+BLISS [16]: wcid42hpps = config.get("wcid42hpps")
 BLISS [17]: interlock_show()
-Currently configured Wagos: wcid21hpps
+Currently configured Wagos: wcid42hpps
 
 
-Interlocks on wcid21hpps
+Interlocks on wcid42hpps
 Interlock configuration is not present in Beacon
 On PLC:
 1 interlock instance

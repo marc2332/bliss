@@ -60,10 +60,7 @@ class BasePlot(object):
     class RemotePlot:
         """This class is serialized method by method and executed inside the Flint context"""
 
-        def select_data(self, method, *names, **kwargs):
-            if "legend" not in kwargs and method.startswith("add"):
-                kwargs["legend"] = " -> ".join(names)
-            # Get the data to plot
+        def set_data(self, method, *names, **kwargs):
             data_dict = self.data()
             widget = self.widget()
             args = tuple(data_dict[name] for name in names)
@@ -181,15 +178,40 @@ class BasePlot(object):
 
     # Data handling
 
+    def upload_data(self, field, data):
+        """
+        Update data as an identifier into the server side
+
+        Argument:
+            field: Identifier in the targeted plot
+            data: Data to upload
+        """
+        return self.__remote.update_data(field, data)
+
+    def upload_data_if_needed(self, field, data):
+        """Upload data only if it is a numpy array or a list
+        """
+        if isinstance(data, (numpy.ndarray, list)):
+            self.__remote.update_data(field, data)
+            return field
+        else:
+            return data
+
     def add_single_data(self, field, data):
         data = numpy.array(data)
-        if data.ndim not in self.DATA_DIMENSIONS:
-            raise ValueError(
-                "Data dimension must be in {} (got {})".format(
-                    self.DATA_DIMENSIONS, data.ndim
+        if (
+            self.DATA_DIMENSIONS is not None
+            and self.DATA_DIMENSIONS is not NotImplemented
+        ):
+            # FIXME: Testing the data here have no meaning
+            # Because this only upload the data but do not describe how it will be used
+            if data.ndim not in self.DATA_DIMENSIONS:
+                raise ValueError(
+                    "Data dimension must be in {} (got {})".format(
+                        self.DATA_DIMENSIONS, data.ndim
+                    )
                 )
-            )
-        return self.__remote.update_data(field, data)
+        return self.upload_data(field, data)
 
     def add_data(self, data, field="default"):
         # Get fields
@@ -205,7 +227,7 @@ class BasePlot(object):
             data_dict = dict((field, data[field]) for field in fields)
         # Send data
         for field, value in data_dict.items():
-            self.add_single_data(field, value)
+            self.upload_data(field, value)
         # Return data dict
         return data_dict
 
@@ -213,7 +235,10 @@ class BasePlot(object):
         self.__remote.remove_data(field)
 
     def select_data(self, *names, **kwargs):
-        self.__remote.select_data(self.METHOD, *names, **kwargs)
+        # FIXME: This have to be moved per plot widget
+        if "legend" not in kwargs and self.METHOD.startswith("add"):
+            kwargs["legend"] = " -> ".join(names)
+        self.__remote.set_data(self.METHOD, *names, **kwargs)
 
     def deselect_data(self, *names):
         self.__remote.deselect_data(*names)

@@ -40,7 +40,7 @@ Shell info example:
 DEMO [1]: k1
  Out [1]: KEITHLEY K428
           COMM:
-              GPIB type=ENET url='enet://gpibid21a.esrf.fr'
+              GPIB type=ENET url='enet://gpibid42a.esrf.fr'
                primary address='11' secondary address='0' tmo='13' timeout(s)='0.5' eol=''
           gain: (3, '1E03V/A')
           filter_rise_time: (0, '10usec')

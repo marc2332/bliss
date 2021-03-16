@@ -257,7 +257,7 @@ DEMO [7]: fe.mode = fe.AUTOMATIC
   # front end shutter
   class: TangoShutter
   name: frontend
-  uri: acs:10000/fe/master/id42
+  uri: acs.esrf.fr:10000/fe/master/id42
 
 ```
 

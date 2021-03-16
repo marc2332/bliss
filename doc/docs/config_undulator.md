@@ -32,7 +32,7 @@ In this example, the 2 types of configuration are used:
 ```yaml
 - controller:
   class: ESRF_Undulator
-  ds_name: //acs:10000/id/master/id66
+  ds_name: //acs.esrf.fr:10000/id/master/id66
   axes:
       -
         name: u42b
@@ -78,7 +78,7 @@ DEMO  [4]: u42b
                 state (R): READY (Axis is READY)
                 acceleration: None
                 velocity: None
-           UNDU DEVICE SERVER: //acs:10000/id/master/id42
+           UNDU DEVICE SERVER: //acs.esrf.fr:10000/id/master/id42
                 status = All undulator axis are ready to move
                 state = ON
                 Power = 0.239 (max: 3)

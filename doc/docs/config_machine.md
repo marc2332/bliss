@@ -17,7 +17,7 @@ Configuration example:
 ```yaml
 - class: MachInfo
   plugin: bliss
-  uri: //acs:10000/fe/master/id42
+  uri: //acs.esrf.fr:10000/fe/master/id42
   name: mama
 ```
 
@@ -50,7 +50,7 @@ Reading of a particular counter:
 ```python
 DEMO [9]: mama.counters.current
  Out [9]: 'current` Tango attribute counter info:
-            device server = //acs:10000/fe/master/id42
+            device server = //acs.esrf.fr:10000/fe/master/id42
             Tango attribute = SR_Current
             Tango format = "%6.2f"
             Tango unit = "mA"
@@ -72,7 +72,7 @@ DEMO [10]: mama.counters.current.value
 
 ```pyton
 DEMO  [5]: mama
-  Out [5]: MACHINE INFORMATION   ( //acs:10000/fe/master/id21 )
+  Out [5]: MACHINE INFORMATION   ( //acs.esrf.fr:10000/fe/master/id42 )
 
            -----------------  ---------------------------------------------
            SR Mode:           USM
@@ -141,7 +141,7 @@ DEMO [4]: from bliss.controllers.machinfo import  MachInfo
 
 DEMO [5]: mama.counters.refill
  Out [5]: 'refill` Tango attribute counter info:
-             device server = //acs:10000/fe/master/id21
+             device server = //acs.esrf.fr:10000/fe/master/id42
              Tango attribute = SR_Refill_Countdown
              ...
              value: 6411.0

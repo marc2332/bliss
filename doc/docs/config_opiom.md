@@ -134,7 +134,7 @@ DEMO [7]: mpx._boards
  Out [7]: {'opiom1': <bliss.controllers.opiom.Opiom object at 0x7f78d8f85d50>}
 
 DEMO [9]: mpx._boards["opiom1"]
- Out [9]: opiom: Serial[rfc2217://lid213:28201]
+ Out [9]: opiom: Serial[rfc2217://lid421:28201]
 ```
 
 #### Example 2

@@ -75,11 +75,11 @@ Out [2]: 'hpz_off_2` Tango attribute counter info:
 Example to read *ring current* and *beam lifetime* from The Machine device
 server:
 
-`acs:10000/` prefix is used to access Tango database of The Machine.
+`acs.esrf.fr:10000/` prefix is used to access Tango database of The Machine.
 
 ```yaml
 - class: tango_attr_as_counter
-  uri: orion:10000/fe/id/42
+  uri: acs.esrf.fr:10000/fe/master/id42
   counters:
     - name: srcur
       attr_name: SR_Current

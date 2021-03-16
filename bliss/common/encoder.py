@@ -121,6 +121,7 @@ class Encoder(SamplingCounter):
     @lazy_init
     def __info__(self):
         info_str = "ENCODER:\n"
+        info_str += f"     encoder steps per unit: {self.steps_per_unit}\n"
         info_str += f"     tolerance (to check pos at end of move): {self.tolerance}\n"
         info_str += f"     dial_measured_position: {self.raw_read:10.5f}\n"
         return info_str

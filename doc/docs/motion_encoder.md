@@ -126,6 +126,7 @@ It is possible to use an encoder alone to read it or to scan/count it.
 ```python
 DEMO [9]: samy.encoder
  Out [9]: ENCODER:
+               encoder steps per unit: 52.0
                tolerance (to check pos at end of move): 0.001
                dial_measured_position:    7.39992
 ```

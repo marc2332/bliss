@@ -12,6 +12,8 @@ import numpy
 
 from silx.gui import qt
 from silx.gui.plot import Plot1D
+from silx.gui.widgets.FrameBrowser import HorizontalSliderWithBrowser
+
 
 _logger = logging.getLogger(__name__)
 
@@ -25,21 +27,12 @@ class CurveStack(qt.QWidget):
         self.__plot = Plot1D(self)
         self.__plot.setDataMargins(0.1, 0.1, 0.1, 0.1)
 
-        self.__slider = qt.QSlider(self)
-        self.__slider.setObjectName("slider")
-        self.__slider.setOrientation(qt.Qt.Horizontal)
+        self.__slider = HorizontalSliderWithBrowser(self)
         self.__slider.valueChanged.connect(self.__sliderUpdated)
-
-        self.__curveId = qt.QLabel()
-        self.__curveId.setAlignment(qt.Qt.AlignCenter)
-
-        layout2 = qt.QHBoxLayout()
-        layout2.addWidget(self.__curveId)
-        layout2.addWidget(self.__slider)
 
         layout = qt.QVBoxLayout(self)
         layout.addWidget(self.__plot)
-        layout.addLayout(layout2)
+        layout.addWidget(self.__slider)
 
         self.clear()
 
@@ -111,6 +104,5 @@ class CurveStack(qt.QWidget):
         index = self.__slider.value()
         x = self.__x
         y = self.__data[index]
-        self.__curveId.setText(f"{index}")
         self.__plot.clear()
         self.__plot.addCurve(x=x, y=y, legend=f"Curve {index}")

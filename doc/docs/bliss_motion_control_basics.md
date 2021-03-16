@@ -296,6 +296,7 @@ DEMO [11]: mot1 ⏎
                IcepapEncoders(ENCIN='393759', ABSENC='-1687552', INPOS='0',
                               MOTOR='393744', AXIS='393750', SYNC='388568')
           ENCODER:
+               encoder steps_per_unit: 52.0
                tolerance (to check pos at end of move): 0.001
                dial_measured_position:    7.50017
 ```

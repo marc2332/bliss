@@ -19,6 +19,10 @@ chain for those scans is built using the `DefaultChain` class.
    dm [shape="box" label="dmesh"]
    am [shape="box" label="amesh"]
 
+   anm [shape="box" label="anmesh"]
+   a3m [shape="box" label="a3mesh"]
+   d3m [shape="box" label="d3mesh"]
+
    ans [shape="box" label="anscan"]
    a2s [shape="box" label="a2scan"]
    a35s [shape="box" label="a{3..5}scan"]
@@ -26,21 +30,26 @@ chain for those scans is built using the `DefaultChain` class.
    d2s [shape="box" label="d2scan"]
    d35s [shape="box" label="d{3..5}scan"]
 
-   lus [shape="box" label="lookupscan"]
+   lks [shape="box" label="lookupscan"]
    bssS [shape="box" label="bliss.scanning.scan.Scan"]
-
-   dm->am->bssS
 
    a35s->ans
    d35s->dns
-
-   d2s->a2s->bssS
-   lu->ds->as->bssS
+   as->ans
+   a2s->ans
+   d2s->dns
+   lu->ds->dns
    ls->ts->bssS
    ct->ts
-   ps->bssS
-   dns->ans->lus
-   lus->bssS
+   ps->lks
+   dns->ans->lks
+   lks->bssS
+
+   d3m->a3m
+   a3m->anm
+   am->anm
+   dm->am
+   anm->bssS
 
    }
 %}
@@ -208,10 +217,44 @@ first motor scan is nested within the second motor scan. (`<motor1>` is the
 
 * `backnforth`: if True, do back and forth on the first motor.
 
+## a3mesh
 
-## dmesh
+The a3mesh scan traces out a grid using `motor1`, `motor2` and `motor3`.  Each
+motor uses its own specified `start`, `stop` and `intervals`. Each point is
+counted for `time` seconds (or monitor counts).
 
-Relative amesh.
+The scan of `motor1` is done at each point scanned by `motor2`. The scan of
+`motor1+motor2` is done at each point scanned by `motor3`. That is, the first
+motor scan is nested within the second motor scan which is nested within the
+third motor.
+
+
+*Special parameter*:
+
+* `backnforth`: if True do back and forth on the first 2 motors
+
+### other mesh
+
+* `dmesh`: Relative amesh.
+* `d3mesh`: Relative mesh with 3 motors
+## anmesh
+
+Mesh scan with n-motors
+
+This scan traces out a grid using all the motors.  Each motor uses its own
+specified `start`, `stop` and `intervals`. Each point is counted for `time`
+seconds (or monitor counts).
+
+The first motor is the fastest, and the last motor the slowest. Each motor is
+nested with the next one.
+
+*Special parameters*:
+
+* `motor_tuple_list`: List of tuple `(motor, start, stop, interval)`. The first
+  motor is the fastest.
+* `backnforth`: If True do back and forth for all the motors except the slowest
+  one
+
 
 ## lineup
 

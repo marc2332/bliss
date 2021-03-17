@@ -37,8 +37,8 @@ HMC8041_COMMANDS = Commands(
 
 
 class HMC8041CounterController(SamplingCounterController):
-    TAGS = ["voltage", "current", "power"]
-    UNITS = {"voltage": "V", "current": "A", "power": "Ws"}
+    TAGS = ["voltage", "current", "power", "resistance"]
+    UNITS = {"voltage": "V", "current": "A", "power": "Ws", "resistance": "Ohm"}
 
     def __init__(self, device, config):
         super().__init__(f"{device.name}")
@@ -63,6 +63,11 @@ class HMC8041CounterController(SamplingCounterController):
             return self.device.current
         elif cnt.tag == "power":
             return self.device.power
+        elif cnt.tag == "resistance":
+            if abs(self.device.current) > 0:
+                return self.device.voltage / self.device.current
+            else:
+                return 0.0  # or np.nan but will that crash flint?
 
 
 class HMC8041(CounterContainer):

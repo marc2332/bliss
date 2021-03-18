@@ -574,13 +574,11 @@ class AutoFilter(BeaconObject):
         for m_tup in motor_tuple_list:
             mot = m_tup[0]
             d = mot._set_position if scan_type == "dscan" else 0
-            start = m_tup[1]
-            stop = m_tup[2]
+            start = m_tup[1] + d
+            stop = m_tup[2] + d
             title_list.extend(
                 (mot.name, rounder(mot.tolerance, start), rounder(mot.tolerance, stop))
             )
-            start = m_tup[1] + d
-            stop = m_tup[2] + d
             motors_positions.extend((mot, numpy.linspace(start, stop, npoints)))
 
         top_master = acquisition_objects.VariableStepTriggerMaster(*motors_positions)
@@ -603,7 +601,7 @@ class AutoFilter(BeaconObject):
             name = scan_type
 
         # build the title
-        args = [scan_type]
+        args = [scan_type.replace("d", "a")]
         args += title_list
         args += [intervals, count_time]
         template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])

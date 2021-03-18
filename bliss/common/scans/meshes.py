@@ -86,11 +86,12 @@ def anmesh(
 
     if title is None:
         args = []
-        args.append(scan_type)
+        args.append(scan_type.replace("d", "a"))
         for motor, start, stop, intervals in motor_tuple_list:
+            d = motor._set_position if scan_type[0] == "d" else 0
             args.append(motor.name)
-            args.append(rounder(motor.tolerance, start))
-            args.append(rounder(motor.tolerance, stop))
+            args.append(rounder(motor.tolerance, start + d))
+            args.append(rounder(motor.tolerance, stop + d))
             args.append(intervals)
         args.append(count_time)
         template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])

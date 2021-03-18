@@ -5,7 +5,7 @@ In bliss their control is separated in two parts: motors and equipment.
 The configuration below only concerns motors.
 
 
-![MD2-S] (img/md2s.png) ![MD3] (img/md3.png)
+![MD2-S](img/md2s.png) ![MD3](img/md3.png)
 
 Some information about the device:
 https://www.embl.fr/instrumentation/cipriani/downloads/md2_pdf.pdf
@@ -31,7 +31,7 @@ replies.
 ```yaml
 controller:
   class: MD2
-  exporter_address: "microdiff29new:9001"
+  exporter_address: "microdiff42new:9001"
   axes:
       -
         name: sampx

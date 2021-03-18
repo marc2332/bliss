@@ -79,7 +79,8 @@ nav:
                             - PI Hexapod: config_pi_hexa.md
                             - PI Piezo: config_pi_piezo.md
                             - PM600: config_pm600.md
-                            - Smaract: config_smaract.md
+                            - Smaract MCS: config_smaract_mcs1.md
+                            - Smaract MCS2: config_smaract_mcs2.md
                             - Symetrie Hexapod: config_shexapod.md
                             - Vscanner: config_vscanner.md
                             - Wago: config_wagomotor.md

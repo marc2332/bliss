@@ -254,6 +254,8 @@ class CalcCounterAcquisitionSlave(AcquisitionSlave):
                     self.device.tags[chan.short_name]
                 )
                 if output_data is not None:
+                    if not isinstance(output_data, numpy.ndarray):
+                        output_data = numpy.array(output_data)
                     chan.shape = output_data.shape[1:]
                     chan.dtype = output_data.dtype
                     chan.emit(output_data)

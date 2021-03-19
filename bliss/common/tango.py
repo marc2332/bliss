@@ -142,8 +142,7 @@ class DeviceProxy(Proxy):
             functools.partial(_DeviceProxy, *args, **kwargs), init_once=True
         )
 
-        object.__setattr__(self, "_DeviceProxy__dev_name", "not-yet-set")
-        dev_name = self.__wrapped__.dev_name()
+        dev_name = args[0]
         object.__setattr__(self, "_DeviceProxy__dev_name", dev_name)
 
         global_map.register(self, parents_list=["comms"], tag=dev_name)

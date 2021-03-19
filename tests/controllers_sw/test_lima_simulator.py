@@ -16,13 +16,21 @@ from bliss.common.utils import all_equal
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.common.tango import DeviceProxy, DevFailed
 from bliss.common.counter import Counter
-from bliss.controllers.lima.roi import Roi, ArcRoi, RoiProfile, ROI_PROFILE_MODES
+from bliss.controllers.lima.roi import (
+    Roi,
+    ArcRoi,
+    RoiProfile,
+    ROI_PROFILE_MODES,
+    RoiStat,
+)
 from bliss.controllers.lima.roi import RoiProfileCounter, RoiStatCounter
 from bliss.common.scans import loopscan, timescan, sct, ct, DEFAULT_CHAIN
 from bliss.controllers.lima.limatools import load_simulator_frames, reset_cam
 from math import pi as _PI_
 from ..conftest import lima_simulator_context
 from bliss.config.channels import Cache
+
+import time
 
 
 def test_lima_simulator(beacon, lima_simulator):
@@ -105,7 +113,7 @@ def test_lima_sim_bpm(default_session, lima_sim_with_bpm_start_stop_time):
 
 def test_lima_sim_no_bpm(default_session, lima_sim_no_bpm_with_bpm_start_stop_time):
     simulator = lima_sim_no_bpm_with_bpm_start_stop_time
-
+    print(simulator.__info__())
     assert simulator.disable_bpm
     assert "fwhm_x" not in simulator.counters._fields
     assert "bpm" not in simulator.counter_groups._fields
@@ -1021,3 +1029,109 @@ def test_reapplication_image_params(beacon, default_session, lima_simulator, cap
     new_roi = simulator.proxy.image_roi
     assert "All parameters will be refeshed on lima_simulator" in caplog.messages
     assert all(old_roi == new_roi)
+
+
+def test_roi_collection(default_session, lima_simulator, tmp_path):
+
+    from shutil import rmtree
+    from bliss.common.image_tools import array_to_file, file_to_array
+
+    defdtype = numpy.int32  # uint8  # int32
+
+    def build_rois(roinums, roisize, imsize):
+        nx, ny = roinums
+        lx, ly = roisize
+        w, h = imsize
+        dx, dy = int(w / nx), int(h / ny)
+        assert dx >= 1
+        assert dy >= 1
+        assert lx <= dx
+        assert ly <= dy
+
+        rois = {}
+        mask = numpy.zeros((h, w), dtype=defdtype)
+        for idx in range(nx * ny):
+            name = f"r{idx}"
+            x = (idx % nx) * dx
+            y = (idx // nx) * dy
+            rois[name] = Roi(x, y, lx, ly)
+            mask[y : y + ly, x : x + lx] = idx + 1
+        return rois, mask
+
+    def build_images(rois_mask, frames):
+        return [rois_mask * (f + 1) for f in range(frames)]
+
+    def save_images(imgdir, imgs):
+        for idx, f in enumerate(imgs):
+            fpath = os.path.join(imgdir, f"test_rois_{idx:04d}.edf")
+            array_to_file(f, fpath)
+        return os.path.join(imgdir, "test_rois*")
+
+    # create temp folder to store test images
+    imgdir = tmp_path / "test_images"
+    imgdir.mkdir()
+
+    # test parameters
+    roinums = 80, 75
+    roisize = 6, 4
+    imsize = 800, 750
+    frames = 50  # use a value > 1
+
+    # build the rois
+    rois, mask = build_rois(roinums, roisize, imsize)
+
+    # build and save imgs
+    imgs = build_images(mask, frames)
+    fpat = save_images(imgdir, imgs)
+
+    # load cam
+    cam = default_session.config.get("lima_simulator")
+    load_simulator_frames(cam, frames, fpat)
+    collec = cam.roi_collection
+
+    # load rois collection
+    collec.clear()
+    # print("===Collec rois:", list(collec._save_rois.keys()))
+    for name, roi in rois.items():
+        # print(f"Load roi {name} {roi.get_coords}")
+        collec[name] = roi
+
+    assert len(collec.counters) == 1
+    assert len(collec.get_rois()) == roinums[0] * roinums[1]
+
+    # start loopscan
+    t0 = time.time()
+    s = loopscan(frames, 0.1, cam)
+    print("scan took", time.time() - t0)
+
+    # check results
+    imgs = s.get_data("image").as_array()
+    croi = s.get_data("*roi_collection_counter")
+    assert imgs.shape == (frames, imsize[1], imsize[0])
+    assert croi.shape == (frames, roinums[0] * roinums[1])
+
+    if 0:
+        import matplotlib.pyplot as plt
+
+        # === check saved image files ======
+        for idx in range(frames):
+            fpath = os.path.join(imgdir, f"test_rois_{idx:04d}.edf")
+            mode, size, img = file_to_array(fpath)
+            print("img info", mode, size, img.dtype)
+            # img.dtype = defdtype
+            plt.imshow(img)
+            plt.show()
+
+        # === check scan images ======
+        for idx in range(frames):
+            plt.imshow(imgs[idx])
+            plt.show()
+
+    for f in range(frames):
+        sums = croi[f, :]
+        assert numpy.all(
+            sums
+            == (f + 1)
+            * (roisize[0] * roisize[1])
+            * numpy.arange(1, roinums[0] * roinums[1] + 1)
+        )

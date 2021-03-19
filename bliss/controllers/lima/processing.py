@@ -64,6 +64,13 @@ class LimaProcessing(BeaconObject):
     runlevel_roicounter = BeaconObject.property_setting(
         "runlevel_roicounter", default=10
     )
+    runlevel_roicollection = BeaconObject.property_setting(
+        "runlevel_roicollection", default=10
+    )
+    runlevel_roiprofiles = BeaconObject.property_setting(
+        "runlevel_roiprofiles", default=10
+    )
+
     runlevel_bpm = BeaconObject.property_setting("runlevel_bpm", default=10)
 
     @runlevel_mask.setter
@@ -83,6 +90,16 @@ class LimaProcessing(BeaconObject):
 
     @runlevel_roicounter.setter
     def runlevel_roicounter(self, value):
+        assert isinstance(value, int)
+        return value
+
+    @runlevel_roicollection.setter
+    def runlevel_roicollection(self, value):
+        assert isinstance(value, int)
+        return value
+
+    @runlevel_roiprofiles.setter
+    def runlevel_roiprofiles(self, value):
         assert isinstance(value, int)
         return value
 
@@ -153,10 +170,12 @@ class LimaProcessing(BeaconObject):
             Expert Settings
             ---------------
             Lima Run-Level:
-               Mask           {self.runlevel_mask}
-               Flatfield:     {self.runlevel_flatfield}
-               Bg-Sub:        {self.runlevel_background}
-               Roi Counters:  {self.runlevel_roicounter}
-               BPM:           {self.runlevel_bpm}
+               Mask            {self.runlevel_mask}
+               Flatfield:      {self.runlevel_flatfield}
+               Bg-Sub:         {self.runlevel_background}
+               Roi Counters:   {self.runlevel_roicounter}
+               Roi Profiles:   {self.runlevel_roiprofiles}
+               Roi Collection: {self.runlevel_roicollection}
+               BPM:            {self.runlevel_bpm}
             """
         )

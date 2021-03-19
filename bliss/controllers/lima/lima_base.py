@@ -27,7 +27,11 @@ from bliss.controllers.lima.properties import (
     LimaAttrGetterSetter,
 )
 from bliss.controllers.lima.bpm import Bpm
-from bliss.controllers.lima.roi import RoiCounters, RoiProfileController
+from bliss.controllers.lima.roi import (
+    RoiCounters,
+    RoiProfileController,
+    RoiCollectionController,
+)
 from bliss.controllers.lima.image import ImageCounter
 from bliss.controllers.lima.shutter import Shutter
 from bliss.controllers.lima.bgsub import BgSub
@@ -97,6 +101,7 @@ class Lima(CounterController):
 
     _ROI_COUNTERS = "roicounter"
     _ROI_PROFILES = "roi2spectrum"
+    _ROI_COLLECTION = "roicollection"
     _BPM = "bpm"
     _BG_SUB = "backgroundsubstraction"
     # backward compatibility for old pickled objects in redis,
@@ -120,6 +125,7 @@ class Lima(CounterController):
         self.__bpm = None
         self.__roi_counters = None
         self.__roi_profiles = None
+        self.__roi_collection = None
         self._instrument_name = config_node.root.get("instrument", "")
         self.__bg_sub = None
         self.__last = None
@@ -372,6 +378,49 @@ class Lima(CounterController):
                 log_debug(self, "set runlevel on roi_counter proxy of %s", self.name)
                 proxy.RunLevel = self.processing.runlevel_roicounter
 
+        if (
+            self.roi_collection is not None
+        ):  # CHECK IF LIMA SERVER COLLECTION PLUGIN IS AVAILABLE (see lima server version)
+            if self._needs_update(
+                "runlevel_roicollection",
+                self.processing.runlevel_roicollection,
+                proxy=self.roi_collection._proxy,
+            ):
+                proxy = self.roi_collection._proxy
+                state = proxy.State()
+                if state == DevState.ON:
+                    log_debug(
+                        self,
+                        "stop, runlevel, start on roi_collection proxy of %s",
+                        self.name,
+                    )
+                    proxy.Stop()
+                    proxy.RunLevel = self.processing.runlevel_roicollection
+                    proxy.Start()
+                else:
+                    log_debug(
+                        self, "set runlevel on roi_collection proxy of %s", self.name
+                    )
+                    proxy.RunLevel = self.processing.runlevel_roicollection
+
+        if self._needs_update(
+            "runlevel_roiprofiles",
+            self.processing.runlevel_roiprofiles,
+            proxy=self.roi_profiles._proxy,
+        ):
+            proxy = self.roi_profiles._proxy
+            state = proxy.State()
+            if state == DevState.ON:
+                log_debug(
+                    self, "stop, runlevel, start on roi_profiles proxy of %s", self.name
+                )
+                proxy.Stop()
+                proxy.RunLevel = self.processing.runlevel_roiprofiles
+                proxy.Start()
+            else:
+                log_debug(self, "set runlevel on roi_profiles proxy of %s", self.name)
+                proxy.RunLevel = self.processing.runlevel_roiprofiles
+
         if self._needs_update(
             "runlevel_bpm", self.processing.runlevel_bpm, proxy=self.bpm._proxy
         ):
@@ -590,6 +639,26 @@ class Lima(CounterController):
         return self.__roi_counters
 
     @autocomplete_property
+    def roi_collection(self):
+        if self.__roi_collection is None:
+            try:
+                roi_collection_proxy = self._get_proxy(self._ROI_COLLECTION)
+            except (RuntimeError, DevFailed):
+                # Lima server doesnt have the roi_collection plugin installed/activated
+                return
+
+            else:
+                self.__roi_collection = RoiCollectionController(
+                    roi_collection_proxy, self
+                )
+                global_map.register(
+                    self.__roi_collection,
+                    parents_list=[self],
+                    children_list=[roi_collection_proxy],
+                )
+        return self.__roi_collection
+
+    @autocomplete_property
     def roi_profiles(self):
         if self.__roi_profiles is None:
             roi_profiles_proxy = self._get_proxy(self._ROI_PROFILES)
@@ -712,6 +781,7 @@ class Lima(CounterController):
             f"Acquisition:\n{self.acquisition.__info__()}\n\n"
             f"{self.roi_counters.__info__()}\n\n"
             f"{self.roi_profiles.__info__()}\n\n"
+            f"{self.roi_collection.__info__() if self.roi_collection is not None else 'Roi Collection: server plugin not found!'}\n\n"
             f"{self.bpm.__info__()}\n\n"
             f"{self.saving.__info__()}\n\n"
             f"{self.processing.__info__()}\n"
@@ -729,6 +799,7 @@ class Lima(CounterController):
             counters += list(self.counter_groups.bpm)
         counters += list(self.counter_groups.roi_counters)
         counters += list(self.counter_groups.roi_profiles)
+        counters += list(self.counter_groups.roi_collection)
         return counter_namespace(counters)
 
     @autocomplete_property
@@ -766,16 +837,29 @@ class Lima(CounterController):
         else:
             # Specific roi_profiles counters
             for counter in self.roi_profiles.counters:
-                dct[
-                    counter.name
-                ] = (
-                    counter
-                )  # ??? or (for symmetry) counter_namespace([counter]) => cnt = cam.counter_groups['s2']['s2'] ???
+                dct[counter.name] = counter
+
+        # All roi_collection counters
+        if self.roi_collection is not None:
+            try:
+                dct["roi_collection"] = counter_namespace(self.roi_collection.counters)
+            except (RuntimeError, DevFailed):
+                dct["roi_collection"] = counter_namespace([])
+            else:
+                # Specific roi_collection counters
+                for counter in self.roi_collection.counters:
+                    dct[counter.name] = counter
+        else:
+            dct["roi_collection"] = counter_namespace([])
 
         # Default grouped
         default_counters = (
-            list(dct["images"]) + list(dct["roi_counters"]) + list(dct["roi_profiles"])
+            list(dct["images"])
+            + list(dct["roi_counters"])
+            + list(dct["roi_profiles"])
+            + list(dct["roi_collection"])
         )
+
         dct["default"] = counter_namespace(default_counters)
 
         # Return namespace

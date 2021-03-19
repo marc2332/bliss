@@ -207,19 +207,6 @@ def test_stm_exception(default_session, capsys):
     assert errmsg in captured.err
 
 
-def execute_in_subprocess(command):
-    # suppress warnings as this can be used to test output
-    script = subprocess.Popen(
-        ["python", "-W ignore", "-c", command],
-        stderr=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-    )
-
-    output, err = script.communicate()
-    returncode = script.returncode
-    return output.decode(), err.decode(), returncode
-
-
 def test_umv_typecheck(default_session):
     m0 = default_session.config.get("m0")
     calc_mot5 = default_session.config.get("calc_mot5")
@@ -237,17 +224,6 @@ def test_umv_typecheck(default_session):
 
 def test_umv_signature(session):
     assert str(umv.__signature__) == "(*args: 'motor1, pos1, motor2, pos2, ...')"
-
-
-@pytest.fixture
-def capture_output_patch():
-    orig_print = builtins.print
-    from bliss.shell.cli.repl import CaptureOutput
-
-    capout = CaptureOutput()
-    capout.patch_print()
-    yield
-    builtins.print = orig_print
 
 
 OUTPUT_UMV_ROBY = """
@@ -280,43 +256,6 @@ def test_umv_shell(capfd, default_session):
 
     default_session.config.get("calc_mot1").controller.close()
     calc_mot2.controller.close()
-
-
-def test_umvr_lib_mode(capsys, default_session):
-    """stdout should not have anything"""
-    commands = (
-        "from bliss.shell.standard import umv",
-        "from bliss.config import static",
-        "config = static.get_config()",
-        "roby = config.get('roby')",
-        "umv(roby,10)",
-    )
-
-    output, err, returncode = execute_in_subprocess(";".join(commands))
-
-    assert "Moving," not in output
-    assert "MockupAxis" not in output
-
-    assert returncode == 0
-    assert len(err) == 0
-
-
-def test_sync_lib_mode(capsys, default_session):
-    """stdout should not have anything"""
-    commands = (
-        "from bliss.shell.standard import sync",
-        "from bliss.config import static",
-        "config = static.get_config()",
-        "roby = config.get('roby')",
-        "sync(roby)",
-    )
-
-    output, err, returncode = execute_in_subprocess(";".join(commands))
-
-    assert "Forcing axes synchronization with hardware" not in output
-
-    assert returncode == 0
-    assert len(err) == 0
 
 
 def test_open_silx(xvfb):

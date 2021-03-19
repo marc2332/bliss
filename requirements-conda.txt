@@ -32,7 +32,7 @@ pyfiglet
 pygments
 pygraphviz >= 1.5
 pyserial > 2
-pytango == 9.3.1
+pytango >= 9.3.1
 python >= 3.7
 redis >= 6.0.6
 redis-py == 3.5.1

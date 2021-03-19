@@ -19,13 +19,13 @@ def execute_in_subprocess(command):
     returncode = script.returncode
     return output.decode(), err.decode(), returncode
 
+
 ROOT = os.path.dirname(__file__)
 
 
 def test_library_script(beacon):
-    # suppress warnings as we test output
     script = subprocess.Popen(
-        ["python", "-W ignore", os.path.join(ROOT, "check_library_mode_script.py")],
+        ["python", os.path.join(ROOT, "check_library_mode_script.py")],
         stderr=subprocess.PIPE,
         stdout=subprocess.PIPE,
     )
@@ -33,15 +33,13 @@ def test_library_script(beacon):
     output, err = script.communicate()
 
     assert script.returncode == 0
-    assert err == b""
     assert b"bliss.shell" not in output
     assert b"SHELL_MODE: False" in output
 
 
 def test_shell_script(beacon):
-    # suppress warnings as we test output
     script = subprocess.Popen(
-        ["python", "-W ignore", os.path.join(ROOT, "check_shell_mode_script.py")],
+        ["python", os.path.join(ROOT, "check_shell_mode_script.py")],
         stderr=subprocess.PIPE,
         stdout=subprocess.PIPE,
     )
@@ -49,7 +47,6 @@ def test_shell_script(beacon):
     output, err = script.communicate()
 
     assert script.returncode == 0
-    assert err == b""
     assert b"SHELL_MODE: True" in output
 
 

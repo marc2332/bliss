@@ -643,7 +643,7 @@ class Lima(CounterController):
         if self.__roi_collection is None:
             try:
                 roi_collection_proxy = self._get_proxy(self._ROI_COLLECTION)
-            except RuntimeError:
+            except (RuntimeError, DevFailed):
                 # Lima server doesnt have the roi_collection plugin installed/activated
                 return
 

@@ -840,15 +840,17 @@ class Lima(CounterController):
                 dct[counter.name] = counter
 
         # All roi_collection counters
-        try:
-            if self.roi_collection is not None:
+        if self.roi_collection is not None:
+            try:
                 dct["roi_collection"] = counter_namespace(self.roi_collection.counters)
-        except (RuntimeError, DevFailed):
-            dct["roi_collection"] = counter_namespace([])
+            except (RuntimeError, DevFailed):
+                dct["roi_collection"] = counter_namespace([])
+            else:
+                # Specific roi_collection counters
+                for counter in self.roi_collection.counters:
+                    dct[counter.name] = counter
         else:
-            # Specific roi_collection counters
-            for counter in self.roi_collection.counters:
-                dct[counter.name] = counter
+            dct["roi_collection"] = counter_namespace([])
 
         # Default grouped
         default_counters = (

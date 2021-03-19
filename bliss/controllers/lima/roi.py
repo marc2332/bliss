@@ -589,10 +589,11 @@ class RoiCounters(IntegratingCounterController):
                 f"Names conflict: '{name}' is already used by a roi_profile, please use another name"
             )
 
-        if name in self._master_controller.roi_collection._save_rois:
-            raise ValueError(
-                f"Names conflict: '{name}' is already used in roi_collection, please use another name"
-            )
+        if self._master_controller.roi_collection is not None:
+            if name in self._master_controller.roi_collection._save_rois:
+                raise ValueError(
+                    f"Names conflict: '{name}' is already used in roi_collection, please use another name"
+                )
 
     def _set_roi(self, name, roi_values):
 
@@ -891,10 +892,11 @@ class RoiProfileController(IntegratingCounterController):
                 f"Names conflict: '{name}' is already used by a roi_counter, please use another name"
             )
 
-        if name in self._master_controller.roi_collection._save_rois:
-            raise ValueError(
-                f"Names conflict: '{name}' is already used in roi_collection, please use another name"
-            )
+        if self._master_controller.roi_collection is not None:
+            if name in self._master_controller.roi_collection._save_rois:
+                raise ValueError(
+                    f"Names conflict: '{name}' is already used in roi_collection, please use another name"
+                )
 
     def _set_roi(self, name, roi_values):
 

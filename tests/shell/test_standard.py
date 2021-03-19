@@ -208,8 +208,11 @@ def test_stm_exception(default_session, capsys):
 
 
 def execute_in_subprocess(command):
+    # suppress warnings as this can be used to test output
     script = subprocess.Popen(
-        ["python", "-c", command], stderr=subprocess.PIPE, stdout=subprocess.PIPE
+        ["python", "-W ignore", "-c", command],
+        stderr=subprocess.PIPE,
+        stdout=subprocess.PIPE,
     )
 
     output, err = script.communicate()

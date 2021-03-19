@@ -14,8 +14,9 @@ ROOT = os.path.dirname(__file__)
 
 
 def test_library_script(beacon):
+    # suppress warnings as we test output
     script = subprocess.Popen(
-        ["python", os.path.join(ROOT, "check_library_mode_script.py")],
+        ["python", "-W ignore", os.path.join(ROOT, "check_library_mode_script.py")],
         stderr=subprocess.PIPE,
         stdout=subprocess.PIPE,
     )
@@ -29,8 +30,9 @@ def test_library_script(beacon):
 
 
 def test_shell_script(beacon):
+    # suppress warnings as we test output
     script = subprocess.Popen(
-        ["python", os.path.join(ROOT, "check_shell_mode_script.py")],
+        ["python", "-W ignore", os.path.join(ROOT, "check_shell_mode_script.py")],
         stderr=subprocess.PIPE,
         stdout=subprocess.PIPE,
     )

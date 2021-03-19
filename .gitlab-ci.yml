@@ -20,10 +20,9 @@ default:
     - echo ${CI_PROJECT_DIR}
     - export PIP_CACHE_DIR="/opt/cache/pip"
     - /opt/conda/bin/conda init && source /root/.bashrc
-    - conda config --append channels conda-forge
-    - conda config --add channels defaults
-    - conda config --add channels esrf-bcu
-    - conda config --add channels tango-controls
+    - conda config --prepend channels tango-controls
+    - conda config --prepend channels esrf-bcu
+    - conda config --prepend channels conda-forge
     - >
       if [[ -z $CI_MERGE_REQUEST_TARGET_BRANCH_NAME ]];then
         export COMPARE_BRANCH_NAME="master"

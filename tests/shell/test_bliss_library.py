@@ -10,6 +10,15 @@ import gevent
 import os
 
 
+def execute_in_subprocess(command):
+    script = subprocess.Popen(
+        ["python", "-c", command], stderr=subprocess.PIPE, stdout=subprocess.PIPE
+    )
+
+    output, err = script.communicate()
+    returncode = script.returncode
+    return output.decode(), err.decode(), returncode
+
 ROOT = os.path.dirname(__file__)
 
 
@@ -59,3 +68,21 @@ def test_shell_quit(beacon, ports):
             output, err = script.communicate()
     except gevent.Timeout:
         raise RuntimeError("Session could not be terminated")
+
+
+def test_sync_lib_mode(capsys, default_session):
+    """stdout should not have anything"""
+    commands = (
+        "from bliss.shell.standard import sync",
+        "from bliss.config import static",
+        "config = static.get_config()",
+        "roby = config.get('roby')",
+        "sync(roby)",
+    )
+
+    output, err, returncode = execute_in_subprocess(";".join(commands))
+
+    assert "Forcing axes synchronization with hardware" not in output
+
+    assert returncode == 0
+    assert len(output) == 0

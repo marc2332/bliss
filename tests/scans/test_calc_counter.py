@@ -348,3 +348,41 @@ def test_if_expr_calc_are_disjunct(default_session):
     # check that the second counter is not influenced by the first one
     assert c2.constants.m == 20
     assert "n" not in dir(c2.constants)
+
+
+def test_calc_counter_0D_1D_2D(default_session, lima_simulator):
+
+    # 0d
+    times2 = default_session.config.get("times2")
+    s = loopscan(10, .1, times2)
+    data = s.get_data()
+    assert (
+        data["times2:times2out"].shape
+        == data["simulation_counter_controller:sim_ct_gauss"].shape
+    )
+    assert all(
+        data["times2:times2out"]
+        == data["simulation_counter_controller:sim_ct_gauss"] * 2
+    )
+
+    # 1d
+    times2_1d = default_session.config.get("times2_1d")
+    s = loopscan(10, .1, times2_1d, save=False)
+    data = s.get_data()
+    assert data["times2_1d:times2out_1d"].shape == data["simu1:spectrum_det0"].shape
+    assert numpy.array_equal(
+        data["times2_1d:times2out_1d"], data["simu1:spectrum_det0"] * 2
+    )
+
+    # 2d
+    times2_2d = default_session.config.get("times2_2d")
+    s = loopscan(10, 0.001, times2_2d, save=False)
+
+    data = s.get_data()
+    assert (
+        data["times2_2d:times2out_2d"].shape
+        == data["lima_simulator:image"].as_array().shape
+    )
+    assert numpy.array_equal(
+        data["times2_2d:times2out_2d"], data["lima_simulator:image"].as_array() * 2
+    )

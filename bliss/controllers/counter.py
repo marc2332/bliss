@@ -5,13 +5,13 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import numpy
 from bliss import global_map
 from bliss.common.protocols import CounterContainer
 from bliss.common.counter import Counter, CalcCounter
 from bliss.scanning.chain import ChainNode
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 from bliss.scanning.acquisition.counter import IntegratingCounterAcquisitionSlave
+
 from bliss.scanning.acquisition.calc import (
     CalcCounterChainNode,
     CalcCounterAcquisitionSlave,
@@ -198,15 +198,11 @@ class CalcCounterController(CounterController):
 
         super().__init__(name, register_counters=False)
 
+        self._config = config
         self._input_counters = []
         self._output_counters = []
         self._counters = {}
-        self._config = config
         self.tags = {}
-
-        self.data = {}
-        self.data_index = {}
-        self.emitted_index = -1
 
         self.build_counters(config)
 
@@ -222,6 +218,9 @@ class CalcCounterController(CounterController):
         )
 
     def get_default_chain_parameters(self, scan_params, acq_params):
+        if acq_params.get("npoints") is None:
+            acq_params["npoints"] = scan_params["npoints"]
+
         return acq_params
 
     def create_chain_node(self):
@@ -235,7 +234,6 @@ class CalcCounterController(CounterController):
             If the 'tags' is not found, the counter name will be used instead.
         """
         for cnt_conf in config.get("inputs"):
-
             cnt = cnt_conf.get("counter")
             if isinstance(cnt, Counter):
                 tags = cnt_conf.get("tags", cnt.name)
@@ -247,10 +245,10 @@ class CalcCounterController(CounterController):
                 )
 
         for cnt_conf in config.get("outputs"):
-
             cnt_name = cnt_conf.get("name")
             if cnt_name:
-                cnt = CalcCounter(cnt_name, self)
+                dim = int(cnt_conf.get("dim", 0))
+                cnt = CalcCounter(cnt_name, self, dim)
                 tags = cnt_conf.get("tags", cnt.name)
                 self.tags[cnt.name] = tags
                 self._output_counters.append(cnt)
@@ -276,65 +274,8 @@ class CalcCounterController(CounterController):
                 )
         return counter_namespace(counters)
 
-    def compute(self, sender, data_dict):
-        """
-        This method works only if all input_counters will generate the same number of points !!!
-        It registers all data comming from the input counters.
-        It calls calc_function with input counters data which have reach the same index
-        This function is called once per counter (input and output).
-
-        * <sender> = AcquisitionChannel 
-        * <data_dict> = {'em1ch1': array([0.00256367])}
-        """
-
-        for cnt in self.inputs:
-            # get registered data for this counter
-            data = self.data.get(cnt.name, [])
-
-            # get new data for this counter
-            new_data = data_dict.get(cnt.name, [])
-
-            # get number of registered data for this counter
-            data_index = self.data_index.get(cnt.name, 0)
-
-            # If any, add new data to registered data
-            if len(new_data):
-                data = numpy.append(data, new_data)
-                self.data[cnt.name] = data
-
-            self.data_index[cnt.name] = data_index + len(new_data)
-
-        input_counter_index = [self.data_index[cnt.name] for cnt in self.inputs]
-        new_data_index = min(input_counter_index)
-
-        # print(f"\n{self.name} - {new_data_index} - {input_counter_index}")
-
-        if self.emitted_index == new_data_index - 1:
-            return None
-
-        # Build a dict of input counter data value indexed by tags instead of counter names.
-        input_data_dict = {}
-        for cnt in self.inputs:
-            input_data_dict[self.tags[cnt.name]] = numpy.copy(
-                self.data[cnt.name][self.emitted_index + 1 : new_data_index]
-            )
-
-        self.emitted_index = new_data_index - 1
-
-        output_data_dict = self.calc_function(input_data_dict)
-
-        return output_data_dict
-
     def calc_function(self, input_dict):
         raise NotImplementedError
-
-    def reset_data_storage(self):
-        # Store read input counter datas
-        self.data = {}
-        # last index of read input counter datas
-        self.data_index = {}
-        # index of last calculated counter datas
-        self.emitted_index = -1
 
 
 class SoftCounterController(SamplingCounterController):

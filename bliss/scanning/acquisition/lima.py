@@ -438,8 +438,10 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                     gevent.sleep(max(self.acq_params["acq_expo_time"] / 10.0, 10e-3))
                 else:
                     break
+
             if self._image_channel:
                 self._image_channel.emit(status)
+
             if acq_state == "fault":
                 raise RuntimeError(
                     "Device %s (%s) is in Fault state"

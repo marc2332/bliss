@@ -26,6 +26,7 @@ from bliss.common.axis import Axis
 from bliss.common.motor_group import is_motor_group
 from bliss.common.hook import group_hooks, execute_pre_scan_hooks
 from bliss.common.event import connect, disconnect
+from bliss.common import event
 from bliss.common.cleanup import error_cleanup, axis as cleanup_axis, capture_exceptions
 from bliss.common.greenlet_utils import KillMask
 from bliss.common import plot as plot_mdl
@@ -405,7 +406,7 @@ class ScanPreset:
     def _stop(self, scan):
         if self.__new_channel_data:
             for data_chan in self.__new_channel_data.keys():
-                disconnect(data_chan, "new_data", self.__new_channel_data_cb)
+                event.disconnect(data_chan, "new_data", self.__new_channel_data_cb)
         self.__new_data_callback = None
         self.__new_channel_data = {}
         return self.stop(scan)
@@ -435,7 +436,7 @@ class ScanPreset:
                 cnt = counters_list[i]
                 for data_chan in channels:
                     self.__new_channel_data[data_chan] = cnt
-                    connect(data_chan, "new_data", self.__new_channel_data_cb)
+                    event.connect(data_chan, "new_data", self.__new_channel_data_cb)
 
 
 class ScanState(enum.IntEnum):
@@ -1178,6 +1179,9 @@ class Scan:
                 with self._rotating_pipeline_mgr.async_proxy() as async_proxy:
                     self.nodes[sender].store(event_dict, cnx=async_proxy)
                     async_proxy.add_execute_callback(
+                        event.send, sender, "new_data_stored", event_dict
+                    )
+                    async_proxy.add_execute_callback(
                         self.__trigger_data_watch_callback, signal, sender
                     )
                     self.__trigger_watchdog_data_event(signal, sender)
@@ -1329,10 +1333,10 @@ class Scan:
         self._devices = devices
         for dev, node in list(nodes.items()):
             if dev in devices:
-                connect(dev, "start", self._device_event)
-                connect(dev, "end", self._device_event)
+                event.connect(dev, "start", self._device_event)
+                event.connect(dev, "end", self._device_event)
             else:
-                connect(dev, "new_data", self._channel_event)
+                event.connect(dev, "new_data", self._channel_event)
 
     def _update_scan_info_with_user_scan_meta(self, meta_timing):
         # be aware: this is patched in ct!
@@ -1367,9 +1371,9 @@ class Scan:
         for dev in self._devices:
             if isinstance(dev, (AcquisitionSlave, AcquisitionMaster)):
                 for channel in dev.channels:
-                    disconnect(channel, "new_data", self._channel_event)
+                    event.disconnect(channel, "new_data", self._channel_event)
                 for signal in ("start", "end"):
-                    disconnect(dev, signal, self._device_event)
+                    event.disconnect(dev, signal, self._device_event)
         self._devices = []
 
     def _set_state(self, state):

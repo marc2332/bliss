@@ -348,5 +348,16 @@ class SoftCounter(SamplingCounter):
 
 
 class CalcCounter(Counter):
+    def __init__(self, name, controller, dim=0, conversion_function=None, unit=None):
+        super().__init__(
+            name, controller, conversion_function=conversion_function, unit=unit
+        )
+        self._dim = dim
+
     def __info__(self):
         return super().__info__(counter_type="calc")
+
+    @property
+    def shape(self):
+        """The data shape as used by numpy."""
+        return (0,) * self._dim

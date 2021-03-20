@@ -128,6 +128,7 @@ class CorrCounterController(CalcCounterController):
         self.tags[det.name] = "detector"
         transm = self._transmission_counter
         self.tags[transm.name] = "transmission"
+        self._input_counters = [mon, det, transm]
         return counter_namespace([mon, det, transm])
 
     @property

@@ -54,8 +54,7 @@ class BackgroundCalcCounterController(CalcCounterController):
         if int_time is not None:
             self._integration_time = int_time
             for o_cnt in self._output_counters:
-                name = o_cnt.name
-                self._integration_time_index[self.tags[name]] = 0
+                self._integration_time_index[self.tags[o_cnt.name]] = 0
         return CalcCounterAcquisitionSlave(
             self, acq_devices, acq_params, ctrl_params=ctrl_params
         )
@@ -65,9 +64,9 @@ class BackgroundCalcCounterController(CalcCounterController):
         if int_time is not None:
             self._integration_time = int_time
             for o_cnt in self._output_counters:
-                name = o_cnt.name
-                self._integration_time_index[self.tags[name]] = 0
-        return acq_params
+                self._integration_time_index[self.tags[o_cnt.name]] = 0
+
+        return super().get_default_chain_parameters(scan_params, acq_params)
 
     def get_input_counter_from_tag(self, tag):
         for cnt in self.inputs:

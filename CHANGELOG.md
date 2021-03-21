@@ -29,8 +29,96 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+### Removed
+
+## [1.7.3 - 2021-03-22]
+
+### Added
+
+- BCDU8 controller
+- HMC8041 power supply
+- more complete Aerotech Soloist support
+- Lima
+    - addons for Eiger camera
+    - more explicit "no saving" enum
+    - Andor3 camera
+    - add access to BufferSize/MaskFile on RoiCounters
+    - new roi counters collection support
+- Wago modules catalogue: 750-342,352,363,515
+- Writer
+    - explicit exception if parent node is missing
+    - OFF and RUNNING states, now means respecitively "not listening to events and resources released" and "writer alive"
+
+### Changed
+
+### Fixed
+
+- calculation counters with 1D or 2D inputs or outputs
+- motor controller hardware initialization call, in case motor controller had no name
+- filter set transmission calculation
+- auto filters
+- CT2
+    - memory leak and excessive memory reallocations
+- MCA
+    - refresh rate bug for Xia Falcon X
+    - memory leak with cumulated MCA data in MCA counters
+- PM600: steps_position_precision fix (defaults to 1)
+- PI E712: position offset
+- PI E727: connection refused happening sometimes
+- Symetrie hexapod: wrong units
+- xyonrotation controller
+- Regulation
+    - avoid hardware call in "_store_history_data"
+    - last output value when in deadband
+    - Oxford 700 and 800 communication issues
+- Pace controller communication
 - Flint
+    - memory leak with regulation plots
+    - ignore timeout in regulation plots
     - Fix storage of line profiles in the image/scatter plot
+    - matplotlib patching to avoid memory leak
+- data publishing: too many KEYS calls
+- limatake __info__
+
+ 
+### Removed
+
+## [1.7.2 - 2021-01-26]
+
+### Added
+
+### Changed
+
+### Fixed
+
+- scan metadata: add missing 'technique' field
+- rpc: return None for object type if connection is not established
+- aliases: report errors via debug log message
+- Lima
+    - never fail when retrieving counters, if Lima server is off
+    - Eiger detector: use TRIGGER synchronization mode
+    - BPM: ensure BPM task is stopped, if no BPM calculation is asked
+- ct2
+    - fix inheritance bug introduced in 1.7.0 by using delegation
+    - release CPU pressure by buffering acq. data
+- musst
+    - cache "event buffer size"
+    - release CPU pressure in reading loop
+    - filter bad EPTR values, sometimes received from the device
+- default max publishing time set to 0.2 seconds
+- fix 'fcntl' import (Windows)
+- "ct" display: handle numbers with a lot of digits and sign
+- spec motor controler: removed bad SpecClient import
+- icepap: warning message in case of close loop Settling Timeout error
+- calc. motors: fix when motors are already on target
+- mca: fix for block_size set to None
+- oxford cryo: fix missing lazy initialization call
+- timescan, loopscan: fix 'sleep_time' argument
+- moco: disable ECHO mode
+- icat: fix newsample, newdataset
+- measurement group: when device is enabled, use all counters if there is no default counters
+- axis: initialize set_position with controller position, even if read mode is "encoder"
+- Flint: workspace saving/loading fix
 
 ### Removed
 

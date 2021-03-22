@@ -145,7 +145,7 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         self.__view = view_helper.ViewManager(self.__plot)
         self.__selectedPlotItem = None
 
-        self.__aggregator = signalutils.EventAggregator(self)
+        self.__aggregator = plot_helper.ScalarEventAggregator(self)
         self.__refreshManager = refresh_helper.RefreshManager(self)
         self.__refreshManager.setAggregator(self.__aggregator)
 

@@ -1843,11 +1843,19 @@ class Axis(Scannable):
 
         Args:
             user_target_pos: destination (user units)
+
         Keyword Args:
             wait (bool): wait or not for end of motion
             relative (bool): False if *user_target_pos* is given in absolute \
             position or True if it is given in relative position
             polling_time (float): motion loop polling time (seconds)
+
+        Raises:
+            RuntimeError
+
+        Returns:
+            None
+
         """
 
         if numpy.isfinite(user_target_pos):

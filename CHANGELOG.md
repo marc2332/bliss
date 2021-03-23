@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
         - Added `--enable-watchdog` command line argument to log and kill Flint if
           too much memory is used
     - `scan_info["requests"]` is not anymore read (replaced by `channels`)
+    - Update to silx 0.15
 
 ### Changed
 

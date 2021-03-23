@@ -73,6 +73,11 @@ class DataStorage:
     def _get_data_size(self, channel_name):
         return self.__data[channel_name].size()
 
+    def get_data_size(self, channel_name):
+        if channel_name not in self.__data:
+            return 0
+        return self.__data[channel_name].size()
+
     def get_last_group_size(self, group_name: str) -> int:
         """Returns the last stored group size."""
         return self.__last_size_per_group.get(group_name, 0)

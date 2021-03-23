@@ -62,12 +62,14 @@ class HKLMotors(CalcController):
         self._reals_group.move(move_dict, wait=False)
 
     def calc_to_real(self, positions_dict):
+        print("=== calc_to_real", positions_dict)
         if len(self._frozen_angles):
             self.diffracto.geometry.set_axis_pos(self._frozen_angles, update=False)
         self.diffracto.geometry.set_pseudo_pos(positions_dict)
         return self.diffracto.geometry.get_axis_pos()
 
     def calc_from_real(self, real_positions):
+        print("=== calc_from_real", real_positions)
         energy = real_positions.pop("energy", None)
         if energy is not None:
             self.diffracto.geometry.set_energy(energy)

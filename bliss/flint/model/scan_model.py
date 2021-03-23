@@ -98,8 +98,17 @@ class ScanDataUpdateEvent:
         self.__scan = scan
         self.__channelNames: Optional[Set[str]] = None
 
+    def scan(self) -> Scan:
+        return self.__scan
+
+    def selectedDevice(self) -> Optional[Device]:
+        return self.__masterDevice
+
     def selectedChannel(self) -> Optional[Channel]:
         return self.__channel
+
+    def selectedChannels(self) -> Optional[List[Channel]]:
+        return self.__channels
 
     def __eq__(self, other):
         if not isinstance(other, ScanDataUpdateEvent):

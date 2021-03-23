@@ -29,6 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Flint
+    - Fixed slow rendering occurred on live curves and scatters with fast scans
+
 ### Removed
 
 ## [1.7.3 - 2021-03-22]

@@ -78,6 +78,70 @@ class PlotEventAggregator(signalutils.EventAggregator):
         return result, []
 
 
+class ScalarEventAggregator(signalutils.EventAggregator):
+    def reduce(self, eventStack: List) -> Tuple[List, List]:
+        """Override the method to reduce plot refresh by
+        removing duplication events.
+        """
+        result = []
+        # Reduce specific channel events
+        fullDevices = set()
+        fullAggregation = set()
+        currentAggregation = set()
+        currentScan = None
+        currentCallback = None
+
+        def flush():
+            nonlocal currentAggregation, currentScan, currentCallback
+            if len(currentAggregation) == 0:
+                return
+            e = scan_model.ScanDataUpdateEvent(
+                currentScan, channels=list(currentAggregation)
+            )
+            result.insert(0, (currentCallback, [e], {}))
+            currentAggregation = set()
+            currentScan = None
+            currentCallback = None
+
+        for event in reversed(eventStack):
+            callback, args, kwargs = event
+            if len(args) == 0:
+                result.insert(0, event)
+                continue
+            e = args[0]
+            if not isinstance(e, scan_model.ScanDataUpdateEvent):
+                result.insert(0, event)
+                continue
+
+            if kwargs != {}:
+                result.insert(0, event)
+                continue
+
+            channels = e.selectedChannels()
+            device = e.selectedDevice()
+            if channels is not None:
+                if fullAggregation.issuperset(channels):
+                    continue
+                if currentCallback is None or currentCallback is callback:
+                    currentCallback = callback
+                    currentScan = e.scan()
+                    fullAggregation.update(channels)
+                    currentAggregation.update(channels)
+                else:
+                    flush()
+                    result.insert(0, event)
+            elif device is not None:
+                if device in fullDevices:
+                    continue
+                fullDevices.add(device)
+                result.insert(0, event)
+            else:
+                flush()
+                result.insert(0, event)
+        flush()
+        return result, []
+
+
 class PlotWidget(ExtendedDockWidget):
 
     widgetActivated = qt.Signal(object)

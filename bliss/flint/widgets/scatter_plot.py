@@ -394,7 +394,7 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         self.__plot.getWidgetHandle().installEventFilter(self)
         self.__view = view_helper.ViewManager(self.__plot)
 
-        self.__aggregator = signalutils.EventAggregator(self)
+        self.__aggregator = plot_helper.ScalarEventAggregator(self)
         self.__refreshManager = refresh_helper.RefreshManager(self)
         self.__refreshManager.setAggregator(self.__aggregator)
 

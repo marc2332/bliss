@@ -224,11 +224,10 @@ def install_excepthook():
         # Adapt the error message depending on the ERROR_REPORT expert_mode
         if ERROR_REPORT._expert_mode:
             traceback.print_exception(exc_type, exc_value, tb, file=err_file)
-        else:
-            try:
-                if current_session.is_loading_config:
-                    print(f"{exc_type.__name__}: {exc_value}", file=err_file)
-            except AttributeError:
+        elif current_session:
+            if current_session.is_loading_config:
+                print(f"{exc_type.__name__}: {exc_value}", file=err_file)
+            else:
                 print(
                     f"!!! === {exc_type.__name__}: {exc_value} === !!! ( for more details type cmd 'last_error' )",
                     file=err_file,

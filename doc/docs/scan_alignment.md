@@ -21,7 +21,7 @@ goto_cen(axis=robz)
 peak(axis=robz)
 ```
 
-If the axis is not specified, `cen`, `com`, `peak` functions will return value for
+If the axis is not specified, `cen`, `com`, `peak`, `trough` functions will return value for
 all axes and the `goto_` functions will move all motors.
 
 ## Counters selection
@@ -97,6 +97,13 @@ This function returns the motor position at the counter maximum value.
 max_pos = peak()
 ```
 
+## trough()
+
+This function returns the motor position at the counter minimum value.
+```
+min_pos = trough()
+```
+
 ## goto_ functions
 
 * all the previous functions have a corresponding `goto_XXX()` function
@@ -104,6 +111,7 @@ to go directly to the calculated position:
     * `goto_cen()`
     * `goto_com()`
     * `goto_peak()`
+    * `goto_min()`
 * Before the movement, the `goto_XXX` functions will print the **previous position** and
 the **future position** of the motor with a `WARNING` message.
 * In case of motion abortion, the motor returns to its previous
@@ -126,6 +134,10 @@ WARNING  bliss.scans: Motor mm1 will move from 4.337243 to 10.000000
 
 DEMO [14]: goto_com()
 WARNING  bliss.scans: Motor mm1 will move from 10.000000 to 4.805529
+
+DEMO [15]: goto_min()
+WARNING  bliss.scans: Motor mm1 will move from 4.805529 to 0.000000
+
 ```
 
 ## where()

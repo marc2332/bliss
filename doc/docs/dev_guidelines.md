@@ -228,20 +228,25 @@ the string on its own line:
         """
 ```
 
-Bliss supports *napoleon* sphinx extension. The recommended way to
-document API is to follow the [Google Python Style
+Bliss supports [*napoleon* sphinx
+extension](https://www.sphinx-doc.org/en/master/usage/extensions/napoleon.html). The
+recommended way to document API is to follow the [Google Python Style
 Guide](http://google.github.io/styleguide/pyguide.html):
 
 ``` python
     def move(axis, position, wait=False):
 		"""
-		move the given axis to the given absolute position
+		Move the given axis to the given absolute position
 
 		Note:
 			using `wait=True` will block the current :class:`~gevent.Greenlet`.
 
 	    See Also:
 			:func:`rmove`
+
+        code example: ``register(self, children_list=[self.comm])  # comm layer``
+
+        `This will be printed in italic`
 
 	    Args:
 			axis (Axis): instance of bliss :class:`bliss.common.axis.Axis`
@@ -250,9 +255,18 @@ Guide](http://google.github.io/styleguide/pyguide.html):
 
         Returns:
 			float: actual position where motor is (axis units)
+
+        Raises:
+            RuntimeError
 		"""
 		pass
 ```
+
+!!!note
+    **Move** takes no final **s** to follow [PEP257 coding
+    convention](https://www.python.org/dev/peps/pep-0257/#one-line-docstrings)  
+    **Raises**, **Returns** take a final **s** as they are sphinx keywords.
+    (Returns has Return as alias so... this is just a quesiton or convention)
 
 ## Comments
 

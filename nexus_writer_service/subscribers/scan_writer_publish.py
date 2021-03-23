@@ -24,7 +24,11 @@ from bliss.controllers.mca.base import (
 from bliss.controllers.mca.mythen import MythenCounter, RoiMythenCounter
 from bliss.controllers.lima.bpm import LimaBpmCounter
 from bliss.controllers.lima.image import ImageCounter
-from bliss.controllers.lima.roi import RoiStatCounter, RoiProfileCounter
+from bliss.controllers.lima.roi import (
+    RoiStatCounter,
+    RoiProfileCounter,
+    RoiCollectionCounter,
+)
 from bliss.common.counter import SamplingCounter
 from ..utils import config_utils
 from ..utils import scan_utils
@@ -169,7 +173,7 @@ def _device_info_add_ctr(devices, ctr):
         device_info = {"type": "lima"}
         device = {"device_info": device_info, "device_type": "lima"}
         devices[fullname] = device
-    elif isinstance(ctr, (RoiStatCounter, RoiProfileCounter)):
+    elif isinstance(ctr, (RoiStatCounter, RoiProfileCounter, RoiCollectionCounter)):
         device_info = {"type": "lima"}
         device = {"device_info": device_info, "device_type": "lima"}
         devices[fullname] = device

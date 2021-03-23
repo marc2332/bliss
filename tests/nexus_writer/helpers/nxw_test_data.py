@@ -733,13 +733,29 @@ def expected_plots(
     def ismca1d(name):
         return ("simu" in name or "spectrum" in name) and "lima" not in name
 
-    def islima1d(name):
-        return "lima" in name or "roi4" in name
+    def islima1d_roi(name):
+        return "roi4" in name
 
-    lima_1d_signals = {name for name in channels[1] if islima1d(name)}
+    def islima1d_collection(name):
+        return "roi_collection" in name
+
+    lima_1d_roi_signals = {name for name in channels[1] if islima1d_roi(name)}
+    lima_1d_collection_signals = {
+        name for name in channels[1] if islima1d_collection(name)
+    }
     mca_1d_signals = {name for name in channels[1] if ismca1d(name)}
-    other_1d_signals = set(channels[1]) - mca_1d_signals - lima_1d_signals
-    n_1d_types = bool(mca_1d_signals) + bool(other_1d_signals) + bool(lima_1d_signals)
+    other_1d_signals = (
+        set(channels[1])
+        - mca_1d_signals
+        - lima_1d_roi_signals
+        - lima_1d_collection_signals
+    )
+    n_1d_types = (
+        bool(mca_1d_signals)
+        + bool(other_1d_signals)
+        + bool(lima_1d_roi_signals)
+        + bool(lima_1d_collection_signals)
+    )
     if config:
         if technique != "none":
             # All 0D detectors
@@ -754,6 +770,10 @@ def expected_plots(
                 signals = {f"simu{i}_det{j}" for i in range(1, 3) for j in range(4)}
                 signals |= {"diode9alias_samples"}
                 signals |= {"lima_simulator2_roi4", "lima_simulator_roi4"}
+                signals |= {
+                    "lima_simulator2_roi_collection",
+                    "lima_simulator_roi_collection",
+                }
                 signals &= channels[1]
                 plots["all_spectra"] = {"ndim": 1, "type": "flat", "signals": signals}
                 plots["all_spectra_grid"] = {
@@ -762,42 +782,39 @@ def expected_plots(
                     "signals": signals,
                 }
             else:
-                signals = {"diode9alias_samples"}
-                signals &= channels[1]
-                plots["all_spectra_samplingcounter"] = {
-                    "ndim": 1,
-                    "type": "flat",
-                    "signals": signals,
-                }
-                plots["all_spectra_grid_samplingcounter"] = {
-                    "ndim": 1,
-                    "type": "grid",
-                    "signals": signals,
-                }
-                signals = {f"simu{i}_det{j}" for i in range(1, 3) for j in range(4)}
-                signals &= channels[1]
-                plots["all_spectra_mca"] = {
-                    "ndim": 1,
-                    "type": "flat",
-                    "signals": signals,
-                }
-                plots["all_spectra_grid_mca"] = {
-                    "ndim": 1,
-                    "type": "grid",
-                    "signals": signals,
-                }
-                signals = {"lima_simulator2_roi4", "lima_simulator_roi4"}
-                signals &= channels[1]
-                plots["all_spectra_lima"] = {
-                    "ndim": 1,
-                    "type": "flat",
-                    "signals": signals,
-                }
-                plots["all_spectra_grid_lima"] = {
-                    "ndim": 1,
-                    "type": "grid",
-                    "signals": signals,
-                }
+                plotctr = 1
+                lst = [
+                    other_1d_signals,
+                    lima_1d_roi_signals,
+                    lima_1d_collection_signals,
+                    mca_1d_signals,
+                ]
+                for signals in sorted(lst, key=lambda x: sorted(x)):
+                    if not signals:
+                        continue
+                    if signals == other_1d_signals:
+                        affix = "_samplingcounter"
+                    elif signals == lima_1d_roi_signals:
+                        affix = "_lima"
+                    elif signals == lima_1d_collection_signals:
+                        affix = "_lima"
+                    elif signals == mca_1d_signals:
+                        affix = "_mca"
+                    else:
+                        affix = None
+                    affix += str(plotctr)
+                    plots["all_spectra" + affix] = {
+                        "ndim": 1,
+                        "type": "flat",
+                        "signals": signals,
+                    }
+                    plots["all_spectra_grid" + affix] = {
+                        "ndim": 1,
+                        "type": "grid",
+                        "signals": signals,
+                    }
+                    plotctr += 1
+
             # All 2D detectors
             plots["all_images"] = {"ndim": 2, "type": "flat", "signals": channels[2]}
             plots["all_images_grid"] = {
@@ -843,15 +860,22 @@ def expected_plots(
         if n_1d_types == 1:
             plots["plot1D"] = {"ndim": 1, "type": "flat", "signals": channels[1]}
         else:
-            i = 1
-            for signals in [other_1d_signals, lima_1d_signals, mca_1d_signals]:
-                if signals:
-                    plots["plot1D_unknown1D" + str(i)] = {
-                        "ndim": 1,
-                        "type": "flat",
-                        "signals": signals,
-                    }
-                    i += 1
+            plotctr = 1
+            lst = [
+                other_1d_signals,
+                lima_1d_roi_signals,
+                lima_1d_collection_signals,
+                mca_1d_signals,
+            ]
+            for signals in sorted(lst, key=lambda x: sorted(x)):
+                if not signals:
+                    continue
+                plots["plot1D_unknown1D" + str(plotctr)] = {
+                    "ndim": 1,
+                    "type": "flat",
+                    "signals": signals,
+                }
+                plotctr += 1
         # All 2D detectors
         plots["plot2D"] = {"ndim": 2, "type": "flat", "signals": channels[2]}
     return plots
@@ -972,6 +996,7 @@ def expected_detectors(
                     name + "_roi3",
                     name + "_roi4",
                     name + "_bpm",
+                    name + "_roi_collection",
                 }
         expected = detectors_filter(expected, detectors)
         if softtimer == "detector":
@@ -1010,7 +1035,13 @@ def detectors_filter(expected, detectors, removeprefix=False):
             result,
             ["^lima_simulator_", "^lima_simulator2_"],
             ["lima_simulator", "lima_simulator2"],
-            ["{}_roi_counters_", "{}_roi_profiles_", "{}_bpm_", "{}_"],
+            [
+                "{}_roi_counters_",
+                "{}_roi_profiles_",
+                "{}_roi_collection_",
+                "{}_bpm_",
+                "{}_",
+            ],
         )
         result = remove_controller_prefix(
             result, ["^simu1_", "^simu2_"], ["simu1", "simu2"], ["{}_"]
@@ -1085,7 +1116,7 @@ def expected_detector_content(name, config=True):
                 }
         elif name.startswith("lima"):
             if "roi" in name:
-                if "roi4" in name:
+                if "roi4" in name or "collection" in name:
                     datasets = {"data", "type", "selection"}
                 else:
                     datasets = {"data", "type", "avg", "min", "max", "std", "selection"}
@@ -1109,6 +1140,8 @@ def expected_detector_content(name, config=True):
                 datasets = {"data", "roi1", "roi2", "roi3"}
             elif "roi_profile" in name:
                 datasets = {"data", "roi4"}
+            elif "roi_collection" in name:
+                datasets = {"data", "roi_collection_counter"}
             elif "bpm" in name:
                 datasets = {"data"}
             else:
@@ -1119,6 +1152,8 @@ def expected_detector_content(name, config=True):
             datasets = {"data", "roi1", "roi2", "roi3"}
         elif name == "roi4":
             datasets = {"data", "roi4"}
+        elif name == "roi_collection_counter":
+            datasets = {"data", "roi_collection_counter"}
         else:
             datasets = {"data"}
     return datasets
@@ -1221,7 +1256,7 @@ def expected_channels(
         if config:
             for conname in names:
                 datasets[2] |= {conname}
-                datasets[1] |= {conname + "_roi4"}
+                datasets[1] |= {conname + "_roi4", conname + "_roi_collection"}
                 datasets[0] |= {
                     conname + "_roi1",
                     conname + "_roi1_min",
@@ -1251,8 +1286,12 @@ def expected_channels(
                 prefix_roi = conname + "_roi_counters_"
                 prefix_roi_profile = conname + "_roi_profiles_"
                 prefix_bpm = conname + "_bpm_"
+                prefix_roi_collection = conname + "_roi_collection_"
                 datasets[2] |= {prefix + "image"}
-                datasets[1] |= {prefix_roi_profile + "roi4"}
+                datasets[1] |= {
+                    prefix_roi_profile + "roi4",
+                    prefix_roi_collection + "roi_collection_counter",
+                }
                 datasets[0] |= {
                     prefix_roi + "roi1_min",
                     prefix_roi + "roi1_max",

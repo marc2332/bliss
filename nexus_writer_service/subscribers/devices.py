@@ -192,6 +192,7 @@ def parse_devices(devices, short_names=True, multivalue_positioners=False):
             # 'frelon1:roi_counters:roi1_min'
             # 'frelon1:roi_profiles:roi2'
             # 'frelon1:bpm:fwhm_x'
+            # 'frelon1:roi_collection:roi_collection_counter_data'
             parts = fullname.split(":")
             if len(parts) == 3:
                 device["dependencies"] = {parts[0] + ":image": "image"}
@@ -204,6 +205,10 @@ def parse_devices(devices, short_names=True, multivalue_positioners=False):
                     device_name = ":".join([parts[0], parts[-1]])
                     datatype = "sum"
                     device["metadata_keys"] = {parts[-1]: "selection"}
+                elif parts[1] == "roi_collection":
+                    device_name = ":".join([parts[0], parts[1]])
+                    datatype = "sum"
+                    device["metadata_keys"] = {"roi_collection_counter": "selection"}
                 else:
                     device_name = ":".join(parts[:2])
                     datatype = parts[2]

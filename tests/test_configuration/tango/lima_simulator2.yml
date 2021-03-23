@@ -43,5 +43,7 @@ device:
   tango_name: id00/mask/simulator2
 - class: Roi2spectrumDeviceServer
   tango_name: id00/roi2spectrum/simulator2
+- class: RoiCollectionDeviceServer
+  tango_name: id00/roicollection/simulator2
 personal_name: simulator2
 server: LimaCCDs

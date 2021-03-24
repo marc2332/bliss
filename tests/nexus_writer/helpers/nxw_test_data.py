@@ -8,6 +8,7 @@
 import os
 import re
 import numpy
+from silx.io import dictdump
 from nexus_writer_service.utils import scan_utils
 from nexus_writer_service.io import nexus
 from nexus_writer_service.subscribers.scan_writer_base import (
@@ -475,9 +476,9 @@ def validate_instrument(
                 save_images=save_images,
             )
     # Validate content of other groups
-    content = nexus.nxtodict(instrument["beamstop"])
+    content = dictdump.nxtodict(instrument["beamstop"], asarray=False)
     assert content == {"@NX_class": "NXbeam_stop", "status": "in"}
-    content = nexus.nxtodict(instrument["att1"])
+    content = dictdump.nxtodict(instrument["att1"], asarray=False)
     assert content == {
         "Positioners_name": "att1z",
         "Positioners_value": 0.5,

@@ -14,7 +14,6 @@ Nexus API
 """
 
 import h5py
-import time
 import datetime
 import numpy
 import os
@@ -35,16 +34,9 @@ from .io_utils import mkdir
 from ..utils import data_merging
 from ..utils.process_utils import file_processes
 from ..utils.async_utils import SharedLockPool
-
+from silx.io import h5py_utils
 
 DEFAULT_PLOT_NAME = "plotselect"
-
-
-try:
-    unicode
-except NameError:
-    unicode = str
-
 
 try:
     h5py.VirtualLayout
@@ -52,13 +44,10 @@ except AttributeError:
     HASVIRTUAL = False
 else:
     HASVIRTUAL = True
-HASSWMR = h5py.version.hdf5_version_tuple >= h5py.get_config().swmr_min_hdf5_version
-
 
 logger = logging.getLogger(__name__)
 
-
-nxcharUnicode = h5py.special_dtype(vlen=unicode)
+nxcharUnicode = h5py.special_dtype(vlen=str)
 nxcharBytes = h5py.special_dtype(vlen=bytes)
 
 
@@ -85,7 +74,7 @@ def asNxChar(s, raiseExtended=True):
         # dtype=nxcharUnicode will not attempt decoding bytes
         # so readers will get UnicodeDecodeError when bytes
         # are extended ASCII encoded. So do this instead:
-        numpy.array(s, dtype=unicode)
+        numpy.array(s, dtype=str)
     except UnicodeDecodeError:
         # Reason: byte-string with extended ASCII encoding (e.g. Latin-1)
         # Solution: save as byte-string or raise exception
@@ -99,22 +88,26 @@ def asNxChar(s, raiseExtended=True):
         return numpy.array(s, dtype=nxcharUnicode)
 
 
-def isString(data):
+def isNxChar(data):
+    """String from the Nexus point of view
     """
-    String from the Nexus point of view
-    """
-    return isinstance(data, (unicode, bytes))
+    if isinstance(data, (str, bytes)):
+        return True
+    elif isinstance(data, numpy.ndarray):
+        return numpy.issubdtype(data.dtype, numpy.bytes_) or numpy.issubdtype(
+            data.dtype, numpy.str_
+        )
+    else:
+        return False
 
 
 def asNxType(data):
+    """Convert data to Nexus data type
     """
-    Convert data to Nexus data type
-    """
-    if isString(data):
+    if isNxChar(data):
         return asNxChar(data)
     elif isinstance(data, (list, tuple)) and data:
-        # TODO: does not handle numpy string arrays
-        if all(map(isString, data)):
+        if all([isinstance(v, (str, bytes)) for v in data]):
             return asNxChar(data)
     return data
 
@@ -124,7 +117,7 @@ def createNxValidate(createkws):
         createkws["data"] = asNxType(createkws["data"])
     dtype = createkws.get("dtype")
     if dtype is not None:
-        if dtype is unicode:
+        if dtype is str:
             createkws["dtype"] = nxcharUnicode
             createkws.pop("fillvalue")
         elif dtype is bytes:
@@ -273,7 +266,7 @@ def dereference(uri, name=None):
     :param str name: appended to uri
     :returns str: uri
     """
-    if not isString(uri):
+    if not isinstance(uri, (str, bytes)):
         uri = getUri(uri)
     if name:
         uri = hdf5_join(uri, name)
@@ -609,7 +602,7 @@ def updateAttribute(parent, name, value):
     if value is None:
         return
     try:
-        parent.attrs[name] = asNxChar(value)
+        parent.attrs[name] = asNxType(value)
     except Exception as e:
         if "B-tree" in str(e):
             warnings.warn(
@@ -819,7 +812,7 @@ def nxProcess(parent, name, configdict=None, raise_on_exists=False, **kwargs):
     nxProcessConfigurationInit(
         h5group, configdict=configdict, raise_on_exists=raise_on_exists, **kwargs
     )
-    results = nxClassInit(h5group, "results", "NXcollection")
+    nxClassInit(h5group, "results", "NXcollection")
     return h5group
 
 
@@ -906,58 +899,17 @@ def lockedErrorMessage(filename):
     return msg + "\n"
 
 
-class File(h5py.File):
+class File(h5py_utils.File):
 
     _LOCKPOOL = SharedLockPool()
 
-    def __init__(
-        self, filename, mode="r", enable_file_locking=None, swmr=None, **kwargs
-    ):
+    def __init__(self, filename, **kwargs):
         """
         :param str filename:
-        :param str mode:
-        :param bool enable_file_locking: by default it is disabled for `mode=='r'`
-                                         and enabled in all other modes
-        :param bool swmr: when not specified: try both modes when `mode=='r'`
-        :param **kwargs: see `h5py.File.__init__`
+        :param **kwargs: see `h5py_utils.File.__init__`
         """
         with self._protect_init(filename):
-            # https://support.hdfgroup.org/HDF5/docNewFeatures/SWMR/Design-HDF5-FileLocking.pdf
-            if not HASSWMR and swmr:
-                swmr = False
-            libver = kwargs.get("libver")
-            if swmr:
-                kwargs["libver"] = "latest"
-            if enable_file_locking is None:
-                enable_file_locking = mode != "r"
-            if enable_file_locking:
-                os.environ["HDF5_USE_FILE_LOCKING"] = "TRUE"
-            else:
-                os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
-            kwargs["track_order"] = True
-            try:
-                super().__init__(filename, mode=mode, swmr=swmr, **kwargs)
-                if mode != "r" and swmr:
-                    # Try setting writing in SWMR mode
-                    try:
-                        self.swmr_mode = True
-                    except Exception:
-                        pass
-            except OSError as e:
-                if (
-                    swmr is not None
-                    or mode != "r"
-                    or not HASSWMR
-                    or not isErrno(e, errno.EAGAIN)
-                ):
-                    raise
-                # Try reading with opposite SWMR mode
-                swmr = not swmr
-                if swmr:
-                    kwargs["libver"] = "latest"
-                else:
-                    kwargs["libver"] = libver
-                super().__init__(filename, mode=mode, swmr=swmr, **kwargs)
+            super().__init__(filename, **kwargs)
 
     @contextmanager
     def _protect_init(self, filename):
@@ -1400,7 +1352,7 @@ def createLink(h5group, name, destination, abspath=False):
     :param bool abspath: absolute file path
     :returns: h5py link object
     """
-    if not isString(destination):
+    if not isinstance(destination, (str, bytes)):
         destination = getUri(destination)
     if "::" in destination:
         destination = splitUri(destination)
@@ -1439,7 +1391,7 @@ def nxCreateDataSet(h5group, name, value, attrs, stringasuri=False):
     :returns h5py.Dataset:
     """
     if stringasuri:
-        dsettypes = (h5py.Dataset, unicode, bytes)
+        dsettypes = (h5py.Dataset, str, bytes)
     else:
         dsettypes = (h5py.Dataset,)
     if isinstance(value, dict):
@@ -1734,186 +1686,3 @@ def getDefaultUri(filename, signal=True, **kwargs):
         return filename + "::" + path
     else:
         return None
-
-
-def _delete_attributes(destination):
-    for k in list(destination.attrs.keys()):
-        del destination.attrs[k]
-
-
-def _delete_children(destination):
-    for k in list(destination.keys()):
-        del destination[k]
-
-
-def _update_attributes(destination, attrs):
-    for k, v in attrs.items():
-        updateAttribute(destination, k, v)
-
-
-def _dicttonx_create_attr(destination, attr, value, update=False):
-    """
-    Create a group or dataset attribute
-
-    :param h5py.Group or h5py.Dataset destination:
-    :param str or tuple attr:
-    :param str value:
-    :param bool update: update value when exists
-    """
-    if value is None:
-        return
-    if isinstance(attr, tuple):
-        parent, name = attr
-    elif "@" in attr:
-        parent, name = attr.split("@", maxsplit=1)
-    else:
-        parent = None
-        name = attr
-    if parent:
-        destination = destination[parent]
-    if name in destination.attrs and not update:
-        return
-    updateAttribute(destination, name, value)
-
-
-def _dicttonx_create_dataset(destination, name, value, overwrite=False, update=False):
-    """
-    Create a dataset attribute (optional: update value when exists)
-
-    :param h5py.Group destination:
-    :param str name:
-    :param str value:
-    :param bool overwrite: existing attributes are deleted
-    :param bool update: existing attributes are not deleted
-    """
-    value = asNxType(value)
-    if name in destination:
-        if overwrite:
-            try:
-                # Preserve dataset when possible
-                destination[name][()] = value
-            except Exception:
-                del destination[name]
-                destination[name] = value
-            else:
-                _delete_attributes(destination[name])
-        elif update:
-            try:
-                # Preserve dataset when possible
-                destination[name][()] = value
-            except Exception:
-                attrs = dict(destination[name].attrs)
-                del destination[name]
-                destination[name] = value
-                _update_attributes(destination[name], attrs)
-    else:
-        destination[name] = value
-    return destination[name]
-
-
-def _dicttonx_create_group(destination, name, overwrite=False):
-    """
-    :param h5py.Group destination:
-    :param str name:
-    :param str value: ignored when `not overwrite`
-    :param bool overwrite: existing datasets and attributes are deleted
-    """
-    if name in destination:
-        if overwrite:
-            if not isinstance(destination[name], h5py.Group):
-                del destination[name]
-                destination.create_group(name, track_order=False)
-            else:
-                _delete_attributes(destination[name])
-                _delete_children(destination[name])
-        elif not isinstance(destination[name], h5py.Group):
-            raise ValueError(
-                "{} already exists and is not a group".format(
-                    repr(destination[name].name)
-                )
-            )
-    else:
-        destination.create_group(name, track_order=False)
-    return destination[name]
-
-
-def dicttonx(treedict, destination, overwrite=False, update=False):
-    """
-    Write a nested dictionary to as Nexus structure in HDF5.
-    Attributes can bbe defined as one of these dictionary keys:
-        "@attr"
-        "parent@attr"
-        ("parent", "attr")
-        ("", "attr")
-        (None, "attr")
-
-    :param dict treedict:
-    :param h5py.Group or h5py.Dataset destination:
-    :param bool overwrite: existing datasets/attributes may
-                           disappear or be modified
-    :param bool update: existing datasets/attributes do not
-                        disappear but may be modified
-    """
-    if isinstance(destination, h5py.Dataset):
-        if "NX_class" in treedict or "@NX_class" in treedict:
-            raise ValueError(
-                f"{repr(destination.name)}: '@NX_class' attribute to allowed for datasets"
-            )
-        for key, value in treedict.items():
-            _dicttonx_create_attr(destination, key, value, update=update)
-        return
-    treedict = treedict.copy()
-    if "NX_class" in treedict:
-        treedict.setdefault("@NX_class", treedict.pop("NX_class"))
-    if "NX_class" not in destination.attrs:
-        treedict.setdefault("@NX_class", "NXcollection")
-    attrs = {}
-    for key, value in treedict.items():
-        if isinstance(value, dict):
-            # HDF5 group
-            rdestination = _dicttonx_create_group(destination, key, overwrite=overwrite)
-            dicttonx(value, rdestination, overwrite=overwrite, update=update)
-        elif value is None:
-            pass
-        elif isinstance(key, tuple) or "@" in key:
-            # HDF5 attribute
-            attrs[key] = value
-        else:
-            # HDF5 dataset
-            _dicttonx_create_dataset(
-                destination, key, value, overwrite=overwrite, update=update
-            )
-    for key, value in attrs.items():
-        _dicttonx_create_attr(destination, key, value, update=update)
-
-
-def nxtodict(node, attr_tuple=False):
-    """
-    Read a Nexus structure as a dictionary.
-
-    :param h5py.Group or h5py.Dataset node:
-    :param bool attr_tuple:
-    :returns dict:
-    """
-    if isinstance(node, h5py.Dataset):
-        name = node.name.split("/")[-1]
-        if attr_tuple:
-            result = {(name, k): v for k, v in node.attrs.items()}
-        else:
-            result = {f"{name}@{k}": v for k, v in node.attrs.items()}
-        result[name] = node[()]
-        return result
-    result = {}
-    for key, value in node.items():
-        if isinstance(value, h5py.Group):
-            result[key] = nxtodict(value)
-        else:
-            result[key] = value[()]
-            for k, v in value.attrs.items():
-                if attr_tuple:
-                    result[(key, k)] = v
-                else:
-                    result[f"{key}@{k}"] = v
-    for key, value in node.attrs.items():
-        result["@" + key] = value
-    return result

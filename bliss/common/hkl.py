@@ -342,9 +342,7 @@ def _one_pseudo_scan(
                 diffracto.name, motor_name
             )
         )
-    if kwargs.get("check_hkl", True) is True:
-        motor_pos = numpy.linspace(val1, val2, npoints)
-        diffracto.check_lookupscan(motor_name, motor_pos)
+
     diffmotor = diffracto.get_axis(motor_name)
     title = "{0} {1} {2} {3} {4}".format(scan_name, val1, val2, npoints, count_time)
     kwargs.update({"type": scan_name, "title": title})
@@ -362,10 +360,6 @@ def _one_pseudo_dscan(
             )
         )
     diffmotor = diffracto.get_axis(motor_name)
-    if kwargs.get("check_hkl", True) is True:
-        curr_pos = diffmotor.position
-        motor_pos = numpy.linspace(curr_pos + val1, curr_pos + val2, npoints)
-        diffracto.check_lookupscan(motor_name, motor_pos)
     title = "{0} {1} {2} {3} {4}".format(scan_name, val1, val2, npoints, count_time)
     kwargs.update({"type": scan_name, "title": title})
     dscan(diffmotor, val1, val2, npoints, count_time, *counter_args, **kwargs)
@@ -420,9 +414,6 @@ def hklscan(hkl1, hkl2, npoints, count_time, *counter_args, **kwargs):
     k_pos = numpy.linspace(k1, k2, npoints)
     l_pos = numpy.linspace(l1, l2, npoints)
 
-    if kwargs.get("check_hkl", True) is True:
-        diffracto.check_lookupscan("hkl_h", h_pos, "hkl_k", k_pos, "hkl_l", l_pos)
-
     h_motor = diffracto.get_axis("hkl_h")
     k_motor = diffracto.get_axis("hkl_k")
     l_motor = diffracto.get_axis("hkl_l")
@@ -460,9 +451,6 @@ def hkldscan(dhkl1, dhkl2, npoints, count_time, *counter_args, **kwargs):
     h_pos = numpy.linspace(horg + dh1, horg + dh2, npoints)
     k_pos = numpy.linspace(korg + dk1, korg + dk2, npoints)
     l_pos = numpy.linspace(lorg + dl1, lorg + dl2, npoints)
-
-    if kwargs.get("check_hkl", True) is True:
-        diffracto.check_lookupscan("hkl_h", h_pos, "hkl_k", k_pos, "hkl_l", l_pos)
 
     h_motor = diffracto.get_axis("hkl_h")
     k_motor = diffracto.get_axis("hkl_k")
@@ -550,8 +538,7 @@ def _calc_hkl_circle(axis1, axis2, radius, angle_start, angle_stop, npoints, **k
     steps = numpy.linspace(angle_start, angle_stop, npoints)
     pos1 = radius * numpy.sin(numpy.radians(steps))
     pos2 = radius * numpy.cos(numpy.radians(steps))
-    if kwargs.get("check_hkl", True) is True:
-        diffracto.check_lookupscan(axis1, pos1, axis2, pos2)
+
     motpos = list()
     motpos.extend((diffracto.get_axis(axis1), pos1))
     motpos.extend((diffracto.get_axis(axis2), pos2))
@@ -563,8 +550,7 @@ def _calc_hkl_radial(axis1, axis2, angle, start, stop, npoints, **kwargs):
     steps = numpy.linspace(start, stop, npoints)
     pos1 = steps * numpy.sin(numpy.radians(angle))
     pos2 = steps * numpy.cos(numpy.radians(angle))
-    if kwargs.get("check_hkl", True) is True:
-        diffracto.check_lookupscan(axis1, pos1, axis2, pos2)
+
     motpos = list()
     motpos.extend((diffracto.get_axis(axis1), pos1))
     motpos.extend((diffracto.get_axis(axis2), pos2))

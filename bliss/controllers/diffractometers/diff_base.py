@@ -354,22 +354,6 @@ class Diffractometer(object):
                 )
             )
 
-    def check_lookupscan(self, *motpos):
-        pars = list(motpos)
-        motnames = list()
-        motvalues = list()
-        while pars:
-            motnames.append(pars.pop(0))
-            motvalues.append(pars.pop(0))
-        for values in zip(*motvalues):
-            pos_dict = dict(zip(motnames, values))
-            try:
-                self._geometry.set_pseudo_pos(pos_dict)
-            except:
-                self._calc_geo()
-                raise ValueError("Cannot computes geometry for {0}".format(pos_dict))
-        self._calc_geo()
-
     def move_hkl(self, h, k, l):
         self._check_motor_calc()
         h_motor = self._motor_calc.get_axis(self._motor_names["hkl_h"])

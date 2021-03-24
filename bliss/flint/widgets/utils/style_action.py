@@ -36,13 +36,13 @@ class FlintItemStyleAction(PlotAction):
         )
         self.__flintModel = None
         self.__item = None
-        self.plot.sigSelectionChanged.connect(self._itemChanged)
-        self._itemChanged(self.plot.currentItem(), None)
+        self.plot.selection().sigCurrentItemChanged.connect(self._itemChanged)
+        self._itemChanged(None, self.plot.selection().getCurrentItem())
 
     def setFlintModel(self, flintModel):
         self.__flintModel = flintModel
 
-    def _itemChanged(self, item, previous):
+    def _itemChanged(self, previous, item):
         if not isinstance(item, plot_helper.FlintItemMixIn):
             item = None
         if item is None:
@@ -89,13 +89,13 @@ class FlintItemContrastAction(PlotAction):
         )
         self.__flintModel = None
         self.__item = None
-        self.plot.sigSelectionChanged.connect(self._itemChanged)
-        self._itemChanged(self.plot.currentItem(), None)
+        self.plot.selection().sigCurrentItemChanged.connect(self._itemChanged)
+        self._itemChanged(None, self.plot.selection().getCurrentItem())
 
     def setFlintModel(self, flintModel):
         self.__flintModel = flintModel
 
-    def _itemChanged(self, item, previous):
+    def _itemChanged(self, previous, item):
         if not isinstance(item, plot_helper.FlintItemMixIn):
             item = None
         if item is None:

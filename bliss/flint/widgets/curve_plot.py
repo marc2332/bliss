@@ -138,7 +138,7 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         self.__plot.setDataMargins(0.02, 0.02, 0.1, 0.1)
 
         self.setFocusPolicy(qt.Qt.StrongFocus)
-        self.__plot.sigSelectionChanged.connect(self.__selectionChanged)
+        self.__plot.selection().sigCurrentItemChanged.connect(self.__selectionChanged)
         self.__plot.installEventFilter(self)
         self.__plot.getWidgetHandle().installEventFilter(self)
         self.__plot.setBackgroundColor("white")
@@ -320,7 +320,7 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         """Returns the current selected plot item, if one"""
         return self.__selectedPlotItem
 
-    def __selectionChanged(self, current, previous):
+    def __selectionChanged(self, previous, current):
         """Callback executed when the selection from the plot was changed"""
         if isinstance(current, plot_helper.FlintCurve):
             selected = current.customItem()

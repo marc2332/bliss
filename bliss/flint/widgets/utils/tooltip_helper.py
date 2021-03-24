@@ -74,12 +74,10 @@ class TooltipItemManager:
             for i in range(len(indices[0])):
                 yield indices[0][i], indices[1][i]
         elif isinstance(item, Histogram):
-            # Picking with silx 0.12 and histogram is not consistent with other items
-            indices = [i for i in indices if i % 2 == 0]
             if len(indices) == 0:
                 return None, None, None
-            # Drop other picked indexes + patch silx 0.12
-            index = indices[-1] // 2
+            # Drop other picked indexes
+            index = indices[-1]
             yield index
         elif isinstance(item, Curve):
             # Curve picking is picking the segments

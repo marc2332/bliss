@@ -58,5 +58,5 @@ ipython != 7.15.0
 pyopengl
 pyqt >= 5.9
 scipy
-silx == 0.14.1b0
+silx >= 0.15.0a
 sortedcontainers

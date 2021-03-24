@@ -679,7 +679,12 @@ class VariableStepTriggerMaster(AcquisitionMaster):
         self._axes = list()
         nb_points = None
         for _axis, pos_list in grouped(args, 2):
-            _axis.controller.check_limits(_axis, pos_list)
+
+            # this only test trajectory on one axis keeping others at their actual positions.
+            # so it does not test the effective scan trajectory
+            # print("=== _axis, pos_list ", _axis.name, pos_list)
+            # _axis.controller.check_limits(_axis, pos_list)
+
             self._axes.append(_axis)
             if nb_points is None or nb_points == len(pos_list):
                 self._motor_pos.append(pos_list)
@@ -689,6 +694,20 @@ class VariableStepTriggerMaster(AcquisitionMaster):
                     "Motor %s has a %d nbpoints but other has %d nbpoints"
                     % (_axis.name, len(pos_list), nb_points)
                 )
+
+        # sort axes pos per controller id
+        per_ctrls_pos_dict = {}
+        for ax, pos in grouped(args, 2):
+            cid = id(ax.controller)
+            per_ctrls_pos_dict.setdefault(cid, {}).update({ax: pos})
+
+        # check the effective scan trajectory using a list of
+        # coordinates in a N-dim space, with N = len(axes)
+        for pos_dict in per_ctrls_pos_dict.values():
+            # we are sure that all axes of pos_dict have the same ctrl
+            # so take the controller of the first axis
+            ctrl = next(iter(pos_dict)).controller
+            ctrl.check_limits(pos_dict.items())
 
         mot_group = Group(*self._axes)
 

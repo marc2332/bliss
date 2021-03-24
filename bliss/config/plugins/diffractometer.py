@@ -12,7 +12,6 @@ from bliss.common.axis import Axis
 
 
 def load_controller(controller_config):
-    # print("======= LOADING DIFFRACTOMETER CONTROLLER=========")
     diff_name = controller_config["name"]
     diff_geo = controller_config.get("geometry")
     if diff_geo is None:
@@ -63,7 +62,6 @@ def get_axes_info(diffracto):
 
     # get remaining pseudo axis not declared in config
     for axis_name in pseudo_names:
-        # print("remaining pseudo", axis_name)
         axes[axis_name] = (Axis, {"name": axis_name, "tags": axis_name})
 
     return axes
@@ -102,12 +100,10 @@ def create_objects_from_config_node(config, cfg_node):
     if not is_controller:
         obj_name = cfg_node.get("name")
         obj = config.get(obj_name)
-        # print("=== Not a controller: yield", obj_name, obj)
         yield {obj_name: obj}
 
 
 def create_object_from_cache(config, name, controller):
-    # print("=== create_object_from_cache", name, controller)
     try:
         return controller.get_axis(name)
     except:

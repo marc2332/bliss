@@ -260,3 +260,35 @@ def test_prefered_user_refresh():
     assert channel.updatedCount() == 2
     # The last is there
     assert channel.data().frameId() == 9
+
+
+def test_scalar_data_lost():
+    scan_db_name = "scan1"
+    scan_info_1 = {"node_name": scan_db_name, "acquisition_chain": ACQUISITION_CHAIN_1}
+
+    manager = MockedScanManager(flintModel=None)
+    # Disabled async consumption
+
+    manager.emit_scan_started(scan_info_1)
+    scans = manager.get_alive_scans()
+    assert len(scans) == 1
+    assert scans[0].scanInfo() == scan_info_1
+
+    manager.on_scalar_data_received(
+        scan_db_name, "axis:roby", 0, numpy.array([1, 2, 3, 4])
+    )
+
+    manager.on_scalar_data_received(
+        scan_db_name, "axis:roby", 6, numpy.array([5, 6, 7, 8])
+    )
+
+    manager.wait_data_processed()
+
+    manager.on_scan_finished(scan_db_name, scan_info_1)
+
+    scan = scans[0]
+    channel = scan.getChannelByName("axis:roby")
+    array = channel.data().array()
+    numpy.testing.assert_array_equal(
+        array, [1, 2, 3, 4, numpy.nan, numpy.nan, 5, 6, 7, 8]
+    )

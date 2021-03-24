@@ -284,8 +284,13 @@ class ScanManager(bliss_scan.ScansObserver):
         cache = self.__get_scan_cache(scan_db_name)
         if cache is None:
             return
-        # FIXME: The index have to be used in case there is hole between 2 bunch
-        # of data
+
+        size = cache.data_storage.get_data_size(channel_name)
+        if index > size:
+            _logger.error("Data from Redis (channel %s) were lost", channel_name)
+            # Append NaN values
+            cache.data_storage.append_data(channel_name, [numpy.nan] * (index - size))
+
         cache.data_storage.append_data(channel_name, data_bunch)
 
         data_event = _ScalarDataEvent(

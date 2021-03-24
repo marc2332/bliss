@@ -28,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Flint
+    - When Flint is not fast enough to reach data from Redis, NaN values
+      are used in order to keep the data alignment
+
 ### Fixed
 
 - Flint

@@ -10,61 +10,46 @@ import gevent
 import os
 
 
-def execute_in_subprocess(command):
-    script = subprocess.Popen(
-        ["python", "-c", command], stderr=subprocess.PIPE, stdout=subprocess.PIPE
-    )
-
-    output, err = script.communicate()
-    returncode = script.returncode
-    return output.decode(), err.decode(), returncode
-
-
 ROOT = os.path.dirname(__file__)
 
 
 def test_library_script(beacon):
     script = subprocess.Popen(
         ["python", os.path.join(ROOT, "check_library_mode_script.py")],
-        stderr=subprocess.PIPE,
         stdout=subprocess.PIPE,
     )
 
     output, err = script.communicate()
 
-    assert script.returncode == 0
-    assert b"bliss.shell" not in output
-    assert b"SHELL_MODE: False" in output
+    assert script.returncode == 0, output
+    assert b"bliss.shell" not in output, output
+    assert b"SHELL_MODE: False" in output, output
 
 
 def test_shell_script(beacon):
     script = subprocess.Popen(
         ["python", os.path.join(ROOT, "check_shell_mode_script.py")],
-        stderr=subprocess.PIPE,
         stdout=subprocess.PIPE,
     )
 
     output, err = script.communicate()
 
-    assert script.returncode == 0
-    assert b"SHELL_MODE: True" in output
+    assert script.returncode == 0, output
+    assert b"SHELL_MODE: True" in output, output
 
 
 def test_shell_quit(beacon, ports):
     my_env = os.environ.copy()
     my_env["BEACON_HOST"] = f"localhost:{ports.beacon_port}"
     script = subprocess.Popen(
-        ["python", os.path.join(ROOT, "check_shell_quit.py")],
-        stderr=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        env=my_env,
+        ["python", os.path.join(ROOT, "check_shell_quit.py")], env=my_env
     )
 
     try:
         with gevent.Timeout(5):
-            output, err = script.communicate()
+            script.communicate()
     except gevent.Timeout:
-        raise RuntimeError("Session could not be terminated")
+        raise RuntimeError("Session could not be terminated") from None
 
 
 def test_sync_lib_mode(capsys, default_session):
@@ -77,9 +62,12 @@ def test_sync_lib_mode(capsys, default_session):
         "sync(roby)",
     )
 
-    output, err, returncode = execute_in_subprocess(";".join(commands))
+    script = subprocess.Popen(
+        ["python", "-c", ";".join(commands)], stdout=subprocess.PIPE
+    )
 
-    assert "Forcing axes synchronization with hardware" not in output
+    output, err = script.communicate()
 
-    assert returncode == 0
-    assert len(output) == 0
+    assert b"Forcing axes synchronization with hardware" not in output, output
+    assert script.returncode == 0, output
+    assert len(output) == 0, output

@@ -5,7 +5,6 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from numpy import float as npfloat
 import numpy
 from collections import deque
 from bliss.scanning.chain import AcquisitionSlave, ChainNode
@@ -39,7 +38,7 @@ class CalcChannelAcquisitionSlave(AcquisitionSlave):
         and the value as its data.
         Can also be an inherited class of **CalcHook**:
          - the transformation function is the **compute** method.
-         - optionally you can redefine prepare,start,stop. 
+         - optionally you can redefine prepare,start,stop.
     """
 
     def __init__(self, name, src_acq_devices_list, func, output_channels_list):
@@ -64,7 +63,7 @@ class CalcChannelAcquisitionSlave(AcquisitionSlave):
             if isinstance(chan_out, AcquisitionChannel):
                 self.channels.append(chan_out)
             elif isinstance(chan_out, str):
-                self.channels.append(AcquisitionChannel(chan_out, npfloat, ()))
+                self.channels.append(AcquisitionChannel(chan_out, float, ()))
             else:
                 raise TypeError(f"Object '{chan_out}'' is not an AcquisitionChannel")
 

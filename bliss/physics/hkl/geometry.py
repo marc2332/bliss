@@ -81,6 +81,9 @@ class HklGeometry(object):
     def get_engine_names(self):
         return list(self._engines.keys())
 
+    def get_engine_from_pseudo_tag(self, tag):
+        return self.__alias_to_pseudo(tag)[0]
+
     def get_mode_names(self):
         modes = dict()
         for name, engine in list(self._engines.items()):
@@ -245,6 +248,15 @@ class HklGeometry(object):
         return pseudo_pos
 
     def set_pseudo_pos(self, pos_dict):
+        """ set the postion of pseudo axes (from same engine).
+            pos_dict: {pseudoname: position, ...}
+
+            Mixing axes from different engines is not allowed to ensure
+            the unicity of the solution. 
+
+            Returns the closest solution among all solutions proposed by the concerned engine. 
+        """
+
         engine_name = None
         engine_pos = dict()
         for alias, pos in list(pos_dict.items()):
@@ -257,6 +269,7 @@ class HklGeometry(object):
                         "Cannot mix engines {0} and {1}".format(engine_name, engname)
                     )
             engine_pos[name] = pos_dict[alias]
+
         engine = self._engines[engine_name]
         if engine.is_read_only():
             raise ValueError("Cannot set pseudo on engine [{0}]".format(engine_name))

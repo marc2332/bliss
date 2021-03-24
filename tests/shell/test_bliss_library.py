@@ -46,7 +46,7 @@ def test_shell_quit(beacon, ports):
     )
 
     try:
-        with gevent.Timeout(5):
+        with gevent.Timeout(10):
             script.communicate()
     except gevent.Timeout:
         raise RuntimeError("Session could not be terminated") from None

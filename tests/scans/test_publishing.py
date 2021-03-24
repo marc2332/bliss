@@ -788,11 +788,18 @@ def _count_node_events(
         node = datanode_factory(
             db_name, node_type=node_type, on_not_state="instantiate"
         )
-        startlistening_event.set()
         if count_nodes:
-            evgen = node.walk(include_filter=include_filter, wait=wait)
+            evgen = node.walk(
+                include_filter=include_filter,
+                wait=wait,
+                started_event=startlistening_event,
+            )
         else:
-            evgen = node.walk_events(include_filter=include_filter, wait=wait)
+            evgen = node.walk_events(
+                include_filter=include_filter,
+                wait=wait,
+                started_event=startlistening_event,
+            )
         while True:
             try:
                 with gevent.Timeout(overhead + 2):

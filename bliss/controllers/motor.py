@@ -667,6 +667,8 @@ class CalcController(Controller):
             This complementary axes are necessary to compute the reals positions
             via the 'calc_to_real' method. 
 
+            Args: 
+                axes: list of Axis objects
             Return: {axis_tag:dial_pos, ...}
         """
 
@@ -715,8 +717,12 @@ class CalcController(Controller):
     def start_one(self, motion):
         self.start_all(motion)
 
+    def _get_motion_pos_dict(self, motion_list):
+        """ get all necessary pseudos with their positions to compute calc_to_real"""
+        return self._get_set_positions()
+
     def start_all(self, *motion_list):
-        positions_dict = self._get_set_positions()
+        positions_dict = self._get_motion_pos_dict(motion_list)
         move_dict = dict()
         for tag, target_pos in self.calc_to_real(positions_dict).items():
             real_axis = self._tagged[tag][0]

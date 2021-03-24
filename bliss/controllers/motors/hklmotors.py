@@ -11,7 +11,7 @@ from bliss.physics import trajectory
 from bliss.common import event
 from bliss.common.axis import Trajectory
 from bliss.common.motor_group import TrajectoryGroup
-from bliss.common.utils import object_method
+from bliss.common.utils import all_equal, object_method, grouped
 
 
 class HKLMotors(CalcController):
@@ -47,34 +47,141 @@ class HKLMotors(CalcController):
         super().initialize_axis(axis)
         axis.no_offset = True
 
-    def start_all(self, *motion_list):
+    def get_axis_engine(self, axis):
+        return self.diffracto.geometry.get_engine_from_pseudo_tag(self._axis_tag(axis))
+
+    def _get_complementary_pseudos_pos_dict(self, axes):
+        """ Find the other pseudos which are not in 'axes' and get their actual position.
+            This complementary axes are necessary to compute the reals positions
+            via the 'calc_to_real' method. 
+
+            The pseudo axes of other engines are excluded. 
+
+            Args: 
+                axes: list of Axis objects
+            Return: {axis_tag:dial_pos, ...}
+        """
+
+        # get engine of axes and check is unique
+        engines = set([self.get_axis_engine(ax) for ax in axes])
+        if len(engines) != 1:
+            raise ValueError(
+                f"cannot mix axes from different engines {[ax.name for ax in axes]}"
+            )
+        engine = engines.pop()
+
+        # get complementary axes for selected engine
+        axis_to_positions = {}
+        for axis in self.pseudos:
+            if axis not in axes and self.get_axis_engine(axis) == engine:
+                axis_to_positions[self._axis_tag(axis)] = axis.user2dial(
+                    axis._set_position
+                )
+
+        return axis_to_positions
+
+    def _get_motion_pos_dict(self, motion_list):
+        """ Get all necessary pseudos with their positions to compute calc_to_real
+            Only single 
+        """
+
         positions_dict = dict()
         for motion in motion_list:
-            positions_dict[self._axis_tag(motion.axis)] = motion.target_pos
+            # positions_dict[self._axis_tag(motion.axis)] = motion.target_pos
+            positions_dict[self._axis_tag(motion.axis)] = motion.axis.user2dial(
+                motion.axis._set_position
+            )
 
-        move_dict = dict()
-        for tag, target_pos in self.calc_to_real(positions_dict).items():
-            real_axis = self._tagged[tag][0]
-            move_dict[real_axis] = target_pos
+        # get complementary pseudos
+        axes = [m.axis for m in motion_list]
+        cmpl = self._get_complementary_pseudos_pos_dict(axes)
+        positions_dict.update(cmpl)
 
-        # force a global position update in case phys motors never move
-        self._calc_from_real()
-        self._reals_group.move(move_dict, wait=False)
+        return positions_dict
 
     def calc_to_real(self, positions_dict):
-        print("=== calc_to_real", positions_dict)
-        if len(self._frozen_angles):
-            self.diffracto.geometry.set_axis_pos(self._frozen_angles, update=False)
-        self.diffracto.geometry.set_pseudo_pos(positions_dict)
-        return self.diffracto.geometry.get_axis_pos()
+        """ computes real pos from pseudo pos.
+            positions_dict must provide all pseudo of specific engine.
+            do not mix pseudos from different engines.
+        """
+
+        # try expecting array of positions per axis
+        try:
+            k = positions_dict.keys()
+            v = positions_dict.values()
+            nbr_pos = [len(x) for x in v]
+            if not all_equal(nbr_pos):
+                raise ValueError(
+                    f"all axes must provide same number of positions {positions_dict}"
+                )
+            n = nbr_pos[0]
+
+        # exception on len(x) => one position per axis
+        except TypeError:
+            if len(self._frozen_angles):
+                self.diffracto.geometry.set_axis_pos(self._frozen_angles, update=False)
+            self.diffracto.geometry.set_pseudo_pos(positions_dict)
+            return self.diffracto.geometry.get_axis_pos()
+
+        else:
+            # transform dict of list to list of dict
+            # eg: {pseudo:[pos1, pos2]} into [ {pseudo:pos1}, {pseudo:pos2} ]
+            dict_list = [dict(zip(k, [x[i] for x in v])) for i in range(n)]
+
+            # build output {real:[pos1, pos2, ...], ...}
+            real_pos = {}
+            for d in dict_list:
+                if len(self._frozen_angles):
+                    self.diffracto.geometry.set_axis_pos(
+                        self._frozen_angles, update=False
+                    )
+                self.diffracto.geometry.set_pseudo_pos(d)
+                rp = self.diffracto.geometry.get_axis_pos()
+                for x, y in rp.items():
+                    real_pos.setdefault(x, []).append(y)
+
+            return real_pos
 
     def calc_from_real(self, real_positions):
-        print("=== calc_from_real", real_positions)
+        """ computes pseudo pos from real pos.
+            positions_dict must provide positions of all reals.
+        """
+
         energy = real_positions.pop("energy", None)
-        if energy is not None:
-            self.diffracto.geometry.set_energy(energy)
-        self.diffracto.geometry.set_axis_pos(real_positions)
-        return self.diffracto.geometry.get_pseudo_pos()
+
+        # try expecting array of positions per axis
+        try:
+            k = real_positions.keys()
+            v = real_positions.values()
+            nbr_pos = [len(x) for x in v]
+            assert all_equal(nbr_pos)
+            n = nbr_pos[0]
+            assert len(energy) == n
+
+        # exception on len(x) => one position per axis
+        except TypeError:
+            if energy is not None:
+                self.diffracto.geometry.set_energy(energy)
+            self.diffracto.geometry.set_axis_pos(real_positions)
+            return self.diffracto.geometry.get_pseudo_pos()
+
+        else:
+            energy = real_positions.pop("energy", None)
+            # transform dict of list to list of dict
+            # eg: {real:[pos1, pos2]} into [ {real:pos1}, {real:pos2} ]
+            dict_list = [dict(zip(k, [x[i] for x in v])) for i in range(n)]
+
+            # build output {pseudo:[pos1, pos2, ...], ...}
+            pseudo_pos = {}
+            for idx, d in enumerate(dict_list):
+                if energy is not None:
+                    self.diffracto.geometry.set_energy(energy[idx])
+                self.diffracto.geometry.set_axis_pos(d)
+                rp = self.diffracto.geometry.get_pseudo_pos()
+                for x, y in rp.items():
+                    pseudo_pos.setdefault(x, []).append(y)
+
+            return pseudo_pos
 
     def update(self):
         self._calc_from_real()

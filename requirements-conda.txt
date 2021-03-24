@@ -13,7 +13,7 @@ h5py == 2.10
 hiredis
 jedi == 0.17.2
 jinja2 >= 2.7
-louie >= 2.0
+louie >= 2.0=py_1
 mendeleev
 mock
 msgpack-numpy >= 0.4.4.2

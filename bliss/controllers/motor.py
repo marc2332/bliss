@@ -632,14 +632,9 @@ class CalcController(Controller):
                 f"Axes {axes} doesn't have the same number of positions to check"
             )
 
-        # we supposed that only all other axis
-        # stay at their current position
+        axis_to_positions = self._get_complementary_pseudos_pos_dict(axes)
+
         position_len = positions_len[0]
-        axis_to_positions = {
-            self._axis_tag(axis): axis.user2dial(axis._set_position)
-            for axis in self.pseudos
-            if axis not in axes
-        }
         if position_len > 1:
             # need to extend other
             axis_to_positions = {
@@ -666,6 +661,20 @@ class CalcController(Controller):
                     message = e.args[0]
                     new_message = f"{', '.join([axis.name for axis in axes])} move to {positions} error:\n{message}"
                     raise ValueError(new_message)
+
+    def _get_complementary_pseudos_pos_dict(self, axes):
+        """ Find the other pseudos which are not in 'axes' and get their actual position.
+            This complementary axes are necessary to compute the reals positions
+            via the 'calc_to_real' method. 
+
+            Return: {axis_tag:dial_pos, ...}
+        """
+
+        return {
+            self._axis_tag(axis): axis.user2dial(axis._set_position)
+            for axis in self.pseudos
+            if axis not in axes
+        }
 
     def _do_calc_from_real(self):
         real_positions_by_axis = self._reals_group.position

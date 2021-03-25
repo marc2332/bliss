@@ -149,6 +149,17 @@ class PaceController:
 
 
 class Pace(Controller):
+    def __init__(self, config):
+        super().__init__(config)
+
+        self._hw_controller = None
+        self._channels = list()
+
+    @property
+    def hw_controller(self):
+        if self._hw_controller is None:
+            self._hw_controller = PaceController(self.config)
+        return self._hw_controller
 
     # ------ init methods ------------------------
 
@@ -156,7 +167,7 @@ class Pace(Controller):
         """ 
         Initializes the controller (including hardware).
         """
-        self.hw_controller = PaceController(self.config)
+        self.hw_controller
 
     def initialize_input(self, tinput):
         """
@@ -196,6 +207,7 @@ class Pace(Controller):
         if tloop.output.channel != tloop.input.channel:
             raise ValueError("output channel != input channel on loop {tloop.name}")
         tloop._channel = tloop.output.channel
+        self._channels.append(tloop.channel)
 
     # ------ get methods ------------------------
 
@@ -420,6 +432,7 @@ class Pace(Controller):
            **kwargs: auxilliary arguments
         """
         log_info(self, "Controller:start_ramp: %s %s" % (tloop, sp))
+        self.hw_controller.set_output_state(tloop.channel, True)
         self.hw_controller.set_setpoint(tloop.channel, sp)
 
     def stop_ramp(self, tloop):
@@ -604,3 +617,31 @@ class Pace(Controller):
         """
         log_info(self, "Controller:get_output_ramprate: %s" % (toutput))
         raise NotImplementedError
+
+    # --- Custom methods ------------------------------
+
+    def __info__(self):
+        infos = self.hw_controller.__info__()
+        for chan in self._channels:
+            state = self.hw_controller.get_output_state(chan)
+            info += "\nCHANNEL #{chan}: {state}"
+        return infos
+
+    def status(self):
+        return self.hw_controller.get_status()
+
+    def set_on(self, channel=None):
+        if channel is None:
+            for chan in self._channels:
+                self.hw_controller.set_output_state(chan, True)
+        else:
+            self.hw_controller.set_output_state(channel, True)
+
+    def set_off(self, channel=None):
+        if channel is None:
+            for chan in self._channels:
+                self.hw_controller.set_output_state(chan, False)
+        self.hw_controller.set_output_state(channel, False)
+
+    def is_on(self, channel):
+        return self.hw_controller.get_output_state(channel)

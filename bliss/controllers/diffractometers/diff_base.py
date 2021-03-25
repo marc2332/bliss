@@ -142,6 +142,12 @@ class Diffractometer(object):
         self._calc_geo()
         return self._geometry.info(self._motor_names)
 
+    def __del__(self):
+        self._close()
+
+    def _close(self):
+        self.calc_controller.close()
+
     @property
     def config(self):
         return self._config

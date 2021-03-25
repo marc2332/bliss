@@ -458,7 +458,7 @@ def hkldscan(dhkl1, dhkl2, npoints, count_time, *counter_args, **kwargs):
 
     motpos_args = [(h_motor, h_pos), (k_motor, k_pos), (l_motor, l_pos)]
 
-    kwargs.setdefault("type", "hkldscan")
+    kwargs.setdefault("scan_type", "hkldscan")
     kwargs.setdefault("name", "hkldscan")
     kwargs.setdefault(
         "title", "hkldscan {0} {1} {2} {3}".format(dhkl1, dhkl2, npoints, count_time)

@@ -173,6 +173,7 @@ def test_zaxis(default_session):
     pos_or1 = {"mu": 0.1, "omega": -6.761, "delta": 11.7369, "gamma": 6.5328}
     reflist = (hkl_or0 + tuple(pos_or0.values()), hkl_or1 + tuple(pos_or1.values()))
 
+    diode = default_session.config.get("diode")
     mu = default_session.config.get("roby")
     omega = default_session.config.get("robu")
     delta = default_session.config.get("robz")
@@ -235,14 +236,14 @@ def test_zaxis(default_session):
     hkl.showUB()
     hkl.geolimits()
 
-    hkl.unfreeze()
+    hkl.hscan(1, 2, 10, 0.1, diode)
+    hkl.kscan(1, 2, 10, 0.1, diode)
+    hkl.lscan(1, 2, 10, 0.1, diode)
+    hkl.hklscan((0, 1, 0), (0, 1, 6), 10, 0.1, diode)
 
-    hkl.hscan(1, 2, 10, 0.1)
-    hkl.kscan(1, 2, 10, 0.1)
-    hkl.lscan(1, 2, 10, 0.1)
-    hkl.hklscan((0, 1, 0), (0, 1, 6), 10, 0.1)
+    hkl.hdscan(1, 2, 10, 0.1, diode)
+    hkl.kdscan(1, 2, 10, 0.1, diode)
+    hkl.ldscan(1, 2, 10, 0.1, diode)
+    hkl.hkldscan((0, 1, 0), (0, 1, 6), 10, 0.1, diode)
 
-    hkl.hdscan(1, 2, 10, 0.1)
-    hkl.kdscan(1, 2, 10, 0.1)
-    hkl.ldscan(1, 2, 10, 0.1)
-    hkl.hkldscan((0, 1, 0), (0, 1, 6), 10, 0.1)
+    z._close()

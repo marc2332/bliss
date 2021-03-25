@@ -20,13 +20,20 @@ class HKLMotors(CalcController):
         self.diffracto = diffractometer
         self._frozen_angles = dict()
 
-    def initialize(self, *args, **kws):
-        super(HKLMotors, self).initialize(*args, **kws)
+    def initialize(self):
+        super().initialize()
         self.update_limits()
         for axis in self.reals:
             if self._axis_tag(axis) != "energy":
                 event.connect(axis, "low_limit", self.update_limits)
                 event.connect(axis, "high_limit", self.update_limits)
+
+    def close(self):
+        for axis in self.reals:
+            if self._axis_tag(axis) != "energy":
+                event.disconnect(axis, "low_limit", self.update_limits)
+                event.disconnect(axis, "high_limit", self.update_limits)
+        super().close()
 
     def update_limits(self, *args):
         geo_limits = self.diffracto.geometry.get_axis_limits()

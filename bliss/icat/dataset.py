@@ -149,12 +149,16 @@ class Dataset(DataPolicyObject):
     @autocomplete_property
     def collection(self):
         if self._collection is None:
-            self._collection = DatasetCollection(self._node.parent)
+            if self._node.parent is not None:
+                self._collection = DatasetCollection(self._node.parent)
         return self._collection
 
     @autocomplete_property
     def proposal(self):
-        return self.collection.proposal
+        if self.collection is None:
+            return None
+        else:
+            return self.collection.proposal
 
     @property
     def parent(self):

@@ -28,7 +28,7 @@ from bliss.data.node import datanode_factory
 from bliss.scanning.writer.null import Writer as NullWriter
 from bliss.scanning import writer as writer_module
 from bliss.common.proxy import Proxy
-from bliss.common.logtools import elog_info, user_print, user_warning
+from bliss.common import logtools
 from bliss.icat.ingester import IcatIngesterProxy
 from bliss.config.static import get_config
 from bliss.config.settings import scan as scan_redis
@@ -889,7 +889,7 @@ class ESRFScanSaving(BasicScanSaving):
 
     @property
     def sample(self):
-        user_warning("Use 'collection' instead of 'sample'")
+        logtools.user_warning("Use 'collection' instead of 'sample'")
         return self.collection
 
     @property_with_eval_dict
@@ -1370,8 +1370,8 @@ class ESRFScanSaving(BasicScanSaving):
         # beware: self.proposal getter and setter do different actions
         self.proposal_name = proposal_name
         msg = f"Proposal set to '{self.proposal}'\nData path: {self.get_path()}"
-        elog_info(msg)
-        user_print(msg)
+        logtools.elog_info(msg)
+        logtools.user_print(msg)
         self._on_data_policy_changed(f"Proposal set to '{self.proposal}'")
 
     def newcollection(self, collection_name, sample_name=None, sample_description=None):
@@ -1379,8 +1379,8 @@ class ESRFScanSaving(BasicScanSaving):
         # beware: self.collection getter and setter do different actions
         self.collection_name = collection_name
         msg = f"Dataset collection set to '{self.collection}'\nData path: {self.root_path}"
-        elog_info(msg)
-        user_print(msg)
+        logtools.elog_info(msg)
+        logtools.user_print(msg)
         self._on_data_policy_changed(f"Dataset collection set to '{self.collection}'")
         # fill metadata if provided
         if sample_name:
@@ -1416,8 +1416,8 @@ class ESRFScanSaving(BasicScanSaving):
             raise
 
         msg = f"Dataset set to '{self.dataset}'\nData path: {self.root_path}"
-        elog_info(msg)
-        user_print(msg)
+        logtools.elog_info(msg)
+        logtools.user_print(msg)
         self._on_data_policy_changed(f"Dataset set to '{self.dataset_name}'")
 
         if sample_name:
@@ -1526,10 +1526,41 @@ class ESRFScanSaving(BasicScanSaving):
                 # The dataset is not fully defined or does not exist.
                 # Do nothing in that case.
                 dataset = None
+
         if dataset is not None:
             if not dataset.is_closed:
-                # Finalize in Redis and send to ICAT
-                dataset.close(self.icat_proxy)
+                try:
+                    # Finalize in Redis and send to ICAT
+                    dataset.close(self.icat_proxy)
+                except Exception as e:
+                    if (
+                        not dataset.node.exists
+                        or dataset.collection is None
+                        or dataset.proposal is None
+                        or not dataset.collection.node.exists
+                        or not dataset.proposal.node.exists
+                    ):
+                        # Failure due to missing Redis nodes: recreate them and try again
+                        self.get_parent_node(create=True)
+                        dataset = self._get_dataset_object(
+                            create=False, eval_dict=eval_dict
+                        )
+                        try:
+                            dataset.close(self.icat_proxy)
+                        except Exception as e2:
+                            self._dataset_object = None
+                            self._dataset = ""
+                            raise RuntimeError("The dataset cannot be closed.") from e2
+                        else:
+                            self._dataset_object = None
+                            self._dataset = ""
+                            logtools.elog_warning(
+                                f"The ICAT metadata of {self._dataset} is incomplete."
+                            )
+                            raise RuntimeError(
+                                "The dataset was closed but its ICAT metadata is incomplete."
+                            ) from e
+
         self._dataset_object = None
         self._dataset = ""
 

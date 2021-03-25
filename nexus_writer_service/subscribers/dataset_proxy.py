@@ -108,7 +108,7 @@ class DatasetProxy(BaseProxy):
         """
         :param str filename: HDF5 file name
         :param str filecontext: HDF5 open context manager
-        :param str parent: path in the HDF5 file
+        :param str parent: path in the HDF5 file (must already exist)
         :param dict device: defined in module `scan_writers.devices`
         :param tuple scan_shape: zeros indicate variable length
         :param tuple scan_save_shape: zeros indicate variable length
@@ -315,25 +315,23 @@ class DatasetProxy(BaseProxy):
         :param str file_format: if not specified, uris will be saved as strings
         """
         if self.is_internal:
-            msg = "{} already has internal data".format(self)
+            msg = f"{self} already has internal data"
             raise RuntimeError(msg)
         if file_format == "hdf5":
             if self._external_raw or self._external_names:
-                msg = "{} cannot mix HDF5 with other formats".format(self)
+                msg = f"{self} cannot mix HDF5 with other formats"
                 raise RuntimeError(msg)
             self._external_datasets += newdata
             self.npoints = len(self._external_datasets)
         elif file_format in self._external_raw_formats:
             if self._external_datasets or self._external_names:
-                msg = "{} cannot mix {} with other formats".format(
-                    self, file_format.upper()
-                )
+                msg = f"{self} cannot mix {repr(file_format)} with other formats"
                 raise RuntimeError(msg)
             self._external_raw += newdata
             self.npoints = len(self._external_raw)
         else:
             if self._external_datasets or self._external_raw:
-                msg = "{} cannot mix file formats".format(self)
+                msg = f"{self} cannot mix file formats"
                 raise RuntimeError(msg)
             self._external_names += newdata
             self.npoints = len(self._external_names)
@@ -346,7 +344,7 @@ class DatasetProxy(BaseProxy):
         :param array-like newdata: shape = (nnew, ) + detector_shape
         """
         if self.is_external:
-            msg = "{} already has external data".format(self)
+            msg = f"{self} already has external data"
             raise RuntimeError(msg)
         super().add(newdata)
 
@@ -516,6 +514,9 @@ class DatasetProxy(BaseProxy):
         value = {"fillvalue": self.fillvalue, "dtype": self.dtype}
         if self._external_datasets:
             files, nuris, fill_generator = self._external_dataset_uris()
+            if not nuris:
+                self.logger.warning("No data to create a virtual dataset")
+                return None
             value["data"] = files
             value["order"] = self.saveorder
             value["fill_generator"] = fill_generator
@@ -526,29 +527,28 @@ class DatasetProxy(BaseProxy):
             if nexus.HASVIRTUAL:
                 value["shape"] = self.current_shape
                 self.logger.info(
-                    "merge {} URIs from {} files as a virtual dataset".format(
-                        nuris, len(files)
-                    )
+                    f"merge {nuris} URIs from {len(files)} files as a virtual dataset"
                 )
             else:
                 value["compression"] = self.compression
                 value["chunks"] = self.chunks
                 self.logger.info(
-                    "merge {} URIs from {} files as a copy (VDS not supported)".format(
-                        nuris, len(files)
-                    )
+                    f"merge {nuris} URIs from {len(files)} files as a copy (VDS not supported)"
                 )
         elif self._external_raw:
-            self._get_external_raw(value)
+            nuris = self._get_external_raw(value)
+            if not nuris:
+                self.logger.warning("No data to create an external dataset")
+                return None
             # Same number of external files as nframes
             nframes = shape_to_size(self.current_scan_save_shape)
             ext = os.path.splitext(self._external_raw[0][0])[-1]
             filename = self._dummy_filename(ext)
             nskip = h5_external.resize(value, nframes, filename, value["fillvalue"])
             if nskip > 0:
-                self.logger.warning("Skip {} files".format(nskip))
+                self.logger.warning(f"Skip {nskip} files")
             elif nskip < 0:
-                self.logger.warning("Missing {} files".format(nskip))
+                self.logger.warning(f"Missing {nskip} files")
             # Finalize arguments
             fillorder = self.saveorder
             addorder = Order()
@@ -563,16 +563,14 @@ class DatasetProxy(BaseProxy):
             value["shape"] = self.current_shape
             value["chunks"] = None
             nuris = len(value.get("external", []))
-            self.logger.info(
-                "merge {} URIs as an external (non-HDF5) dataset".format(nuris)
-            )
+            self.logger.info("merge {nuris} URIs as an external (non-HDF5) dataset")
         elif self._external_names:
             value = []
             dirname = os.path.dirname(self.filename)
             for filename, ind in self._external_names:
                 filename = os.path.relpath(filename, dirname)
-                value.append("{}::{}".format(filename, ind))
-            self.logger.info("merge {} URIs as a list of strings".format(len(value)))
+                value.append(f"{filename}::{ind}")
+            self.logger.info(f"merge {len(value)} URIs as a list of strings")
         else:
             value["shape"] = self.current_shape
             value["chunks"] = self.chunks
@@ -730,14 +728,12 @@ class DatasetProxy(BaseProxy):
                         raise
                 else:
                     if uri:
-                        self.logger.debug("Got URI from file {}".format(filename))
+                        self.logger.debug(f"Got URI from file {filename}")
                         uridict[filename] = uri
                         break
                     else:
                         if not mon.is_growing():
-                            raise RuntimeError(
-                                "Cannot get URI from file {}".format(filename)
-                            )
+                            raise RuntimeError(f"Cannot get URI from file {filename}")
                 sleep(0.1)
         return [
             (uridict[nexus.splitUri(uri)[0]], i) for uri, i in self._external_datasets
@@ -759,6 +755,7 @@ class DatasetProxy(BaseProxy):
                 else:
                     break
                 sleep(0.1)
+        return len(createkwargs.get("external", []))
 
     @property
     def is_external(self):
@@ -799,11 +796,18 @@ class DatasetProxy(BaseProxy):
         Create the dataset
         """
         parent = nxroot[self.parent]
-        nexus.nxCreateDataSet(parent, self.name, self._dset_value, self._dset_attrs)
+        value = self._dset_value
+        if value:
+            attrs = self._dset_attrs
+            nexus.nxCreateDataSet(parent, self.name, value, attrs)
+            self._exists = True
+
+    def _create_parent(self, nxroot):
+        raise RuntimeError("Parent must exist already")
 
     @property
     def _progress_log_string(self):
-        return " ({})".format(format_bytes(self.current_bytes))
+        return f" ({format_bytes(self.current_bytes)})"
 
     def reshape(self, scan_save_shape, detector_shape=None):
         """
@@ -837,7 +841,7 @@ class DatasetProxy(BaseProxy):
         :param tuple or None detector_shape:
         :return bool:
         """
-        with self.open(ensure_existance=True) as dset:
+        with self.open(create=False) as dset:
             if dset is None:
                 self.logger.warning("Cannot reshape internal dataset before creation")
                 return False
@@ -847,11 +851,11 @@ class DatasetProxy(BaseProxy):
             else:
                 newshape = detector_shape + scan_save_shape
             if dset.shape != newshape:
-                self.logger.info("reshape from {} to {}".format(shape, newshape))
+                self.logger.info(f"reshape from {shape} to {newshape}")
                 try:
                     dset.resize(newshape)
                 except TypeError as e:
-                    self.logger.warning("Cannot be reshaped because '{}'".format(e))
+                    self.logger.warning(f"Cannot be reshaped because '{e}'")
                 else:
                     return True
         return False
@@ -878,11 +882,11 @@ class DatasetProxy(BaseProxy):
         if npoints != nlst:
             if npoints < nlst:
                 nremove = nlst - npoints
-                self.logger.info("remove {} points".format(nremove))
+                self.logger.info(f"remove {nremove} points")
                 lst = lst[:npoints]
             else:
                 nadd = npoints - nlst
-                self.logger.info("add {} dummy points".format(nadd))
+                self.logger.info(f"add {nadd} dummy points")
                 lst += self._dummy_uris(nadd)
             if self._external_datasets:
                 self._external_datasets = lst
@@ -936,15 +940,21 @@ class DatasetProxy(BaseProxy):
         name = "_".join(map(str, self.current_detector_shape)) + "_" + self.dtype_name
         return os.path.join(dirname, "dummy", "dummy_" + name + ext)
 
-    def add_metadata(self, treedict, parent=False, **kwargs):
+    def add_metadata(self, treedict, parent=False, create=False, **kwargs):
         """
         Add datasets/attributes (typically used for metadata)
 
         :param dict treedict:
         :param bool parent:
+        :param bool create: create destination when it does not exist
         :param kwargs: see `dicttonx`
         """
-        with self.open(ensure_existance=True) as destination:
-            if parent:
-                destination = destination.parent
-            dictdump.dicttonx(treedict, destination, **kwargs)
+        if parent:
+            ctx = self.open_parent
+        else:
+            ctx = self.open
+        with ctx(create=create) as destination:
+            if destination is None:
+                self.logger.error("Cannot add metadata before creation")
+            else:
+                dictdump.dicttonx(treedict, destination, **kwargs)

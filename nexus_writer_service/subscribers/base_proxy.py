@@ -37,12 +37,16 @@ class BaseProxy(abc.ABC):
             filecontext = self._filecontext
         self.filename = filename
         self.filecontext = filecontext
-        self.parent = parent
+        if parent is None:
+            self.parent = ""
+        else:
+            self.parent = parent
         if parentlogger is None:
             parentlogger = logger
         self.logger = CustomLogger(parentlogger, self)
         self.npoints = 0
-        self.__exists = False
+        self._exists = False
+        self._parent_exists = False
 
     def __repr__(self):
         if self.name:
@@ -52,6 +56,8 @@ class BaseProxy(abc.ABC):
 
     @property
     def path(self):
+        """Path inside the file of the dataset
+        """
         if self.name:
             return "/".join([self.parent, self.name])
         else:
@@ -59,10 +65,20 @@ class BaseProxy(abc.ABC):
 
     @property
     def uri(self):
+        """Full URI of the dataset
+        """
         return self.filename + "::" + self.path
+
+    @property
+    def parent_uri(self):
+        """Full URI of the parent
+        """
+        return self.filename + "::" + self.parent
 
     @abc.abstractproperty
     def name(self):
+        """Name of the dataset inside the file
+        """
         pass
 
     @contextmanager
@@ -70,14 +86,29 @@ class BaseProxy(abc.ABC):
         with nexus.nxRoot(self.filename, mode="a") as nxroot:
             yield nxroot
 
-    def ensure_existance(self):
+    def create(self):
+        """Skipped when it already exists. It may not exist after creation.
+        """
+        self.create_parent()
+        if self.exists:
+            return
         with self.filecontext() as nxroot:
-            if self.exists:
-                return
             self._create(nxroot)
+
+    def create_parent(self):
+        """Skipped when it already exists. It may not exist after creation.
+        """
+        if self.parent_exists:
+            return
+        with self.filecontext() as nxroot:
+            self._create_parent(nxroot)
 
     @abc.abstractmethod
     def _create(self, nxroot):
+        pass
+
+    @abc.abstractmethod
+    def _create_parent(self, nxroot):
         pass
 
     @property
@@ -85,25 +116,51 @@ class BaseProxy(abc.ABC):
         """
         :returns bool:
         """
-        if self.__exists:
+        if self._exists:
             return True
         with self.filecontext() as nxroot:
-            self.__exists = exists = self.path in nxroot
+            self._exists = exists = self.path in nxroot
+            return exists
+
+    @property
+    def parent_exists(self):
+        """
+        :returns bool:
+        """
+        if self._parent_exists:
+            return True
+        with self.filecontext() as nxroot:
+            self._parent_exists = exists = self.parent in nxroot
             return exists
 
     @contextmanager
-    def open(self, ensure_existance=False):
+    def open(self, create=False):
         """
-        :param bool ensure_existance:
+        :param bool create: when missing
         :yields h5py.Dataset or None:
         """
         with self.filecontext() as nxroot:
-            if ensure_existance:
-                self.ensure_existance()
-            if self.path in nxroot:
+            if create and not self.exists:
+                self.create()
+            try:
                 yield nxroot[self.path]
-            else:
+            except Exception:
                 self.logger.warning(repr(self.uri) + " does not exist")
+                yield None
+
+    @contextmanager
+    def open_parent(self, create=False):
+        """
+        :param bool create: when missing
+        :yields h5py.Group or None:
+        """
+        with self.filecontext() as nxroot:
+            if create and not self.parent_exists:
+                self.parent_create()
+            try:
+                yield nxroot[self.parent]
+            except Exception:
+                self.logger.warning(repr(self.parent_uri) + " does not exist")
                 yield None
 
     def add(self, newdata):
@@ -112,10 +169,12 @@ class BaseProxy(abc.ABC):
 
         :param sequence newdata:
         """
-        with self.open(ensure_existance=True) as destination:
+        if not len(newdata):
+            return
+        with self.open(create=True) as destination:
             try:
                 self.npoints += self._insert_data(destination, newdata)
-            except TypeError as e:
+            except Exception as e:
                 self.logger.error(e)
                 raise
 

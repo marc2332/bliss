@@ -77,9 +77,15 @@ class ReferenceProxy(BaseProxy):
             nexus.createLink(group, linkname, uri)
         return len(newuris)
 
-    def _create(self, nxroot):
+    def _create_parent(self, nxroot):
+        """Create the group which will contain the links
         """
-        Create the group which will contain the links
-        """
-        grp = nxroot.create_group(self.path)
+        grp = nxroot.create_group(self.parent)
         grp.attrs["NX_class"] = "NXcollection"
+        self._parent_exists = True
+
+    def _create(self, nxroot):
+        """Create the group which will contain the links
+        """
+        self._create_parent(nxroot)
+        self._exists = True

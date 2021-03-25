@@ -44,6 +44,10 @@ rois = {"roi4": LimaLineRoi(100, 200, 100, 300)}
 for lima in objects_of_type(Lima).values():
     lima.roi_profiles.update(rois)
 
+rois = {"roi5": LimaRoi(340, 400, 100, 300), "roi6": LimaRoi(120, 200, 200, 150)}
+for lima in objects_of_type(Lima).values():
+    lima.roi_collection.update(rois)
+
 
 # Add mca ROI's
 rois = {"roi1": (500, 550), "roi2": (600, 650), "roi3": (700, 750)}

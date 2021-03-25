@@ -3,9 +3,20 @@ from bliss.comm.util import get_comm
 from bliss.common.logtools import log_info, log_debug, log_error
 from bliss.controllers.regulator import Controller
 
+
 class PaceController:
     MODES = ["LIN", "MAX"]
     UNITS = ["ATM", "BAR", "MBAR", "PA", "HPA", "KPA", "MPA", "TORR", "KG/M2"]
+    STATUS = {
+        1 << 0: "Vent complete",
+        1 << 1: "Range change complete",
+        1 << 2: "In-limits reached",
+        1 << 3: "Zero complete",
+        1 << 4: "Auto-zero started",
+        1 << 5: "Fill time, timed-out",
+        1 << 7: "Range compare alarm",
+        1 << 8: "Switch contacts changed state",
+    }
 
     def __init__(self, config):
         self.comm = get_comm(config)
@@ -65,13 +76,13 @@ class PaceController:
             log_error(self, errmsg)
             raise RuntimeError(errmsg)
 
-    def set_mode(self, channel, mode):
+    def set_rampmode(self, channel, mode):
         umode = mode.upper()
         if umode not in self.MODES:
             raise ValueError(f"Invalid mode {umode}")
         self.send_command(f"SOUR{channel:1d}:SLEW:MODE {umode}")
 
-    def get_mode(self, channel):
+    def get_rampmode(self, channel):
         cmd = f"SOUR{channel:1d}:SLEW:MODE"
         resp = self.query_command(cmd)
         return str(resp)
@@ -111,6 +122,32 @@ class PaceController:
         resp = self.query_command(cmd)
         return float(resp)
 
+    def set_output_state(self, channel, value):
+        intval = value is True and 1 or 0
+        cmd = f":OUTP{channel:1d}:STAT {intval}"
+        self.send_command(cmd)
+
+    def get_output_state(self, channel):
+        cmd = f":OUTP{channel:1d}:STAT"
+        resp = self.query_command(cmd)
+        return int(resp) == 1
+
+    def is_in_limits(self, channel):
+        cmd = f":SENS:PRES:INL"
+        resp = self.query_command(cmd)
+        return int(resp) == 1
+
+    def get_status(self):
+        cmd = f":STAT:OPER:COND"
+        state = int(self.query_command(cmd))
+        status = ""
+        for (value, text) in self.STATUS.items():
+            if state & value:
+                status += test
+                status += "\n"
+        return status
+
+
 class Pace(Controller):
 
     # ------ init methods ------------------------
@@ -129,7 +166,10 @@ class Pace(Controller):
            tinput:  Input class type object          
         """
         if tinput.channel is None:
-            tinput._channel = 1 
+            tinput._channel = 1
+        config_unit = tinput.config.get("unit", None)
+        if config_unit is not None:
+            self.hw_controller.set_unit(tinput.channel, config_unit)
         tinput.config["unit"] = self.hw_controller.get_unit(tinput.channel)
 
     def initialize_output(self, toutput):
@@ -141,6 +181,9 @@ class Pace(Controller):
         """
         if toutput.channel is None:
             toutput._channel = 1
+        config_unit = toutput.config.get("unit", None)
+        if config_unit is not None:
+            self.hw_controller.set_unit(toutput.channel, config_unit)
         toutput.config["unit"] = self.hw_controller.get_unit(toutput.channel)
 
     def initialize_loop(self, tloop):
@@ -150,6 +193,8 @@ class Pace(Controller):
         Args:
            tloop:  Loop class type object          
         """
+        if tloop.output.channel != tloop.input.channel:
+            raise ValueError("output channel != input channel on loop {tloop.name}")
         tloop._channel = tloop.output.channel
 
     # ------ get methods ------------------------
@@ -343,7 +388,7 @@ class Pace(Controller):
         """
         log_info(self, "Controller:get_setpoint: %s" % (tloop))
         self.hw_controller.get_setpoint(tloop.channel)
-        
+
     def get_working_setpoint(self, tloop):
         """
         Get the current working setpoint (setpoint along ramping)
@@ -375,7 +420,7 @@ class Pace(Controller):
            **kwargs: auxilliary arguments
         """
         log_info(self, "Controller:start_ramp: %s %s" % (tloop, sp))
-        raise NotImplementedError
+        self.hw_controller.set_setpoint(tloop.channel, sp)
 
     def stop_ramp(self, tloop):
         """
@@ -387,7 +432,9 @@ class Pace(Controller):
            tloop:  Loop class type object
         """
         log_info(self, "Controller:stop_ramp: %s" % (tloop))
-        raise NotImplementedError
+        if not self.hw_controller.is_in_limits(tloop.channel):
+            current = self.hw_controller.get_pressure(tloop.channel)
+            self.hw_controller.set_setpoint(current)
 
     def is_ramping(self, tloop):
         """
@@ -401,7 +448,8 @@ class Pace(Controller):
            (bool) True if ramping, else False.
         """
         log_info(self, "Controller:is_ramping: %s" % (tloop))
-        raise NotImplementedError
+        in_limits = self.hw_controller.is_in_limits(tloop.channel)
+        return in_limits is False
 
     def set_ramprate(self, tloop, rate):
         """
@@ -413,7 +461,11 @@ class Pace(Controller):
            rate:   ramp rate (in input unit per second)
         """
         log_info(self, "Controller:set_ramprate: %s %s" % (tloop, rate))
-        raise NotImplementedError
+        if rate == 0:
+            self.hw_controller.set_rampmode(tloop.channel, "MAX")
+        else:
+            self.hw_controller.set_rampmode(tloop.channel, "LIN")
+            self.hw_controller.set_ramprate(tloop.channel, rate)
 
     def get_ramprate(self, tloop):
         """
@@ -427,7 +479,11 @@ class Pace(Controller):
            ramp rate (in input unit per second)
         """
         log_info(self, "Controller:get_ramprate: %s" % (tloop))
-        raise NotImplementedError
+        rampmode = self.hw_controller.get_rampmode(tloop.channel)
+        if rampmode == "MAX":
+            return 0.
+        else:
+            return self.hw_controller.get_ramprate(tloop.channel)
 
     # ------ raw methods (optional) ------------------------
 
@@ -440,7 +496,7 @@ class Pace(Controller):
            string:  the string to write
         """
         log_info(self, "Controller:Wraw:")
-        raise NotImplementedError
+        self.hw_controller.send_command(string)
 
     def Rraw(self):
         """
@@ -451,7 +507,7 @@ class Pace(Controller):
            answer from the controller
         """
         log_info(self, "Controller:Rraw:")
-        raise NotImplementedError
+        raise NotImplementedError("Use either Wraw or WRraw")
 
     def WRraw(self, string):
         """
@@ -464,7 +520,7 @@ class Pace(Controller):
            answer from the controller
         """
         log_info(self, "Controller:WRraw:")
-        raise NotImplementedError
+        return self.hw_controller.query_command(string)
 
     # --- controller method to set the Output to a given value (optional) -----------
 
@@ -548,4 +604,3 @@ class Pace(Controller):
         """
         log_info(self, "Controller:get_output_ramprate: %s" % (toutput))
         raise NotImplementedError
-

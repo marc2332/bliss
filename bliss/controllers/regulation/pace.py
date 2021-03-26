@@ -2,6 +2,20 @@ from bliss import global_map
 from bliss.comm.util import get_comm
 from bliss.common.logtools import log_info, log_debug, log_error
 from bliss.controllers.regulator import Controller
+from bliss.controllers.regulator import Loop as RegulationLoop
+
+
+class Loop(RegulationLoop):
+    def output_off(self):
+        self._controller.stop_regulation(self)
+
+    def output_on(self):
+        self._controller.start_regulation(self)
+
+    @property
+    def output_state(self):
+        output = self._controller.hw_controller.get_output_state(self.channel)
+        return output is True and "ON" or "OFF"
 
 
 class PaceController:
@@ -55,14 +69,15 @@ class PaceController:
         self.comm.write(cmd.encode())
         self.check_error()
 
-    def query_command(self, cmd):
+    def query_command(self, cmd, getindex=1):
         log_debug(self, "query_command", cmd)
         if not cmd.endswith("?"):
             cmd += "?"
 
         resp = self.raw_putget(cmd)
         try:
-            _, val = resp.split()
+            values = resp.split()
+            val = values[getindex]
             return val.strip(self._eol)
         except (ValueError, AttributeError) as e:
             log_error(self, str(e))
@@ -134,7 +149,7 @@ class PaceController:
 
     def is_in_limits(self, channel):
         cmd = f":SENS:PRES:INL"
-        resp = self.query_command(cmd)
+        resp = self.query_command(cmd, getindex=2)
         return int(resp) == 1
 
     def get_status(self):
@@ -181,7 +196,10 @@ class Pace(Controller):
         config_unit = tinput.config.get("unit", None)
         if config_unit is not None:
             self.hw_controller.set_unit(tinput.channel, config_unit)
-        tinput.config["unit"] = self.hw_controller.get_unit(tinput.channel)
+        ctrl_unit = self.hw_controller.get_unit(tinput.channel)
+        tinput.config["unit"] = ctrl_unit.lower()
+        for cnts in tinput._counters.values():
+            cnts.unit = ctrl_unit.lower()
 
     def initialize_output(self, toutput):
         """
@@ -195,7 +213,10 @@ class Pace(Controller):
         config_unit = toutput.config.get("unit", None)
         if config_unit is not None:
             self.hw_controller.set_unit(toutput.channel, config_unit)
-        toutput.config["unit"] = self.hw_controller.get_unit(toutput.channel)
+        ctrl_unit = self.hw_controller.get_unit(toutput.channel)
+        toutput.config["unit"] = ctrl_unit.lower()
+        for cnts in toutput._counters.values():
+            cnts.unit = ctrl_unit.lower()
 
     def initialize_loop(self, tloop):
         """
@@ -207,7 +228,12 @@ class Pace(Controller):
         if tloop.output.channel != tloop.input.channel:
             raise ValueError("output channel != input channel on loop {tloop.name}")
         tloop._channel = tloop.output.channel
+        tloop._force_ramping_from_current_pv = False
         self._channels.append(tloop.channel)
+        ctrl_unit = tloop.output.config["unit"]
+        tloop.axis._unit = ctrl_unit
+        for cnts in tloop._counters.values():
+            cnts.unit = ctrl_unit
 
     # ------ get methods ------------------------
 
@@ -279,7 +305,7 @@ class Pace(Controller):
            tloop:  Loop class type object
         """
         log_info(self, "Controller:start_regulation: %s" % (tloop))
-        pass
+        self.hw_controller.set_output_state(tloop.channel, True)
 
     def stop_regulation(self, tloop):
         """
@@ -291,7 +317,7 @@ class Pace(Controller):
            tloop:  Loop class type object
         """
         log_info(self, "Controller:stop_regulation: %s" % (tloop))
-        pass
+        self.hw_controller.set_output_state(tloop.channel, False)
 
     def set_kp(self, tloop, kp):
         """
@@ -399,7 +425,7 @@ class Pace(Controller):
            (float) setpoint value (in tloop.input unit).
         """
         log_info(self, "Controller:get_setpoint: %s" % (tloop))
-        self.hw_controller.get_setpoint(tloop.channel)
+        return self.hw_controller.get_setpoint(tloop.channel)
 
     def get_working_setpoint(self, tloop):
         """
@@ -624,24 +650,6 @@ class Pace(Controller):
         infos = self.hw_controller.__info__()
         for chan in self._channels:
             state = self.hw_controller.get_output_state(chan)
-            info += "\nCHANNEL #{chan}: {state}"
+            state = state is True and "ON" or "OFF"
+            infos += f"\nCHANNEL {chan}: output is {state}"
         return infos
-
-    def status(self):
-        return self.hw_controller.get_status()
-
-    def set_on(self, channel=None):
-        if channel is None:
-            for chan in self._channels:
-                self.hw_controller.set_output_state(chan, True)
-        else:
-            self.hw_controller.set_output_state(channel, True)
-
-    def set_off(self, channel=None):
-        if channel is None:
-            for chan in self._channels:
-                self.hw_controller.set_output_state(chan, False)
-        self.hw_controller.set_output_state(channel, False)
-
-    def is_on(self, channel):
-        return self.hw_controller.get_output_state(channel)

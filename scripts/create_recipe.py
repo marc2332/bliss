@@ -21,9 +21,9 @@ from setup import console_script_entry_points
 META = os.path.join(CURDIR, "meta.yaml")
 
 if sys.platform in ["win32", "cygwin"]:
-    REQ_PATH = os.path.join(BLISS_DIR, "requirements-conda-win64.txt")
+    REQ_PATH = os.path.join(BLISS_DIR, "requirements-win64.txt")
 else:
-    REQ_PATH = os.path.join(BLISS_DIR, "requirements-conda.txt")
+    REQ_PATH = os.path.join(BLISS_DIR, "requirements.txt")
 
 # regex
 conda_pack_regex = re.compile(
@@ -204,13 +204,13 @@ def main():
     # conda current environment
     body["requirements"]["run"] = list()
 
-    # matching beetween requirements-conda.txt and
+    # matching between requirements.txt and
     # current installed version of packages
 
     # populating a dictionary with installed packages
     conda_req_current_env = dependencies_conda()
 
-    # reading requirements-conda.txt to get only package names
+    # reading requirements.txt to get only package names
     # versions will be taken from current environment
     conda_req_file = conda_requirements_txt(REQ_PATH)
 

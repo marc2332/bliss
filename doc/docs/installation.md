@@ -32,7 +32,7 @@ The Git repository is the reference point to install the latest development vers
 ```bash
 git clone https://gitlab.esrf.fr/bliss/bliss
 cd bliss/
-conda install --file ./requirements-conda.txt
+conda install --file ./requirements.txt
 pip install --no-deps -e .
 ```
 

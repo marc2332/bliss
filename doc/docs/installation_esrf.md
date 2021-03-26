@@ -33,7 +33,7 @@ For the development version, i.e in the `bliss_dev` Conda environement:
 
 * install up-to-date dependencies:
 
-    `conda install --file ./requirements-conda.txt`
+    `conda install --file ./requirements.txt`
 
 * **Exit and re-enter** into the conda environment to ensure using up-to-date modules.
 

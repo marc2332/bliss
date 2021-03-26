@@ -9,6 +9,7 @@ import pytest
 import time
 import gevent
 import os
+import itertools
 import numpy
 from bliss.common.standard import loopscan, mv
 from bliss.common.utils import rounder
@@ -1373,3 +1374,39 @@ def test_parallel_scans(session, esrf_data_policy):
         gevent.spawn(session.scan_saving.clone().on_scan_run, True) for _ in range(100)
     ]
     gevent.joinall(glts, raise_error=True, timeout=10)
+
+
+@pytest.mark.parametrize(
+    "missing_dataset, missing_collection, missing_proposal",
+    list(itertools.product(*[[True, False]] * 3)),
+)
+def test_missing_icat_nodes_not_blocking(
+    missing_dataset,
+    missing_collection,
+    missing_proposal,
+    session,
+    esrf_data_policy,
+    nexus_writer_service,
+):
+    diode = session.config.get("diode")
+    for policymethod in [newdataset, newsample, newproposal]:
+        s = loopscan(1, .001, diode)
+
+        if missing_dataset:
+            dataset = session.scan_saving.dataset.node
+            s.root_connection.delete(dataset.db_name)
+        if missing_collection:
+            collection = session.scan_saving.collection.node
+            s.root_connection.delete(collection.db_name)
+        if missing_proposal:
+            proposal = session.scan_saving.proposal.node
+            s.root_connection.delete(proposal.db_name)
+
+        # Check that the dataset is closed despite the exception
+        # due to missing nodes (i.e. incomplete ICAT metadata)
+        if missing_dataset or missing_collection or missing_proposal:
+            with pytest.raises(RuntimeError, match="The dataset was closed"):
+                policymethod("new")
+
+        # Check that the session is not blocked
+        policymethod("new")

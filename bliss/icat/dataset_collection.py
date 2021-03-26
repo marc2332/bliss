@@ -22,7 +22,8 @@ class DatasetCollection(DataPolicyObject):
     @property
     def proposal(self):
         if self._proposal is None:
-            self._proposal = Proposal(self._node.parent)
+            if self._node.parent is not None:
+                self._proposal = Proposal(self._node.parent)
         return self._proposal
 
     @property

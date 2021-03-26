@@ -476,6 +476,8 @@ def datanode_factory(
         node = _get_node_object(
             node_type, name, parent, connection, create=create_not_state, **kwargs
         )
+    elif parent is not None and create_not_state and node.parent is None:
+        node._struct.parent = parent.db_name
     return node
 
 

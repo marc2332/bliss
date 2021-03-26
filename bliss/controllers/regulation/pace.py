@@ -132,8 +132,13 @@ class PaceController:
         resp = self.query_command(cmd)
         return str(resp)
 
-    def get_pressure(self, channel):
+    def get_out_pressure(self, channel):
         cmd = f":SENS{channel:1d}:PRES"
+        resp = self.query_command(cmd)
+        return float(resp)
+
+    def get_in_pressure(self, channel):
+        cmd = f":SOUR{channel:1d}:PRES:COMP"
         resp = self.query_command(cmd)
         return float(resp)
 
@@ -249,7 +254,7 @@ class Pace(Controller):
            read value  (in input unit)    
         """
         log_info(self, "Controller:read_input: %s" % (tinput))
-        return self.hw_controller.get_pressure(tinput.channel)
+        return self.hw_controller.get_in_pressure(tinput.channel)
 
     def read_output(self, toutput):
         """
@@ -263,7 +268,7 @@ class Pace(Controller):
            read value (in output unit)         
         """
         log_info(self, "Controller:read_output: %s" % (toutput))
-        return self.hw_controller.get_pressure(toutput.channel)
+        return self.hw_controller.get_out_pressure(toutput.channel)
 
     def state_input(self, tinput):
         """

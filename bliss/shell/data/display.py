@@ -637,6 +637,9 @@ class ScanPrinterWithProgressBar(ScanPrinter):
 
         self.progress_bar = None
 
+        self._print_scan = True
+        """FIXME: This have to be managed per scans"""
+
     def print_scan_header(self, scan_info):
         if scan_info.get("type") == "ct":
             return super().print_scan_header(scan_info)
@@ -655,14 +658,23 @@ class ScanPrinterWithProgressBar(ScanPrinter):
         self.progress_bar.set_description(", ".join(self.labels))
         self.progress_bar.refresh()
 
+    def _is_scan_must_be_printed(self):
+        """Only print scans if it is executed as forground in BLISS shell"""
+        # display progress bar only in BLISS repl
+        if not is_bliss_shell():
+            return False
+        # If it was not started in the background
+        current = gevent.getcurrent()
+        if current.parent is not None:
+            return False
+
+        return True
+
     def on_scan_new(self, scan, scan_info):
-        super().on_scan_new(scan, scan_info)
-
-        # display progressbar only in repl
-        if not is_bliss_shell() or gevent.getcurrent().parent is not gevent.get_hub():
+        self._print_scan = self._is_scan_must_be_printed()
+        if not self._print_scan:
             return
-
-        # allow prints for 'ct' scans only
+        super().on_scan_new(scan, scan_info)
         scan_type = scan_info.get("type")
         if scan_type == "ct":
             self.progress_bar = CtProgressBar(scan_info["count_time"])
@@ -671,6 +683,8 @@ class ScanPrinterWithProgressBar(ScanPrinter):
             self.progress_bar = tqdm(total=scan_info["npoints"], leave=False)
 
     def on_scan_data(self, scan_info, data):
+        if not self._print_scan:
+            return
         old_step = self.scan_steps_index
         super().on_scan_data(scan_info, data)
         if self.progress_bar is not None:
@@ -682,6 +696,8 @@ class ScanPrinterWithProgressBar(ScanPrinter):
                 self.progress_bar.update()
 
     def on_scan_end(self, scan_info):
+        if not self._print_scan:
+            return
         if self.progress_bar is not None:
             self.progress_bar.close()
         super().on_scan_end(scan_info)

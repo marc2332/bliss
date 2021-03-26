@@ -726,8 +726,9 @@ class CalcController(Controller):
     def read_position(self, axis):
         pos = axis.settings.get("dial_position")
         if pos is None:
-            self._calc_from_real()
-            pos = axis.settings.get("dial_position")
+            new_positions = self._calc_from_real()
+            pos = new_positions[self._axis_tag(axis)]
+
         return pos
 
     def state(self, axis, new_state=None):

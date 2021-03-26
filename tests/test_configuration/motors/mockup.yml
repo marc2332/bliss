@@ -384,8 +384,8 @@ hooks:
   axes:
   - name: $roby
     tags: real real_mot
-  - name: calc_mot4
+  - name: calc_mot6
     tags: calc_mot
     s_param: 2
     disabled_cache:
-       - dial_position
+      - dial_position

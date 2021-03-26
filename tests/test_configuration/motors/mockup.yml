@@ -348,7 +348,7 @@ hooks:
     tags: real real_mot
   - name: calc_mot5
     tags: calc_mot
-    
+
 - class: CoupledMotionCalc
   module: mockup
   axes:
@@ -378,3 +378,14 @@ hooks:
     tags: real mot2
   - name: coupled_calc3
     tags: calc_mot
+
+- class: calc_motor_mockup
+  module: mockup
+  axes:
+  - name: $roby
+    tags: real real_mot
+  - name: calc_mot6
+    tags: calc_mot
+    s_param: 2
+    disabled_cache:
+      - dial_position

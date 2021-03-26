@@ -1230,3 +1230,10 @@ def test_coupled_calc(default_session):
     assert bad.position == 1
     assert cc1.position == 1
     assert cc2.position == 1
+
+
+def test_calc_with_disabled_cache(beacon):
+    calc_mot = beacon.get("calc_mot6")
+    calc_mot.move(1)
+    assert calc_mot.position == 1
+    calc_mot.controller.close()

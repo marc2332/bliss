@@ -148,17 +148,17 @@ class PaceController:
         return int(resp) == 1
 
     def is_in_limits(self, channel):
-        cmd = f":SENS:PRES:INL"
+        cmd = f":SENS{channel:1d}:PRES:INL"
         resp = self.query_command(cmd, getindex=2)
         return int(resp) == 1
 
     def get_status(self):
-        cmd = f":STAT:OPER:COND"
+        cmd = ":STAT:OPER:COND"
         state = int(self.query_command(cmd))
         status = ""
         for (value, text) in self.STATUS.items():
             if state & value:
-                status += test
+                status += text
                 status += "\n"
         return status
 

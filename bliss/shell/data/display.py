@@ -673,16 +673,19 @@ class ScanPrinterWithProgressBar(ScanPrinter):
     def on_scan_data(self, scan_info, data):
         old_step = self.scan_steps_index
         super().on_scan_data(scan_info, data)
-        if self.scan_steps_index > old_step:
-            # only update if there is a new scan line
-            if not scan_info["npoints"]:
-                self.progress_bar.total = self.scan_steps_index * 2
-                self.progress_bar.refresh()
-            self.progress_bar.update()
+        if self.progress_bar is not None:
+            if self.scan_steps_index > old_step:
+                # only update if there is a new scan line
+                if not scan_info["npoints"]:
+                    self.progress_bar.total = self.scan_steps_index * 2
+                    self.progress_bar.refresh()
+                self.progress_bar.update()
 
     def on_scan_end(self, scan_info):
-        self.progress_bar.close()
+        if self.progress_bar is not None:
+            self.progress_bar.close()
         super().on_scan_end(scan_info)
+        self.progress_bar = None
 
 
 class ScanDataListener(_ScanPrinterBase):

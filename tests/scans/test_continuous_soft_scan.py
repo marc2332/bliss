@@ -76,7 +76,7 @@ def test_software_position_trigger_master(session):
     # Typical position error is +0.025 in position unit
     # That's because of redis + gevent delays (~2.5 ms)
     assert len(data["robz"]) == 5
-    assert data["robz"] == pytest.approx(data["debug_pos"], abs=0.2)
+    assert data["robz"] == pytest.approx(data["debug_pos"], abs=1.0)
     expected_triggers = [0.034, 0.054, 0.074, 0.09, 0.11]
     assert len(data["debug_time"]) == 5
     assert data["debug_time"] == pytest.approx(expected_triggers, abs=0.02)

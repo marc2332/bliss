@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Flint
     - Fixed slow rendering occurred on live curves and scatters with fast scans
+    - The video image is now also used for Lima EXTRERNAL_TRIGGER and EXTERNAL_GATE
 
 ### Removed
 

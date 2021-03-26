@@ -308,8 +308,10 @@ class LimaImageStatusEvent(streaming_events.StreamEvent):
         # The function is_video_frame_have_meaning itself have not meaning and
         # should be removed
         return self.acq_trigger_mode in [
-            "EXTERNAL_TRIGGER_MULTI",
             "INTERNAL_TRIGGER_MULTI",
+            "EXTERNAL_TRIGGER_MULTI",
+            "EXTERNAL_TRIGGER",
+            "EXTERNAL_GATE",
         ]
 
     def get_last_image(self):

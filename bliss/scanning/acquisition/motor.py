@@ -679,7 +679,12 @@ class VariableStepTriggerMaster(AcquisitionMaster):
         self._axes = list()
         nb_points = None
         for _axis, pos_list in grouped(args, 2):
-            _axis.controller.check_limits(_axis, pos_list)
+
+            # this only test trajectory on one axis keeping others at their actual positions.
+            # so it does not test the effective scan trajectory
+            # print("=== _axis, pos_list ", _axis.name, pos_list)
+            # _axis.controller.check_limits(_axis, pos_list)
+
             self._axes.append(_axis)
             if nb_points is None or nb_points == len(pos_list):
                 self._motor_pos.append(pos_list)
@@ -689,6 +694,20 @@ class VariableStepTriggerMaster(AcquisitionMaster):
                     "Motor %s has a %d nbpoints but other has %d nbpoints"
                     % (_axis.name, len(pos_list), nb_points)
                 )
+
+        # sort axes pos per controller id
+        per_ctrls_pos_dict = {}
+        for ax, pos in grouped(args, 2):
+            cid = id(ax.controller)
+            per_ctrls_pos_dict.setdefault(cid, {}).update({ax: pos})
+
+        # check the effective scan trajectory using a list of
+        # coordinates in a N-dim space, with N = len(axes)
+        for pos_dict in per_ctrls_pos_dict.values():
+            # we are sure that all axes of pos_dict have the same ctrl
+            # so take the controller of the first axis
+            ctrl = next(iter(pos_dict)).controller
+            ctrl.check_limits(pos_dict.items())
 
         mot_group = Group(*self._axes)
 
@@ -1085,3 +1104,53 @@ class SweepMotorMaster(AcquisitionMaster):
     def stop(self):
         self.movable.stop()
         self.movable.velocity = self.initial_speed
+
+
+class HKLTrajectoryMaster(AcquisitionMaster):
+    def __init__(
+        self,
+        diffracto,
+        hkl_start,
+        hkl_end,
+        nb_points,
+        time_per_point,
+        trigger_type=AcquisitionMaster.SOFTWARE,
+        **keys,
+    ):
+        calc_axis = diffracto.calc_controller
+        AcquisitionMaster.__init__(
+            self, calc_axis, calc_axis.name, trigger_type=trigger_type, **keys
+        )
+        self.trajectory = calc_axis.calc_trajectory(
+            ("hkl_h", "hkl_k", "hkl_l"), hkl_start, hkl_end, nb_points, time_per_point
+        )
+        self.frozen_values = dict()
+        self.frozen_group = None
+        for (name, value) in calc_axis.frozen_angles.items():
+            self.frozen_values[diffracto.get_axis(name)] = value
+        if len(self.frozen_values):
+            self.frozen_group = Group(*self.frozen_values.keys())
+
+    def prepare(self):
+        self.trajectory.prepare()
+        if self.frozen_group:
+            self.frozen_group.move(self.frozen_values, wait=True, relative=False)
+        self.trajectory.move_to_start()
+
+    def start(self):
+        if self.trigger_type == AcquisitionMaster.SOFTWARE and self.parent:
+            return
+        self.trigger()
+
+    def trigger(self):
+        self.trigger_slaves()
+        self.trajectory.move_to_end()
+
+    def trigger_ready(self):
+        return not self.trajectory.is_moving
+
+    def wait_ready(self):
+        self.trajectory.wait_move()
+
+    def stop(self):
+        self.trajectory.stop()

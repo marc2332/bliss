@@ -1,0 +1,54 @@
+-
+  controller:
+    plugin: diffractometer
+    name: d4ch
+    geometry: E4CH
+    axes:
+    
+      - name: $roby
+        tags: real omega
+      - name: $robu
+        tags: real chi
+      - name: $robz
+        tags: real phi
+      - name: $robz2
+        tags: real tth
+
+      - name: $mono
+        tags: real energy
+
+      - name: H
+        tags: hkl_h
+      - name: K
+        tags: hkl_k
+      - name: L
+        tags: hkl_l
+      - name: Q
+        tags: q_q
+
+-
+  controller:
+    plugin: diffractometer
+    name: zaxis 
+    geometry: ZAXIS
+    axes:
+    
+      - name: $roby
+        tags: real mu
+      - name: $robu
+        tags: real omega
+      - name: $robz
+        tags: real delta
+      - name: $robz2
+        tags: real gamma
+
+      - name: Hz
+        tags: hkl_h
+      - name: Kz
+        tags: hkl_k
+      - name: Lz
+        tags: hkl_l
+      # - name: Qz
+      #   tags: q2_q
+      # - name: Az
+      #   tags: q2_alpha

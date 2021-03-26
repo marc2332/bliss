@@ -171,6 +171,7 @@ nav:
                 - Custom scans: scan_writing.md
                 - Grouping scans: scan_group.md
         - Instruments:
+                - Diffractometer: using_diffractometer.md
                 - ESRF BeamViewer (EBV): using_beamviewer.md
                 - Moco: using_moco.md
         - Data:

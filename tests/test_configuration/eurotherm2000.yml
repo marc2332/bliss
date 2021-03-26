@@ -1,8 +1,13 @@
-plugin: temperature
-class: eurotherm2000
+class: Eurotherm2000
+plugin: regulation
+module: temperature.eurotherm.eurotherm2000
 serial:
-        url: tango://id00/tango/dummy
+    url: /dev/ttyS0
 inputs:
-        - name: euroT1
-          type: pv
-
+    - name: euro_in
+outputs:
+    - name: euro_out
+ctrl_loops:
+    - name: euro_loop
+      input: $euro_in
+      output: $euro_out

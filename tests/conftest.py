@@ -45,6 +45,7 @@ from bliss.flint.client import proxy
 from bliss.common import plot
 from bliss.common.tango import Database, DeviceProxy, ApiUtil, DevState
 from bliss.tango.clients.utils import wait_tango_device, wait_tango_db
+from bliss.shell.cli.repl import BlissRepl
 from bliss import logging_startup
 from bliss.scanning import scan_meta
 from bliss.data.node import enable_ttl as _enable_ttl
@@ -307,6 +308,7 @@ def clean_globals():
     scan_meta.USER_SCAN_META = None
     logtools.userlogger.reset()
     tango_attr_as_counter._TangoCounterControllerDict = weakref.WeakValueDictionary()
+    BlissRepl.instance = None
 
 
 @pytest.fixture

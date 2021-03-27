@@ -36,7 +36,7 @@ class DummyTestOutput(DummyOutput):
 
 
 def _feed_cli_with_input(
-    text, check_line_ending=True, local_locals=None, local_globals=None
+    text, check_line_ending=True, local_locals=None, local_globals=None, timeout=10
 ):
     """
     Create a Prompt, feed it with the given user input and return the CLI
@@ -73,11 +73,18 @@ def _feed_cli_with_input(
             get_locals=mylocals,
             get_globals=myglobals,
         )
+
+        def exit_after_timeout(app, timeout):
+            gevent.sleep(timeout)
+            app.exit()
+
         br.app.output = PromptToolkitOutputWrapper(br.app.output)
+        gtimeout = gevent.spawn(exit_after_timeout, br.app, timeout)
         result = br.app.run()
         return result, br.app, br
 
     finally:
+        gtimeout.kill()
         BlissRepl.instance = None  # BlissRepl is a Singleton
         inp.close()
 

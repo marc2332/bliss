@@ -206,3 +206,51 @@ with SPEC)
 
 `bliss/tango/servers/multiplexer_ds.py`
 
+
+## Default program
+
+OPIOM is shipped with a **Default Program** to:
+
+* generate output pulses
+* use the Time Patern Generator (TPG) mode to generate a predefined time pattern
+  using up to eight outputs simultaneously.
+
+
+### Time Pattern Generator
+
+
+Configuration example:
+```yaml
+
+class: OpiomOutput
+name: ttl
+opiom: $laser_opiom
+default_acq_params_file: /users/opid29s/local/acq_parameters/acq.params
+outputs:
+    -
+     type: TPG
+     channel: 1
+    -
+     alias: laser1
+     channel: 1
+    -
+     alias: laser2
+     channel: 2
+
+```
+
+
+Acquisition parameters file example:
+```
+#period: 1000
+#channel_nb     delay   width   polarity
+1               0       200     Normal
+2               100     200     Normal
+3               200     50      Normal
+4               400     10      Normal
+5               600     50      Inversed
+```
+
+
+![TGP Example Diagram](img/opiom_tpg.svg)
+

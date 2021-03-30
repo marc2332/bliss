@@ -99,6 +99,7 @@ nav:
                             - Eurotherm Nanodac: config_nanodac.md
                             - Oxford700: config_oxford700.md
                             - Oxford800: config_oxford800.md
+                            - PACE: config_pace.md
                       - SCA:
                             - Ace: config_ace.md
                             - Cyberstar: config_cyberstar.md

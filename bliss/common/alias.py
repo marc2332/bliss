@@ -18,6 +18,8 @@ import logging
 import weakref
 import gevent
 from tabulate import tabulate
+from bliss.common.protocols import Scannable
+from bliss.common.counter import Counter
 from bliss.common.proxy import Proxy
 from bliss.common.mapping import Map
 from bliss.common.utils import safe_get
@@ -207,27 +209,12 @@ class Aliases:
             obj = obj_or_name
             original_object = obj
 
-            if obj in self.__map.get_axes_iter():
+            if isinstance(obj, Counter):
+                alias_obj = CounterAlias(alias_name, obj)
+            elif isinstance(obj, Scannable):
                 alias_obj = ObjectAlias(alias_name, obj)
             else:
-                # cannot use directly 'obj in self.__map.get_counters_iter()'
-                # because counters are generated on-the-fly for the moment,
-                # thus objects change each time
-                try:
-                    fn = obj.fullname
-                except AttributeError:
-                    raise TypeError(
-                        f"Cannot make an alias of object of type {type(obj)}"
-                    )
-                else:
-                    for cnt in self.__map.get_counters_iter():
-                        if cnt.fullname == fn:
-                            alias_obj = CounterAlias(alias_name, obj)
-                            break
-                    else:
-                        raise TypeError(
-                            f"Could not find a counter with corresponding name: {fn}"
-                        )
+                raise TypeError(f"Cannot make an alias of object of type {type(obj)}")
 
         # create alias object
         self.__aliases_dict[alias_name] = alias_obj

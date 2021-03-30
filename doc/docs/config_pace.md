@@ -29,6 +29,11 @@
 
 Opionnaly, `unit` can be specified for each input/output channel. If not specfified, `unit` is read from the controller, otherwise it is set on the controller. Supported units by the controller are : "ATM", "BAR", "MBAR", "PA", "HPA", "KPA", "MPA", "TORR", "KG/M2"
 
+In the above example:
+
+* `pace1_in` will be the inlet pressure (this is also the maximum pressure which can bet set)
+* `pace1_out` will be the current output pressure
+
 ## Usage
 
 In the Bliss session import the Loop object (ex: `pace1`).

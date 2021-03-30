@@ -67,7 +67,7 @@ class NXplot:
             # Scan axes dict
             axes = {}
             for dproxy in positioners:
-                with dproxy.open(dproxy) as dset:
+                with dproxy.open(create=False) as dset:
                     if dset is None:
                         continue
                     axes[dproxy.master_index] = NXaxis(dproxy.linkname, dset, None)

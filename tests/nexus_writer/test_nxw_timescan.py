@@ -49,6 +49,9 @@ def _test_nxw_timescan(session=None, tmpdir=None, writer=None, **kwargs):
     started = gevent.event.Event()
     nminevents = 5
 
+    session.env_dict["simu1"].block_size = 1
+    session.env_dict["simu2"].block_size = 1
+
     def listenscan(scannode):
         print(f"Listen to scan {scannode.db_name}")
         for event_type, node, event_data in scannode.walk_events():
@@ -96,7 +99,7 @@ def _test_nxw_timescan(session=None, tmpdir=None, writer=None, **kwargs):
                 gscan.get(block=False)
             except gevent.Timeout:
                 continue
-        print(f"All channels have at least {nminevents} data events.")
+        print(f"All {len(nodes)} channels have at least {nminevents} data events.")
 
     # Stop scan and listener
     print("Stopping scan ...")

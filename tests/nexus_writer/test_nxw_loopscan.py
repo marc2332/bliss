@@ -30,6 +30,10 @@ def test_nxw_loopscan_base(nexus_writer_base):
     _test_nxw_loopscan(**nexus_writer_base)
 
 
+def test_nxw_loopscan_base_noimages(nexus_writer_base):
+    _test_nxw_loopscan(**nexus_writer_base, save_images=False)
+
+
 def test_nxw_loopscan_base_alt(nexus_writer_base_alt):
     _test_nxw_loopscan(**nexus_writer_base_alt)
 

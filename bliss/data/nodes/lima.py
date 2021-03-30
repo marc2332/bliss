@@ -399,7 +399,10 @@ class LimaImageChannelDataNode(_ChannelDataNodeBase):
 
     @property
     def images_per_file(self):
-        return self.first_ref_data.get("saving_frame_per_file")
+        try:
+            return self.first_ref_data.get("saving_frame_per_file")
+        except IndexError:
+            return None
 
     def get_db_names(self, **kw):
         db_names = super().get_db_names(**kw)

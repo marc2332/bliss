@@ -140,7 +140,7 @@ def test_dataset_proxy(tmpdir):
 
         # Make sure it exists with the expected shape
         dproxy.reshape(escan_save_shape)
-        dproxy.ensure_existance()
+        dproxy.create()
         assert dproxy.current_scan_save_shape == escan_save_shape, err_msg
         assert dproxy.current_shape == escan_shape, err_msg
         assert dproxy.current_detector_shape == edetector_shape, err_msg

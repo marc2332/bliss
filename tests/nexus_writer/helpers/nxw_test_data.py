@@ -97,6 +97,7 @@ def validate_scan_data(
             variable_length=variable_length,
             master_name=master_name,
             softtimer=softtimer,
+            save_images=save_images,
         )
         validate_measurement(
             nxentry["measurement"],
@@ -186,7 +187,6 @@ def assert_scan_nxdata(
                 positioners=positioners,
                 master_name=master_name,
                 save_options=save_options,
-                save_images=save_images,
             )
 
 
@@ -271,6 +271,7 @@ def validate_nxentry(
     variable_length=None,
     master_name=None,
     softtimer=None,
+    save_images=True,
 ):
     """
     :param h5py.Group nxentry:
@@ -282,6 +283,7 @@ def validate_nxentry(
     :param bool variable_length: e.g. timescan
     :param str master_name:
     :param str softtimer:
+    :param bool save_images:
     """
     assert nxentry.parent.attrs["NX_class"] == "NXroot"
     assert nxentry.attrs["NX_class"] == "NXentry"
@@ -300,6 +302,7 @@ def validate_nxentry(
             detectors=detectors,
             master_name=master_name,
             softtimer=softtimer,
+            save_images=save_images,
         )
         for name, info in plots.items():
             if info["signals"]:
@@ -345,6 +348,7 @@ def validate_measurement(
         master_name=master_name,
         softtimer=softtimer,
         positioners=positioners,
+        save_images=save_images,
     )
     # Positioners
     pos_instrument, pos_meas, pos_pgroup = expected_positioners(
@@ -378,13 +382,7 @@ def validate_measurement(
                 # TODO: timescans will have variable length data channels
                 assert dshape == eshape, name
             scan_shape = eshape[: len(scan_shape)]
-            assert_dataset(
-                dset,
-                ndim,
-                save_options,
-                variable_length=variable_length,
-                save_images=save_images,
-            )
+            assert_dataset(dset, ndim, save_options, variable_length=variable_length)
             assert_attributes(dset.name.split("/")[-1], dset, config=config)
 
 
@@ -461,19 +459,20 @@ def validate_instrument(
     variable_length = not all(scan_shape)
     for name in expected_dets:
         assert instrument[name].attrs["NX_class"] == "NXdetector", name
-        expected = expected_detector_content(name, config=config)
+        expected = expected_detector_content(
+            name, config=config, save_images=save_images
+        )
         assert_set_equal(set(instrument[name].keys()), expected, msg=name)
         if config:
             islima_image = name in ["lima_simulator", "lima_simulator2"]
         else:
             islima_image = name in ["lima_simulator_image", "lima_simulator2_image"]
-        if islima_image:
+        if islima_image and save_images:
             assert_dataset(
                 instrument[name]["data"],
                 2,
                 save_options,
                 variable_length=variable_length,
-                save_images=save_images,
             )
     # Validate content of other groups
     content = dictdump.nxtodict(instrument["beamstop"], asarray=False)
@@ -522,6 +521,7 @@ def validate_plots(
         master_name=master_name,
         softtimer=softtimer,
         positioners=positioners,
+        save_images=save_images,
     )
     for name, info in plots.items():
         if info["signals"]:
@@ -534,7 +534,6 @@ def validate_plots(
                 positioners=positioners,
                 master_name=master_name,
                 save_options=save_options,
-                save_images=save_images,
             )
         else:
             assert name not in nxentry, name
@@ -613,7 +612,6 @@ def validate_nxdata(
     positioners=None,
     master_name="timer",
     save_options=None,
-    save_images=True,
 ):
     """
     :param h5py.Group nxdata:
@@ -624,7 +622,6 @@ def validate_nxdata(
     :param list(list(str)) positioners: fast axis first
     :param str master_name:
     :param dict save_options:
-    :param bool save_images:
     """
     assert nxdata.attrs["NX_class"] == "NXdata", nxdata.name
     signals = nexus.nxDataGetSignals(nxdata)
@@ -653,17 +650,11 @@ def validate_nxdata(
         escan_shape = tuple(
             es if es else ds for es, ds in zip(escan_shape, dscan_shape)
         )
-        if not save_images and detector_ndim == 2:
-            continue
         assert dscan_shape == escan_shape, dset.name
         expected = nexus.nxDatasetInterpretation(scan_ndim, detector_ndim, dset.ndim)
         assert dset.attrs.get("interpretation", None) == expected, dset.name
         assert_dataset(
-            dset,
-            detector_ndim,
-            save_options,
-            variable_length=variable_length,
-            save_images=save_images,
+            dset, detector_ndim, save_options, variable_length=variable_length
         )
     # Validate axes
     if not scan_shape:
@@ -707,6 +698,7 @@ def expected_plots(
     master_name=None,
     softtimer=None,
     positioners=None,
+    save_images=True,
 ):
     """
     All expected plots for this technique (see nexus_definitions.yml)
@@ -718,6 +710,7 @@ def expected_plots(
     :param str master_name:
     :param str softtimer:
     :param list(list(str)) positioners:
+    :param bool save_images:
     :returns dict: grouped by detector dimension and flat/grid
     """
     plots = dict()
@@ -728,6 +721,7 @@ def expected_plots(
         master_name=master_name,
         softtimer=softtimer,
         positioners=positioners,
+        save_images=save_images,
     )
 
     def ismca1d(name):
@@ -1086,9 +1080,10 @@ def detector_pattern(detectors):
     ]
 
 
-def expected_detector_content(name, config=True):
+def expected_detector_content(name, config=True, save_images=True):
     """
     :param bool config: configurable writer
+    :param bool save_images:
     :returns set:
     """
     if config:
@@ -1131,7 +1126,10 @@ def expected_detector_content(name, config=True):
                     "acq_time",
                 }
             else:
-                datasets = {"type", "data", "acq_parameters", "ctrl_parameters"}
+                if save_images:
+                    datasets = {"type", "data", "acq_parameters", "ctrl_parameters"}
+                else:
+                    datasets = {"type", "acq_parameters", "ctrl_parameters"}
         else:
             datasets = {"data"}
     else:
@@ -1145,9 +1143,15 @@ def expected_detector_content(name, config=True):
             elif "bpm" in name:
                 datasets = {"data"}
             else:
-                datasets = {"data", "acq_parameters", "ctrl_parameters"}
+                if save_images:
+                    datasets = {"data", "acq_parameters", "ctrl_parameters"}
+                else:
+                    datasets = {"acq_parameters", "ctrl_parameters"}
         elif name == "image":
-            datasets = {"data", "acq_parameters", "ctrl_parameters"}
+            if save_images:
+                datasets = {"data", "acq_parameters", "ctrl_parameters"}
+            else:
+                datasets = {"acq_parameters", "ctrl_parameters"}
         elif re.match("roi[1-3]_(sum|avg|std|min|max)", name):
             datasets = {"data", "roi1", "roi2", "roi3"}
         elif name == "roi4":
@@ -1166,6 +1170,7 @@ def expected_channels(
     master_name=None,
     softtimer=None,
     positioners=None,
+    save_images=True,
 ):
     """
     Expected channels grouped per dimension
@@ -1176,6 +1181,7 @@ def expected_channels(
     :param str master_name:
     :param str softtimer:
     :param list(list(str)) positioners:
+    :param bool save_images:
     :returns dict: key are the unique names (used in plots and measurement)
     """
     datasets = {0: set(), 1: set(), 2: set()}
@@ -1255,7 +1261,8 @@ def expected_channels(
         names = {"lima_simulator", "lima_simulator2"}
         if config:
             for conname in names:
-                datasets[2] |= {conname}
+                if save_images:
+                    datasets[2] |= {conname}
                 datasets[1] |= {conname + "_roi4", conname + "_roi_collection"}
                 datasets[0] |= {
                     conname + "_roi1",
@@ -1287,7 +1294,8 @@ def expected_channels(
                 prefix_roi_profile = conname + "_roi_profiles_"
                 prefix_bpm = conname + "_bpm_"
                 prefix_roi_collection = conname + "_roi_collection_"
-                datasets[2] |= {prefix + "image"}
+                if save_images:
+                    datasets[2] |= {prefix + "image"}
                 datasets[1] |= {
                     prefix_roi_profile + "roi4",
                     prefix_roi_collection + "roi_collection_counter",
@@ -1341,9 +1349,7 @@ def assert_set_equal(actual, expected, msg=""):
     assert actual == expected, msg
 
 
-def assert_dataset(
-    dset, detector_ndim, save_options, variable_length=False, save_images=True
-):
+def assert_dataset(dset, detector_ndim, save_options, variable_length=False):
     """
     Check whether dataset contains the expected data
 
@@ -1351,12 +1357,9 @@ def assert_dataset(
     :param int detector_ndim:
     :param dict save_options:
     :param bool variable_length:
-    :param bool save_images:
     """
     detaxis = tuple(range(-detector_ndim, 0))
     if "lima_simulator" in dset.name and detector_ndim == 2:
-        if not save_images:
-            return
         # Check external data (VDS or raw external)
         isexternal = isvirtual = False
         if dset.parent.attrs.get("NX_class", "") == "NXdetector":

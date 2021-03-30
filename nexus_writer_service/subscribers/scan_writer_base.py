@@ -316,7 +316,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         self.logger.info("Link external data (VDS or raw)")
         for node in self._nodes:
             with self._capture_finalize_exceptions():
-                self._ensure_dataset_existance(node)
+                self._create_dataset(node)
 
         self.logger.info("Save detector metadata")
         skip = set()
@@ -1148,42 +1148,44 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
     def is_scan_group(self):
         return self.node.type == "scan_group"
 
-    def _node_proxy(self, node):
+    def _node_proxy(self, node, full_init=True):
         """
         Get node proxy associated with node (create when needed).
         The subscan to which the node belongs too must be known,
         expected and enabled.
 
         :param bliss.data.node.DataNode node:
+        :param bool full_init: see `_dataset_proxy`
         :returns DatasetProxy or None:
         """
         if node.type == "node_ref_channel":
             return self._reference_proxy(node)
         else:
-            return self._dataset_proxy(node)
+            return self._dataset_proxy(node, full_init=full_init)
 
-    def _dataset_proxy(self, node):
+    def _dataset_proxy(self, node, full_init=True):
         """
         Get dataset proxy associated with node (create when needed).
         The subscan to which the node belongs too must be known,
         expected and enabled.
 
         :param bliss.data.node.DataNode node:
+        :param bool full_init: return None when data info is (partially) missing
         :returns DatasetProxy or None:
         """
-        dproxy = None
+        # Get associated subscan
         subscan = self._datanode_subscan(node)
         if subscan is None:
             # unknown, unexpected or disabled
-            return dproxy
+            return None
         # Proxy already initialized?
         dproxy = subscan.datasets.get(node.fullname)
         if dproxy is not None:
             return dproxy
         # Already fully initialized in Redis?
-        data_info = self._detector_data_info(node)
-        if not data_info:
-            return dproxy
+        data_info, complete = self._detector_data_info(node)
+        if full_init and not complete:
+            return None
 
         # Create parent: NXdetector, NXpositioner or measurement
         device = self.device(subscan, node)
@@ -1202,7 +1204,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             parentcontextargs = (subscan,)
         with parentcontext(*parentcontextargs) as parent:
             if parent is None:
-                return dproxy
+                return None
             # Save info associated to the device (not this specific dataset)
             dictdump.dicttonx(device["device_info"], parent, update_mode="modify")
             parent = parent.name
@@ -1223,7 +1225,6 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             **data_info,
         )
         subscan.datasets[node.fullname] = dproxy
-        self._add_to_dataset_links(subscan, dproxy)
         subscan.logger.debug("New data node " + str(dproxy))
         return dproxy
 
@@ -1236,12 +1237,12 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         :param bliss.data.node.DataNode node:
         :returns ReferenceProxy or None:
         """
-        rproxy = None
+        # Get associated subscan
         subscan = self._datanode_subscan(node)
         if subscan is None:
             # unknown, unexpected or disabled
-            return rproxy
-        # Already initialized?
+            return None
+        # Proxy already initialized?
         references = subscan.references
         rproxy = references.get(node.fullname)
         if rproxy is not None:
@@ -1388,24 +1389,52 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         :param EventData event_data:
         :param bool last: this will be the last fetch
         """
-        # Skip when no data expected
-        if not self._node_data_saved(node):
-            if last:
-                self.logger.info(f"no data to be saved for node {repr(node.fullname)}")
-            return
         # Get/initialize dataset or reference proxy
         nproxy = self._node_proxy(node)
         if nproxy is None:
-            if last:
-                self._set_state(
-                    self.STATES.FAULT,
-                    f"node {repr(node.fullname)} lacks initialization info",
-                )
             return
-        # Get data or references (if any)
+        # Get the last data from the streams
+        npoints_before = nproxy.npoints
         self._fetch_new_data(node, nproxy, event_data=event_data)
+        if not npoints_before and nproxy.npoints:
+            self._add_dataset_links(node, nproxy)
         # Progress
-        nproxy.log_progress(expect_complete=last)
+        if last:
+            expect_complete = self._node_expect_data(node)
+        else:
+            expect_complete = False
+        nproxy.log_progress(expect_complete=expect_complete)
+
+    def _node_ignore_data(self, node):
+        """
+        Data is ignored for this node (metadata is not ignored).
+
+        :param bliss.data.node.DataNode node:
+        :returns bool:
+        """
+        # TODO: this is currently not used. So if we receive lima
+        # NEW_DATA events, they will be excepted regardless.
+        if node.type == "lima":
+            return node.info.get("saving_mode") == "NOSAVING"
+        else:
+            return True
+
+    def _node_expect_data(self, node):
+        """
+        Data is expected for this node.
+
+        :param bliss.data.node.DataNode node:
+        :returns bool:
+        """
+        # TODO: this is currently only use to log warnings (Bliss doesn't see those)
+        # If no data is received while we expect data, the writer does not go in FAULT state.
+        if node.type == "lima":
+            # NOSAVING: no data expected
+            # MANUAL: there could be data but not necessarily
+            # None: not specified (the mode could not be set yet)
+            return node.info.get("saving_mode") != [None, "MANUAL", "NOSAVING"]
+        else:
+            return True
 
     def _fetch_new_data(self, node, nproxy, event_data=None):
         """
@@ -1447,51 +1476,34 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
                 if newdata.shape[0]:
                     nproxy.add_internal(newdata)
 
-    def _node_data_saved(self, node):
-        """
-        Check whether data associated for this node is actually saved.
-
-        :param bliss.data.node.DataNode node:
-        :returns bool or None: when None -> we don't know (yet)
-        """
-        if node.type == "lima":
-            # MANUAL or missing: do not expect data
-            # anything else: expect data
-            return node.info.get("saving_mode", "MANUAL") != "MANUAL"
-        else:
-            return True
-
     def _detector_data_info(self, node):
+        """
+        :param bliss.data.node.DataNode node:
+        :returns dict, bool:
+        """
         node_type = node.type
+        info = {}
         if node_type == "lima":
-            if not len(node.all_ref_data):
-                return None
-        data_expected = self._node_data_saved(node)
-
-        # Number of images saved per file
-        if node_type == "lima":
-            external_images_per_file = node.images_per_file
+            images_per_file = node.images_per_file
+            if images_per_file:
+                info["external_images_per_file"] = images_per_file
         else:
-            external_images_per_file = None
-
-        # Detector data type known?
+            info["external_images_per_file"] = None
         dtype = node.dtype
-        if data_expected and not dtype:
-            # Detector data dtype not known at this point
-            return None
-
-        # Detector data shape known?
+        if dtype is not None:
+            info["dtype"] = dtype
         detector_shape = node.shape
-        if data_expected and not all(detector_shape):
-            # Detector data shape not known at this point
-            # TODO: this is why 0 cannot indicate variable length
-            return None
+        if detector_shape is not None and all(detector_shape):
+            info["detector_shape"] = detector_shape
 
-        return {
-            "dtype": dtype,
-            "detector_shape": detector_shape,
-            "external_images_per_file": external_images_per_file,
-        }
+        # Fill missing info
+        allkeys = {"dtype", "detector_shape", "external_images_per_file"}
+        complete = set(info.keys()) == allkeys
+        if not complete:
+            info.setdefault("detector_shape", tuple())  #  0D detector
+            info.setdefault("dtype", float)
+            info.setdefault("external_images_per_file", None)
+        return info, complete
 
     def _save_reference_mode(self, file_format):
         """
@@ -1510,18 +1522,15 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             external = True
         return external, file_format
 
-    def _ensure_dataset_existance(self, node):
+    def _create_dataset(self, node):
         """
         Make sure the dataset associated with this node is created (if not already done).
 
         :param bliss.data.node.DataNode node:
         """
-        nproxy = self._node_proxy(node)
-        if nproxy is None:
-            msg = f"{repr(node.fullname)} not initialized (most likely missing info)"
-            self._set_state(self.STATES.FAULT, msg)
-        else:
-            nproxy.ensure_existance()
+        nproxy = self._node_proxy(node, full_init=False)
+        if nproxy is not None and nproxy.npoints:
+            nproxy.create()
 
     def _fetch_node_metadata(self, node, skip):
         """
@@ -1533,15 +1542,13 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         if node.type == "node_ref_channel":
             return
         # Get/initialize dataset proxy
-        dproxy = self._dataset_proxy(node)
+        dproxy = self._dataset_proxy(node, full_init=False)
         if dproxy is None:
-            self._set_state(
-                self.STATES.FAULT, "no data for node {}".format(repr(node.fullname))
-            )
             return
         # Add metadata to dataset
-        metadata = {"units": node.info.get("unit")}
-        dproxy.add_metadata(metadata, parent=False)
+        if dproxy.exists:
+            metadata = {"units": node.info.get("unit")}
+            dproxy.add_metadata(metadata, parent=False, create=False)
         # Add metadata to nxdetector/nxpositioner
         if dproxy.parent not in skip:
             if not dproxy.parent.endswith("measurement"):
@@ -1553,7 +1560,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
                         for k, v in metadata.items()
                         if k in metadata_keys
                     }
-                dproxy.add_metadata(metadata, parent=True)
+                dproxy.add_metadata(metadata, parent=True, create=True)
             skip.add(dproxy.parent)
 
     def _ensure_same_length(self, subscan):
@@ -1770,13 +1777,18 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
                         attrs = {}
                     nexus.nxCreateDataSet(nxpositioners, mot, pos, attrs)
 
-    def _add_to_dataset_links(self, subscan, dproxy):
+    def _add_dataset_links(self, node, dproxy):
         """
         Add links to this dataset.
 
-        :param Subscan subscan:
+        :param DataNode node:
         :param DatasetProxy dproxy:
         """
+        if node.type == "node_ref_channel":
+            return
+        subscan = self._datanode_subscan(node)
+        if subscan is None:
+            return
         self._add_to_measurement_group(subscan, dproxy)
         if dproxy.device_type in ("positioner", "positionergroup"):
             self._add_to_positioners_group(subscan, dproxy)

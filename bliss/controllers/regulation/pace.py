@@ -1,21 +1,62 @@
+import numpy
+import gevent
 from bliss import global_map
 from bliss.comm.util import get_comm
 from bliss.common.logtools import log_info, log_debug, log_error
+from bliss.common.regulation import lazy_init
 from bliss.controllers.regulator import Controller
 from bliss.controllers.regulator import Loop as RegulationLoop
 
 
 class Loop(RegulationLoop):
+    def axis_position(self):
+        return self.output.read()
+
+    @lazy_init
     def output_off(self):
         self._controller.stop_regulation(self)
 
+    @lazy_init
     def output_on(self):
         self._controller.start_regulation(self)
 
     @property
+    @lazy_init
     def output_state(self):
         output = self._controller.hw_controller.get_output_state(self.channel)
         return output is True and "ON" or "OFF"
+
+    @lazy_init
+    def __info__(self):
+        ctrl_name = (
+            self.controller.name
+            if self.controller.name is not None
+            else self.controller.__class__.__name__
+        )
+        in_unit = self.input.config.get("unit", "N/A")
+        in_value = self.input.read()
+        out_unit = self.output.config.get("unit", "N/A")
+        out_value = self.output.read()
+        if self.channel:
+            out_state = self.output_state
+        else:
+            out_state = "???"
+
+        lines = ["\n"]
+        lines.append(f"=== Loop: {self.name} ===")
+        lines.append(f"controller : {ctrl_name}")
+        lines.append(f"inlet pressure [{self.input.name}]  : {in_value:.3f} {in_unit}")
+        lines.append(
+            f"current pressure [{self.output.name}] : {out_value:.3f} {out_unit}"
+        )
+        lines.append(f"output state : {out_state}")
+
+        lines.append(f"\n=== Setpoint ===")
+        lines.append(f"setpoint: {self.setpoint:.3f} {out_unit}")
+        lines.append(f"ramprate: {self.ramprate:.3f} {out_unit}/s")
+        lines.append(f"ramping: {self.is_ramping()}")
+
+        return "\n".join(lines)
 
 
 class PaceController:
@@ -103,6 +144,9 @@ class PaceController:
         return str(resp)
 
     def set_setpoint(self, channel, value):
+        max_sp = self.get_in_pressure(channel)
+        if value > max_sp:
+            raise ValueError(f"Asked setpoint too high !! Max is {max_sp:.3f}")
         cmd = f":SOUR{channel:1d}:PRES {value:f}"
         self.send_command(cmd)
 
@@ -234,9 +278,11 @@ class Pace(Controller):
             raise ValueError("output channel != input channel on loop {tloop.name}")
         tloop._channel = tloop.output.channel
         tloop._force_ramping_from_current_pv = False
+        tloop._wait_mode = tloop.WaitMode.RAMP
         self._channels.append(tloop.channel)
         ctrl_unit = tloop.output.config["unit"]
         tloop.axis._unit = ctrl_unit
+        tloop.axis.limits = (0., numpy.inf)
         for cnts in tloop._counters.values():
             cnts.unit = ctrl_unit
 
@@ -465,6 +511,7 @@ class Pace(Controller):
         log_info(self, "Controller:start_ramp: %s %s" % (tloop, sp))
         self.hw_controller.set_output_state(tloop.channel, True)
         self.hw_controller.set_setpoint(tloop.channel, sp)
+        gevent.sleep(.1)
 
     def stop_ramp(self, tloop):
         """
@@ -477,8 +524,8 @@ class Pace(Controller):
         """
         log_info(self, "Controller:stop_ramp: %s" % (tloop))
         if not self.hw_controller.is_in_limits(tloop.channel):
-            current = self.hw_controller.get_pressure(tloop.channel)
-            self.hw_controller.set_setpoint(current)
+            current = self.hw_controller.get_out_pressure(tloop.channel)
+            self.hw_controller.set_setpoint(tloop.channel, current)
 
     def is_ramping(self, tloop):
         """

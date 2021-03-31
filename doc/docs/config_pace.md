@@ -1,28 +1,62 @@
-# PACE (Pressure Automated Calibration Equipment) Controller
-Acessible via tcp sockets, using SCPI protocol instructions.
+# PACE 6000 used with **Regulation plugin**:
 
-Models: 5000 (one channel) and 6000 (2 channels).
+## YAML configuration file example
 
-Manifacturer: General Electric Measurement & Control
-
-### Example YAML configuration file ###
-```yaml
-  controller:
-   class: pace
-   url: 'id29pace1:5025' #host:port
-   outputs:
-     - name: pmbpress
-       low_limit: 0
-       high_limit: 2.1
-       default_unit: 'BAR'
-       channel: 1            # for 6000 only
+```YAML
+- class: Pace
+  plugin: regulation
+  name: pace_ctrl
+  tcp:
+      url: id15pace6000:5025
+  inputs:
+    - name: pace1_in
+      channel: 1
+    - name: pace2_in
+      channel: 2
+  outputs:
+    - name: pace1_out
+      channel: 1
+    - name: pace2_out
+      channel: 2
+  ctrl_loops:
+    - name: pace1
+      input: $pace1_in
+      output: $pace1_out
+    - name: pace2
+      input: $pace2_in
+      output: $pace2_out
 ```
-The plugin for this controller is temperature.
-```yaml
-   plugin: temperature
-```
-should either be in \_\_init__.yml in the same directory or added to the above configuration.
 
-## further reading at ESRF
-*  [PACE User Manual](https://www.gemeasurement.com/sites/gemc.dev/files/pace5000_pace6000_user_manual_k0443_rev_b.pdf)
-*  PACE SCPI MAnual /segfs/bliss/docs/PACE/PACE_SCPI_Manual_k0472.pdf
+Opionnaly, `unit` can be specified for each input/output channel. If not specfified, `unit` is read from the controller, otherwise it is set on the controller. Supported units by the controller are : "ATM", "BAR", "MBAR", "PA", "HPA", "KPA", "MPA", "TORR", "KG/M2"
+
+In the above example:
+
+* `pace1_in` will be the inlet pressure (this is also the maximum pressure which can bet set)
+* `pace1_out` will be the current output pressure
+
+## Usage
+
+In the Bliss session import the Loop object (ex: `pace1`).
+
+Access the controller with `pace1.controller`.
+
+Access the associated input and output with `pace1.input` and `pace1.output`.
+
+Perform a scan with the regulation loop as an axis with `pace1.axis`.
+
+Ramp to a given setpoint temperature with `pace1.setpoint = 200`.
+
+Change the ramp rate with `pace1.ramprate = 10`.
+
+If ramprate is set to zero (`pace1.ramprate = 0`), the controller will reach to the setpoint temperature as fast as possible.
+
+
+## Status Information
+
+In a Bliss session, type the name of the loop to show information about the Loop, its controller and associated input and output.
+
+## further reading
+   * [PACE presentation] (https://www.bakerhughesds.com/druck/pressure-controllers-indicators)
+   * [PACE manual] (https://www.bakerhughesds.com/sites/g/files/cozyhq596/files/2019-08/eng_-_pace_1000_5000_6000_calibration_manual_k0450_rev_b.pdf
+   * [PACE scpi commands] (https://www.bakerhughesds.com/sites/g/files/cozyhq596/files/2020-06/k0472.pdf)
+

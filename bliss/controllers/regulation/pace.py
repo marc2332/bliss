@@ -13,16 +13,16 @@ class Loop(RegulationLoop):
         return self.output.read()
 
     @lazy_init
-    def output_off(self):
+    def regulation_stop(self):
         self._controller.stop_regulation(self)
 
     @lazy_init
-    def output_on(self):
+    def regulation_start(self):
         self._controller.start_regulation(self)
 
     @property
     @lazy_init
-    def output_state(self):
+    def regulation_state(self):
         output = self._controller.hw_controller.get_output_state(self.channel)
         return output is True and "ON" or "OFF"
 

@@ -12,6 +12,8 @@ import pytest
 import gevent
 import logging
 import numpy
+from unittest import mock
+
 from bliss.common.utils import all_equal
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.common.tango import DeviceProxy, DevFailed
@@ -1029,6 +1031,39 @@ def test_reapplication_image_params(beacon, default_session, lima_simulator, cap
     new_roi = simulator.proxy.image_roi
     assert "All parameters will be refeshed on lima_simulator" in caplog.messages
     assert all(old_roi == new_roi)
+
+
+def test_roi_devfailed(default_session, lima_simulator, caplog):
+    simulator = default_session.config.get("lima_simulator")
+    simulator.roi_counters["r1"] = Roi(0, 0, 100, 200)
+
+    mocked_proxy = mock.MagicMock()
+    mocked_proxy.dev_name.return_value = simulator.roi_counters._proxy.dev_name()
+    mocked_proxy.readCounters.side_effect = DevFailed()
+    simulator.roi_counters._proxy = mocked_proxy
+    caplog.clear()
+
+    scan = loopscan(1, 0.1, simulator, save=False)
+
+    assert numpy.array_equal(scan.get_data()["r1_sum"], numpy.array([-1]))
+    assert "Cannot read counters" in "\n".join(caplog.messages)
+
+
+def test_roi_profile_devfailed(default_session, lima_simulator, caplog):
+    simulator = default_session.config.get("lima_simulator")
+    simulator.roi_profiles["s1"] = 20, 20, 20, 20
+    simulator.roi_profiles.set_roi_mode("horizontal", "s1")
+
+    mocked_proxy = mock.MagicMock()
+    mocked_proxy.dev_name.return_value = simulator.roi_counters._proxy.dev_name()
+    mocked_proxy.readImage.side_effect = DevFailed()
+    mocked_proxy.addNames.return_value = [0]
+    simulator.roi_profiles._proxy = mocked_proxy
+    caplog.clear()
+
+    scan = loopscan(1, 0.1, simulator.roi_profiles, save=False)
+
+    assert "Cannot read profile" in "\n".join(caplog.messages)
 
 
 def test_roi_collection(default_session, lima_simulator, tmp_path):

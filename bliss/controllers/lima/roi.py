@@ -11,6 +11,7 @@ import functools
 import numpy
 
 from bliss.config import settings
+from bliss.common.logtools import log_exception
 from bliss.common.tango import DevFailed
 from bliss.common.counter import IntegratingCounter
 from bliss.controllers.counter import IntegratingCounterController
@@ -672,7 +673,6 @@ class RoiCounters(IntegratingCounterController):
             elif roi.__class__ == ArcRoi:
                 arcrois_values.extend([roi_id])
                 arcrois_values.extend(roi.get_coords())
-
             self._roi_ids[roi.name] = roi_id
 
         if rois_values or arcrois_values:
@@ -808,7 +808,10 @@ class RoiCounters(IntegratingCounterController):
         try:
             raw_data = self._proxy.readCounters(from_index)
         except DevFailed:
-            return [numpy.array(-1)] * len(counters)
+            log_exception(
+                self, "Cannot read counters from Lima device %s", self._proxy.dev_name()
+            )
+            return [numpy.array([-1])] * len(counters)
         if not raw_data.size:
             return len(counters) * (numpy.array(()),)
         raw_data.shape = (raw_data.size) // roi_counter_size, roi_counter_size
@@ -1091,6 +1094,8 @@ class RoiProfileController(IntegratingCounterController):
             return "\n".join([header, "*** no ROIs defined ***"])
 
     def get_values(self, from_index, *counters):
+        # caution in the two next lines: in case we need a list of different list objects,
+        # [[]]*len(counters) is not applicable
         blank = [[] for cnt in counters]
         profiles = [[] for cnt in counters]
 
@@ -1101,7 +1106,14 @@ class RoiProfileController(IntegratingCounterController):
             try:
                 spec = self._proxy.readImage([int(cid), int(from_index)])
             except DevFailed:
-                return blank
+                log_exception(
+                    self,
+                    "Cannot read profile from Lima device %s",
+                    self._proxy.dev_name(),
+                )
+                # do not return a blank list => put -1 values, to indicate
+                # Lima reading failed, without stopping acquisition
+                return [numpy.array([-1] * size)] * len(counters)
 
             if len(spec):
                 num_of_spec = len(spec) // size

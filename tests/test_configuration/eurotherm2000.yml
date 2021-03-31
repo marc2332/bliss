@@ -5,8 +5,10 @@ serial:
     url: /dev/ttyS0
 inputs:
     - name: euro_in
+      unit: '°C'
 outputs:
     - name: euro_out
+      unit: '%'
 ctrl_loops:
     - name: euro_loop
       input: $euro_in

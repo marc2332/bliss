@@ -878,6 +878,10 @@ def test_lima_ctrl_params_uploading(default_session, lima_simulator, caplog):
         scan.update_ctrl_params(simulator, {"saving_max_writing_task": 2})
         scan.run()
 
+    # print to try to debug test...
+    if len(caplog.messages) != 1:
+        print(f"test_lima_ctrl_params_uploading caplog.messages={caplog.messages}")
+
     # check that a change in ctrl params leads to update in camera
     assert len(caplog.messages) == 1
     assert (

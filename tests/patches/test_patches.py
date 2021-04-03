@@ -40,10 +40,10 @@ def _generate_diff(str1, str2):
 
 
 def _compare_dump(saved_diff_dump, new_diff_dump):
-    assert len(saved_diff_dump) == len(new_diff_dump)
+    # assert len(saved_diff_dump) == len(new_diff_dump)
 
-    for l1, l2 in zip(saved_diff_dump, new_diff_dump):
-        assert l1 == l2
+    for i, (l1, l2) in enumerate(zip(saved_diff_dump, new_diff_dump)):
+        assert l1 == l2, f"Patch line nb {i} mismatch"
 
     # if these tests fail there are some changes in the source of the installed
     # packages compared to the one that was used for the patch that might be

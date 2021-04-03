@@ -12,8 +12,6 @@ import threading
 import os
 import sys
 import socket
-import signal
-import weakref
 import warnings
 import functools
 import traceback
@@ -21,35 +19,27 @@ import gevent
 import logging
 import platform
 
-from contextlib import contextmanager
-from collections import deque, defaultdict
+from collections import deque
 from datetime import datetime
 
 from ptpython.repl import PythonRepl
-from prompt_toolkit.application import run_in_terminal
 
 # from prompt_toolkit.patch_stdout import patch_stdout as patch_stdout_context
 import ptpython.layout
 from prompt_toolkit.output import DummyOutput
 
 # imports needed to have control over _execute of ptpython
-from ptpython.repl import _lex_python_result
-from prompt_toolkit.formatted_text.utils import fragment_list_width
-from prompt_toolkit.formatted_text import merge_formatted_text, FormattedText
-from prompt_toolkit.formatted_text import PygmentsTokens
-from prompt_toolkit.shortcuts import print_formatted_text
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.utils import is_windows
 from prompt_toolkit.filters import has_focus
 from prompt_toolkit.enums import DEFAULT_BUFFER
 
 from bliss.shell.data.display import ScanPrinter, ScanPrinterWithProgressBar
-from bliss.shell.cli import style as repl_style
 from bliss.shell.cli.prompt import BlissPrompt
 from bliss.shell.cli.typing_helper import TypingHelper
 from bliss.shell.cli.ptpython_statusbar_patch import NEWstatus_bar, TMUXstatus_bar
 
-from bliss import is_bliss_shell, set_bliss_shell_mode
+from bliss import set_bliss_shell_mode
 from bliss.common.utils import ShellStr, Singleton
 from bliss.common import constants
 from bliss import release, current_session
@@ -58,7 +48,6 @@ from bliss.shell.standard import info
 from bliss.common.logtools import userlogger, elogbook
 from bliss.shell.cli.protected_dict import ProtectedDict
 from bliss.shell import standard
-from redis.exceptions import ConnectionError
 
 from bliss.common import session as session_mdl
 from bliss.common.session import DefaultSession

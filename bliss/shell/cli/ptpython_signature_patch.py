@@ -9,12 +9,13 @@
 Patch to modify the behavior of the ptpython signature_toolbar
 The code for def signature_toolbar corresponds to ptpython version 2.0.4
 """
+from inspect import _ParameterKind as ParameterKind
 from prompt_toolkit.layout.containers import Window, ConditionalContainer
 from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.layout.dimension import Dimension
-from ptpython.filters import HasSignature, ShowSignature
-from prompt_toolkit.filters import is_done, has_completions
-from ptpython.layout import show_completions_menu, show_multi_column_completions_menu
+from ptpython.filters import HasSignature, ShowSignature, ShowSidebar
+from prompt_toolkit.filters import is_done
+from prompt_toolkit.formatted_text.base import StyleAndTextTuples
 
 
 def NEWsignature_toolbar(python_input):
@@ -22,8 +23,8 @@ def NEWsignature_toolbar(python_input):
     Return the `Layout` for the signature.
     """
 
-    def get_text_fragments():
-        result = []
+    def get_text_fragments() -> StyleAndTextTuples:
+        result: StyleAndTextTuples = []
         append = result.append
         Signature = "class:signature-toolbar"
 
@@ -32,7 +33,7 @@ def NEWsignature_toolbar(python_input):
 
             append((Signature, " "))
             try:
-                append((Signature, sig.name))  ### PATCHED HERE
+                append((Signature, sig.name))
             except IndexError:
                 # Workaround for #37: https://github.com/jonathanslenders/python-prompt-toolkit/issues/37
                 # See also: https://github.com/davidhalter/jedi/issues/490
@@ -40,22 +41,26 @@ def NEWsignature_toolbar(python_input):
 
             append((Signature + ".operator", "("))  ### PATCHED HERE
 
-            try:
-                enumerated_params = enumerate(sig.params)
-            except AttributeError:
-                # Workaround for #136: https://github.com/jonathanslenders/ptpython/issues/136
-                # AttributeError: 'Lambda' object has no attribute 'get_subscope_by_name'
-                return []
+            got_positional_only = False
+            got_keyword_only = False
 
-            for i, p in enumerated_params:
-                # Workaround for #47: 'p' is None when we hit the '*' in the signature.
-                #                     and sig has no 'index' attribute.
-                # See: https://github.com/jonathanslenders/ptpython/issues/47
-                #      https://github.com/davidhalter/jedi/issues/598
-                description = p.description if p else "*"  # or '*'
+            for i, p in enumerate(sig.parameters):
+                # Detect transition between positional-only and not positional-only.
+                if p.kind == ParameterKind.POSITIONAL_ONLY:
+                    got_positional_only = True
+                if got_positional_only and p.kind != ParameterKind.POSITIONAL_ONLY:
+                    got_positional_only = False
+                    append((Signature, "/"))
+                    append((Signature + ".operator", ", "))  ### PATCHED HERE
+
+                if not got_keyword_only and p.kind == ParameterKind.KEYWORD_ONLY:
+                    got_keyword_only = True
+                    append((Signature, "*"))
+                    append((Signature + ".operator", ", "))  ### PATCHED HERE
+
                 sig_index = getattr(sig, "index", 0)
 
-                description = description.split("param ")[-1]  ### PATCHED HERE
+                description = p.description.split("param ")[-1]  ### PATCHED HERE
                 if i == sig_index:
                     # Note: we use `_Param.description` instead of
                     #       `_Param.name`, that way we also get the '*' before args.
@@ -63,10 +68,16 @@ def NEWsignature_toolbar(python_input):
                         (Signature + ".current-name", str(description))
                     )  ### PATCHED HERE
                 else:
-                    append((Signature, str(description)))
+                    append((Signature, str(description)))  ### PATCHED HERE
+
+                if p.default:
+                    # NOTE: For the jedi-based completion, the default is
+                    #       currently still part of the name.
+                    append((Signature, f"={p.default}"))
+
                 append((Signature + ".operator", ", "))  ### PATCHED HERE
 
-            if sig.params:
+            if sig.parameters:
                 # Pop last comma
                 result.pop()
 
@@ -81,16 +92,10 @@ def NEWsignature_toolbar(python_input):
         filter=
         # Show only when there is a signature
         HasSignature(python_input) &
-        # And there are no completions to be shown. (would cover signature pop-up.)
-        ~(
-            has_completions
-            & (
-                show_completions_menu(python_input)
-                | show_multi_column_completions_menu(python_input)
-            )
-        )
         # Signature needs to be shown.
-        & ShowSignature(python_input) &
+        ShowSignature(python_input) &
+        # And no sidebar is visible.
+        ~ShowSidebar(python_input) &
         # Not done yet.
         ~is_done,
     )

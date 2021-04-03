@@ -56,26 +56,28 @@ def _compare_dump(saved_diff_dump, new_diff_dump):
 
 
 def test_ptpython_signature_patch():
-    ptpython_signature_patch_diff_dump = [
-        "- def signature_toolbar(python_input):\n",
-        "+ def NEWsignature_toolbar(python_input):\n",
-        "-                 append((Signature, sig.full_name))\n",
-        "+                 append((Signature, sig.name))  ### PATCHED HERE\n",
-        '-             append((Signature + ",operator", "("))\n',
-        '+             append((Signature + ".operator", "("))  ### PATCHED HERE\n',
-        '+                 description = description.split("param ")[-1]  ### PATCHED '
-        "HERE\n",
-        "+                     append(\n",
-        '-                     append((Signature + ",current-name", '
-        "str(description)))\n",
-        '+                         (Signature + ".current-name", str(description))\n',
-        "+                     )  ### PATCHED HERE\n",
-        '-                 append((Signature + ",operator", ", "))\n',
-        '+                 append((Signature + ".operator", ", "))  ### PATCHED '
-        "HERE\n",
-        '-             append((Signature + ",operator", ")"))\n',
-        '+             append((Signature + ".operator", ")"))  ### PATCHED HERE\n',
-    ]
+    diff_dump = """\
+- def signature_toolbar(python_input):
++ def NEWsignature_toolbar(python_input):
+-             append((Signature + ",operator", "("))
++             append((Signature + ".operator", "("))  ### PATCHED HERE
+-                     append((Signature + ",operator", ", "))
++                     append((Signature + ".operator", ", "))  ### PATCHED HERE
+-                     append((Signature + ",operator", ", "))
++                     append((Signature + ".operator", ", "))  ### PATCHED HERE
++                 description = p.description.split("param ")[-1]  ### PATCHED HERE
++                     append(
+-                     append((Signature + ",current-name", p.description))
++                         (Signature + ".current-name", str(description))
++                     )  ### PATCHED HERE
+-                     append((Signature, p.description))
++                     append((Signature, str(description)))  ### PATCHED HERE
+-                 append((Signature + ",operator", ", "))
++                 append((Signature + ".operator", ", "))  ### PATCHED HERE
+-             append((Signature + ",operator", ")"))
++             append((Signature + ".operator", ")"))  ### PATCHED HERE
+"""
+    ptpython_signature_patch_diff_dump = [l + "\n" for l in diff_dump.split("\n")]
 
     o, p = _check_patch(
         "ptpython.layout",

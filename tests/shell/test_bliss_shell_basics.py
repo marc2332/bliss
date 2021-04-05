@@ -278,7 +278,7 @@ def test_protected_against_trailing_whitespaces():
     with output.capture_stdout:
         br.eval(result)
 
-    assert output[-1] == "Om Mani Padme Hum\n\n"
+    assert output[-1].strip() == "Om Mani Padme Hum"
 
 
 def test_info_dunder():

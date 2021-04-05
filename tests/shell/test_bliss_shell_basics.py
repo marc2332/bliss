@@ -126,17 +126,6 @@ def test_shell_ctrl_r():
     assert result == "from bliss import setup_globals"
 
 
-def test_shell_prompt_number():
-    result, cli, br = _feed_cli_with_input("print(1)\r")
-    num1 = br.bliss_prompt.python_input.current_statement_index
-    br.eval(result)
-    num2 = br.bliss_prompt.python_input.current_statement_index
-    assert num2 == num1 + 1
-    br.eval(result)
-    num3 = br.bliss_prompt.python_input.current_statement_index
-    assert num3 == num1 + 2
-
-
 def test_shell_comma_backets():
     result, cli, _ = _feed_cli_with_input("print 1 2\r")
     assert result == "print(1,2)"

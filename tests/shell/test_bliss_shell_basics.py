@@ -307,13 +307,15 @@ def test_info_dunder():
     output = cli.output
 
     with output.capture_stdout:
-        br.eval(result)
+        r = br.eval(result)
+        br.show_result(r)
     assert "info-string" in output[-1]
 
     result, cli, br = _feed_cli_with_input("[A]\r", local_locals={"A": A(), "B": B()})
     output = cli.output
     with output.capture_stdout:
-        br.eval(result)
+        r = br.eval(result)
+        br.show_result(r)
     assert "[repr-string]" in output[-1]
 
     # 2 parenthesis added to method if not present
@@ -322,7 +324,8 @@ def test_info_dunder():
     )
     output = cli.output
     with output.capture_stdout:
-        br.eval(result)
+        r = br.eval(result)
+        br.show_result(r)
     assert "titi-method" in output[-1]
 
     # Closing parenthesis added if only opening one is present.
@@ -331,7 +334,8 @@ def test_info_dunder():
     )
     output = cli.output
     with output.capture_stdout:
-        br.eval(result)
+        r = br.eval(result)
+        br.show_result(r)
     assert "titi-method" in output[-1]
 
     # Ok if finishing by a closing parenthesis.
@@ -340,14 +344,16 @@ def test_info_dunder():
     )
     output = cli.output
     with output.capture_stdout:
-        br.eval(result)
+        r = br.eval(result)
+        br.show_result(r)
     assert "titi-method" in output[-1]
 
     # '__repr__()' used if no '__info__()' method is defined.
     result, cli, br = _feed_cli_with_input("B\r", local_locals={"A": A(), "B": B()})
     output = cli.output
     with output.capture_stdout:
-        br.eval(result)
+        r = br.eval(result)
+        br.show_result(r)
     assert "repr-string" in output[-1]
 
     # Default behaviour for object without specific method.
@@ -356,7 +362,8 @@ def test_info_dunder():
     )
     output = cli.output
     with output.capture_stdout:
-        br.eval(result)
+        r = br.eval(result)
+        br.show_result(r)
     assert "C object at " in output[-1]
 
     ###bypass typing helper ... equivalent of ... [Space][left Arrow]A[return], "B": B, "A.titi": A.titi}, "B": B, "A.titi": A.titi}
@@ -369,7 +376,8 @@ def test_info_dunder():
         result = br.app.run()
         assert result == "A"
         with output.capture_stdout:
-            br.eval(result)
+            r = br.eval(result)
+            br.show_result(r)
         # assert "<locals>.A" in out
         assert (
             "  Out [1]: <class 'test_bliss_shell_basics.test_info_dunder.<locals>.A'>\r\n\n"
@@ -383,7 +391,8 @@ def test_info_dunder():
         result = br.app.run()
         assert result == "A()"
         with output.capture_stdout:
-            br.eval(result)
+            r = br.eval(result)
+            br.show_result(r)
         # assert "<locals>.A" in out
         assert output[-1].startswith("  Out [1]: info-string")
 
@@ -394,7 +403,8 @@ def test_info_dunder():
         result = br.app.run()
         assert result == "B()"
         with output.capture_stdout:
-            br.eval(result)
+            r = br.eval(result)
+            br.show_result(r)
 
         # assert "<locals>.B" in out
         assert output[-1].startswith("  Out [1]: repr-string")
@@ -498,7 +508,8 @@ def test_captured_output():
 
     output = cli.output
     with output.capture_stdout:
-        br.eval("f(1)")
+        r = br.eval("f(1)")
+        br.show_result(r)
 
     captured = output[-1]
     assert "2" in captured
@@ -510,7 +521,8 @@ def test_captured_output():
         output[2]
 
     with output.capture_stdout:
-        br.eval("f(3)")
+        r = br.eval("f(3)")
+        br.show_result(r)
 
     captured = output[-1]
     assert "4" in captured

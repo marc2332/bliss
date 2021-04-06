@@ -38,7 +38,7 @@ class Loop(RegulationLoop):
         out_unit = self.output.config.get("unit", "N/A")
         out_value = self.output.read()
         if self.channel:
-            out_state = self.output_state
+            out_state = self._controller.hw_controller.get_output_state(self.channel)
         else:
             out_state = "???"
 
@@ -282,7 +282,7 @@ class Pace(Controller):
         self._channels.append(tloop.channel)
         ctrl_unit = tloop.output.config["unit"]
         tloop.axis._unit = ctrl_unit
-        tloop.axis.limits = (0., numpy.inf)
+        tloop.axis.limits = (0.0, numpy.inf)
         for cnts in tloop._counters.values():
             cnts.unit = ctrl_unit
 
@@ -511,7 +511,7 @@ class Pace(Controller):
         log_info(self, "Controller:start_ramp: %s %s" % (tloop, sp))
         self.hw_controller.set_output_state(tloop.channel, True)
         self.hw_controller.set_setpoint(tloop.channel, sp)
-        gevent.sleep(.1)
+        gevent.sleep(0.1)
 
     def stop_ramp(self, tloop):
         """
@@ -572,7 +572,7 @@ class Pace(Controller):
         log_info(self, "Controller:get_ramprate: %s" % (tloop))
         rampmode = self.hw_controller.get_rampmode(tloop.channel)
         if rampmode == "MAX":
-            return 0.
+            return 0.0
         else:
             return self.hw_controller.get_ramprate(tloop.channel)
 

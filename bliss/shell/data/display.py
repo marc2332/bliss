@@ -782,8 +782,24 @@ class ScanDataListener(_ScanPrinterBase):
                         print(line)
                     self.scan_steps_index += 1
 
-    def reset_terminal(self):
-        # Prevent user inputs
+    def _prevent_user_input(self):
+        """Prevent user input in the terminal, if the feature is available"""
+        if termios is None:
+            return
+
+        fd = sys.stdin.fileno()
+        try:
+            new = termios.tcgetattr(fd)
+            new[3] &= ~termios.ECHO
+            termios.tcsetattr(fd, termios.TCSANOW, new)
+        except termios.error:
+            pass  # not in terminal (example in tests)
+        else:
+            # revert 'Prevent user inputs if using a terminal'
+            atexit.register(self._release_user_input)
+
+    def _release_user_input(self):
+        """Release user input, if it was locked with `_prevent_user_input`"""
         fd = sys.stdin.fileno()
         new = termios.tcgetattr(fd)
         new[3] |= termios.ECHO
@@ -795,16 +811,7 @@ class ScanDataListener(_ScanPrinterBase):
         signal.signal(signal.SIGINT, catch_sigint)
 
         # Prevent user inputs if using a terminal
-        fd = sys.stdin.fileno()
-        try:
-            new = termios.tcgetattr(fd)
-            new[3] &= ~termios.ECHO
-            termios.tcsetattr(fd, termios.TCSANOW, new)
-        except termios.error:
-            pass  # not in terminal (example in tests)
-        else:
-            # revert 'Prevent user inputs if using a terminal'
-            atexit.register(self.reset_terminal)
+        self._prevent_user_input()
 
         msg = f" Watching scans from Bliss session: '{self.session_name}' "
         line = get_decorated_line(msg, deco=">", rdeco="<", head="\n", tail="\n")

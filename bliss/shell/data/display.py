@@ -541,8 +541,6 @@ class ScanPrinter(_ScanPrinterBase, ScanMotorListener):
         self._labels = []
         self._ct_data = None
 
-        set_scan_watch_callbacks(self.on_scan_new, self.on_scan_data, self.on_scan_end)
-
     @property
     def labels(self):
         return self._labels
@@ -696,6 +694,61 @@ class ScanPrinterWithProgressBar(ScanPrinter):
             self.progress_bar.close()
         super().on_scan_end(scan_info)
         self.progress_bar = None
+
+
+class ScanDisplayDispatcher:
+    """Listen scans from the BLISS session and dispatch them to dedicated scan
+    displayer"""
+
+    def __init__(self):
+        set_scan_watch_callbacks(
+            self._on_scan_new, self._on_scan_data, self._on_scan_end
+        )
+        self._scan_displayer = None
+        """Current scan displayer"""
+
+        self._scan_id = None
+        """Current scan id"""
+
+        self._use_progress_bar = False
+        """If True try to use a scan display using a progress bar"""
+
+    def set_use_progress_bar(self, use_progress_bar):
+        """When set the next displayed scan will use or not the progress bar"""
+        self._use_progress_bar = use_progress_bar
+
+    def _create_scan_displayer(self, scan, scan_info):
+        """Create a scan displayer for a specific scan"""
+        if self._use_progress_bar:
+            return ScanPrinterWithProgressBar()
+        else:
+            return ScanPrinter()
+
+    def _on_scan_new(self, scan, scan_info):
+        """Called by BLISS callback on new scan start"""
+        if self._scan_displayer is None:
+            self._scan_displayer = self._create_scan_displayer(scan, scan_info)
+            if self._scan_displayer is not None:
+                self._scan_id = scan_info["node_name"]
+                self._scan_displayer.on_scan_new(scan, scan_info)
+
+    def _on_scan_data(self, scan_info, data):
+        """Called by BLISS callback on a new scan data"""
+        scan_id = scan_info["node_name"]
+        if self._scan_id == scan_id:
+            if self._scan_displayer is not None:
+                self._scan_displayer.on_scan_data(scan_info, data)
+
+    def _on_scan_end(self, scan_info):
+        """Called by BLISS callback on scan ending"""
+        scan_id = scan_info["node_name"]
+        if self._scan_id == scan_id:
+            try:
+                if self._scan_displayer is not None:
+                    self._scan_displayer.on_scan_end(scan_info)
+            finally:
+                self._scan_displayer = None
+                self._scan_id = None
 
 
 class ScanDataListener(_ScanPrinterBase):

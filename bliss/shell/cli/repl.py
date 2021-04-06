@@ -36,7 +36,8 @@ from prompt_toolkit.utils import is_windows
 from prompt_toolkit.filters import has_focus
 from prompt_toolkit.enums import DEFAULT_BUFFER
 
-from bliss.shell.data.display import ScanPrinter, ScanPrinterWithProgressBar
+from bliss.shell.data.display import ScanDisplayDispatcher
+from bliss.shell.cli import style as repl_style
 from bliss.shell.cli.prompt import BlissPrompt
 from bliss.shell.cli.typing_helper import TypingHelper
 from bliss.shell.cli.ptpython_statusbar_patch import NEWstatus_bar, TMUXstatus_bar
@@ -683,12 +684,9 @@ def embed(*args, **kwargs):
     """
     use_tmux = kwargs.get("use_tmux", False)
 
+    scans_display = ScanDisplayDispatcher()
     if not is_windows() and use_tmux:
-        # Catch scans events to show the progress bar
-        scan_printer = ScanPrinterWithProgressBar()
-    else:
-        # set old style print methods for the scans
-        scan_printer = ScanPrinter()
+        scans_display.set_use_progress_bar(True)
 
     with filter_warnings():
         cmd_line_i = cli(*args, **kwargs)

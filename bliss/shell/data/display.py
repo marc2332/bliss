@@ -31,14 +31,8 @@ from bliss.shell.formatters.table import IncrementalTable
 
 if sys.platform not in ["win32", "cygwin"]:
     import termios
-    from blessings import Terminal
 else:
-
-    class Terminal:
-        def __getattr__(self, prop):
-            if prop.startswith("__"):
-                raise AttributeError(prop)
-            return ""
+    termios = None
 
 
 def catch_sigint(*args):

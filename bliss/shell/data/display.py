@@ -591,34 +591,6 @@ class ScanPrinter(_ScanPrinterBase, ScanMotorListener):
         self.print_scan_line(f"\33[2K\r{', '.join(self._labels)}", end="\r")
 
 
-class CtProgressBar(tqdm):
-    def __init__(self, count_time):
-        self.__progress_greenlet = None
-
-        total = int(count_time / 0.1) or None
-
-        super().__init__(total=total, leave=False)
-
-    def _progress_task(self):
-        for i in range(self.total):  # _progress_bar.total):
-            gevent.sleep(0.1)
-            self.update()  # self._progress_bar.update()
-
-    def update(self):
-        # this is called from data update,
-        # but there is only 1 data event for 'ct',
-        # so it is not useful to show progress
-        # (this is why we have greenlet for updating here)
-        if self.__progress_greenlet is None:
-            self.__progress_greenlet = gevent.spawn(self._progress_task)
-        return super().update()
-
-    def close(self):
-        if self.__progress_greenlet:
-            self.__progress_greenlet.kill()
-        return super().close()
-
-
 class CtPrinterWithProgressBar(ScanPrinter):
     """Dedicated ScanPrinter for ct scan.
 
@@ -627,21 +599,35 @@ class CtPrinterWithProgressBar(ScanPrinter):
 
     def __init__(self):
         super().__init__()
-        self.progress_bar = None
+        self.__progress_bar = None
+        self.__progress_greenlet = None
 
-    def _on_motor_position_changed(self, position, signal=None, sender=None):
-        super()._on_motor_position_changed(position, signal, sender)
-        self.progress_bar.set_description(", ".join(self.labels))
-        self.progress_bar.refresh()
+    def _progress_task(self):
+        prev = self.__start
+        now = time.time()
+        while now < self.__end:
+            gevent.sleep(0.2)
+            now = time.time()
+            increment = now - prev
+            prev = now
+            self.__progress_bar.update(increment)
 
     def on_scan_new(self, scan, scan_info):
-        super().on_scan_new(scan, scan_info)
-        self.progress_bar = CtProgressBar(scan_info["count_time"])
-        # put in place the progress task
-        self.progress_bar.update()
+        super(CtPrinterWithProgressBar, self).on_scan_new(scan, scan_info)
+        count_time = scan_info["count_time"]
+        self.__progress_bar = tqdm(total=count_time, unit_scale=True, leave=False)
+        self.__start = time.time()
+        self.__end = self.__start + count_time
+        self.__progress_bar.update(0.0)
+        if self.__progress_greenlet is None:
+            self.__progress_greenlet = gevent.spawn(self._progress_task)
 
     def on_scan_end(self, scan_info):
-        self.progress_bar.close()
+        if self.__progress_greenlet:
+            self.__progress_greenlet.kill()
+            self.__progress_greenlet = None
+        self.__progress_bar.close()
+        self.__progress_bar = None
         super().on_scan_end(scan_info)
 
 

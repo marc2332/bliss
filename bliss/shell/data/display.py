@@ -650,23 +650,10 @@ class ScanPrinterWithProgressBar(ScanPrinter):
         self.progress_bar.set_description(", ".join(self.labels))
         self.progress_bar.refresh()
 
-    def _is_scan_must_be_printed(self):
-        """Only print scans if it is executed as forground in BLISS shell"""
-        # display progress bar only in BLISS repl
-        if not is_bliss_shell():
-            return False
-        # If it was not started in the background
-        current = gevent.getcurrent()
-        if current.parent is not None:
-            return False
-
-        return True
-
     def on_scan_new(self, scan, scan_info):
-        self._print_scan = self._is_scan_must_be_printed()
-        if not self._print_scan:
-            return
         super().on_scan_new(scan, scan_info)
+
+        # allow prints for 'ct' scans only
         scan_type = scan_info.get("type")
         if scan_type == "ct":
             self.progress_bar = CtProgressBar(scan_info["count_time"])
@@ -688,8 +675,6 @@ class ScanPrinterWithProgressBar(ScanPrinter):
                 self.progress_bar.update()
 
     def on_scan_end(self, scan_info):
-        if not self._print_scan:
-            return
         if self.progress_bar is not None:
             self.progress_bar.close()
         super().on_scan_end(scan_info)
@@ -719,6 +704,16 @@ class ScanDisplayDispatcher:
 
     def _create_scan_displayer(self, scan, scan_info):
         """Create a scan displayer for a specific scan"""
+
+        # Display the scan only on the main BlissRepl
+        if not is_bliss_shell():
+            return None
+
+        # Scans started from the background are ignored
+        current = gevent.getcurrent()
+        if current.parent is not None:
+            return None
+
         if self._use_progress_bar:
             return ScanPrinterWithProgressBar()
         else:

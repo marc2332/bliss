@@ -619,30 +619,52 @@ class CtProgressBar(tqdm):
         return super().close()
 
 
-class ScanPrinterWithProgressBar(ScanPrinter):
-    def __init__(self):
-        """ Alternate ScanPrinter to be used in parallel of a ScanDataListener.
-            Prints in the user shell a progress bar during the scan execution.
-            Prints data output of 'ct' scans only.
-        """
-        super().__init__()
+class CtPrinterWithProgressBar(ScanPrinter):
+    """Dedicated ScanPrinter for ct scan.
 
+    Displays a progress bar according to the count time.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.progress_bar = None
+
+    def _on_motor_position_changed(self, position, signal=None, sender=None):
+        super()._on_motor_position_changed(position, signal, sender)
+        self.progress_bar.set_description(", ".join(self.labels))
+        self.progress_bar.refresh()
+
+    def on_scan_new(self, scan, scan_info):
+        super().on_scan_new(scan, scan_info)
+        self.progress_bar = CtProgressBar(scan_info["count_time"])
+        # put in place the progress task
+        self.progress_bar.update()
+
+    def on_scan_end(self, scan_info):
+        self.progress_bar.close()
+        super().on_scan_end(scan_info)
+
+
+class ScanPrinterWithProgressBar(ScanPrinter):
+    """Dedicated ScanPrinter for any scan.
+
+    Displays a progress bar according to the received data.
+    """
+
+    def __init__(self):
+        super().__init__()
         self.progress_bar = None
 
         self._print_scan = True
         """FIXME: This have to be managed per scans"""
 
     def print_scan_header(self, scan_info):
-        if scan_info.get("type") == "ct":
-            return super().print_scan_header(scan_info)
+        pass
 
-    def print_data_header(self, scan_info):  # , first=False):
-        if scan_info.get("type") == "ct":
-            return super().print_data_header(scan_info)
+    def print_data_header(self, scan_info):
+        pass
 
     def build_data_output(self, scan_info, data):
-        if scan_info.get("type") == "ct":
-            return super().build_data_output(scan_info, data)
         return None
 
     def _on_motor_position_changed(self, position, signal=None, sender=None):
@@ -652,14 +674,7 @@ class ScanPrinterWithProgressBar(ScanPrinter):
 
     def on_scan_new(self, scan, scan_info):
         super().on_scan_new(scan, scan_info)
-
-        # allow prints for 'ct' scans only
-        scan_type = scan_info.get("type")
-        if scan_type == "ct":
-            self.progress_bar = CtProgressBar(scan_info["count_time"])
-            self.progress_bar.update()  # put in place the progress task
-        else:
-            self.progress_bar = tqdm(total=scan_info["npoints"], leave=False)
+        self.progress_bar = tqdm(total=scan_info["npoints"], leave=False)
 
     def on_scan_data(self, scan_info, data):
         if not self._print_scan:
@@ -715,7 +730,11 @@ class ScanDisplayDispatcher:
             return None
 
         if self._use_progress_bar:
-            return ScanPrinterWithProgressBar()
+            scan_type = scan_info.get("type")
+            if scan_type == "ct":
+                return CtPrinterWithProgressBar()
+            else:
+                return ScanPrinterWithProgressBar()
         else:
             return ScanPrinter()
 

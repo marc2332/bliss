@@ -756,7 +756,7 @@ class ScanPrinterFromRedis(_ScanPrinterBase, scan_mdl.DefaultScansObserver):
                 # Check if we receive more than one scan points (i.e. lines) per 'scan_data' event
                 bsize = min(len(data[cname]) for cname in data)
 
-                for i in range(bsize - self.scan_steps_index):
+                for _ in range(bsize - self.scan_steps_index):
                     # convert data in order to keep only the concerned line (one scalar per channel).
                     ndata = {
                         cname: data[cname][self.scan_steps_index] for cname in data

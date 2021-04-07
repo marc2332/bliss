@@ -1,0 +1,36 @@
+- plugin: bliss_controller
+  module: bliss_controller
+  class: BlissController
+  name: test_bliss_controller
+
+  com:
+    tcp:
+      url:bcid21
+
+  
+  counters:
+    - name: cnt1
+      tag: temperature
+      mode: mean
+      unit: mm
+      convfunc: 2*x + 3
+
+    - name: cnt2
+      tag: integration
+      unit: mm
+      convfunc: x * 1e-3
+      
+  axes:
+    - name: axis1
+      tag: zrot
+      backlash: 2
+      steps_per_unit: 10000
+      velocity: 2500.0
+      acceleration: 1000.0
+      low_limit: -180
+      high_limit: 180
+      default_cust_attr: 6.28
+
+    - name: axis2
+      tag: zgap
+

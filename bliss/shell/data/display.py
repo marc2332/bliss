@@ -116,63 +116,12 @@ class _ScanPrinterBase:
         self._warning_messages = None
 
     def collect_channels_info(self, scan_info):
+        """Collect information from scan_info
 
-        """ 
-                #------------- scan_info example -------------------------------------------------------
-
-                # session_name = scan_info.get('session_name')             # ex: 'test_session'
-                # user_name = scan_info.get('user_name')                   # ex: 'pguillou'
-                # filename = scan_info.get('filename')                     # ex: '/mnt/c/tmp/test_session/data.h5'
-                # node_name = scan_info.get('node_name')                   # ex: 'test_session:mnt:c:tmp:183_ascan'
-
-                # start_time = scan_info.get('start_time')                 # ex: datetime.datetime(2019, 3, 18, 15, 28, 17, 83204)
-                # start_time_str = scan_info.get('start_time_str')         # ex: 'Mon Mar 18 15:28:17 2019'
-                # start_timestamp = scan_info.get('start_timestamp')       # ex: 1552919297.0832036
-
-                # save = scan_info.get('save')                             # ex: True
-                # sleep_time = scan_info.get('sleep_time')                 # ex: None
-
-                # title = scan_info.get('title')                           # ex: 'ascan roby 0 10 10 0.01'
-                # scan_type = scan_info.get('type')                        # ex:    ^
-                # start = scan_info.get('start')                           # ex:             ^              = [0]
-                # stop = scan_info.get('stop')                             # ex:                ^           = [10]
-                # npoints = scan_info.get('npoints')                       # ex:                   ^        = 10
-                # count_time = scan_info.get('count_time')                 # ex:                       ^    = 0.01
-
-                # total_acq_time = scan_info.get('total_acq_time')         # ex: 0.1  ( = npoints * count_time )
-                # scan_nb = scan_info.get('scan_nb')                       # ex: 183
-
-                # positioners_dial = scan_info.get('positioners_dial')     # ex: {'bad': 0.0, 'calc_mot1': 20.0, 'roby': 20.0, ... }
-                # positioners = scan_info.get('positioners')               # ex: {'bad': 0.0, 'calc_mot1': 20.0, 'roby': 10.0, ...}
-
-                # acquisition_chain = scan_info.get('acquisition_chain')  
-                # ex: {'axis':
-                #       { 
-                #         'master' : {'scalars': ['axis:roby'], 'spectra': [], 'images': [] }, 
-                #         'scalars': ['timer:elapsed_time', 'diode:diode'], 
-                #         'spectra': [], 
-                #         'images' : [] 
-                #       }
-                #     }
+        Only the first top master is reached. Others are ignored.
         """
-
-        """
-                # master, channels = next(iter(scan_info["acquisition_chain"].items()))
-                # master = axis
-                # channels = {'master': {'scalars': ['axis:roby'], 
-                #                        'spectra': [], 
-                #                        'images': [], 
-                #                       }, 
-                #             'scalars': ['timer:elapsed_time', 
-                #                         'timer:epoch', 
-                #                         'lima_simulator2:bpm:x', 
-                #                         'simulation_diode_sampling_controller:diode'],
-                #             'spectra': [], 
-                #             'images': [], 
-        """
-
-        # ONLY MANAGE THE FIRST ACQUISITION BRANCH (multi-top-masters scan are ignored)
-        top_master, channels = next(iter(scan_info["acquisition_chain"].items()))
+        # only the first top master is used
+        _top_master, channels = next(iter(scan_info["acquisition_chain"].items()))
 
         # get the total number of channels
         self.channels_number = len(channels["master"]["scalars"]) + len(

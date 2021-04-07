@@ -751,13 +751,15 @@ class ScanDisplayDispatcher:
                 self._scan_id = None
 
 
-class ScanDataListener(_ScanPrinterBase):
-    def __init__(self, session_name):
-        super().__init__()
+class ScanPrinterFromRedis(_ScanPrinterBase, scan_mdl.DefaultScansObserver):
+    def __init__(self, scan_display):
+        _ScanPrinterBase.__init__(self)
+        scan_mdl.DefaultScansObserver.__init__(self)
+        self.scan_new_callback = self.on_scan_new
+        self.scan_data_callback = self.on_scan_data
+        self.scan_end_callback = self.on_scan_end
 
-        self.session_name = session_name
-        self.scan_display = None
-        self.scan_info = None
+        self.scan_display = scan_display
         self.update_header = False
 
     def update_displayed_channels_from_user_request(self) -> bool:
@@ -770,9 +772,6 @@ class ScanDataListener(_ScanPrinterBase):
         Returns:
             True if the channel selection was changed.
         """
-        if self.scan_display is None:
-            self.scan_display = ScanDisplay(self.session_name)
-
         requested_channels = []
         if self.scan_display.scan_display_filter_enabled:
             # Use master channel plus user request
@@ -801,14 +800,10 @@ class ScanDataListener(_ScanPrinterBase):
         # Update the displayed channels before printing the scan header
         self.update_displayed_channels_from_user_request()
 
-    def on_scan_new_child(self, scan_info, data_channel):
-        pass
-
-    def on_scan_new(self, scan_info):
-        self.scan_info = scan_info
-        super().on_scan_new(scan_info)
-
     def on_scan_data(self, data_dim, master_name, channel_info):
+        # Update the displayed channels before printing the scan header
+        self.update_displayed_channels_from_user_request()
+
         if data_dim != "0d":
             return False
 
@@ -834,6 +829,56 @@ class ScanDataListener(_ScanPrinterBase):
                     if line:
                         print(line)
                     self.scan_steps_index += 1
+
+
+class ScanDataListener(scan_mdl.ScansObserver):
+    def __init__(self, session_name):
+        super().__init__()
+        self.session_name = session_name
+        self.scan_display = ScanDisplay(self.session_name)
+
+        self._scan_displayer = None
+        """Current scan displayer"""
+
+        self._scan_id = None
+        """Current scan id"""
+
+    def _create_scan_displayer(self, scan_info):
+        """Create a scan displayer for a specific scan"""
+        return ScanPrinterFromRedis(self.scan_display)
+
+    def on_scan_started(self, scan_db_name: str, scan_info: typing.Dict):
+        """Called from Redis callback on scan started"""
+        if self._scan_displayer is None:
+            self._scan_displayer = self._create_scan_displayer(scan_info)
+            if self._scan_displayer is not None:
+                self._scan_id = scan_db_name
+                self._scan_displayer.on_scan_started(scan_db_name, scan_info)
+
+    def on_scan_finished(self, scan_db_name: str, scan_info: typing.Dict):
+        """Called from Redis callback on scan ending"""
+        scan_id = scan_info["node_name"]
+        if self._scan_id == scan_id:
+            try:
+                if self._scan_displayer is not None:
+                    self._scan_displayer.on_scan_finished(scan_db_name, scan_info)
+            finally:
+                self._scan_displayer = None
+                self._scan_id = None
+
+    def on_scalar_data_received(
+        self,
+        scan_db_name: str,
+        channel_name: str,
+        index: int,
+        data_bunch: typing.Union[list, numpy.ndarray],
+    ):
+        """Called from Redis callback on a scalar data received"""
+        if self._scan_id == scan_db_name:
+            if self._scan_displayer is not None:
+                self._scan_displayer.on_scalar_data_received(
+                    scan_db_name, channel_name, index, data_bunch
+                )
 
     def _prevent_user_input(self):
         """Prevent user input in the terminal, if the feature is available"""
@@ -869,14 +914,8 @@ class ScanDataListener(_ScanPrinterBase):
         msg = f" Watching scans from Bliss session: '{self.session_name}' "
         line = get_decorated_line(msg, deco=">", rdeco="<", head="\n", tail="\n")
 
-        observer = scan_mdl.DefaultScansObserver()
-        observer.scan_new_callback = self.on_scan_new
-        observer.scan_new_child_callback = self.on_scan_new_child
-        observer.scan_data_callback = self.on_scan_data
-        observer.scan_end_callback = self.on_scan_end
-
         watcher = scan_mdl.ScansWatcher(self.session_name)
-        watcher.set_observer(observer)
+        watcher.set_observer(self)
         watcher.set_exclude_existing_scans(True)
 
         def print_ready():

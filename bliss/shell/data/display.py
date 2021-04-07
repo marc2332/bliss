@@ -113,7 +113,6 @@ class _ScanPrinterBase:
         self._possible_motors = None
 
         self.scan_steps_index = 0
-        self._warning_messages = None
 
     def collect_channels_info(self, scan_info):
         """Collect information from scan_info
@@ -388,13 +387,6 @@ class _ScanPrinterBase:
         if None in [scan_type, npoints]:
             return False
 
-        # Skip secondary scans and warn user
-        if self.scan_is_running:
-            self._warning_messages.append(
-                f"\nWarning: a new scan '{scan_info.get('node_name')}' has been started while scan '{self.scan_name}' is running.\nNew scan outputs will be ignored."
-            )
-            return False
-
         return True
 
     def is_new_data_valid(self, scan_info, data):
@@ -422,7 +414,6 @@ class _ScanPrinterBase:
             self.scan_is_running = True
             self.scan_name = scan_info.get("node_name")
             self.scan_steps_index = 0
-            self._warning_messages = []
 
             self.collect_channels_info(scan_info)
             self.print_scan_header(scan_info)
@@ -437,9 +428,6 @@ class _ScanPrinterBase:
             end = datetime.datetime.fromtimestamp(time.time())
             start = datetime.datetime.fromtimestamp(scan_info["start_timestamp"])
             dt = end - start
-
-            for msg in self._warning_messages:
-                print(msg)
 
             print(f"\n   Took {dt}[s] \n")
 
@@ -768,6 +756,9 @@ class ScanPrinterFromRedis(_ScanPrinterBase, scan_mdl.DefaultScansObserver):
 
 
 class ScanDataListener(scan_mdl.ScansObserver):
+    """Listen all the scans of a session from Redis and dispatch them to a
+    dedicated printer"""
+
     def __init__(self, session_name):
         super().__init__()
         self.session_name = session_name
@@ -778,6 +769,8 @@ class ScanDataListener(scan_mdl.ScansObserver):
 
         self._scan_id = None
         """Current scan id"""
+
+        self._warning_messages = []
 
     def _create_scan_displayer(self, scan_info):
         """Create a scan displayer for a specific scan"""
@@ -790,6 +783,10 @@ class ScanDataListener(scan_mdl.ScansObserver):
             if self._scan_displayer is not None:
                 self._scan_id = scan_db_name
                 self._scan_displayer.on_scan_started(scan_db_name, scan_info)
+        else:
+            self._warning_messages.append(
+                f"\nWarning: a new scan '{scan_db_name}' has been started while scan '{self._scan_id}' is running.\nNew scan outputs will be ignored."
+            )
 
     def on_scan_finished(self, scan_db_name: str, scan_info: typing.Dict):
         """Called from Redis callback on scan ending"""
@@ -801,6 +798,11 @@ class ScanDataListener(scan_mdl.ScansObserver):
             finally:
                 self._scan_displayer = None
                 self._scan_id = None
+
+        messages = self._warning_messages
+        self._warning_messages.clear()
+        for msg in messages:
+            print(msg)
 
     def on_scalar_data_received(
         self,

@@ -7,14 +7,11 @@
 
 """Listen the scan data and display in a selected ptpython buffer console """
 
-import sys
 import time
 from tqdm import tqdm
 import datetime
 import numpy
 import shutil
-import signal
-import atexit
 import typing
 import gevent
 import numbers
@@ -27,16 +24,6 @@ from bliss.scanning.scan import set_scan_watch_callbacks, ScanState
 from bliss.scanning.scan_display import ScanDisplay
 from bliss import global_map, is_bliss_shell
 from bliss.shell.formatters.table import IncrementalTable
-
-
-if sys.platform not in ["win32", "cygwin"]:
-    import termios
-else:
-    termios = None
-
-
-def catch_sigint(*args):
-    pass
 
 
 def get_decorated_line(msg, width=None, deco="=", head="\n", tail="\n", rdeco=None):
@@ -880,36 +867,7 @@ class ScanDataListener(scan_mdl.ScansObserver):
                     scan_db_name, channel_name, index, data_bunch
                 )
 
-    def _prevent_user_input(self):
-        """Prevent user input in the terminal, if the feature is available"""
-        if termios is None:
-            return
-
-        fd = sys.stdin.fileno()
-        try:
-            new = termios.tcgetattr(fd)
-            new[3] &= ~termios.ECHO
-            termios.tcsetattr(fd, termios.TCSANOW, new)
-        except termios.error:
-            pass  # not in terminal (example in tests)
-        else:
-            # revert 'Prevent user inputs if using a terminal'
-            atexit.register(self._release_user_input)
-
-    def _release_user_input(self):
-        """Release user input, if it was locked with `_prevent_user_input`"""
-        fd = sys.stdin.fileno()
-        new = termios.tcgetattr(fd)
-        new[3] |= termios.ECHO
-        termios.tcsetattr(fd, termios.TCSANOW, new)
-
     def start(self):
-
-        # Prevent user to close the listener with Ctrl-C
-        signal.signal(signal.SIGINT, catch_sigint)
-
-        # Prevent user inputs if using a terminal
-        self._prevent_user_input()
 
         msg = f" Watching scans from Bliss session: '{self.session_name}' "
         line = get_decorated_line(msg, deco=">", rdeco="<", head="\n", tail="\n")

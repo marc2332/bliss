@@ -3,7 +3,6 @@
 .. autosummary::
     :toctree:
 
-    eurotherm2000
     meerstetter
     mockup
 """

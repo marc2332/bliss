@@ -7,8 +7,6 @@
 
     The controllers still based on the Temperature framework are:
 
-    - eurotherm2000
-    - pace
     - meerstetter ltr1200
 
 

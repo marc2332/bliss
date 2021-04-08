@@ -2,7 +2,9 @@ class: Eurotherm2000
 plugin: regulation
 module: temperature.eurotherm.eurotherm2000
 serial:
-    url: /dev/ttyS0
+    #url: /dev/ttyS0
+    url: tango://id00/tango/dummy
+
 inputs:
     - name: euro_in
       unit: '°C'

@@ -7,7 +7,8 @@
     tcp:
       url: bcmock
 
-  
+  energy: $robz
+
   counters:
     - name: bctemp
       tag: current_temperature
@@ -33,4 +34,8 @@
 
     - name: axis2
       tag: zgap
-
+      steps_per_unit: 10000
+      velocity: 2500.0
+      acceleration: 1000.0
+      low_limit: -180
+      high_limit: 180

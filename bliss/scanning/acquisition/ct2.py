@@ -270,7 +270,7 @@ class CT2CounterAcquisitionSlave(IntegratingCounterAcquisitionSlave):
 
         # finally
         data = numpy.array(self.__buffer, dtype=numpy.uint32)
-        self.__buffer = None
+        self.__buffer.clear()
         if data.size:
             self._emit_new_data(data.T)
 

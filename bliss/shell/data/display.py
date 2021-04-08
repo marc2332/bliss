@@ -706,17 +706,61 @@ class ScanDisplayDispatcher(ScanHooks):
                 self._scan_id = None
 
 
-class ScanPrinterFromRedis(scan_mdl.DefaultScansObserver):
-    def __init__(self, scan_display):
-        scan_mdl.DefaultScansObserver.__init__(self)
-        self.scan_new_callback = self.on_scan_new
-        self.scan_data_callback = self.on_scan_data
-        self.scan_end_callback = self.on_scan_end
+class ScanDataRowStream:
+    """Hold the data received from Redis to follow the last available row.
 
+    When the row is read the data is released.
+    """
+
+    def __init__(self):
+        self._data_per_channels = {}
+        self._nb_per_channels = {}
+        self._nb_full_rows = 0
+        self._current = -1
+
+    def register(self, name: str):
+        self._data_per_channels[name] = []
+        self._nb_per_channels[name] = 0
+
+    def is_registered(self, name: str) -> bool:
+        return name in self._data_per_channels
+
+    def add_channel_data(self, name: str, index: int, data_bunch: numpy.ndarray):
+        row = self._data_per_channels.setdefault(name, [])
+        row.append([index, data_bunch])
+        self._nb_per_channels[name] = index + len(data_bunch)
+
+    def _pop_channel_value(self, name: str, index: int):
+        row = self._data_per_channels[name]
+        data_index, data_bunch = row[0]
+        while not (index < data_index + len(data_bunch)):
+            row.pop(0)
+            data_index, data_bunch = row[0]
+        return data_bunch[index - data_index]
+
+    def next_rows(self) -> typing.Iterator[typing.Dict[str, float]]:
+        """Returns a dict containing the next value of each channels.
+
+        Else returns None
+        """
+        self._nb_full_rows = min(self._nb_per_channels.values())
+        if self._nb_full_rows == 0:
+            return
+        for i in range(self._current + 1, self._nb_full_rows):
+            data = {
+                k: self._pop_channel_value(k, i) for k in self._data_per_channels.keys()
+            }
+            yield data
+        self._current = self._nb_full_rows - 1
+
+
+class ScanPrinterFromRedis(scan_mdl.ScansObserver):
+    def __init__(self, scan_display):
+        super(ScanPrinterFromRedis, self).__init__()
         self.scan_display = scan_display
         self.update_header = False
-
         self.scan_renderer = None
+        self._rows = ScanDataRowStream()
 
     def update_displayed_channels_from_user_request(self) -> bool:
         """If enabled, check ScanDisplay content and compare it to the
@@ -746,50 +790,37 @@ class ScanPrinterFromRedis(scan_mdl.DefaultScansObserver):
                 requested_channels = scan_renderer.displayable_channel_names.copy()
             scan_renderer.set_displayed_channels(requested_channels)
 
-    def on_scan_new(self, scan_info):
+    def on_scan_started(self, scan_db_name: str, scan_info: typing.Dict):
         self.scan_renderer = ScanRenderer(scan_info)
         # Update the displayed channels before printing the scan header
         if self.scan_renderer.scan_type != "ct":
             self.update_displayed_channels_from_user_request()
+        for n in self.scan_renderer.sorted_channel_names:
+            self._rows.register(n)
         self.scan_renderer.print_scan_header()
         self.scan_renderer.print_table_header()
 
-    def on_scan_end(self, scan_info):
+    def on_scan_finished(self, scan_db_name: str, scan_info: typing.Dict):
         if self.scan_renderer.scan_type == "ct":
             self.scan_renderer.print_data_ct(scan_info)
         self.scan_renderer.print_scan_end(scan_info)
 
-    def on_scan_data(self, data_dim, master_name, channel_info):
-        if data_dim != "0d":
-            return False
+    def on_scalar_data_received(
+        self,
+        scan_db_name: str,
+        channel_name: str,
+        index: int,
+        data_bunch: typing.Union[list, numpy.ndarray],
+    ):
+        if not self._rows.is_registered(channel_name):
+            return
 
-        data = channel_info["data"]
+        self._rows.add_channel_data(channel_name, index, data_bunch)
+        for row in self._rows.next_rows():
+            self.scan_renderer.append_data(row)
 
-        with nonblocking_print():
-            scan_steps_index = self.scan_renderer.nb_data_rows
-
-            # Skip while not all the channels are not there
-            available = set(data.keys())
-            if not available.issuperset(self.scan_renderer.sorted_channel_names):
-                return
-
-            # Check the amount of received data
-            min_size = min(
-                len(data[cname]) for cname in self.scan_renderer.sorted_channel_names
-            )
-
-            if min_size <= scan_steps_index:
-                return
-
-            for i in range(scan_steps_index, min_size):
-                # convert data in order to keep only the concerned line (one scalar per channel).
-                ndata = {
-                    cname: data[cname][i]
-                    for cname in self.scan_renderer.sorted_channel_names
-                }
-                self.scan_renderer.append_data(ndata)
-
-            if self.scan_renderer.scan_type != "ct":
+        if self.scan_renderer.scan_type != "ct":
+            with nonblocking_print():
                 self.scan_renderer.print_data_rows()
 
 

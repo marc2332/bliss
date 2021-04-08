@@ -482,7 +482,34 @@ class ScanMotorListener:
             )
 
 
-class ScanPrinter(ScanMotorListener):
+class ScanHooks:
+    """Abstract class with the expected signature to retrieve BLISS scans
+    internal hooks.
+
+    This do not use Redis.
+
+    .. code-block::
+
+        from bliss.scanning.scan import set_scan_watch_callbacks
+        set_scan_watch_callbacks(self.on_scan_new, self.on_scan_data, self.on_scan_end)
+
+    FIXME: It would be better to provide it from the scan class.
+    """
+
+    def on_scan_new(self, scan, scan_info):
+        """Called by BLISS callback on new scan start"""
+        pass
+
+    def on_scan_data(self, scan_info, data):
+        """Called by BLISS callback on a new scan data"""
+        pass
+
+    def on_scan_end(self, scan_info):
+        """Called by BLISS callback on scan ending"""
+        pass
+
+
+class ScanPrinter(ScanHooks, ScanMotorListener):
     """compose scan output"""
 
     def __init__(self):
@@ -609,14 +636,12 @@ class ScanPrinterWithProgressBar(ScanPrinter):
         self.progress_bar = None
 
 
-class ScanDisplayDispatcher:
+class ScanDisplayDispatcher(ScanHooks):
     """Listen scans from the BLISS session and dispatch them to dedicated scan
     displayer"""
 
     def __init__(self):
-        set_scan_watch_callbacks(
-            self._on_scan_new, self._on_scan_data, self._on_scan_end
-        )
+        set_scan_watch_callbacks(self.on_scan_new, self.on_scan_data, self.on_scan_end)
         self._scan_displayer = None
         """Current scan displayer"""
 
@@ -654,7 +679,7 @@ class ScanDisplayDispatcher:
         else:
             return ScanPrinter()
 
-    def _on_scan_new(self, scan, scan_info):
+    def on_scan_new(self, scan, scan_info):
         """Called by BLISS callback on new scan start"""
         if self._scan_displayer is None:
             self._scan_displayer = self._create_scan_displayer(scan, scan_info)
@@ -662,14 +687,14 @@ class ScanDisplayDispatcher:
                 self._scan_id = scan_info["node_name"]
                 self._scan_displayer.on_scan_new(scan, scan_info)
 
-    def _on_scan_data(self, scan_info, data):
+    def on_scan_data(self, scan_info, data):
         """Called by BLISS callback on a new scan data"""
         scan_id = scan_info["node_name"]
         if self._scan_id == scan_id:
             if self._scan_displayer is not None:
                 self._scan_displayer.on_scan_data(scan_info, data)
 
-    def _on_scan_end(self, scan_info):
+    def on_scan_end(self, scan_info):
         """Called by BLISS callback on scan ending"""
         scan_id = scan_info["node_name"]
         if self._scan_id == scan_id:

@@ -591,8 +591,8 @@ class StatisticsMcaCounter(BaseMcaCounter):
     @property
     def dtype(self):
         if self.stat_name in ("triggers", "events"):
-            return numpy.int
-        return numpy.float
+            return int
+        return float
 
     def extract_point(self, spectrums, stats):
         return getattr(stats[self.detector_channel], self.stat_name)
@@ -628,7 +628,7 @@ class RoiMcaCounter(BaseMcaCounter):
 
     @property
     def dtype(self):
-        return numpy.int
+        return int
 
     def compute_roi(self, spectrum):
         return sum(spectrum[self.start_index : self.stop_index])

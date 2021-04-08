@@ -84,7 +84,7 @@ class Counter:
     @property
     def dtype(self):
         """The data type as used by numpy."""
-        return numpy.float
+        return float
 
     @property
     def shape(self):

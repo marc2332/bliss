@@ -17,6 +17,7 @@ import sys
 import os
 import random
 import shutil
+import typing
 import numpy
 from contextlib import contextmanager
 import redis.connection
@@ -338,6 +339,48 @@ def get_scan(detectors, motors, scan_funcs, expotime):
         return func(mot, 0.5, 1.5, 5, expotime, [detector], 4, expotime, [detector2])
 
 
+class PrintScanProgress(scan_mdl.ScansObserver):
+    """Scan observer to print scan progress"""
+
+    def __init__(self):
+        self._data = {}
+
+    def on_scan_started(self, scan_db_name: str, scan_info: typing.Dict):
+        self._data = {}
+
+    def on_ndim_data_received(
+        self,
+        scan_db_name: str,
+        channel_name: str,
+        dim: int,
+        index: int,
+        data_bunch: typing.Union[list, numpy.ndarray],
+    ):
+        self._data[channel_name] = index + len(data_bunch)
+        self._update_display()
+
+    def on_scalar_data_received(
+        self,
+        scan_db_name: str,
+        channel_name: str,
+        index: int,
+        data_bunch: typing.Union[list, numpy.ndarray],
+    ):
+        self._data[channel_name] = index + len(data_bunch)
+        self._update_display()
+
+    def on_lima_ref_received(
+        self, scan_db_name: str, channel_name: str, dim: int, source_node, event_data
+    ):
+        self._data[channel_name] = len(source_node.get(0, -1))
+        self._update_display()
+
+    def _update_display(self):
+        pmin, pmax = min(self._data.values()), max(self._data.values())
+        sys.stdout.write("\rScan progress {}-{} pts".format(pmin, pmax))
+        sys.stdout.flush()
+
+
 @contextmanager
 def print_scan_progress(test_session):
     """Add session scan watcher that prints the
@@ -345,26 +388,8 @@ def print_scan_progress(test_session):
 
     :param bliss.common.session.Session test_session:
     """
-    data = {}
-
-    def new_data(ndim, master, info):
-        if ndim == "0d":
-            for cname, cdata in info["data"].items():
-                data[cname] = len(cdata)
-        elif ndim == "1d":
-            cname = info["channel_name"]
-            data[cname] = len(info["channel_data_node"])
-        else:
-            cname = info["channel_name"]
-            data[cname] = len(info["channel_data_node"].get(0, -1))
-        pmin, pmax = min(data.values()), max(data.values())
-        sys.stdout.write("\rScan progress {}-{} pts".format(pmin, pmax))
-        sys.stdout.flush()
-
-    observer = scan_mdl.DefaultScansObserver()
-    observer.scan_data_callback = new_data
-
     watcher = scan_mdl.ScansWatcher(test_session.name)
+    observer = PrintScanProgress()
     watcher.set_observer(observer)
 
     session_watcher = gevent.spawn(watcher.run)

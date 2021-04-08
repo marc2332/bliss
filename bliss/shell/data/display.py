@@ -725,6 +725,9 @@ class ScanDataRowStream:
     def is_registered(self, name: str) -> bool:
         return name in self._data_per_channels
 
+    def received_size(self, name: str) -> int:
+        return self._nb_per_channels[name]
+
     def add_channel_data(self, name: str, index: int, data_bunch: numpy.ndarray):
         row = self._data_per_channels.setdefault(name, [])
         row.append([index, data_bunch])
@@ -814,6 +817,12 @@ class ScanPrinterFromRedis(scan_mdl.ScansObserver):
     ):
         if not self._rows.is_registered(channel_name):
             return
+
+        size = self._rows.received_size(channel_name)
+        if index > size:
+            # Append NaN values
+            data_gap = [numpy.nan] * (index - size)
+            self._rows.add_channel_data(channel_name, size, data_gap)
 
         self._rows.add_channel_data(channel_name, index, data_bunch)
         for row in self._rows.next_rows():

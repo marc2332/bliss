@@ -1,24 +1,24 @@
 - plugin: bliss_controller
   module: bliss_controller
-  class: BlissController
-  name: test_bliss_controller
+  class: BCMockup
+  name: bcmock
 
   com:
     tcp:
-      url:bcid21
+      url: bcmock
 
   
   counters:
-    - name: cnt1
-      tag: temperature
-      mode: mean
-      unit: mm
-      convfunc: 2*x + 3
+    - name: bctemp
+      tag: current_temperature
+      mode: MEAN
+      unit: °C
+      convfunc: 2*x + 2
 
-    - name: cnt2
-      tag: integration
-      unit: mm
-      convfunc: x * 1e-3
+    - name: bcintime
+      tag: integration_time
+      unit: ms
+      convfunc: x * 1e3
       
   axes:
     - name: axis1

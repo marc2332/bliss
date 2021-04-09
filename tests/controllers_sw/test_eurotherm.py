@@ -10,7 +10,10 @@ import bliss.comm.modbus
 
 
 def test_eurotherm_init(beacon, dummy_tango_server, session):
+    ok = False
     try:
-        euroT1 = beacon.get("euroT1")
+        loop = beacon.get("euro_loop")
+        loop.setpoint
     except bliss.comm.modbus.ModbusError:
-        assert True
+        ok = True
+    assert ok

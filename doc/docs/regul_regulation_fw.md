@@ -32,9 +32,11 @@ See [Interacting with the Loop object](regul_regulation_fw.md#interacting-with-t
     The hardware controllers based on the new Regulation framework  are:
 
     - eurotherm nanodac
+    - eurotherm 2000
     - lakeshore 331/332/335/336/340
     - linkam TMS94/T95
     - oxford cryosrtream 700/800
+    - pace
 
     In addition to the management of a regulation hardware, this new framework brings solutions to:
 

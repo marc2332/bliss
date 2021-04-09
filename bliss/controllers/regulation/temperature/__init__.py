@@ -5,4 +5,5 @@
     eurotherm
     lakeshore
     linkam
+    oxford
 """

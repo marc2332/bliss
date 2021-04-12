@@ -9,6 +9,7 @@
 import asyncio
 import queue
 import threading
+import contextlib
 import os
 import sys
 import socket
@@ -705,6 +706,14 @@ def cli(
     return repl
 
 
+@contextlib.contextmanager
+def filter_warnings():
+    # Hide the warnings from the users
+    warnings.filterwarnings("ignore")
+    yield
+    warnings.filterwarnings("default")
+
+
 def embed(*args, **kwargs):
     """
     Call this to embed bliss shell at the current point in your program::
@@ -718,21 +727,16 @@ def embed(*args, **kwargs):
         session_name : session to initialize (default: None)
         vi_mode (bool): Use Vi instead of Emacs key bindings.
     """
-    # Hide the warnings from the users
-    warnings.filterwarnings("ignore")
-
     use_tmux = kwargs.get("use_tmux", False)
 
-    try:
-        if not is_windows() and use_tmux:
-            # Catch scans events to show the progress bar
-            scan_printer = ScanPrinterWithProgressBar()
-        else:
-            # set old style print methods for the scans
-            scan_printer = ScanPrinter()
+    if not is_windows() and use_tmux:
+        # Catch scans events to show the progress bar
+        scan_printer = ScanPrinterWithProgressBar()
+    else:
+        # set old style print methods for the scans
+        scan_printer = ScanPrinter()
 
+    with filter_warnings():
         cmd_line_i = cli(*args, **kwargs)
 
         asyncio.run(cmd_line_i.run_async())
-    finally:
-        warnings.filterwarnings("default")

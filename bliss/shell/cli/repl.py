@@ -12,6 +12,7 @@ import threading
 import contextlib
 import os
 import sys
+import types
 import socket
 import warnings
 import functools
@@ -185,14 +186,14 @@ def install_excepthook():
                 repl_excepthook(*sys.exc_info(), _with_elogbook=False)
 
     def print_exception(self, context, exc_type, exc_value, tb):
-        if gevent.getcurrent() == gevent.get_hub():
+        if gevent.getcurrent() is self:
             # repl_excepthook tries to yield to the gevent loop
             gevent.spawn(repl_excepthook, exc_type, exc_value, tb)
         else:
             repl_excepthook(exc_type, exc_value, tb)
 
     sys.excepthook = repl_excepthook
-    gevent.hub.Hub.print_exception = print_exception
+    gevent.hub.Hub.print_exception = types.MethodType(print_exception, gevent.get_hub())
     return ERROR_REPORT
 
 

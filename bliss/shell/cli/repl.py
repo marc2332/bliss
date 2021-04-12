@@ -25,7 +25,7 @@ from datetime import datetime
 
 from ptpython.repl import PythonRepl
 
-# from prompt_toolkit.patch_stdout import patch_stdout as patch_stdout_context
+from prompt_toolkit.patch_stdout import patch_stdout as patch_stdout_context
 import ptpython.layout
 from prompt_toolkit.output import DummyOutput
 
@@ -302,54 +302,6 @@ class PromptToolkitOutputWrapper(DummyOutput):
     def write(self, data):
         self._current_output.append(data)
         self.__wrapped_output.write(data)
-
-
-"""
-@contextmanager
-def patch_stdout_context():
-    orig_stdout = sys.stdout
-
-    class BlissStdout:
-        def __init__(self):
-            self._buffer = []
-            self._update_task = None
-            # compatibility with sys.__stdout__
-            self.errors = orig_stdout.errors
-            self.encoding = orig_stdout.encoding
-
-        def write(self, data):
-            if self._update_task:
-                self._update_task.kill()
-            self._buffer.append(data)
-            self._update_task = gevent.spawn_later(0.1, self._flush)
-
-        def _flush(self):
-            if not self._buffer:
-                return
-            data = "".join(self._buffer)
-            self._buffer.clear()
-            # the next command really does the display above the prompt
-            run_in_terminal(functools.partial(orig_stdout.write, data), in_executor=False)
-            # self._last_update = gevent.time.time()
-
-        def flush(self):
-            return
-
-        def fileno(self) -> int:
-            # This is important for code that expects sys.stdout.fileno() to work.
-            return orig_stdout.fileno()
-
-        def isatty(self) -> bool:
-            return orig_stdout.isatty()
-
-    sys.stdout = BlissStdout()
-
-    try:
-        yield
-    finally:
-        sys.stdout._flush()
-        sys.stdout = orig_stdout
-"""
 
 
 class BlissRepl(PythonRepl, metaclass=Singleton):
@@ -739,4 +691,5 @@ def embed(*args, **kwargs):
     with filter_warnings():
         cmd_line_i = cli(*args, **kwargs)
 
-        asyncio.run(cmd_line_i.run_async())
+        with patch_stdout_context():
+            asyncio.run(cmd_line_i.run_async())

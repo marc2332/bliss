@@ -140,9 +140,7 @@ def install_excepthook():
     """
     ERROR_REPORT = ErrorReport()
 
-    logger = logging.getLogger("exceptions")
-
-    from bliss import current_session
+    exc_logger = logging.getLogger("exceptions")
 
     def repl_excepthook(exc_type, exc_value, tb, _with_elogbook=True):
         if exc_value is None:
@@ -166,7 +164,7 @@ def install_excepthook():
             datetime.now().strftime("%d/%m/%Y %H:%M:%S ") + exc_text
         )
 
-        logger.error(exc_text)
+        exc_logger.error(exc_text)
 
         # Adapt the error message depending on the ERROR_REPORT expert_mode
         if ERROR_REPORT._expert_mode:
@@ -302,6 +300,9 @@ class PromptToolkitOutputWrapper(DummyOutput):
     def write(self, data):
         self._current_output.append(data)
         self.__wrapped_output.write(data)
+
+    def fileno(self):
+        return self.__wrapped_output.fileno()
 
 
 class BlissRepl(PythonRepl, metaclass=Singleton):

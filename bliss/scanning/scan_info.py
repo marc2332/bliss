@@ -256,6 +256,9 @@ class ScanInfo(dict):
                     display_name = acq_chan.short_name
                     if display_name is not None:
                         meta["display_name"] = display_name
+                    shape = acq_chan.shape
+                    if shape is not None:
+                        meta["dim"] = len(shape)
 
         # Feed Lima ROIs into the scan_info
         rois = {}

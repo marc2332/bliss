@@ -16,7 +16,6 @@ from typing import MutableMapping
 from typing import NamedTuple
 
 import weakref
-import collections
 import logging
 from ..model import scan_model
 from ..model import plot_model
@@ -27,7 +26,13 @@ from bliss.controllers.lima import roi as lima_roi
 
 _logger = logging.getLogger(__name__)
 
-Channel = collections.namedtuple("Channel", ["name", "kind", "device", "master"])
+
+class ChannelInfo(NamedTuple):
+    name: str
+    kind: str
+    device: str
+    master: str
+
 
 _SCAN_CATEGORY = {
     # A single measurement
@@ -98,19 +103,19 @@ def iter_channels(scan_info: Dict[str, Any]):
 
         for channel_name in scalars:
             device_name = get_device_from_channel_name(channel_name)
-            channel = Channel(channel_name, "scalar", device_name, master_name)
+            channel = ChannelInfo(channel_name, "scalar", device_name, master_name)
             yield channel
             channels.add(channel_name)
 
         for channel_name in spectra:
             device_name = get_device_from_channel_name(channel_name)
-            channel = Channel(channel_name, "spectrum", device_name, master_name)
+            channel = ChannelInfo(channel_name, "spectrum", device_name, master_name)
             yield channel
             channels.add(channel_name)
 
         for channel_name in images:
             device_name = get_device_from_channel_name(channel_name)
-            channel = Channel(channel_name, "image", device_name, master_name)
+            channel = ChannelInfo(channel_name, "image", device_name, master_name)
             yield channel
             channels.add(channel_name)
 
@@ -124,7 +129,7 @@ def iter_channels(scan_info: Dict[str, Any]):
             continue
         device_name = get_device_from_channel_name(channel_name)
         # FIXME: For now, let say everything is scalar here
-        channel = Channel(channel_name, "scalar", device_name, "custom")
+        channel = ChannelInfo(channel_name, "scalar", device_name, "custom")
         yield channel
 
 

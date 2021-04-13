@@ -75,11 +75,11 @@ SCAN_INFO_LIMA_ROIS = {
 def test_iter_channels():
     result = scan_info_helper.iter_channels(SCAN_INFO)
     expected = [
-        scan_info_helper.Channel("diode:diode", "scalar", "diode", "timer"),
-        scan_info_helper.Channel("timer:elapsed_time", "scalar", "timer", "timer"),
-        scan_info_helper.Channel("timer:epoch", "scalar", "timer", "timer"),
-        scan_info_helper.Channel("opium:mca1", "spectrum", "opium", "timer2"),
-        scan_info_helper.Channel("lima:image1", "image", "lima", "timer2"),
+        scan_info_helper.ChannelInfo("diode:diode", "scalar", "diode", "timer"),
+        scan_info_helper.ChannelInfo("timer:elapsed_time", "scalar", "timer", "timer"),
+        scan_info_helper.ChannelInfo("timer:epoch", "scalar", "timer", "timer"),
+        scan_info_helper.ChannelInfo("opium:mca1", "spectrum", "opium", "timer2"),
+        scan_info_helper.ChannelInfo("lima:image1", "image", "lima", "timer2"),
     ]
     assert set(result) == set(expected)
 

@@ -214,6 +214,27 @@ class ScanInfo(dict):
                 self._get_channels_dict(acq_object, channels)
         self._scan_info["acquisition_chain"] = chain_dict
 
+        # Update devices keys
+        devices = self._scan_info.setdefault("devices", {})
+        for top_master_node in tree.children(tree.root):
+            top_master = top_master_node.identifier
+            if top_master is None:
+                continue
+            top_master_devices = self._scan_info["acquisition_chain"][
+                top_master.name
+            ].setdefault("devices", [])
+            for acq_dev in tree.expand_tree(top_master):
+                if acq_dev is None:
+                    continue
+                top_master_devices.append(acq_dev.name)
+                device_info = devices.setdefault(acq_dev.name, {})
+                triggered_devices = [d.identifier.name for d in tree.children(acq_dev)]
+                if len(triggered_devices) > 0:
+                    device_info["triggers"] = triggered_devices
+                channel_names = [c.fullname for c in acq_dev.channels]
+                if len(channels) > 0:
+                    device_info["channels"] = channel_names
+
         # Update channels key
         channels = self._scan_info.setdefault("channels", {})
         for path in tree.paths_to_leaves():

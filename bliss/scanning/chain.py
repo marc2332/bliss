@@ -11,7 +11,6 @@ import logging
 import weakref
 import enum
 import collections
-from contextlib import contextmanager
 
 import gevent
 from treelib import Tree

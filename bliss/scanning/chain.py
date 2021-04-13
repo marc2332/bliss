@@ -1132,10 +1132,6 @@ class AcquisitionChain:
         presets_list = self._presets_master_list.setdefault(master or self, list())
         presets_list.append(preset)
 
-    @property
-    def top_masters(self):
-        return [x.identifier for x in self._tree.children("root")]
-
     def get_iter_list(self):
         if len(self._tree) > 1:
             # set all slaves into master

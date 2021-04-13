@@ -508,7 +508,7 @@ class ScanManager(bliss_scan.ScansObserver):
 
     def __process_bunch_of_scalar_data_event(self, bunch_scalar_events):
         """Process scalar events and split then into groups in order to update
-        the GUI in synchonized way"""
+        the GUI in synchronized way"""
 
         now = time.time()
         groups = {}

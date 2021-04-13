@@ -268,7 +268,7 @@ def create_scan_model(scan_info: Dict) -> scan_model.Scan:
                         scatterData.addCounterChannel(channel)
             else:
                 _logger.warning(
-                    "Channel %s is part of the request but not part of the acquisition chain. Info ingored",
+                    "Channel %s is part of the request but not part of the acquisition chain. Info ignored",
                     channel_name,
                 )
 

@@ -993,6 +993,11 @@ class AcquisitionChain:
         self._parallel_prepare = parallel_prepare
 
     @property
+    def tree(self) -> Tree:
+        """Return the acquisition chain tree"""
+        return self._tree
+
+    @property
     def top_masters(self):
         return [x.identifier for x in self._tree.children("root")]
 

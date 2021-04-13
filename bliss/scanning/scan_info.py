@@ -197,7 +197,7 @@ class ScanInfo(dict):
         """
         from bliss.scanning.chain import AcquisitionMaster
 
-        tree = acq_chain._tree
+        tree = acq_chain.tree
 
         chain_dict = {}
         for path in tree.paths_to_leaves():

@@ -658,7 +658,7 @@ class AcquisitionMaster(AcquisitionObject):
             )
         except StopIteration:
             raise ValueError(
-                "The device {} does not have a channel called {}".format(device, name)
+                f"The device {master} does not have a channel called {to_channel_name}"
             )
 
         attach_channels(master.channels, to_channel)

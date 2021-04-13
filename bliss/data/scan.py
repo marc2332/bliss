@@ -470,19 +470,14 @@ class DefaultScansObserver(ScansObserver):
 
     def on_scan_started(self, scan_db_name: str, scan_info: Dict):
         # Pre-compute mapping from each channels to its master
-        masters = {}
-        for master, channels in scan_info["acquisition_chain"].items():
-            channel_names = []
-            channel_names += channels.get("scalars", [])
-            channel_names += channels.get("master", []).get("scalars", [])
-            channel_names += channels.get("spectra", [])
-            channel_names += channels.get("master", {}).get("spectra", [])
-            channel_names += channels.get("images", [])
-            channel_names += channels.get("master", {}).get("images", [])
-            for c in channel_names:
-                masters[c] = master
+        top_master_per_channels = {}
+        for top_master, meta in scan_info["acquisition_chain"].items():
+            for device_name in meta["devices"]:
+                device_meta = scan_info["devices"][device_name]
+                for channel_name in device_meta.get("channels", []):
+                    top_master_per_channels[channel_name] = top_master
         self._running_scans[scan_db_name] = self._ScanDescription(
-            scan_info, masters, {}
+            scan_info, top_master_per_channels, {}
         )
         if self.scan_new_callback is not None:
             self.scan_new_callback(scan_info)

@@ -6,31 +6,31 @@ from bliss.data.lima_image import ImageFormatNotSupported
 from bliss.data.lima_image import Frame
 
 
-ACQUISITION_CHAIN_1 = {
-    "axis": {
-        "master": {"scalars": ["axis:roby"], "spectra": [], "images": []},
-        "scalars": ["timer:elapsed_time", "axis:roby"],
-        "spectra": [],
-        "images": [],
-    }
+SCAN_INFO_1 = {
+    "acquisition_chain": {"main": {"devices": ["master", "slave"]}},
+    "devices": {
+        "master": {"channels": ["axis:roby"], "triggers": ["slave"]},
+        "slave": {"channels": ["timer:elapsed_time"]},
+    },
+    "channels": {"axis:roby": {"dim": 0}, "timer:elapsed_time": {"dim": 0}},
 }
 
-ACQUISITION_CHAIN_2 = {
-    "axis": {
-        "master": {"scalars": ["axis:robz"], "spectra": [], "images": []},
-        "scalars": ["timer:elapsed_time", "axis:robz"],
-        "spectra": [],
-        "images": [],
-    }
+SCAN_INFO_2 = {
+    "acquisition_chain": {"main": {"devices": ["master", "slave"]}},
+    "devices": {
+        "master": {"channels": ["axis:robz"], "triggers": ["slave"]},
+        "slave": {"channels": ["timer:elapsed_time"]},
+    },
+    "channels": {"axis:robz": {"dim": 0}, "timer:elapsed_time": {"dim": 0}},
 }
 
-ACQUISITION_CHAIN_3 = {
-    "axis": {
-        "master": {"scalars": [], "spectra": [], "images": ["lima:image"]},
-        "scalars": [],
-        "spectra": [],
-        "images": [],
-    }
+SCAN_INFO_3 = {
+    "acquisition_chain": {"main": {"devices": ["master", "slave"]}},
+    "devices": {
+        "master": {"channels": ["lima:image"], "triggers": ["slave"]},
+        "slave": {"channels": []},
+    },
+    "channels": {"lima:image": {"dim": 2}},
 }
 
 
@@ -50,9 +50,16 @@ class MockedScanManager(scan_manager.ScanManager):
         self.on_lima_ref_received(scan_db_name, channel_name, 2, source_node, None)
 
 
+def _create_scan_info(node_name, base_scan_info):
+    scan_info = {}
+    scan_info.update(base_scan_info)
+    scan_info["node_name"] = node_name
+    return scan_info
+
+
 def test_interleaved_scans():
-    scan_info_1 = {"node_name": "scan1", "acquisition_chain": ACQUISITION_CHAIN_1}
-    scan_info_2 = {"node_name": "scan2", "acquisition_chain": ACQUISITION_CHAIN_2}
+    scan_info_1 = _create_scan_info("scan1", SCAN_INFO_1)
+    scan_info_2 = _create_scan_info("scan2", SCAN_INFO_2)
 
     manager = MockedScanManager(flintModel=None)
     # Disabled async consumption
@@ -83,8 +90,8 @@ def test_interleaved_scans():
 
 
 def test_sequencial_scans():
-    scan_info_1 = {"node_name": "scan1", "acquisition_chain": ACQUISITION_CHAIN_1}
-    scan_info_2 = {"node_name": "scan2", "acquisition_chain": ACQUISITION_CHAIN_2}
+    scan_info_1 = _create_scan_info("scan1", SCAN_INFO_1)
+    scan_info_2 = _create_scan_info("scan2", SCAN_INFO_2)
 
     manager = MockedScanManager(flintModel=None)
 
@@ -108,8 +115,7 @@ def test_sequencial_scans():
 
 
 def test_bad_sequence__end_before_new():
-    scan_info_1 = {"node_name": "scan1", "acquisition_chain": ACQUISITION_CHAIN_1}
-
+    scan_info_1 = _create_scan_info("scan1", SCAN_INFO_1)
     manager = MockedScanManager(flintModel=None)
 
     manager.emit_scan_finished(scan_info_1)
@@ -160,7 +166,7 @@ class MockedLimaNode:
 
 
 def test_image__default():
-    scan_info_3 = {"node_name": "scan1", "acquisition_chain": ACQUISITION_CHAIN_3}
+    scan_info_3 = _create_scan_info("scan1", SCAN_INFO_3)
 
     manager = MockedScanManager(flintModel=None)
 
@@ -181,7 +187,7 @@ def test_image__default():
 
 
 def test_image__disable_video():
-    scan_info_3 = {"node_name": "scan1", "acquisition_chain": ACQUISITION_CHAIN_3}
+    scan_info_3 = _create_scan_info("scan1", SCAN_INFO_3)
 
     manager = MockedScanManager(flintModel=None)
 
@@ -206,7 +212,7 @@ def test_image__disable_video():
 
 
 def test_image__decoding_error():
-    scan_info_3 = {"node_name": "scan1", "acquisition_chain": ACQUISITION_CHAIN_3}
+    scan_info_3 = _create_scan_info("scan1", SCAN_INFO_3)
 
     manager = MockedScanManager(flintModel=None)
 
@@ -231,7 +237,7 @@ def test_image__decoding_error():
 
 
 def test_prefered_user_refresh():
-    scan_info_3 = {"node_name": "scan1", "acquisition_chain": ACQUISITION_CHAIN_3}
+    scan_info_3 = _create_scan_info("scan1", SCAN_INFO_3)
 
     manager = MockedScanManager(flintModel=None)
 
@@ -264,7 +270,7 @@ def test_prefered_user_refresh():
 
 def test_scalar_data_lost():
     scan_db_name = "scan1"
-    scan_info_1 = {"node_name": scan_db_name, "acquisition_chain": ACQUISITION_CHAIN_1}
+    scan_info_1 = _create_scan_info(scan_db_name, SCAN_INFO_1)
 
     manager = MockedScanManager(flintModel=None)
     # Disabled async consumption

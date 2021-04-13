@@ -70,19 +70,47 @@ def get_scan_category(scan_info: Dict = None, scan_type: str = None) -> Optional
     return _SCAN_CATEGORY.get(scan_type, None)
 
 
-def _merge_master_keys(values: Dict, key: str):
+def _get_channels(
+    scan_info: Dict, top_master_name: str = None, dim: int = None, master: bool = None
+):
     """
-    Merge default and master keys in order to:
-    - Provide masters first
-    - Respect the order
-    - Avoid duplication
+    Returns channels from top_master_name and optionally filtered by dim and master.
+
+    Channels from masters are listed first, and the channel order stays the same.
+
+    Arguments:
+        scan_info: Scan info dict
+        top_master_name: If not None, a specific top master is read
+        dim: If not None, only includes the channels with the requested dim
+        master: If not None, only includes channels from a master / or not
     """
-    result = list(values.get("master", {}).get(key, []))
-    default = values.get(key, [])
-    for k in default:
-        if k not in result:
-            result.append(k)
-    return result
+    names = []
+
+    for top_master, meta in scan_info["acquisition_chain"].items():
+        if top_master_name is not None:
+            if top_master != top_master_name:
+                # If the filter mismatch
+                continue
+        devices = meta["devices"]
+        for device_name in devices:
+            device_info = scan_info["devices"].get(device_name, None)
+            if device_info is None:
+                continue
+
+            if master is not None:
+                is_master = "triggers" in device_info
+                if master ^ is_master:
+                    # If the filter mismatch
+                    continue
+
+            for c in device_info.get("channels", []):
+                if dim is not None:
+                    if scan_info["channels"].get(c, {}).get("dim", 0) != dim:
+                        # If the filter mismatch
+                        continue
+                names.append(c)
+
+    return names
 
 
 def iter_channels(scan_info: Dict[str, Any]):
@@ -96,10 +124,10 @@ def iter_channels(scan_info: Dict[str, Any]):
 
     channels = set([])
 
-    for master_name, data in acquisition_chain.items():
-        scalars = _merge_master_keys(data, "scalars")
-        spectra = _merge_master_keys(data, "spectra")
-        images = _merge_master_keys(data, "images")
+    for master_name in acquisition_chain.keys():
+        scalars = _get_channels(scan_info, master_name, dim=0)
+        spectra = _get_channels(scan_info, master_name, dim=1)
+        images = _get_channels(scan_info, master_name, dim=2)
 
         for channel_name in scalars:
             device_name = get_device_from_channel_name(channel_name)
@@ -144,13 +172,6 @@ def create_scan_model(scan_info: Dict) -> scan_model.Scan:
     devices: Dict[str, scan_model.Device] = {}
     channel_units = read_units(scan_info)
     channel_display_names = read_display_names(scan_info)
-
-    # Mapping from scan_info to scan model
-    kinds = {
-        "scalar": scan_model.ChannelType.COUNTER,
-        "spectrum": scan_model.ChannelType.SPECTRUM,
-        "image": scan_model.ChannelType.IMAGE,
-    }
 
     def get_device(master_name, device_name):
         """Returns the device object.
@@ -207,16 +228,6 @@ def create_scan_model(scan_info: Dict) -> scan_model.Scan:
         master_name = channel_info.master
         device_name = channel_info.device
         parent = get_device(master_name, device_name)
-
-        kind = kinds.get(channel_info.kind, None)
-        if kind is None:
-            _logger.error(
-                "Channel kind '%s' unknown. Channel %s skipped.",
-                channel_info.kind,
-                channel_info.name,
-            )
-            continue
-
         name = channel_info.name
         short_name = name.rsplit(":")[-1]
 
@@ -238,7 +249,6 @@ def create_scan_model(scan_info: Dict) -> scan_model.Scan:
         channel = scan_model.Channel(parent)
         channelsDict[channel_info.name] = channel
         channel.setName(name)
-        channel.setType(kind)
         unit = channel_units.get(channel_info.name, None)
         if unit is not None:
             channel.setUnit(unit)
@@ -332,6 +342,7 @@ def parse_channel_metadata(meta: Dict) -> scan_model.ChannelMetadata:
     axisKind = _pop_and_convert(meta, "axis-kind", scan_model.AxisKind)
     axisId = _pop_and_convert(meta, "axis-id", int)
     group = _pop_and_convert(meta, "group", str)
+    dim = _pop_and_convert(meta, "dim", int)
 
     # Compatibility code with existing user scripts written for BLISS 1.4
     mapping = {
@@ -361,6 +372,7 @@ def parse_channel_metadata(meta: Dict) -> scan_model.ChannelMetadata:
         axisKind,
         group,
         axisPointsHint,
+        dim,
     )
 
 
@@ -392,8 +404,11 @@ def _select_default_counter(scan, plot):
                     acquisition_chain = scan.scanInfo().get("acquisition_chain", None)
                     names = []
                     if acquisition_chain is not None:
-                        for _master, channels in acquisition_chain.items():
-                            names.extend(channels.get("scalars", []))
+                        for master_name in acquisition_chain.keys():
+                            counter_scalars = _get_channels(
+                                scan.scanInfo(), master_name, master=False, dim=0
+                            )
+                            names.extend(counter_scalars)
                 if len(names) > 0:
                     # Try to use a default counter which is not an elapse time
                     quantityNames = [
@@ -598,8 +613,8 @@ def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
             # Make sure groups does not generate anything plots
             return []
 
-    for _master, channels in acquisition_chain.items():
-        scalars = channels.get("scalars", [])
+    for master_name in acquisition_chain.keys():
+        scalars = _get_channels(scan_info, master_name, dim=0, master=False)
         if len(scalars) > 0:
             have_scalar = True
         if scan_info.get("data_dim", 1) == 2 or scan_info.get("dim", 1) == 2:
@@ -620,9 +635,9 @@ def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
         if not have_scalar:
             default_plot = plot
 
-        for master_name, channels_dict in acquisition_chain.items():
-            scalars = channels_dict.get("scalars", [])
-            master_channels = channels_dict.get("master", {}).get("scalars", [])
+        for master_name in acquisition_chain.keys():
+            scalars = _get_channels(scan_info, master_name, dim=0, master=False)
+            master_channels = _get_channels(scan_info, master_name, dim=0, master=True)
 
             if have_scatter:
                 # In case of scatter the curve plot have to plot the time in x
@@ -672,11 +687,8 @@ def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
                     # The plot will be empty
                     pass
             else:
-                channels = [
-                    m for m in master_channels if m.split(":")[0] == master_name
-                ]
-                if len(channels) > 0:
-                    master_channel = channels[0]
+                if len(master_channels) > 0 and master_channels[0].startswith("axis:"):
+                    master_channel = master_channels[0]
                     master_channel_unit = channel_units.get(master_channel, None)
                     is_motor_scan = master_channel_unit != "s"
                 else:
@@ -707,13 +719,13 @@ def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
     # Scatter plot
 
     if have_scatter:
-        for _master, channels in acquisition_chain.items():
+        for master_name in acquisition_chain.keys():
             plot = plot_item_model.ScatterPlot()
             if default_plot is None:
                 default_plot = plot
 
-            scalars = channels.get("scalars", [])
-            axes_channels = channels["master"]["scalars"]
+            scalars = _get_channels(scan_info, master_name, dim=0, master=False)
+            axes_channels = _get_channels(scan_info, master_name, dim=0, master=True)
 
             # Reach the first scalar which is not a time unit
             for scalar in scalars:
@@ -755,17 +767,11 @@ def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
     mca_plots_per_device: Dict[str, List[plot_model.Plot]] = {}
     roi1d_plots_per_device: Dict[str, List[plot_model.Plot]] = {}
 
-    for _master, channels in acquisition_chain.items():
+    for master_name in acquisition_chain.keys():
         spectra: List[str] = []
         rois1d: List[str] = []
 
-        channel_names = []
-        channel_names += channels.get("spectra", [])
-        if "spectra" in channels:
-            for c in channels.get("master", {}).get("spectra", []):
-                if c not in channel_names:
-                    channel_names.append(c)
-
+        channel_names = _get_channels(scan_info, master_name, dim=1)
         for c in channel_names:
             if ":roi_profiles:" in c:
                 rois1d.append(c)
@@ -808,16 +814,8 @@ def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
     # Image plot
 
     image_plots_per_device: Dict[str, List[plot_model.Plot]] = {}
-
-    for master, channels in acquisition_chain.items():
-        images: List[str] = []
-        images += channels.get("images", [])
-        # merge master which are image
-        if "master" in channels:
-            for c in channels.get("master", {}).get("images", []):
-                if c not in images:
-                    images.append(c)
-
+    for master_name in acquisition_chain.keys():
+        images = _get_channels(scan_info, master_name, dim=2)
         for image_name in images:
             device_name = get_device_from_channel(image_name)
             plot = image_plots_per_device.get(device_name, None)
@@ -840,7 +838,7 @@ def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
                     ) and not roi_name.startswith(f"{device_name}:roi_profiles:"):
                         pass
                     item = plot_item_model.RoiItem(plot)
-                    item.setDeviceName(f"{master}:{roi_name}")
+                    item.setDeviceName(f"{master_name}:{roi_name}")
                     plot.addItem(item)
 
     result.extend(image_plots_per_device.values())
@@ -904,9 +902,10 @@ class _ProgressOfAnyChannels(_ProgressStrategy):
     def compute(self, scan: scan_model.Scan) -> Optional[float]:
         scan_info = scan.scanInfo()
         master_channels: List[str] = []
-        for _master_name, channel_info in scan_info["acquisition_chain"].items():
-            master_channels.extend(channel_info.get("master", {}).get("scalars", []))
-            master_channels.extend(channel_info.get("master", {}).get("images", []))
+        for channel_name, meta in scan_info["channels"].items():
+            dim = meta.get("dim", 0)
+            if dim in [0, 2]:
+                master_channels.append(channel_name)
 
         for master_channel in master_channels:
             channel = scan.getChannelByName(master_channel)
@@ -1008,7 +1007,7 @@ def _create_progress_strategies(scan: scan_model.Scan) -> List[_ProgressStrategy
 def get_scan_progress_percent(scan: scan_model.Scan) -> Optional[float]:
     """Returns the percent of progress of this strategy.
 
-    Returns a value between 0..1, else None if it is not appliable.
+    Returns a value between 0..1, else None if it is not applicable.
     """
     strategies = _PROGRESS_STRATEGIES.get(scan, None)
     if strategies is None:
@@ -1084,8 +1083,6 @@ def is_same(scan_info1: Dict, scan_info2: Dict) -> bool:
     type2 = scan_info2.get("type", None)
     if type1 != type2:
         return False
-    acquisition1 = scan_info1.get("acquisition_chain", {})
-    acquisition2 = scan_info2.get("acquisition_chain", {})
-    acquisition1 = dict([(k, v.get("master", None)) for k, v in acquisition1.items()])
-    acquisition2 = dict([(k, v.get("master", None)) for k, v in acquisition2.items()])
-    return acquisition1 == acquisition2
+    masters1 = _get_channels(scan_info1, master=True)
+    masters2 = _get_channels(scan_info2, master=True)
+    return masters1 == masters2

@@ -355,9 +355,26 @@ class TestScatterPlot(TestCaseQt):
         widget.close()
 
 
-def test_scatter_normalization__normal():
+def _create_scan_info(scalars):
     scan_info = ScanInfo()
-    scan_info.update({"acquisition_chain": {"timer": {"scalars": ["a", "b", "c"]}}})
+    scan_info.update(
+        {
+            "acquisition_chain": {"master_time1": {"devices": ["master", "slave"]}},
+            "devices": {
+                "master": {"channels": [], "triggers": ["slave"]},
+                "slave": {"channels": []},
+            },
+            "channels": {},
+        }
+    )
+    for s in scalars:
+        scan_info["devices"]["slave"]["channels"].append(s)
+        scan_info["channels"][s] = {"dim": 0}
+    return scan_info
+
+
+def test_scatter_normalization__normal():
+    scan_info = _create_scan_info(scalars=["a", "b", "c"])
     scan_info.set_channel_meta("a", axis_id=0, axis_points=3, axis_kind="forth")
     scan_info.set_channel_meta("b", axis_id=1, axis_points=3, axis_kind="forth")
     scan_info.add_scatter_plot("foo", x="a", y="b", value="c")
@@ -374,10 +391,7 @@ def test_scatter_normalization__normal():
 
 
 def test_scatter_normalization__normal_frame():
-    scan_info = ScanInfo()
-    scan_info.update(
-        {"acquisition_chain": {"timer": {"scalars": ["a", "b", "c", "d"]}}}
-    )
+    scan_info = _create_scan_info(scalars=["a", "b", "c", "d"])
     scan_info.set_channel_meta("a", axis_id=0, axis_points=3, axis_kind="forth")
     scan_info.set_channel_meta("b", axis_id=1, axis_points=3, axis_kind="forth")
     scan_info.set_channel_meta("c", axis_id=2, axis_points=3, axis_kind="step")
@@ -398,10 +412,7 @@ def test_scatter_normalization__normal_frame():
 
 
 def test_scatter_normalization__backnforth():
-    scan_info = ScanInfo()
-    scan_info.update(
-        {"acquisition_chain": {"timer": {"scalars": ["a", "b", "c", "d"]}}}
-    )
+    scan_info = _create_scan_info(scalars=["a", "b", "c", "d"])
     scan_info.set_channel_meta(
         "a", axis_id=0, axis_points=3, group="g", axis_kind="backnforth"
     )
@@ -425,10 +436,7 @@ def test_scatter_normalization__backnforth():
 
 
 def test_scatter_normalization__3d_backnforth():
-    scan_info = ScanInfo()
-    scan_info.update(
-        {"acquisition_chain": {"timer": {"scalars": ["a", "b", "c", "d"]}}}
-    )
+    scan_info = _create_scan_info(scalars=["a", "b", "c", "d"])
     scan_info.set_channel_meta(
         "a", axis_id=0, axis_points=2, group="g", axis_kind="backnforth"
     )

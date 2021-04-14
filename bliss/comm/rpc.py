@@ -90,6 +90,7 @@ from bliss.common.logtools import log_debug
 from bliss import global_map
 
 from bliss.common.msgpack_ext import MsgpackContext
+from bliss.comm.exceptions import CommunicationError
 
 
 MAX_MEMORY = min(psutil.virtual_memory().total, sys.maxsize)
@@ -533,13 +534,18 @@ class RpcConnection:
         if self._reading_task:
             return
         if self.host:
-            self._socket = socket.socket()
-            self._socket.connect((self.host, self.port))
-            # On the client socket we set low delay socket
-            # Disable Nagle and set TOS to low delay
-            self._socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-            self._socket.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
+            try:
+                self._socket = socket.socket()
+                self._socket.connect((self.host, self.port))
+                # On the client socket we set low delay socket
+                # Disable Nagle and set TOS to low delay
+                self._socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                self._socket.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
+            except socket.gaierror as sockexc:
+                _msg = f"RPC socket.gaierror connecting to {self.host}:{self.port} - ERR no {sockexc.errno} : {sockexc.strerror}"
+                raise CommunicationError(_msg) from sockexc
         else:
+            # ??? no  host
             self._socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             self._socket.connect(self.port)
         self._reading_task = gevent.spawn(self._raw_read)

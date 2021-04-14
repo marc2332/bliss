@@ -21,6 +21,7 @@ from bliss.common.utils import get_open_ports
 from bliss.common.logtools import get_logger
 
 from bliss.shell.standard import debugon
+from bliss.comm.exceptions import CommunicationError
 
 
 def null():
@@ -417,3 +418,20 @@ def test_disconnect_callback(beacon):
 
     gevent.sleep(1)
     assert not disconnected
+
+
+def test_nonexisting_host(beacon):
+    url = "tcp://wid666:12345"
+
+    with rpc_server(url):
+        client = Client(url)
+
+        with pytest.raises(CommunicationError):
+            try:
+                client.connect()
+            except Exception as eee:
+                assert "wid666" in str(eee)
+                assert "12345" in str(eee)
+                raise CommunicationError(str(eee)) from eee
+
+    client._rpc_connection.close()

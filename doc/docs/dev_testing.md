@@ -68,11 +68,14 @@ apt-get update && apt-get -y install xvfb libxi6 git
 
 git clone https://gitlab.esrf.fr/bliss/bliss.git
 
+conda config --add channels conda-forge
+conda config --add channels defaults
+conda config --add channels tango-controls
+conda config --add channels esrf-bcu
+
 cd bliss
 
-conda create -y --name testenv --channel esrf-bcu \
-  --channel defaults --channel tango-controls --channel conda-forge \
-  --file requirements-conda.txt  --file requirements-test-conda.txt
+conda create -y --name testenv --file requirements-conda.txt --file requirements-test-conda.txt
 
 source activate testenv
 

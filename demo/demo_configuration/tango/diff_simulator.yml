@@ -44,6 +44,6 @@ device:
 - class: Roi2spectrumDeviceServer
   tango_name: id00/roi2spectrum/diff_simulator
 - class: DiffSimulationDeviceServer
-  tango_name: id00/slitssimulation/diff_simulator
+  tango_name: id00/diff_simulation/diff_simulator
 personal_name: diff_simulator
 server: LimaCCDs

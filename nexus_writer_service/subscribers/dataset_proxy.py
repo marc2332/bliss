@@ -56,6 +56,16 @@ def split_shape(shape, detector_ndim):
     return scan_shape, detector_shape
 
 
+def guess_chunk(scan_shape, detector_shape):
+    """Simplified form of h5py._hl.filters.guess_chunk"""
+    if detector_shape:
+        return tuple(1 for _ in scan_shape) + tuple(
+            min(n, max(n // 4, 256)) if n else 256 for n in detector_shape
+        )
+    else:
+        return tuple(min(n, 256) if n else 256 for n in scan_shape)
+
+
 class FileSizeMonitor:
     def __init__(self, filename="", timeout=10):
         self.filename = filename
@@ -130,34 +140,128 @@ class DatasetProxy(BaseProxy):
             parentlogger=parentlogger,
         )
 
-        # Shape and order
+        # Expected data shape, dtype and order
         if sum(n == 0 for n in scan_shape) > 1:
             raise ValueError("Scan can have only one variable dimension")
         if sum(n == 0 for n in scan_save_shape) > 1:
             raise ValueError("Scan can have only one variable dimension")
-        self.scan_shape = scan_shape
-        self.scan_save_shape = scan_save_shape
-        self.current_scan_save_shape = scan_save_shape
-        self.detector_shape = detector_shape
-        self.current_detector_shape = detector_shape
-        self.dtype = dtype
-        self.external_images_per_file = external_images_per_file
-        self.external_uri_from_file = external_uri_from_file
+        self._scan_shape = scan_shape
+        self._scan_save_shape = scan_save_shape
+        self._detector_shape = detector_shape
+        self._dtype = dtype
         if not isinstance(saveorder, Order):
             saveorder = Order(saveorder)
-        self.saveorder = saveorder
+        self._saveorder = saveorder
         if not isinstance(publishorder, Order):
             publishorder = Order(publishorder)
-        self.publishorder = publishorder
+        self._publishorder = publishorder
+
+        # Derived from expected data shape, dtype and order
+        self._itemsize = numpy.asarray(1, dtype=dtype).itemsize
+
+        corder_shape = scan_save_shape + detector_shape
+        if corder_shape:
+            chunk_shape = guess_chunk(scan_save_shape, detector_shape)
+            self._npoints_h5chunk = shape_to_size(chunk_shape[: self.scan_ndim])
+            if not self.csaveorder:
+                chunk_shape = (
+                    chunk_shape[self.scan_ndim :] + chunk_shape[: self.scan_ndim]
+                )
+            self._chunk_shape = chunk_shape
+        else:
+            # Scalar dataset (ndim=0)
+            self._chunk_shape = None
+            self._npoints_h5chunk = 1
+        self._npoints_h5chunk = self._npoints_h5chunk
+        self._save_interal_time = None
+        self._save_interal_dtmax = 3
+
+        # Check whether we need compression or not
+        compression = None
+        if self._chunk_shape:
+            # Only use compression when chunking
+            if detector_shape:
+                compression = "gzip"
+            else:
+                n = shape_to_size(scan_save_shape)
+                if n > 256 or not n:
+                    compression = "gzip"
+        self._compression = compression
+
+        # Currently arrive data shape (but not necessarily saved already)
+        self.current_scan_save_shape = scan_save_shape
+        self.current_detector_shape = detector_shape
 
         # Device parameters
-        self.device = device
+        self._device = device
 
-        # Internals
-        self._external_raw = []
-        self._external_datasets = []
-        self._external_names = []
+        # Internal/external data buffers
+        self._internal_buffer = []  # Buffer data saved as an HDF5 dataset
+        self._external_raw = []  # URI's for supported external binary data
         self._external_raw_formats = ["edf"]
+        self._external_names = []  # URI's for unsupported external binary data
+        self._external_datasets = []  # URI's for virtual datasets
+
+        # External data settings
+        self._external_images_per_file = external_images_per_file
+        self._external_uri_from_file = external_uri_from_file
+
+    @property
+    def scan_shape(self):
+        """Expected scan shape (when run to completion). Zero indicates
+        a variable dimension.
+        """
+        return self._scan_shape
+
+    @property
+    def scan_save_shape(self):
+        """Expected scan shape (when run to completion) as saved. Zero
+        indicates a variable dimension.
+        """
+        return self._scan_save_shape
+
+    @property
+    def detector_shape(self):
+        """Expected detector shape. Does not contain zeros to indicate
+        variable dimensions.
+        """
+        return self._detector_shape
+
+    @property
+    def dtype(self):
+        """Data dtype
+        """
+        return self._dtype
+
+    @property
+    def saveorder(self):
+        """Order to fill `scan_save_shape` with data
+        """
+        return self._saveorder
+
+    @property
+    def publishorder(self):
+        """Order in which data from `scan_shape` arrives
+        """
+        return self._publishorder
+
+    @property
+    def device(self):
+        """Device parameters
+        """
+        return self._device
+
+    @property
+    def external_images_per_file(self):
+        """Number of images per file for external datasets (VDS)
+        """
+        return self._external_images_per_file
+
+    @property
+    def external_uri_from_file(self):
+        """Get the URI's from file instead of trusting the provided URI's
+        """
+        return self._external_uri_from_file
 
     def __repr__(self):
         return "{}: shape = {}, dtype={}".format(
@@ -178,6 +282,7 @@ class DatasetProxy(BaseProxy):
     @property
     def linkname(self):
         if self._external_names:
+            # This dataset is a list of URI's saved as an array of strings
             return None
         else:
             return normalize_nexus_name(self.device["unique_name"])
@@ -196,10 +301,14 @@ class DatasetProxy(BaseProxy):
 
     @property
     def scan_ndim(self):
+        """Expected scan dimensions
+        """
         return len(self.scan_shape)
 
     @property
     def detector_ndim(self):
+        """Expected detector dimensions
+        """
         return len(self.detector_shape)
 
     @property
@@ -216,13 +325,21 @@ class DatasetProxy(BaseProxy):
 
     @property
     def shape(self):
+        """Expected data shape. Zero indicates a variable length.
+        """
         if self.csaveorder:
             return self.scan_save_shape + self.detector_shape
         else:
             return self.detector_shape + self.scan_save_shape
 
     @property
+    def ndim(self):
+        return len(self.shape)
+
+    @property
     def current_shape(self):
+        """Current data shape. Zero indicates a variable length.
+        """
         if self.csaveorder:
             return self.current_scan_save_shape + self.current_detector_shape
         else:
@@ -230,8 +347,7 @@ class DatasetProxy(BaseProxy):
 
     @property
     def grid_shape(self):
-        """
-        Like `current_shape` but with the original scan shape
+        """Like `current_shape` but with the original scan shape
         """
         if self.variable_scan_shape and self.scan_ndim == 1:
             scan_shape = self.current_scan_save_shape
@@ -244,8 +360,7 @@ class DatasetProxy(BaseProxy):
 
     @property
     def flat_shape(self):
-        """
-        Like `current_shape` but flatten the scan dimensions
+        """Like `current_shape` but flatten the scan dimensions
         """
         if self.scan_ndim:
             size = shape_to_size(self.current_scan_save_shape)
@@ -262,10 +377,6 @@ class DatasetProxy(BaseProxy):
         Shape of scan equal to saved shape of scan?
         """
         return self.scan_shape != self.scan_save_shape
-
-    @property
-    def ndim(self):
-        return len(self.shape)
 
     @property
     def npoints_expected(self):
@@ -289,27 +400,45 @@ class DatasetProxy(BaseProxy):
         return True
 
     @property
+    def current_detector_size(self):
+        """Number of elements currently in the detector dimensions
+        """
+        return shape_to_size(self.current_detector_shape)
+
+    @property
+    def current_scan_size(self):
+        """Number of elements currently in the shape dimensions
+        """
+        return self.npoints
+
+    @property
+    def current_size(self):
+        """Number of elements currently in the dataset
+        """
+        return self.current_scan_size * self.current_detector_size
+
+    @property
+    def itemsize(self):
+        """dtype size in bytes
+        """
+        return self._itemsize
+
+    @property
     def current_bytes(self):
-        return (
-            self.npoints
-            * shape_to_size(self.current_detector_shape)
-            * numpy.asarray(1, dtype=self.dtype).itemsize
-        )
+        return self.current_size * self.itemsize
 
     @property
     def maxshape(self):
-        # TODO: currently detector_shape does not contain
-        #       zeros to indicate variable length so assume
-        #       any dimension can have a variable length
+        # All dimensions are variable:
+        # - Currently detector_shape does not contain
+        #   zeros to indicate variable length so assume
+        #   any dimension can have a variable length.
+        # - Detector may publish more points than
+        #   expected.
         return (None,) * self.ndim
-        if all(self.shape):
-            return None
-        else:
-            return tuple(n if n else None for n in self.shape)
 
     def add_external(self, newdata, file_format=None):
-        """
-        Add data as external references.
+        """Add data as external references.
 
         :param list((str, int)) newdata: uri and index within the uri
         :param str file_format: if not specified, uris will be saved as strings
@@ -337,11 +466,10 @@ class DatasetProxy(BaseProxy):
             self.npoints = len(self._external_names)
 
     def add(self, newdata):
-        """
-        Add data to dataset (copy)
+        """Add data to dataset (copy)
 
         :param h5py.Dataset dset: shape = scan_shape + detector_shape
-        :param array-like newdata: shape = (nnew, ) + detector_shape
+        :param sequence newdata: shape = (nnew, ) + detector_shape
         """
         if self.is_external:
             msg = f"{self} already has external data"
@@ -351,108 +479,213 @@ class DatasetProxy(BaseProxy):
     add_internal = add
 
     def _insert_data(self, dset, newdata):
-        """
-        Insert new data in dataset
+        """Add data to the internal buffer
 
         :param h5py.Dataset dset:
-        :param array-like newdata: shape = (npoints, ) + detector_shape
+        :param sequence newdata: shape = (npoints, ) + detector_shape
         :returns int: number of added points
         """
-        scanndim = self.scan_save_ndim
-        detndim = self.detector_ndim
-        corder = self.csaveorder
-        if corder:
-            scanidx = slice(None, scanndim)
-            detidx = slice(scanndim, None)
-        else:
-            detidx = slice(None, detndim)
-            scanidx = slice(detndim, None)
+        nnew = len(newdata)
+        points_buffer = self._internal_buffer
+        nalready_buffered = len(points_buffer)
+        points_buffer.extend(newdata)
+        nbuffered = nalready_buffered + nnew
+        nalready_saved = self.npoints - nalready_buffered
+        if self._save_interal_time is None:
+            self._save_interal_time = time()
 
-        shape = dset.shape
-        scanshape = shape[scanidx]
-        detshape = shape[detidx]
-        nnew = newdata.shape[0]
-        icurrent = self.npoints
-        inext = icurrent + nnew
-        newdetshape = tuple(max(a, b) for a, b in zip(detshape, newdata.shape[1:]))
-
-        if scanndim == 0:
-            if inext == 1:
-                newscanshape = tuple()
-            else:
-                newscanshape = (inext,)
-        elif scanndim == 1:
-            newscanshape = (max(shape[0], inext),)
-        else:
-            savecoord, newscanshape = self._save_shape_mindex(
-                icurrent, inext, scanshape
+        # Save points aligned with the HDF5 chunks
+        nchunk = self._npoints_h5chunk - (nalready_saved % self._npoints_h5chunk)
+        nsave = (nbuffered // nchunk) * nchunk
+        # Save non-aligned when the data arrives too slow.
+        if not nsave:
+            if (time() - self._save_interal_time) > self._save_interal_dtmax:
+                nsave = nbuffered
+        if nsave:
+            newdata = self._merge_ragged_sequence(points_buffer[:nsave])
+            self._internal_buffer = points_buffer[nsave:]
+            info = self._insert_data_info(
+                dset.shape, nalready_saved, nsave, newdata[0].shape
             )
-        if corder:
-            newshape = newscanshape + newdetshape
-        else:
-            newshape = newdetshape + newscanshape
-        self.current_scan_save_shape = newscanshape
-        self.current_detector_shape = newdetshape
-
-        # Extend dataset
-        if shape != newshape:
-            try:
-                dset.resize(newshape)
-            except (ValueError, TypeError):
-                msg = "{} cannot be resized from {} to {}: {} points are not saved".format(
-                    repr(dset.name), shape, newshape, nnew
-                )
-                self.logger.error(msg)
-                return 0
-
-        # Insert new data
-        if scanndim == 0:
-            dset[()] = newdata
-        else:
-            if corder:
-                idx = [None] * scanndim + [slice(0, n) for n in newdata.shape[1:]]
-            else:
-                idx = [slice(0, n) for n in newdata.shape[1:]] + [None] * scanndim
-            if scanndim == 1:
-                # all at once
-                if corder:
-                    idx[0] = slice(icurrent, inext)
-                else:
-                    idx[-1] = slice(icurrent, inext)
-                    axes = list(range(1, newdata.ndim)) + [0]
-                    newdata = numpy.transpose(newdata, axes)
-                dset[tuple(idx)] = newdata
-            else:
-                # point per point
-                for coordi, newdatai in zip(zip(*savecoord), newdata):
-                    idx[scanidx] = coordi
-                    dset[tuple(idx)] = newdatai
+            self.current_scan_save_shape = info["new_scanshape"]
+            self.current_detector_shape = info["new_detshape"]
+            self._save_internal_data(dset, newdata, info)
+            self._save_interal_time = time()
         return nnew
 
-    def _save_shape_mindex(self, icurrent, inext, scanshape):
-        publishidx = list(range(icurrent, inext))
+    def _merge_ragged_sequence(self, sequence):
+        # Return the sequence when not ragged
+        if self.detector_ndim != 1:
+            return sequence
+        shape0 = sequence[0].shape
+        if all(e.shape == shape0 for e in sequence):
+            return sequence
+
+        # Regular nD array
+        nmax = max(e.shape[0] if e.ndim else 1 for e in sequence)
+        shape = (len(sequence), nmax)
+        arr = numpy.full(shape, self.fillvalue, dtype=self.dtype)
+        for src, dest in zip(sequence, arr):
+            dest[: len(src)] = src
+        return arr
+
+    def flush(self):
+        """Flush any buffered data
+        """
+        # Flush external data (VDS or raw external datasets)
+        super().flush()
+
+        # Flush internal data
+        if self.is_external or not self._internal_buffer:
+            return
+        self._npoints_h5chunk = 1
+        self.add_internal([])
+
+    def _insert_data_info(self, old_shape, nold_points, nnew_points, newdata_detshape):
+        """Add data to the internal buffer
+
+        :param tuple old_shape:
+        :param int nnew_points:
+        :param tuple newdata_detshape:
+        :param sequence newdata: shape = (npoints, ) + detector_shape
+        :returns dict:
+        """
+        scan_ndim = self.scan_save_ndim
+        det_ndim = self.detector_ndim
+        csaveorder = self.csaveorder
+
+        if csaveorder:
+            scan_slice = slice(None, scan_ndim)
+            det_slice = slice(scan_ndim, None)
+        else:
+            det_slice = slice(None, det_ndim)
+            scan_slice = slice(det_ndim, None)
+
+        old_scanshape = old_shape[scan_slice]
+        old_detshape = old_shape[det_slice]
+        icurrent = nold_points
+        inext = icurrent + nnew_points
+        new_detshape = tuple(max(a, b) for a, b in zip(old_detshape, newdata_detshape))
+
+        if scan_ndim == 0:
+            save_coord = None
+            if inext == 1:
+                new_scanshape = tuple()
+            else:
+                new_scanshape = (inext,)
+        elif scan_ndim == 1:
+            save_coord = None
+            new_scanshape = (max(old_shape[0], inext),)
+        else:
+            save_coord, new_scanshape = self._save_shape_mindex(
+                icurrent, inext, old_scanshape
+            )
+
+        if csaveorder:
+            new_shape = new_scanshape + new_detshape
+        else:
+            new_shape = new_detshape + new_scanshape
+
+        info = {
+            "old_shape": old_shape,
+            "old_scanshape": old_scanshape,
+            "old_detshape": old_detshape,
+            "new_shape": new_shape,
+            "new_scanshape": new_scanshape,
+            "new_detshape": new_detshape,
+            "newdata_detshape": newdata_detshape,
+            "scan_ndim": scan_ndim,
+            "det_ndim": det_ndim,
+            "scan_slice": scan_slice,
+            "det_slice": det_slice,
+            "csaveorder": csaveorder,
+            "icurrent": icurrent,
+            "inext": inext,
+            "nnew_points": nnew_points,
+            "save_coord": save_coord,
+        }
+        return info
+
+    def _save_shape_mindex(self, start, stop, shape):
+        """Coordinates in shape (which may need to be expended along the
+        slow dimension) that correspond to flat indices `range(start, stop)`.
+
+        :param int start:
+        :param int stop:
+        :param tuple shape: shape to be filled (with self.saveorder)
+        :returns iterable, shape: coordinates and (expanded) shape
+        """
+        indices = list(range(start, stop))
         while True:
             try:
-                savecoord = self.saveorder.unravel(publishidx, scanshape)
+                save_coord = self.saveorder.unravel(indices, shape)
+                break
             except ValueError:
                 # Increase the variable dimension or
                 # the slow dimension if fixed-length scan
-                scanshape = list(scanshape)
+                shape = list(shape)
                 try:
-                    vdim = scanshape.index(0)
+                    vdim = shape.index(0)
                 except ValueError:
                     if self.csaveorder:
                         vdim = 0
                     else:
                         vdim = -1
-                scanshape[vdim] += 1
-                scanshape = tuple(scanshape)
+                shape[vdim] += 1
+                shape = tuple(shape)
+        return save_coord, shape
+
+    def _save_internal_data(self, dset, newdata, info):
+        """Add data to the HDF5 dataset
+
+        :param h5py.Dataset dset:
+        :param sequence newdata:
+        :returns int: number of added points
+        """
+        # Extend HDF5 dataset
+        if info["old_shape"] != info["new_shape"]:
+            dset.resize(info["new_shape"])
+
+        # Insert new data in HDF5 dataset
+        if info["scan_ndim"] == 0:
+            dset[()] = newdata
+        else:
+            if info["csaveorder"]:
+                idx = [None] * info["scan_ndim"] + [
+                    slice(0, n) for n in info["newdata_detshape"]
+                ]
             else:
-                break
-        return savecoord, scanshape
+                idx = [slice(0, n) for n in info["newdata_detshape"]] + [None] * info[
+                    "scan_ndim"
+                ]
+            if info["scan_ndim"] == 1:
+                newdata = numpy.asarray(newdata)
+                # all at once
+                if info["csaveorder"]:
+                    idx[0] = slice(info["icurrent"], info["inext"])
+                else:
+                    idx[-1] = slice(info["icurrent"], info["inext"])
+                    axes = list(range(1, newdata.ndim)) + [0]
+                    newdata = numpy.transpose(newdata, axes)
+                try:
+                    dset[tuple(idx)] = newdata
+                except Exception:
+                    self.logger.warning(
+                        "\n\n" + str((idx, dset.shape, newdata.shape)) + "\n\n"
+                    )
+                    raise
+            else:
+                # point per point (could be done better)
+                scan_slice = info["scan_slice"]
+                for coordi, newdatai in zip(zip(*info["save_coord"]), newdata):
+                    idx[scan_slice] = coordi
+                    dset[tuple(idx)] = newdatai
 
     @property
     def current_scan_save_shape(self):
+        """This refers to the currently know scan shape, not the current
+        shape in terms of arrived data.
+        """
         if self.scan_save_ndim == 1:
             return (self.npoints,)
         else:
@@ -464,31 +697,16 @@ class DatasetProxy(BaseProxy):
 
     @property
     def compression(self):
-        shape = self.shape
-        maxshape = self.maxshape
-        if all(shape):
-            # fixed length
-            if shape_to_size(shape) > 512 or maxshape:
-                compression = "gzip"
-            else:
-                compression = None
-        else:
-            # variable length
-            compression = "gzip"
-        return compression
+        return self._compression
 
     @property
     def chunks(self):
-        # Remark: chunking required if bool(maxshape or compression)
-        if self.compression or self.maxshape:
-            return True
-        else:
-            return None
+        # Remark: chunking is required for resizable datasets and/or compression
+        return self._chunk_shape
 
     @property
     def fillvalue(self):
-        """
-        Value reader gets for uninitialized elements
+        """Value reader gets for uninitialized elements
         """
         if self.dtype in (str, bytes):
             return ""
@@ -759,8 +977,8 @@ class DatasetProxy(BaseProxy):
 
     @property
     def is_external(self):
-        """
-        "External" means a virtual dataset or a raw external dataset (for example links to EDF files)
+        """"External" means a virtual dataset or a raw external dataset,
+        for example links to EDF files.
         """
         return bool(
             self._external_datasets or self._external_raw or self._external_names
@@ -768,8 +986,7 @@ class DatasetProxy(BaseProxy):
 
     @property
     def is_internal(self):
-        """
-        "Internal" mean a normal HDF5 dataset
+        """"Internal" mean a normal HDF5 dataset
         """
         return self.exists and not self.is_external
 
@@ -781,8 +998,7 @@ class DatasetProxy(BaseProxy):
 
     @property
     def _dset_attrs(self):
-        """
-        HDF5 dataset attributes
+        """HDF5 dataset attributes
         """
         attrs = self.device.get("data_info", {})
         interpretation = self.interpretation
@@ -792,8 +1008,7 @@ class DatasetProxy(BaseProxy):
         return attrs
 
     def _create(self, nxroot):
-        """
-        Create the dataset
+        """Create the dataset
         """
         parent = nxroot[self.parent]
         value = self._dset_value
@@ -810,8 +1025,7 @@ class DatasetProxy(BaseProxy):
         return f" ({format_bytes(self.current_bytes)})"
 
     def reshape(self, scan_save_shape, detector_shape=None):
-        """
-        Reshape dataset (must exist when internal, should not exist when external)
+        """Reshape dataset (must exist when internal, should not exist when external)
 
         :param tuple or None scan_save_shape:
         :param tuple or None detector_shape:
@@ -834,8 +1048,7 @@ class DatasetProxy(BaseProxy):
             self.npoints = shape_to_size(scan_save_shape)
 
     def _reshape_internal(self, scan_save_shape, detector_shape):
-        """
-        Reshape HDF5 dataset if it exists
+        """Reshape HDF5 dataset if it exists
 
         :param tuple or None scan_save_shape:
         :param tuple or None detector_shape:
@@ -847,13 +1060,13 @@ class DatasetProxy(BaseProxy):
                 return False
             shape = dset.shape
             if self.csaveorder:
-                newshape = scan_save_shape + detector_shape
+                new_shape = scan_save_shape + detector_shape
             else:
-                newshape = detector_shape + scan_save_shape
-            if dset.shape != newshape:
-                self.logger.info(f"reshape from {shape} to {newshape}")
+                new_shape = detector_shape + scan_save_shape
+            if dset.shape != new_shape:
+                self.logger.info(f"reshape from {shape} to {new_shape}")
                 try:
-                    dset.resize(newshape)
+                    dset.resize(new_shape)
                 except TypeError as e:
                     self.logger.warning(f"Cannot be reshaped because '{e}'")
                 else:
@@ -861,8 +1074,7 @@ class DatasetProxy(BaseProxy):
         return False
 
     def _reshape_external(self, scan_save_shape, detector_shape):
-        """
-        Reshape HDF5 dataset if it exists
+        """Reshape HDF5 dataset if it exists
 
         :param tuple or None scan_save_shape:
         :param tuple or None detector_shape:
@@ -898,8 +1110,7 @@ class DatasetProxy(BaseProxy):
         return False
 
     def _dummy_uris(self, npoints):
-        """
-        URIs of dummy data (create when missing).
+        """URIs of dummy data (create when missing).
 
         :returns lst(str, int): uri, index
         """
@@ -941,8 +1152,7 @@ class DatasetProxy(BaseProxy):
         return os.path.join(dirname, "dummy", "dummy_" + name + ext)
 
     def add_metadata(self, treedict, parent=False, create=False, **kwargs):
-        """
-        Add datasets/attributes (typically used for metadata)
+        """Add datasets/attributes (typically used for metadata)
 
         :param dict treedict:
         :param bool parent:

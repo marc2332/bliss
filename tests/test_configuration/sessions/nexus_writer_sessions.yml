@@ -30,6 +30,7 @@
   - diode9
   - sim_ct_gauss    
   - sim_ct_gauss_noise
+  - sim_ct_linear
   - thermo_sample
   - simu1
   - simu2
@@ -60,6 +61,7 @@
   - diode9
   - sim_ct_gauss    
   - sim_ct_gauss_noise
+  - sim_ct_linear
   - thermo_sample
   - simu1
   - simu2
@@ -79,6 +81,7 @@
   - diode9
   - sim_ct_gauss    
   - sim_ct_gauss_noise
+  - sim_ct_linear
   - thermo_sample
   - simu1
   - simu2
@@ -96,6 +99,7 @@
   - diode9
   - sim_ct_gauss    
   - sim_ct_gauss_noise
+  - sim_ct_linear
   - thermo_sample
   - simu1
   - simu2
@@ -113,4 +117,5 @@
   - diode9
   - sim_ct_gauss    
   - sim_ct_gauss_noise
+  - sim_ct_linear
   - thermo_sample

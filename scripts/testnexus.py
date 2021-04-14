@@ -180,7 +180,7 @@ def get_detectors(test_session):
     :returns list: Bliss controller objects
     """
     env_dict = test_session.env_dict
-    detectors = ["sim_ct_gauss", "sim_ct_gauss_noise", "thermo_sample"]
+    detectors = ["sim_ct_gauss", "sim_ct_gauss_noise", "sim_ct_linear", "thermo_sample"]
     detectors = [env_dict.get(d) for d in detectors]
     detectors += [
         env_dict.get(f"diode{i}", env_dict.get(f"diode{i}alias")) for i in range(2, 10)

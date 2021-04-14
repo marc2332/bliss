@@ -968,6 +968,7 @@ def expected_detectors(
             "diode9alias",
             "sim_ct_gauss",
             "sim_ct_gauss_noise",
+            "sim_ct_linear",
             "thermo_sample",
         }
         if "xrf" in technique or "xas" in technique or detectors:
@@ -1195,6 +1196,7 @@ def expected_channels(
         "diode8",
         "sim_ct_gauss",
         "sim_ct_gauss_noise",
+        "sim_ct_linear",
         "thermo_sample",
     }
     names |= {"diode2alias", "diode9alias"}
@@ -1358,48 +1360,81 @@ def assert_dataset(dset, detector_ndim, save_options, variable_length=False):
     :param dict save_options:
     :param bool variable_length:
     """
-    detaxis = tuple(range(-detector_ndim, 0))
+
     if "lima_simulator" in dset.name and detector_ndim == 2:
-        # Check external data (VDS or raw external)
-        isexternal = isvirtual = False
-        if dset.parent.attrs.get("NX_class", "") == "NXdetector":
-            if "lima_simulator2" in dset.name:
-                isexternal = bool(dset.external)
-                if save_options["allow_external_nonhdf5"]:
-                    assert isexternal, dset.name
-                else:
-                    assert not isexternal, dset.name
-            else:
-                try:
-                    isvirtual = dset.is_virtual
-                except RuntimeError:
-                    isvirtual = False
-                if save_options["allow_external_hdf5"]:
-                    assert isvirtual, dset.name
-                else:
-                    assert not isvirtual, dset.name
-        # Check image maxima: 100, 200, ...
-        data = dset[()].max(axis=detaxis).flatten(order="C")
-        npoints = numpy.product(dset.shape[:-2], dtype=int)
-        if not variable_length:
-            edata = numpy.arange(1, npoints + 1) * 100
-            numpy.testing.assert_array_equal(data, edata, err_msg=dset.name)
-        if isvirtual:
-            sources = dset.virtual_sources()
-            assert len(sources) < npoints or npoints <= 1
+        assert_lima_image_data(dset, save_options, variable_length=variable_length)
+    elif "sim_ct_linear" in dset.name:
+        assert_linear_dataset(dset, detector_ndim)
     else:
-        if variable_length:
-            return
-        try:
-            numpy.array(numpy.nan, dset.dtype)
-        except ValueError:
-            return  # TODO: figure out how to mark missing data
-            invalid = dset[()] == 0
+        assert_random_dataset(dset, detector_ndim)
+
+
+def assert_lima_image_data(dset, save_options, variable_length=False):
+    """Checks whether the image maxima are linear and check external links
+    """
+    # Check external data (VDS or raw external)
+    isexternal = isvirtual = False
+    if dset.parent.attrs.get("NX_class", "") == "NXdetector":
+        # This is the external dataset itself, not a softlink in
+        # measurement or NXdata
+        if "lima_simulator2" in dset.name:
+            isexternal = bool(dset.external)
+            if save_options["allow_external_nonhdf5"]:
+                assert isexternal, dset.name
+            else:
+                assert not isexternal, dset.name
         else:
-            invalid = numpy.isnan(dset[()])
-        # At least one valid value along the detector dimensions
-        invalid = invalid.min(axis=detaxis)
-        assert not invalid.all(), dset.name
+            try:
+                isvirtual = dset.is_virtual
+            except RuntimeError:
+                isvirtual = False
+            if save_options["allow_external_hdf5"]:
+                assert isvirtual, dset.name
+            else:
+                assert not isvirtual, dset.name
+
+    # Check image maxima: 100, 200, ...
+    data = dset[()].max(axis=(-2, -1)).flatten(order="C")
+    npoints = data.size
+    if variable_length:
+        npoints -= 1
+        if npoints:
+            data = data[:-1]
+    if npoints:
+        edata = numpy.arange(1, npoints + 1) * 100
+        numpy.testing.assert_array_equal(data, edata, err_msg=dset.name)
+
+    # Check that we don't have one virtual source per image
+    if isvirtual:
+        sources = dset.virtual_sources()
+        assert len(sources) < npoints or npoints <= 1
+
+
+def assert_linear_dataset(dset, detector_ndim):
+    """Check whether data is linear in the scan dimension
+    """
+    if dset.ndim == detector_ndim:
+        return
+    detaxis = tuple(range(-detector_ndim, 0))
+    data = dset[()].max(axis=detaxis).flatten(order="C")
+    data = numpy.diff(data)
+    numpy.testing.assert_allclose(data, data[0], err_msg=dset.name)
+
+
+def assert_random_dataset(dset, detector_ndim):
+    """Checks whether we have at least one valid value along the
+    detector dimensions
+    """
+    try:
+        numpy.array(numpy.nan, dset.dtype)
+    except ValueError:
+        return  # TODO: figure out how to mark missing data
+        invalid = dset[()] == 0
+    else:
+        invalid = numpy.isnan(dset[()])
+    detaxis = tuple(range(-detector_ndim, 0))
+    invalid = invalid.min(axis=detaxis)
+    assert not invalid.all() or invalid.size == 1, dset.name
 
 
 def assert_attributes(unique_name, dset, config=True):

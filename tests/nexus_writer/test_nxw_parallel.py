@@ -27,6 +27,7 @@ def _test_nxw_parallel(session=None, tmpdir=None, writer=None, **kwargs):
         "diode9alias",
         "sim_ct_gauss",
         "sim_ct_gauss_noise",
+        "sim_ct_linear",
         "thermo_sample",
     )
     lst = [

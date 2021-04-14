@@ -62,6 +62,7 @@ def _test_aloopscan(session=None, tmpdir=None, writer=None, **kwargs):
         "diode8",
         "diode9alias",
         "sim_ct_gauss",
+        "sim_ct_linear",
         "simu2",
         "lima_simulator2",
     ]

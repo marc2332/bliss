@@ -5,11 +5,9 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import enum
 from time import perf_counter, sleep
 from itertools import chain
-from collections import ChainMap
-from gevent import Timeout, event, sleep as gsleep
+from gevent import event, sleep as gsleep
 
 from bliss import global_map
 from bliss.common.protocols import CounterContainer
@@ -30,7 +28,7 @@ from bliss.controllers.counter import (
 )
 from bliss.scanning.acquisition.counter import BaseCounterAcquisitionSlave
 
-from bliss.config.beacon_object import BeaconObject
+# from bliss.config.beacon_object import BeaconObject
 
 from bliss.common.logtools import log_info, log_debug, log_debug_data, log_warning
 
@@ -157,10 +155,10 @@ class BlissController(CounterContainer):
 
     _COUNTER_TAGS = {}
 
-    def __init__(self, name, config):
+    def __init__(self, config):
 
-        self._name = name
         self._config = config
+        self._name = config.get("name")
 
         self._counter_controllers = {}
         self._hw_controller = None
@@ -217,6 +215,13 @@ class BlissController(CounterContainer):
 
     def _load_config(self):
         """ Read and apply the YML configuration """
+
+        # for k in self.config.keys():
+        #     if k in self._SUB_CLASS:
+        #         for cfg in self.config[k]:
+        #             if cfg.get('name'):
+        #                 self._objects[cfg.get('name')] = self._SUB_CLASS[k](self, cfg)
+
         raise NotImplementedError
 
     def _build_counters(self):

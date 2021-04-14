@@ -55,36 +55,67 @@ with the mandatory fields:
 """
 
 from gevent import lock
+from itertools import chain
 from bliss.common.regulation import Input, Output, Loop
 from bliss.common.utils import set_custom_members
 from bliss.common.logtools import log_info
+from bliss.common.protocols import counter_namespace
+from bliss.common.utils import autocomplete_property
 import time
 
+from bliss.controllers.bliss_controller import BlissController
+from bliss.common.counter import SamplingCounter
+from bliss.controllers.counter import SamplingCounterController
 
-class Controller:
+
+class Controller(BlissController):
     """
-    Regulation controller base class
+        Regulation controller base class
 
-    The 'Controller' class should be inherited by controller classes that are linked to an hardware 
-    which has internal PID regulation functionnalities and optionally ramping functionnalities (on setpoint or output value) .
-    
-    If controller hardware does not have ramping capabilities, the Loop objects associated to the controller will automatically use a SoftRamp.
+        The 'Controller' class should be inherited by controller classes that are linked to an hardware 
+        which has internal PID regulation functionnalities and optionally ramping functionnalities (on setpoint or output value) .
+        
+        If controller hardware does not have ramping capabilities, the Loop objects associated to the controller will automatically use a SoftRamp.
 
     """
+
+    class SCC(SamplingCounterController):
+        def __init__(self, name, bctrl):
+            super().__init__(name)
+            self.bctrl = bctrl
+
+        def read_all(self, *counters):
+            values = []
+            for cnt in counters:
+                item = self.bctrl.get_object(cnt.name)
+                if item is not None:
+                    values.append(item.read())
+            return values
+
+    _SUB_CLASS = {"inputs": Input, "outputs": Output, "ctrl_loops": Loop}
 
     def __init__(self, config):
-        self.__config = config
-        self.__name = config.get("name")
         self._objects = {}
-
         self.__lock = lock.RLock()
         self.__initialized_obj = {}
         self.__hw_controller_initialized = False
 
-    def add_object(self, node_type_name, object_class, cfg):
-        """ creates an instance of the object and add it to the controller.  Called by regulation plugin. """
+        super().__init__(config)
 
-        new_obj = object_class(self, cfg)
+    def _create_sub_item(self, name, cfg, parent_key):
+        """ Create/get and return an object which has a config name and which is owned by this controller
+            This method is called by the Bliss Controller Plugin and is called after the controller __init__().
+            This method is called only once per item on the first config.get('item_name') call (see plugin).
+
+            args:
+                'name': sub item name
+                'cfg' : sub item config
+                'parent_key': the config key under which the sub item was found (ex: 'counters').
+
+            return: the sub item object      
+        """
+
+        new_obj = self._SUB_CLASS[parent_key](self, cfg)
 
         # --- store the new object
         self._objects[new_obj.name] = new_obj
@@ -93,6 +124,44 @@ class Controller:
         set_custom_members(self, new_obj, self.init_obj)  # really needed ???????
 
         return new_obj
+
+    def _load_config(self):
+        """ Read and apply the YML configuration """
+        print("=== _load_config")
+        pass
+
+    def _build_counters(self):
+        """ Build the CounterControllers and associated Counters"""
+        print("=== _build_counters")
+        self._counter_controllers["scc"] = self.SCC("scc", self)
+        self._counter_controllers["scc"].max_sampling_frequency = self.config.get(
+            "max_sampling_frequency", 1
+        )
+
+        for k in self._SUB_CLASS:
+            for cfg in self.config.get(k, []):
+                name = cfg["name"]
+                mode = cfg.get("mode", "SINGLE")
+                unit = cfg.get("unit")
+
+                self._counter_controllers["scc"].create_counter(
+                    SamplingCounter, name, unit=unit, mode=mode
+                )
+
+    def _build_axes(self):
+        """ Build the Axes (real and pseudo) """
+        print("=== _build_axes")
+        pass
+
+    @autocomplete_property
+    def counters(self):
+        cnts = [ctrl.counters for ctrl in self._counter_controllers.values()]
+        return counter_namespace(chain(*cnts))
+
+    @autocomplete_property
+    def axes(self):
+        # return counter_namespace(self._motor_controller.axes)
+        pass
 
     def init_obj(self, obj):
         """ Initialize objects under the controller. Called by @lazy_init. """
@@ -103,6 +172,7 @@ class Controller:
 
             if not self.__hw_controller_initialized:
                 self.initialize_controller()
+                print("=== initialize_controller")
                 self.__hw_controller_initialized = True
 
             if self.__initialized_obj.get(obj):
@@ -116,33 +186,27 @@ class Controller:
                     self.__initialized_obj[obj.input] = True
                     obj.input.load_base_config()
                     self.initialize_input(obj.input)
+                    print("=== initialize_input")
 
                 if not self.__initialized_obj.get(obj.output):
                     self.__initialized_obj[obj.output] = True
                     obj.output.load_base_config()
                     self.initialize_output(obj.output)
+                    print("=== initialize_output")
 
                 obj.load_base_config()
                 self.initialize_loop(obj)
+                print("=== initialize_loop")
 
             else:
                 self.__initialized_obj[obj] = True
                 obj.load_base_config()
                 if isinstance(obj, Input):
                     self.initialize_input(obj)
+                    print("=== initialize_input")
                 elif isinstance(obj, Output):
                     self.initialize_output(obj)
-
-    @property
-    def name(self):
-        return self.__name
-
-    @property
-    def config(self):
-        """
-        returns the config node
-        """
-        return self.__config
+                    print("=== initialize_output")
 
     def get_object(self, name):
         """

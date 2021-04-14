@@ -6,10 +6,22 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 
-from re import subn
+# ================ IMPORTANT NOTE_ ABOUT PLUGIN CYCLIC IMPORT =============
+#
+# The plugin prevent cyclic import thanks to the yield name2cacheditems tricks
+# in create_objects_from_config_node() below.
+#
+# however the best way to avoid this problem would be to NOT allow references ($name) of
+# a bliss_controller item within another item of the same bliss_controller.
+# In other words, in a bliss_controller config, only references to external objects should be allowed.
+# (external = not owned by the bliss controller itself)
+# If a BC item needs to reference another item of the same BC, then just using the item name (without '$')
+# should be enough, as the BC knows its items and associated names.
+
+
 from bliss.config.plugins.utils import find_class_and_node
 
-# from bliss.config.static import ConfigNode, ConfigReference
+from bliss.config.static import ConfigNode, ConfigList
 
 
 def find_sub_names_config(
@@ -34,13 +46,18 @@ def find_sub_names_config(
         if not exclude_ref or not config.get("name").startswith("$"):
             selection[level].append((config, parent_key))
 
-    for k, v in config.items():
-        if isinstance(v, dict):
+    for (
+        k,
+        v,
+    ) in (
+        config.raw_items()
+    ):  # !!! raw_items to avoid cyclic import while resloving reference !!!
+        if isinstance(v, ConfigNode):
             find_sub_names_config(v, selection, level + 1, k)
 
-        elif isinstance(v, list):
+        elif isinstance(v, ConfigList):
             for i in v:
-                if isinstance(i, dict):
+                if isinstance(i, ConfigNode):
                     find_sub_names_config(i, selection, level + 1, k)
 
     return selection
@@ -71,6 +88,7 @@ def create_objects_from_config_node(cfg_obj, cfg_node):
 
     # search the 'class' key in cfg_node or at a upper node level
     # return the class and the associated config node
+    # upper_node = cfg_node.parent ??
     klass, ctrl_node = find_class_and_node(cfg_node)
     # print("=== FOUND BLISS CONTROLLER CLASS", klass, "WITH NODE", ctrl_node)
 
@@ -78,18 +96,18 @@ def create_objects_from_config_node(cfg_obj, cfg_node):
     item_name = cfg_node["name"]  # name of the item that should be created and returned
 
     # always create the bliss controller first
-    bctrl = klass(ctrl_name, ctrl_node.clone())
+    bctrl = klass(ctrl_node.clone())
 
     # find all sub objects with a name in controller config
-    sub_cfgs = find_sub_names_config(ctrl_node.to_dict())
+    sub_cfgs = find_sub_names_config(ctrl_node)  # .to_dict(resolve_references=False))
     for level in sorted(sub_cfgs.keys()):
         if level != 0:  # ignore the controller itself
             for cfg, pkey in sub_cfgs[level]:
                 subname = cfg["name"]
-                if subname == item_name:  # this is the sub-object to return
-                    name2items[item_name] = bctrl._create_sub_item(item_name, cfg, pkey)
-                else:  # store sub-object info for later instantiation
-                    name2cacheditems[subname] = (bctrl, cfg, pkey)
+                # if subname == item_name:  # this is the sub-object to return
+                #     name2items[item_name] = bctrl._create_sub_item(item_name, cfg, pkey)
+                # else:  # store sub-object info for later instantiation
+                name2cacheditems[subname] = (bctrl, cfg, pkey)
 
     # --- add the controller to stored items if it has a name
     if ctrl_name:
@@ -98,6 +116,11 @@ def create_objects_from_config_node(cfg_obj, cfg_node):
     # update the config cache dict NOW to avoid cyclic instanciation (i.e. config.get => create_object_from_... => config.get )
     yield name2items, name2cacheditems
 
+    # --- don't forget to instanciate the object for which this function has been called (if not a controller)
+    if item_name != ctrl_name:
+        obj = cfg_obj.get(item_name)
+        yield {item_name: obj}
+
     # --- NOW, any new object_name going through 'config.get( obj_name )' should call 'create_object_from_cache' only.
     # --- 'create_objects_from_config_node' should never be called again for any object related to the controller instanciated here (see config.get code)
 
@@ -105,4 +128,5 @@ def create_objects_from_config_node(cfg_obj, cfg_node):
 def create_object_from_cache(config, name, cached_object_info):
     print("===== REGULATION FROM CACHE", name)  # config,  name, object_info)
     bctrl, cfg, pkey = cached_object_info
-    return bctrl._create_sub_item(name, cfg, pkey)
+    new_object = bctrl._create_sub_item(name, cfg, pkey)
+    return new_object

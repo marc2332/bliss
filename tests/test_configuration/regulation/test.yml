@@ -42,6 +42,7 @@
 
 - 
     class: ExternalInput      # <== declare an 'ExternalInput' object
+    package: bliss.common.regulation
     name: diode_input          
     device: $diode            # <== a SamplingCounter object reference (pointing to a counter declared somewhere else in a YML config file)
     unit: N/A
@@ -49,6 +50,7 @@
 
 -
     class: ExternalOutput    # <== declare an 'ExternalOutput' object
+    package: bliss.common.regulation
     name: robz_output        
     device: $robz            # <== an axis object reference (pointing to an object declared somewhere else in a YML config file)
     unit: mm
@@ -60,6 +62,7 @@
 
 - 
     class: SoftLoop          # <== declare a 'SoftLoop' object
+    package: bliss.common.regulation
     name: soft_regul
     input: $custom_input
     output: $custom_output
@@ -77,6 +80,7 @@
 
 - 
     class: SoftLoop          # <== declare a 'SoftLoop' object
+    package: bliss.common.regulation
     name: soft_regul2
     input: $bound_input
     output: $robz_output
@@ -96,7 +100,8 @@
 
 -   
     class: Mockup
-    module: temperature.mockup
+    # plugin: bliss_controller
+    module: regulation.temperature.mockup
     host: lid42
     inputs:
         - 

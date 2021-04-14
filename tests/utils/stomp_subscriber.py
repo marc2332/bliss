@@ -36,7 +36,9 @@ class MyListener(stomp.ConnectionListener):
         self.s_out.connect(("localhost", port))
         logger.info(f"Redirect output to {port}")
 
-    def on_message(self, header, message):
+    def on_message(self, frame):
+        message = frame.body
+        header = frame.headers
         if header.get("destination") != "/queue/icatIngest":
             return
         if self.s_out is None:

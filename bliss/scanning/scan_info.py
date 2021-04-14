@@ -190,6 +190,15 @@ class ScanInfo(dict):
 
         return channels_dict
 
+    def _device_fullname(self, acq_obj):
+        """Returns the full name of this device in order to make it unique.
+        """
+        names = []
+        while acq_obj is not None:
+            names.insert(0, acq_obj.name)
+            acq_obj = acq_obj.parent
+        return ":".join(names)
+
     def set_acquisition_chain_info(self, acq_chain):
         """
         Go through this acquisition chain, group acquisition channels by master
@@ -226,9 +235,12 @@ class ScanInfo(dict):
             for acq_dev in tree.expand_tree(top_master):
                 if acq_dev is None:
                     continue
-                top_master_devices.append(acq_dev.name)
-                device_info = devices.setdefault(acq_dev.name, {})
-                triggered_devices = [d.identifier.name for d in tree.children(acq_dev)]
+                acq_dev_name = self._device_fullname(acq_dev)
+                top_master_devices.append(acq_dev_name)
+                device_info = devices.setdefault(acq_dev_name, {})
+                triggered_devices = [
+                    self._device_fullname(d.identifier) for d in tree.children(acq_dev)
+                ]
                 if len(triggered_devices) > 0:
                     device_info["triggers"] = triggered_devices
                 channel_names = [c.fullname for c in acq_dev.channels]

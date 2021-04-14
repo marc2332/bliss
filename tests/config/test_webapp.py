@@ -29,12 +29,30 @@ def test_tree_files(beacon, config_app_port):
 
 
 def test_db_files(beacon, config_app_port):
+    """
+    Compare config files list taken from:
+    * web config application
+    * config directory directly from file system
+    """
     r = requests.get("http://localhost:%d/db_files" % config_app_port)
     assert r.status_code == 200
 
+    # get PATH
     cfg_test_files_path = os.path.abspath(
         os.path.join(os.path.dirname(__file__), "..", "test_configuration")
     )
+
+    # Get files list from the webapp.
+    url = "http://localhost:%d/db_files" % config_app_port
+
+    r = requests.get(url)
+    assert r.status_code == 200
+
+    app_files = set(
+        [os.path.join(cfg_test_files_path, f) for f in ast.literal_eval(r.text)]
+    )
+
+    # Get files list from file system.
     db_files = set(
         itertools.chain(
             *[
@@ -43,10 +61,9 @@ def test_db_files(beacon, config_app_port):
             ]
         )
     )
-    assert (
-        set([os.path.join(cfg_test_files_path, f) for f in ast.literal_eval(r.text)])
-        == db_files
-    )
+
+    # Compare the 2 lists.
+    assert app_files == db_files
 
 
 def test_duplicated_key_on_new_file(beacon, beacon_directory, config_app_port):

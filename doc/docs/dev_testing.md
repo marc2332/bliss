@@ -1,8 +1,19 @@
-# Testing BLISS
+# Testing and BLISS
 
-## Test setup
+!!!note
 
-* Create a conda environment dedicated to tests
+    Doc partialy taken from `pytest` official doc: https://docs.pytest.org/en/latest/
+
+
+
+
+## Running tests on your own computer
+
+
+
+### Test setup
+
+* Create a conda environment (named `testenv`) dedicated to tests
 
 ```
 conda create --name testenv --channel esrf-bcu \
@@ -17,15 +28,89 @@ source activate testenv
 pip install --no-deps -e .
 ```
 
-### Running BLISS test session
 
-In the test environment: 
+In the environment `testenv`:
 
-* start a BEACON server using the provided _test_configuration_ (path relative to root of bliss repository)
+* start a `BEACON` server using the provided _test_configuration_
+(path relative to root of bliss repository)
 
 ```shell
-beacon-server --db_path tests/test_configuration/ --tango_port 20000
+beacon-server --db_path=....bliss/tests/test_configuration/ --webapp_port=9030 --posix_queue=0 --port=25000 --redis_port=25001 --tango_port=20000 --log-server-port=9020 --log-viewer-port=9080
 ```
+
+
+### To run ALL tests
+
+In BLISS root directory:
+
+```
+pytest
+```
+
+example of run (can be long):
+
+```
+bliss % pytest
+========================== test session starts ==============================
+[...]
+collected 454 items
+
+tests/test_channels.py::test_channel_not_initialized PASSED            [  0%]
+tests/test_channels.py::test_channel_set PASSED                        [  0%]
+tests/test_channels.py::test_channel_cb PASSED                         [  0%]
+[...]
+```
+
+!!! note
+
+    In case of strange error (like `ImportError: bad magic number`),
+    try to remove old `*.pyc` files:
+
+    `find ./ -name "*.pyc" | xargs rm`
+
+
+
+### To run ONLY some tests
+
+
+
+* To run a single test (`test_lima_ctrl_params_uploading`):
+    - `-s`: keep stdout, equivalent to `--capture=no`  => do not capture stdout
+    - `-v`: more verbose
+    - `-q`: less verbose
+    - `--count=20`: to repeat the test 20 times (`pytest-repeat` module must be installed)
+
+```shell
+pytest -sv --count=20  tests/controllers_sw/test_lima_simulator.py::test_lima_ctrl_params_uploading
+```
+
+
+* To run a set of tests
+
+In BLISS root directory:
+```
+pytest -k <sub-string>
+```
+
+`-k` command line option specify an expression which implements a
+sub-string match on the test names instead of the exact match on
+markers that `-m` provides.
+
+example :
+
+```
+bliss % pytest  -k channel_not_initialized
+============================= test session starts =============================
+[...]
+collected 454 items / 453 deselected
+
+tests/test_channels.py::test_channel_not_initialized PASSED              [100%]
+
+====================== 1 passed, 453 deselected in 5.15 seconds ===============
+```
+
+
+### other usages
 
 * Start test session device servers, like Lima camera simulators:
 
@@ -51,6 +136,21 @@ TEST_SESSION[1]: limaDev = config.get("lima_simulator")
 !!! note
     To run Nexus writer test, use:
     `pytest tests/nexus_writer/ --durations=30 -m writer --runwritertests`
+
+
+
+
+
+
+
+
+
+
+## Tests and Continuous Integration
+
+All tests but hardware-related ones are automatically run during
+continuous integration on *bcu-ci* server.
+
 
 ### To run tests on bcu-ci computer
 
@@ -84,75 +184,11 @@ python setup.py install
 pytest setup.py tests
 ```
 
-## Pytest
-
-Partialy taken from `pytest` official doc: https://docs.pytest.org/en/latest/
-
-### Usage in BLISS
-
-All tests but hardware-related ones are automatically run during
-continuous integration on *bcu-ci* server.
-
-#### To run ALL tests
-
-In BLISS root directory:
-
-```
-pytest
-```
-
-example to run all tests (can be long):
-
-```
-bliss % pytest
-========================== test session starts ==============================
-[...]
-collected 454 items
-
-tests/test_channels.py::test_channel_not_initialized PASSED            [  0%]
-tests/test_channels.py::test_channel_set PASSED                        [  0%]
-tests/test_channels.py::test_channel_cb PASSED                         [  0%]
-[...]
-```
 
 
-!!! note
 
-    In case of strange error (like `ImportError: bad magic number`),
-    try to remove old `*.pyc` files:
+## Tests configuration and creation
 
-    `find ./ -name "*.pyc" | xargs rm`
-
-
-#### To run ONLY some tests
-
-In BLISS root directory:
-```
-pytest -k <sub-string>
-```
-
-`-k` command line option specify an expression which implements a
-sub-string match on the test names instead of the exact match on
-markers that `-m` provides.
-
-example :
-
-```
-bliss % pytest  -k channel_not_initialized
-============================= test session starts =============================
-[...]
-collected 454 items / 453 deselected
-
-tests/test_channels.py::test_channel_not_initialized PASSED              [100%]
-
-====================== 1 passed, 453 deselected in 5.15 seconds ===============
-```
-
-### Pytest command line options
-
-* `-s`: keep stdout, equivalent to `--capture=no`  => do not capture stdout
-* `-v`: more verbose
-* `-q`: less verbose
 
 ### `xfail`
 
@@ -401,8 +437,6 @@ This will do a real test on *Beamline* axis named **rot**.
 
 
 ## pylint
-
-
 
 Pylint is a tool that checks for errors in Python code. It can recommend
 suggestions about how particular blocks can be refactored and can offer details

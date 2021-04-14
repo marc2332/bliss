@@ -49,3 +49,12 @@ def get_devices_from_server(argv=None, db=None):
     class_dict.pop("DServer", None)
 
     return class_dict
+
+
+def gevent_unpatch():
+    """This unpatch gevent monkey patch which was patched during the BLISS lib
+    import"""
+    import importlib
+    import subprocess
+
+    importlib.reload(subprocess)

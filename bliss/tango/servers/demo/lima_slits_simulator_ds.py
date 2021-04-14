@@ -7,6 +7,7 @@
 
 import sys
 from bliss.controllers.demo import lima_slits_simulation_plugin as SlitsSimulationPlugin
+from bliss.tango.servers.utils import gevent_unpatch
 
 sys.modules["Lima.Server.plugins.SlitsSimulationPlugin"] = SlitsSimulationPlugin
 
@@ -18,6 +19,7 @@ from Lima.Server import LimaCCDs
 
 
 def main():
+    gevent_unpatch()
     result = LimaCCDs.main()
     sys.exit(result)
 

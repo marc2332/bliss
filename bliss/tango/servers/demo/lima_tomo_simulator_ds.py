@@ -7,6 +7,7 @@
 
 import sys
 from bliss.controllers.demo import lima_tomo_simulation_plugin as TomoSimulationPlugin
+from bliss.tango.servers.utils import gevent_unpatch
 
 sys.modules["Lima.Server.plugins.TomoSimulationPlugin"] = TomoSimulationPlugin
 
@@ -18,6 +19,7 @@ from Lima.Server import LimaCCDs
 
 
 def main():
+    gevent_unpatch()
     result = LimaCCDs.main()
     sys.exit(result)
 

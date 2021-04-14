@@ -179,9 +179,18 @@ def anmesh(
 
     # Specify the same group for channel value
     # FIXME: Replace scan_info read by a bliss API
-    for top_master, acquisition_chain in scan.scan_info["acquisition_chain"].items():
-        for channel_name in acquisition_chain["scalars"]:
-            scan_info.set_channel_meta(channel_name, group="scatter")
+    scan_info = scan.scan_info
+    for _top_master_name, chain_description in scan_info["acquisition_chain"].items():
+        for device_name in chain_description["devices"]:
+            device_info = scan_info["devices"][device_name]
+            is_master = len(device_info.get("triggers", [])) > 0
+            if is_master:
+                continue
+            for channel_name in device_info["channels"]:
+                channel_info = scan_info["channels"][channel_name]
+                channel_dim = channel_info.get("dim", 0)
+                if channel_dim == 0:
+                    scan_info.set_channel_meta(channel_name, group="scatter")
 
     if run:
         scan.run()

@@ -29,7 +29,7 @@ _logger = logging.getLogger(__name__)
 
 class ChannelInfo(NamedTuple):
     name: str
-    kind: str
+    info: Dict
     device: str
     master: str
 
@@ -114,7 +114,8 @@ def _get_channels(
 
 
 def iter_channels(scan_info: Dict[str, Any]):
-    acquisition_chain = scan_info.get("acquisition_chain", {})
+    acquisition_chain_description = scan_info.get("acquisition_chain", {})
+    channels_description = scan_info.get("channels", {})
 
     def get_device_from_channel_name(channel_name):
         """Returns the device name from the channel name, else None"""
@@ -124,26 +125,12 @@ def iter_channels(scan_info: Dict[str, Any]):
 
     channels = set([])
 
-    for master_name in acquisition_chain.keys():
-        scalars = _get_channels(scan_info, master_name, dim=0)
-        spectra = _get_channels(scan_info, master_name, dim=1)
-        images = _get_channels(scan_info, master_name, dim=2)
-
-        for channel_name in scalars:
+    for master_name in acquisition_chain_description.keys():
+        master_channels = _get_channels(scan_info, master_name)
+        for channel_name in master_channels:
+            info = channels_description.get(channel_name, {})
             device_name = get_device_from_channel_name(channel_name)
-            channel = ChannelInfo(channel_name, "scalar", device_name, master_name)
-            yield channel
-            channels.add(channel_name)
-
-        for channel_name in spectra:
-            device_name = get_device_from_channel_name(channel_name)
-            channel = ChannelInfo(channel_name, "spectrum", device_name, master_name)
-            yield channel
-            channels.add(channel_name)
-
-        for channel_name in images:
-            device_name = get_device_from_channel_name(channel_name)
-            channel = ChannelInfo(channel_name, "image", device_name, master_name)
+            channel = ChannelInfo(channel_name, info, device_name, master_name)
             yield channel
             channels.add(channel_name)
 
@@ -152,12 +139,12 @@ def iter_channels(scan_info: Dict[str, Any]):
         _logger.warning("scan_info.requests is not a dict")
         requests = {}
 
-    for channel_name in requests.keys():
+    for channel_name, info in requests.items():
         if channel_name in channels:
             continue
         device_name = get_device_from_channel_name(channel_name)
         # FIXME: For now, let say everything is scalar here
-        channel = ChannelInfo(channel_name, "scalar", device_name, "custom")
+        channel = ChannelInfo(channel_name, info, device_name, "custom")
         yield channel
 
 

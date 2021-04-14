@@ -72,15 +72,15 @@ def run_scans(*scns):
     try:
         gevent.joinall(glts, raise_error=True)
     except gevent.Timeout:
-        print("Stress test timeout")
+        print("\nStress test timeout")
         kill_scans(glts)
         raise
     except KeyboardInterrupt:
-        print("Stress test interrupted")
+        print("\nStress test interrupted")
         kill_scans(glts)
         raise
     finally:
-        print("Scans finished.")
+        print("\nScans finished.")
 
 
 def stress_many_parallel(test_session, filename, titles, checkoutput=True):
@@ -372,7 +372,7 @@ class PrintScanProgress(scan_mdl.ScansObserver):
     def on_lima_ref_received(
         self, scan_db_name: str, channel_name: str, dim: int, source_node, event_data
     ):
-        self._data[channel_name] = len(source_node.get(0, -1))
+        self._data[channel_name] = event_data.description["last_image_ready"]
         self._update_display()
 
     def _update_display(self):

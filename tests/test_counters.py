@@ -624,14 +624,19 @@ def test_sampling_counter_frequency(default_session):
     diode = default_session.config.get("diode")
     diodeCC = diode._counter_controller
 
-    for f in [1, 20]:
-        diodeCC.max_sampling_frequency = f
+    # Test that MAX frequency is not exceeded.
+    # call_count can occasionaly be lower, but at least called once.
+    # cf issue #2663
+    for freq in [1, 20]:
+        diodeCC.max_sampling_frequency = freq
         with mock.patch.object(
             diodeCC, "read_all", wraps=diodeCC.read_all
         ) as mocked_readall:
             ct(1, diode)
-            assert mocked_readall.call_count == f
+            assert mocked_readall.call_count <= freq
+            assert mocked_readall.call_count >= 1
 
+    # Test forbiden frequency values.
     for val in [0, "1.5"]:
         with pytest.raises(ValueError):
             diodeCC.max_sampling_frequency = val

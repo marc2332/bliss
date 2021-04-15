@@ -193,11 +193,7 @@ class ScanInfo(dict):
     def _device_fullname(self, acq_obj):
         """Returns the full name of this device in order to make it unique.
         """
-        names = []
-        while acq_obj is not None:
-            names.insert(0, acq_obj.name)
-            acq_obj = acq_obj.parent
-        return ":".join(names)
+        return f"{id(acq_obj)}:{acq_obj.name}"
 
     def set_acquisition_chain_info(self, acq_chain):
         """

@@ -7,7 +7,7 @@
     - name: dummy2
       t_value: bla
 
-- plugin: emotion
+- plugin: bliss_controller #emotion
   class: DummyCtrl
   package: test_initialization
   axes:

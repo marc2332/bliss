@@ -92,53 +92,36 @@ class Controller(BlissController):
                     values.append(item.read())
             return values
 
-    _SUB_CLASS = {"inputs": Input, "outputs": Output, "ctrl_loops": Loop}
-
     def __init__(self, config):
-        self._objects = {}
         self.__lock = lock.RLock()
         self.__initialized_obj = {}
         self.__hw_controller_initialized = False
 
         super().__init__(config)
 
-    def _create_sub_item(self, name, cfg, parent_key):
-        """ Create/get and return an object which has a config name and which is owned by this controller
-            This method is called by the Bliss Controller Plugin and is called after the controller __init__().
-            This method is called only once per item on the first config.get('item_name') call (see plugin).
+    def _get_subitem_default_module(self, class_name, cfg, parent_key):
+        return "bliss.common.regulation"
 
-            args:
-                'name': sub item name
-                'cfg' : sub item config
-                'parent_key': the config key under which the sub item was found (ex: 'counters').
+    def _get_subitem_default_class_name(self, cfg, parent_key):
+        item_classes = {"inputs": "Input", "outputs": "Output", "ctrl_loops": "Loop"}
+        return item_classes[parent_key]
 
-            return: the sub item object      
-        """
-
-        new_obj = self._SUB_CLASS[parent_key](self, cfg)
-
-        # --- store the new object
-        self._objects[new_obj.name] = new_obj
-
+    def _get_config_subitem(self, name, cfg, parent_key, item_class):
+        item = item_class(self, cfg)
         # --- For custom attributes and commands.
-        set_custom_members(self, new_obj, self.init_obj)  # really needed ???????
-
-        return new_obj
+        set_custom_members(self, item, self.init_obj)  # really needed ???????
+        return item
 
     def _load_config(self):
-        """ Read and apply the YML configuration """
-        print("=== _load_config")
-        pass
-
-    def _build_counters(self):
-        """ Build the CounterControllers and associated Counters"""
-        print("=== _build_counters")
+        # print("=== _build_counters")
+        self._counter_controllers = {}
         self._counter_controllers["scc"] = self.SCC("scc", self)
         self._counter_controllers["scc"].max_sampling_frequency = self.config.get(
             "max_sampling_frequency", 1
         )
 
-        for k in self._SUB_CLASS:
+        # create counters now
+        for k in ["inputs", "outputs", "ctrl_loops"]:
             for cfg in self.config.get(k, []):
                 name = cfg["name"]
                 mode = cfg.get("mode", "SINGLE")
@@ -148,11 +131,6 @@ class Controller(BlissController):
                     SamplingCounter, name, unit=unit, mode=mode
                 )
 
-    def _build_axes(self):
-        """ Build the Axes (real and pseudo) """
-        print("=== _build_axes")
-        pass
-
     @autocomplete_property
     def counters(self):
         cnts = [ctrl.counters for ctrl in self._counter_controllers.values()]
@@ -160,7 +138,6 @@ class Controller(BlissController):
 
     @autocomplete_property
     def axes(self):
-        # return counter_namespace(self._motor_controller.axes)
         pass
 
     def init_obj(self, obj):
@@ -172,7 +149,7 @@ class Controller(BlissController):
 
             if not self.__hw_controller_initialized:
                 self.initialize_controller()
-                print("=== initialize_controller")
+                print("=== initialize_controller", self)
                 self.__hw_controller_initialized = True
 
             if self.__initialized_obj.get(obj):
@@ -186,27 +163,27 @@ class Controller(BlissController):
                     self.__initialized_obj[obj.input] = True
                     obj.input.load_base_config()
                     self.initialize_input(obj.input)
-                    print("=== initialize_input")
+                    print("=== initialize_input", obj.input)
 
                 if not self.__initialized_obj.get(obj.output):
                     self.__initialized_obj[obj.output] = True
                     obj.output.load_base_config()
                     self.initialize_output(obj.output)
-                    print("=== initialize_output")
+                    print("=== initialize_output", obj.output)
 
                 obj.load_base_config()
                 self.initialize_loop(obj)
-                print("=== initialize_loop")
+                print("=== initialize_loop", obj)
 
             else:
                 self.__initialized_obj[obj] = True
                 obj.load_base_config()
                 if isinstance(obj, Input):
                     self.initialize_input(obj)
-                    print("=== initialize_input")
+                    print("=== initialize_input", obj)
                 elif isinstance(obj, Output):
                     self.initialize_output(obj)
-                    print("=== initialize_output")
+                    print("=== initialize_output", obj)
 
     def get_object(self, name):
         """
@@ -219,7 +196,7 @@ class Controller(BlissController):
            the object
         """
         log_info(self, "Controller:get_object: %s" % (name))
-        return self._objects.get(name)
+        return self._get_subitem(name)
 
     @property
     def inputs(self):
@@ -236,7 +213,7 @@ class Controller(BlissController):
     def _object_filter(self, class_type):
         return {
             name: obj
-            for name, obj in self._objects.items()
+            for name, obj in self._subitems.items()
             if isinstance(obj, class_type)
         }
 

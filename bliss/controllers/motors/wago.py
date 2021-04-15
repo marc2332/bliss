@@ -3,6 +3,10 @@ from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState
 
 
+class Wago:
+    pass
+
+
 class WagoMotor(Controller):
     def __init__(self, *args, **kwargs):
 

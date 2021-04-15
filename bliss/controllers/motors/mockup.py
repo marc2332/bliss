@@ -23,6 +23,7 @@ from bliss.common.utils import object_method
 from bliss.common.utils import object_attribute_get, object_attribute_set
 from bliss.common.logtools import log_debug
 
+
 """
 mockup.py : a mockup controller for bliss.
 
@@ -53,9 +54,26 @@ class Switch(BaseSwitch):
         super().__init__(name, config)
 
 
-class Mockup(Controller):
+class MockupAxis(Axis):
     def __init__(self, *args, **kwargs):
-        Controller.__init__(self, *args, **kwargs)
+        Axis.__init__(self, *args, **kwargs)
+
+    def get_motion(self, *args, **kwargs):
+        motion = Axis.get_motion(self, *args, **kwargs)
+        if motion is None:
+            self.backlash_move = 0
+            self.target_pos = None
+        else:
+            self.target_pos = motion.target_pos
+            self.backlash_move = (
+                motion.target_pos / self.steps_per_unit if motion.backlash else 0
+            )
+        return motion
+
+
+class Mockup(Controller):
+    def __init__(self, config):
+        super().__init__(config)
 
         self._axis_moves = {}
         self.__encoders = {}
@@ -70,6 +88,14 @@ class Mockup(Controller):
         self.__hw_limit = float("-inf"), float("+inf")
 
         self._hw_state.create_state("PARKED", "mot au parking")
+
+    def _get_config_subitem(self, name, cfg, parent_key, item_class):
+        if parent_key == "switches":
+            switch = item_class(name, self, cfg)
+            self._switches[name] = switch
+            return switch
+        else:
+            return super()._get_config_subitem(name, cfg, parent_key, item_class)
 
     def steps_position_precision(self, axis):
         """Mockup is really a stepper motor controller"""
@@ -553,23 +579,6 @@ class Mockup(Controller):
 
     def stop_trajectory(self, *trajectories):
         pass
-
-
-class MockupAxis(Axis):
-    def __init__(self, *args, **kwargs):
-        Axis.__init__(self, *args, **kwargs)
-
-    def get_motion(self, *args, **kwargs):
-        motion = Axis.get_motion(self, *args, **kwargs)
-        if motion is None:
-            self.backlash_move = 0
-            self.target_pos = None
-        else:
-            self.target_pos = motion.target_pos
-            self.backlash_move = (
-                motion.target_pos / self.steps_per_unit if motion.backlash else 0
-            )
-        return motion
 
 
 class MockupHook(MotionHook):

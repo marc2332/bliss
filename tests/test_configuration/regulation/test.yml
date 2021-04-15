@@ -99,7 +99,7 @@
 #============= HARDWARE REGULATION OBJECTS (A CONTROLLER WITH ITS INPUTS, OUTPUTS AND LOOPS) ==============================================================
 
 -   
-    class: Mockup
+    class: RegulMockup
     # plugin: bliss_controller
     module: regulation.temperature.mockup
     host: lid42

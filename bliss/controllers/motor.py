@@ -21,6 +21,8 @@ from bliss.common.utils import set_custom_members, object_method, grouped
 from bliss import global_map
 from bliss.config.channels import Cache
 
+from bliss.controllers.bliss_controller import BlissController
+
 
 class EncoderCounterController(SamplingCounterController):
     def __init__(self, motor_controller):
@@ -54,41 +56,112 @@ def check_disabled(func):
     return func_wrapper
 
 
-class Controller:
+class Controller(BlissController):
     """
     Motor controller base class
     """
 
-    def __init__(self, name, config, axes, encoders, shutters, switches):
-        self.__name = name
-        self.__config = MotorConfig(config)
+    def __init__(self, config):
+        super().__init__(config)
+
+        self.__motor_config = MotorConfig(config)
         self.__initialized_hw = Cache(self, "initialized", default_value=False)
         self.__initialized_hw_axis = dict()
         self.__initialized_encoder = dict()
         self.__initialized_axis = dict()
         self.__lock = lock.RLock()
         self._encoder_counter_controller = EncoderCounterController(self)
-        self._axes_config = axes
         self._axes = dict()
-        self._encoders_config = encoders
         self._encoders = dict()
-        self._shutters_config = shutters
         self._shutters = dict()
-        self._switches_config = switches
         self._switches = dict()
         self._tagged = dict()
         self._disabled = False
 
         self.axis_settings = ControllerAxisSettings()
-
         global_map.register(self, parents_list=["controllers"])
 
-    def __create_object(self, obj_name, obj_config_dict, object_dict):
-        obj_class, obj_config = obj_config_dict[obj_name]
-        if obj_class is None:
-            raise ValueError("Missing **class** for '%s`" % obj_name)
-        object_dict[obj_name] = obj = obj_class(obj_name, self, obj_config)
-        return obj
+    def _load_config(self):
+        self._axes_config = {}
+        self._encoders_config = {}
+        self._shutters_config = {}
+        self._switches_config = {}
+
+        for k, v in self._subitems_config.items():
+            cfg, pkey = v
+            if pkey == "axes":
+                self._axes_config[k] = cfg
+
+            elif pkey == "encoders":
+                self._encoders_config[k] = cfg
+
+            elif pkey == "shutters":
+                self._shutters_config[k] = cfg
+
+            elif pkey == "switches":
+                self._switches_config[k] = cfg
+
+    def _get_subitem_default_module(self, class_name, cfg, parent_key):
+        if parent_key == "axes":
+            return "bliss.common.axis"
+
+        elif parent_key == "encoders":
+            return "bliss.common.encoder"
+
+        elif parent_key == "shutters":
+            return "bliss.common.shutter"
+
+        elif parent_key == "switches":
+            return "bliss.common.switch"
+
+    def _get_subitem_default_class_name(self, cfg, parent_key):
+        if parent_key == "axes":
+            return "Axis"
+        elif parent_key == "encoders":
+            return "Encoder"
+        elif parent_key == "shutters":
+            return "Shutter"
+        elif parent_key == "switches":
+            return "Switch"
+
+    @check_disabled
+    def _get_config_subitem(self, name, cfg, parent_key, item_class):
+
+        if parent_key == "axes":
+            if item_class is None:  # it is a reference and name is the object
+                axis = name
+                name = axis.name
+            else:
+                axis = item_class(name, self, cfg)
+
+            self._axes[name] = axis
+
+            axis_tags = cfg.get("tags")
+            if axis_tags:
+                for tag in axis_tags.split():
+                    self._tagged.setdefault(tag, []).append(axis)
+
+            if axis.controller is self:
+                set_custom_members(self, axis, self._initialize_axis)
+            else:
+                # reference axis
+                return axis
+
+            if axis.controller is self:
+                axis_initialized = Cache(axis, "initialized", default_value=0)
+                self.__initialized_hw_axis[axis] = axis_initialized
+                self.__initialized_axis[axis] = False
+
+            self._add_axis(axis)
+            return axis
+
+        elif parent_key == "encoders":
+            encoder = self._encoder_counter_controller.create_counter(
+                item_class, name, motor_controller=self, config=cfg
+            )
+            self._encoders[name] = encoder
+            self.__initialized_encoder[encoder] = False
+            return encoder
 
     def _init(self):
         try:
@@ -109,31 +182,33 @@ class Controller:
     def shutters(self):
         return self._shutters
 
-    @check_disabled
-    def get_shutter(self, name):
-        shutter = self._shutters.get(name)
-        if shutter is None:
-            shutter = self.__create_object(name, self._shutters_config, self._shutters)
-        return shutter
-
     @property
     def switches(self):
         return self._switches
 
     @check_disabled
-    def get_switch(self, name):
-        switch = self._switches.get(name)
-        if switch is None:
-            switch = self.__create_object(name, self._switches_config, self._switches)
-        return switch
+    def get_axis(self, name):
+        return self._get_subitem(name)
 
-    @property
-    def name(self):
-        return self.__name
+    @check_disabled
+    def get_encoder(self, name):
+        return self._get_subitem(name)
+
+    @check_disabled
+    def get_shutter(self, name):
+        return self._get_subitem(name)
+
+    @check_disabled
+    def get_switch(self, name):
+        return self._get_subitem(name)
+
+    # @property
+    # def motor_config(self):
+    #     return self.__motor_config
 
     @property
     def config(self):
-        return self.__config
+        return self.__motor_config
 
     def steps_position_precision(self, axis):
         """
@@ -255,42 +330,6 @@ class Controller:
                 self.__initialized_axis[axis] = False
                 raise
 
-    @check_disabled
-    def get_axis(self, axis_name):
-        axis = self._axes.get(axis_name)
-        if axis is None:  # create it
-            axis_class, axis_config = self._axes_config[axis_name]
-            # make Axis objects from the class,
-            # in case of references, eg. real axes for calc controllers,
-            # axis_class is None and axis_config['name'] is already
-            # the wanted object
-            if axis_class is None:
-                axis = axis_config.get("name")
-            else:
-                axis = axis_class(axis_name, self, axis_config)
-            #
-            self._axes[axis_name] = axis
-
-            axis_tags = axis_config.get("tags")
-            if axis_tags:
-                for tag in axis_tags.split():
-                    self._tagged.setdefault(tag, []).append(axis)
-
-            if axis.controller is self:
-                set_custom_members(self, axis, self._initialize_axis)
-            else:
-                # reference axis
-                return
-
-            if axis.controller is self:
-                axis_initialized = Cache(axis, "initialized", default_value=0)
-                self.__initialized_hw_axis[axis] = axis_initialized
-                self.__initialized_axis[axis] = False
-
-            self._add_axis(axis)
-
-        return axis
-
     def _add_axis(self, axis):
         """
         This method is called when a new axis is attached to
@@ -313,22 +352,6 @@ class Controller:
 
     def finalize_axis(self, axis):
         raise NotImplementedError
-
-    @check_disabled
-    def get_encoder(self, encoder_name):
-        encoder = self._encoders.get(encoder_name)
-        if encoder is None:  # create it
-            encoder_class, encoder_config = self._encoders_config[encoder_name]
-            encoder = self._encoder_counter_controller.create_counter(
-                encoder_class,
-                encoder_name,
-                motor_controller=self,
-                config=encoder_config,
-            )
-            self._encoders[encoder_name] = encoder
-            self.__initialized_encoder[encoder] = False
-
-        return encoder
 
     def get_class_name(self):
         return self.__class__.__name__
@@ -510,17 +533,26 @@ class Controller:
 
 class CalcController(Controller):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.axis_settings.config_setting["velocity"] = False
-        self.axis_settings.config_setting["acceleration"] = False
-        self.axis_settings.config_setting["steps_per_unit"] = False
 
         self._reals_group = None
         self.reals = []
         self.pseudos = []
         self._lock = lock.RLock()
         self._in_real_pos_update = False
+
+        super().__init__(*args, **kwargs)
+
+        self.axis_settings.config_setting["velocity"] = False
+        self.axis_settings.config_setting["acceleration"] = False
+        self.axis_settings.config_setting["steps_per_unit"] = False
+
+    def _init(self):
+        # As any motors can be used into a calc
+        # force for all axis creation
+        for axis_name in self._axes_config.keys():
+            self.get_axis(axis_name)
+
+        super()._init()
 
     def initialize(self):
         for real_axis in self._tagged["real"]:

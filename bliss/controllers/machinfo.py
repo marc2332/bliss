@@ -348,7 +348,7 @@ class MachInfo(BeaconObject, HasMetadataForScan, HasMetadataForDataset):
     @property
     def all_information(self):
         """
-        Return most of all the machine information as a dictionnary
+        Return most of all the machine information as a dictionary
           - 
         """
         attributes = (

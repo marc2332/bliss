@@ -179,7 +179,7 @@ class micos(Controller):
     }
 
     # General errors (used with "getnerror"/"gne" command)
-    # a) fill next dictionnary first with 'unique' key:value pairs
+    # a) fill next dictionary first with 'unique' key:value pairs
     GENERAL_ERROR_DICT = {
         1001: "Wrong Parameter Type",
         1003: "Value Range of Parameter Exceeded",
@@ -2255,7 +2255,7 @@ class micos(Controller):
         executed after switching on the controller.
 
         The possible functions/actions are listed in the
-        dictionnary PowerupActionDict, which is defined in the
+        dictionary PowerupActionDict, which is defined in the
         initial part of this file (before this micos motor controller
         class definition).
 

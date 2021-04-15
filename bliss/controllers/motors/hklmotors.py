@@ -15,8 +15,8 @@ from bliss.common.utils import all_equal, object_method, grouped
 
 
 class HKLMotors(CalcController):
-    def __init__(self, name, diffractometer, config, axes):
-        super().__init__(name, config, axes, [], [], [])
+    def __init__(self, diffractometer, config, axes):
+        super().__init__(config, axes, [], [], [])
         self.diffracto = diffractometer
         self._frozen_angles = dict()
 

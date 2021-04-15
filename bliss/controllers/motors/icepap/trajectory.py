@@ -108,7 +108,7 @@ class TrajectoryAxis(NoSettingsAxis):
 
         Args:
             parameter: apse of all real motor positions
-            positions: a dictionnary with the key as the name of the
+            positions: a dictionary with the key as the name of the
             motor and with the value as the position of this motor.
             trajectory_mode: default is SPLINE but could be CYCLIC or LINEAR
         """

@@ -5,62 +5,8 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-
-# ================ IMPORTANT NOTE_ ABOUT PLUGIN CYCLIC IMPORT =============
-#
-# The plugin prevent cyclic import thanks to the yield name2cacheditems tricks
-# in create_objects_from_config_node() below.
-#
-# however the best way to avoid this problem would be to NOT allow references ($name) of
-# a bliss_controller item within another item of the same bliss_controller.
-# In other words, in a bliss_controller config, only references to external objects should be allowed.
-# (external = not owned by the bliss controller itself)
-# If a BC item needs to reference another item of the same BC, then just using the item name (without '$')
-# should be enough, as the BC knows its items and associated names.
-
-
-from bliss.config.plugins.utils import find_class_and_node
-
-from bliss.config.static import ConfigNode, ConfigList
-
-
-def find_sub_names_config(
-    config, selection=None, level=0, parent_key=None, exclude_ref=True
-):
-    """ Search in a config the sub-sections where the key 'name' is found. 
-        
-        Returns a dict of tuples (sub_config, parent_key) indexed by level (0 is the top level).
-        
-        sub_config: a sub-config containing 'name' key
-        parent_key: key under which the sub_config was found (None for level 0)
-        exclude_ref: if True, exclude sub-config with name as reference ($)
-    """
-
-    if selection is None:
-        selection = {}
-
-    if selection.get(level) is None:
-        selection[level] = []
-
-    if config.get("name"):
-        if not exclude_ref or not config.get("name").startswith("$"):
-            selection[level].append((config, parent_key))
-
-    for (
-        k,
-        v,
-    ) in (
-        config.raw_items()
-    ):  # !!! raw_items to avoid cyclic import while resloving reference !!!
-        if isinstance(v, ConfigNode):
-            find_sub_names_config(v, selection, level + 1, k)
-
-        elif isinstance(v, ConfigList):
-            for i in v:
-                if isinstance(i, ConfigNode):
-                    find_sub_names_config(i, selection, level + 1, k)
-
-    return selection
+from bliss.config.plugins.utils import find_top_class_and_node
+from bliss.controllers.bliss_controller import BlissController
 
 
 def create_objects_from_config_node(cfg_obj, cfg_node):
@@ -71,62 +17,65 @@ def create_objects_from_config_node(cfg_obj, cfg_node):
         
         This function resolves dependencies between the BlissController and its sub-objects with a name.
         It looks for the 'class' key in 'cfg_node' (or at upper levels) to instantiate the BlissController.
-        All sub-configs of named sub-objects are stored as cached items for later instantiation via config.get.
+        All sub-configs of named sub-objects owned by the controller are stored as cached items for later instantiation via config.get.
 
         args:
             cfg_obj: a Config object (from config.static)
             cfg_node: a ConfigNode object (from config.static)
 
         yield: 
-            tuple: ( created_items, cached_items)
+            tuple: (created_items, cached_items)
     """
 
-    print("\n===== BLISS CONTROLLER PLUGIN  FROM CONFIG: ", cfg_node["name"])
-
-    name2items = {}
-    name2cacheditems = {}
-
     # search the 'class' key in cfg_node or at a upper node level
-    # return the class and the associated config node
-    # upper_node = cfg_node.parent ??
-    klass, ctrl_node = find_class_and_node(cfg_node)
-    # print("=== FOUND BLISS CONTROLLER CLASS", klass, "WITH NODE", ctrl_node)
-
-    ctrl_name = ctrl_node.get("name")
+    # then return the class and the associated config node
+    klass, ctrl_node = find_top_class_and_node(cfg_node)
+    ctrl_name = ctrl_node.get("name")  # ctrl could have a name in config
     item_name = cfg_node["name"]  # name of the item that should be created and returned
 
     # always create the bliss controller first
-    bctrl = klass(ctrl_node.clone())
+    bctrl = klass(ctrl_node)
 
-    # find all sub objects with a name in controller config
-    sub_cfgs = find_sub_names_config(ctrl_node)  # .to_dict(resolve_references=False))
-    for level in sorted(sub_cfgs.keys()):
-        if level != 0:  # ignore the controller itself
-            for cfg, pkey in sub_cfgs[level]:
-                subname = cfg["name"]
-                # if subname == item_name:  # this is the sub-object to return
-                #     name2items[item_name] = bctrl._create_sub_item(item_name, cfg, pkey)
-                # else:  # store sub-object info for later instantiation
-                name2cacheditems[subname] = (bctrl, cfg, pkey)
+    print(f"\n=== From config: {item_name} from {bctrl.name}")
 
-    # --- add the controller to stored items if it has a name
-    if ctrl_name:
-        name2items[ctrl_name] = bctrl
+    if isinstance(bctrl, BlissController):
 
-    # update the config cache dict NOW to avoid cyclic instanciation (i.e. config.get => create_object_from_... => config.get )
-    yield name2items, name2cacheditems
+        # prepare subitems configs and cache item's controller
+        names_to_cache = bctrl._prepare_subitems_configs(ctrl_node)
+        cachednames2ctrl = {name: bctrl for name in names_to_cache}
 
-    # --- don't forget to instanciate the object for which this function has been called (if not a controller)
-    if item_name != ctrl_name:
-        obj = cfg_obj.get(item_name)
-        yield {item_name: obj}
+        print(f"\n=== Caching: {names_to_cache} from {bctrl.name}")
 
-    # --- NOW, any new object_name going through 'config.get( obj_name )' should call 'create_object_from_cache' only.
-    # --- 'create_objects_from_config_node' should never be called again for any object related to the controller instanciated here (see config.get code)
+        # # --- add the controller to stored items if it has a name
+        name2items = {}
+        if ctrl_name:
+            name2items[ctrl_name] = bctrl
+        # name2items[bctrl.name] = bctrl
+
+        # update the config cache dict now to avoid cyclic instanciation with internal references
+        # an internal reference happens when a subitem config uses a reference to another subitem owned by the same controller.
+        yield name2items, cachednames2ctrl
+
+        # load config and init controller
+        bctrl._controller_init()
+
+        # --- don't forget to instanciate the object for which this function has been called (if not a controller)
+        if item_name != ctrl_name:
+            obj = cfg_obj.get(item_name)
+            yield {item_name: obj}
+
+        # --- Now any new object_name going through 'config.get( obj_name )' should call 'create_object_from_cache' only.
+        # --- 'create_objects_from_config_node' should never be called again for any object related to the controller instanciated here (see config.get code)
+
+    elif (
+        item_name == ctrl_name
+    ):  # allow instantiation of top object which is not a BlissController
+        yield {ctrl_name: bctrl}
+        return
+    else:  # prevent instantiation of an item comming from a top controller which is not a BlissController
+        raise TypeError(f"{bctrl} is not a BlissController object!")
 
 
-def create_object_from_cache(config, name, cached_object_info):
-    print("===== REGULATION FROM CACHE", name)  # config,  name, object_info)
-    bctrl, cfg, pkey = cached_object_info
-    new_object = bctrl._create_sub_item(name, cfg, pkey)
-    return new_object
+def create_object_from_cache(config, name, bctrl):
+    print(f"\n=== From cache: {name} from {bctrl.name}")
+    return bctrl._get_subitem(name)

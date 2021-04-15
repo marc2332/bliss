@@ -5,175 +5,184 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from time import perf_counter, sleep
-from itertools import chain
-from gevent import event, sleep as gsleep
-
-from bliss import global_map
+from importlib import import_module
 from bliss.common.protocols import CounterContainer
-from bliss.common.counter import (
-    Counter,
-    CalcCounter,
-    SamplingCounter,
-    IntegratingCounter,
-)
-from bliss.common.protocols import counter_namespace
 from bliss.common.utils import autocomplete_property
-from bliss.comm.util import get_comm
-from bliss.controllers.motors.mockup import Mockup, MockupAxis
-from bliss.controllers.counter import (
-    CounterController,
-    SamplingCounterController,
-    IntegratingCounterController,
-)
-from bliss.scanning.acquisition.counter import BaseCounterAcquisitionSlave
-
-# from bliss.config.beacon_object import BeaconObject
-
-from bliss.common.logtools import log_info, log_debug, log_debug_data, log_warning
+from bliss.config.static import ConfigReference, ConfigNode, ConfigList
 
 
-# ============ Note about BlissController ==============
-#
-## --- BlissController ---
-# The BlissController base class is designed for the implementation of all controllers in Bliss.
-# It ensures that all controllers have the following properties:
-#
-# class BlissController:
-#    @name     (can be None if only sub-items are named)
-#    @config   (yml config)
-#    @hardware (associated hardware controller object, can be None if no hardware)
-#    @counters (associated counters)
-#    @axes     (associated axes: real/calc/soft/pseudo)
-#
-# Nothing else from the base class methods will be exposed at the first level object API.
-#
-# The BlissController is designed to ease the management of sub-objects that depend on a common device (@hardware).
-# The sub-objects are declared in the yml configuration of the bliss controller under dedicated sub-sections.
-#
-# A sub-object is considered as a sub-item if it has a name (key 'name' in a sub-section of the config).
-# Most of the time sub-items are counters and/or axes but could be anything else (known by the custom bliss controller).
-#
-# The BlissController has 2 properties (@counters, @axes) to retrieve sub-items that can be identified
-# as counters (Counter) or axes (Axis).
-#
-## --- Plugin ---
-# BlissController objects are created from the yml config using the bliss_controller plugin.
-# Any sub-item with a name can be imported in a Bliss session with config.get('name').
-# The plugin ensures that the controller and sub-items are only created once.
-# The bliss controller itself can have a name (optional) and can be imported in the session.
+def find_sub_names_config(config, selection=None, level=0, parent_key=None):
+    """ Recursively search in a config the sub-sections where the key 'name' is found. 
 
-# The plugin resolves dependencies between the BlissController and its sub-items.
-# It looks for the 'class' key in the config to instantiate the BlissController.
-# While importing any sub-item in the session, the bliss controller is instantiated first (if not alive already).
-#
-# !!! The effective creation of the sub-items is performed by the BlissController itself and the plugin just ensures
-# that the controller is always created before sub-items and only once, that's all !!!
-# The sub-items can be created during the initialization of the BlissController or via
-# BlissController._create_sub_item(itemname, itemcfg, parentkey) which is called only on the first config.get('itemname')
-#
-## --- yml config ---
-#
-# - plugin: bliss_controller    <== use the dedicated bliss controller plugin
-#   module: custom_module       <== module of the custom bliss controller
-#   class: BCMockup             <== class of the custom bliss controller
-#   name: bcmock                <== name of the custom bliss controller  (optional)
-#
-#   com:                        <== communication config for associated hardware (optional)
-#     tcp:
-#       url: bcmock
-#
-#   custom_param_1: value       <== a parameter for the custom bliss controller creation (optional)
-#   custom_param_2: value       <== another parameter for the custom bliss controller creation (optional)
-#
-#   sub-section-1:              <== a sub-section where sub-items can be declared (optional) (ex: 'counters')
-#     - name: sub_item_1        <== config of the sub-item
-#       tag : item_tag_1        <== a tag for this item (known and interpreted by the custom bliss controller)
-#       sub_param_1: value      <== a custom parameter for the item creation
-#
-#   sub-section-2:              <== a sub-section where sub-items can be declared (optional) (ex: 'axes')
-#     - name: sub_item_2        <== config of the sub-item
-#       tag : item_tag_2        <== a tag for this item (known and interpreted by the custom bliss controller)
-#
-#       sub-section-2-1:        <== nested sub-sections are possible (optional)
-#         - name: sub_item_21
-#           tag : item_tag_21
-#
-#   sub-section-3 :             <== a third sub-section without sub-items (no 'name' key) (optional)
-#     - anything_but_name: foo  <== something interpreted by the custom bliss controller
-#       something: value
+        Returns a dict of tuples (sub_config, parent_key) indexed by level (0 is the top level).
+            - sub_config: the sub-config containing the 'name' key
+            - parent_key: key under which the sub_config was found (None for level 0)
+
+        args:
+            config: the config that should be explored
+            selection: a list containing the info of the subnames already found (for recursion)
+            level: an integer describing at which level the subname was found (level=0 is the top/upper level) (for recursion)
+            parent_key: key under which the sub_config was found (None for level 0) (for recursion)
+    """
+
+    assert isinstance(config, (ConfigNode, dict))
+
+    if selection is None:
+        selection = {}
+
+    if selection.get(level) is None:
+        selection[level] = []
+
+    if isinstance(config, ConfigNode):
+        name = config.raw_get("name")
+    else:
+        name = config.get("name")
+
+    if name is not None:
+        selection[level].append((config, parent_key))
+
+    if isinstance(config, ConfigNode):
+        cfg_items = (
+            config.raw_items()
+        )  # !!! raw_items to avoid cyclic import while resloving reference !!!
+    else:
+        cfg_items = config.items()
+
+    for k, v in cfg_items:
+        if isinstance(v, (ConfigNode, dict)):
+            find_sub_names_config(v, selection, level + 1, k)
+
+        elif isinstance(v, (ConfigList, list)):
+            for i in v:
+                if isinstance(i, (ConfigNode, dict)):
+                    find_sub_names_config(i, selection, level + 1, k)
+
+    return selection
 
 
-class HardwareController:
-    def __init__(self, config):
-        self._config = config
-        self._last_cmd_time = perf_counter()
-        self._cmd_min_delta_time = 0
-
-        self._init_com()
-
-    @property
-    def config(self):
-        return self._config
-
-    @property
-    def comm(self):
-        return self._comm
-
-    def send_cmd(self, cmd, *values):
-        now = perf_counter()
-        log_info(self, f"@{now:.3f} send_cmd", cmd, values)
-        if self._cmd_min_delta_time:
-            delta_t = now - self._last_cmd_time
-            if delta_t < self._cmd_min_delta_time:
-                sleep(self._cmd_min_delta_time - delta_t)
-
-        return self._send_cmd(cmd, *values)
-
-    def _send_cmd(self, cmd, *values):
-        if values:
-            return self._write_cmd(cmd, *values)
-        else:
-            return self._read_cmd(cmd)
-
-    def _init_com(self):
-        log_info(self, "_init_com", self.config)
-        self._comm = get_comm(self.config)
-        global_map.register(self._comm, parents_list=[self, "comms"])
-
-    # ========== NOT IMPLEMENTED METHODS ====================
-    def _write_cmd(self, cmd, *values):
-        # return self._comm.write(cmd, *values)
-        raise NotImplementedError
-
-    def _read_cmd(self, cmd):
-        # return self._comm.read(cmd)
-        raise NotImplementedError
+def from_config_dict(ctrl_class, cfg_dict):
+    """ Helper to instanciate a BlissController object from a configuration dictionary """
+    if not BlissController in ctrl_class.mro():
+        raise TypeError(f"{ctrl_class} is not a BlissController class")
+    bctrl = ctrl_class(cfg_dict)
+    bctrl._controller_init()
+    return bctrl
 
 
 class BlissController(CounterContainer):
+    """
+        BlissController base class is made for the implementation of all Bliss controllers.
+        It is designed to ease the management of sub-objects that depend on a shared controller.
 
-    _COUNTER_TAGS = {}
+        Sub-objects are declared in the yml configuration of the controller under dedicated sub-sections.
+        A sub-object is considered as a subitem if it has a name (key 'name' in a sub-section of the config).
+        Usually subitems are counters and axes but could be anything else (known by the controller).
+
+        The BlissController has properties @counters and @axes to retrieve subitems that can be identified
+        as counters or axes.
+
+        
+        # --- Plugin ---
+
+        BlissController objects are created from the yml config using the bliss_controller plugin.
+        Any subitem with a name can be imported in a Bliss session with config.get('name').
+        The plugin ensures that the controller and subitems are only created once.
+        The bliss controller itself can have a name (optional) and can be imported in the session.
+
+        The plugin resolves dependencies between the BlissController and its subitems.
+        It looks for the top 'class' key in the config to instantiate the BlissController.
+        While importing any subitem in the session, the bliss controller is instantiated first (if not alive already).
+
+        The effective creation of the subitems is performed by the BlissController itself and the plugin just ensures
+        that the controller is always created before subitems and only once.
+
+        Example: config.get(bctrl_name) or config.get(item_name) with config = bliss.config.static.get_config()
+
+        
+        # --- Plugin limitations ----
+
+        Use references to declare subitems that also have subitems (i.e subitem of type bliss controller).
+        It is possible to build a bliss controller which have subitems of the type BlissController.
+        But in that case, the declaration of the subitems of the different bliss controllers cannot be
+        merged in the configuration of the top controller. Each bliss controller must be decalred separately
+        and one can reference this other in its config with '$name'. Using a reference to bliss_controllers 
+        subitems will ensure that the plugin will associate the correct controller to subitems.
+        
+
+        # --- From config dict ---
+
+        A BlissController can be instantiated directly (i.e. not via plugin) providing a config as a dictionary. 
+        In that case, users must call the method 'self._controller_init()' just after the controller instantiation
+        to ensure that the controller is initialized in the same way as the plugin does.
+        The config dictionary should be structured like a YML file (i.e: nested dict and list) and
+        references replaced by their corresponding object instances.
+        
+        Example: bctrl = BlissController( config_dict ) => bctrl._controller_init()
+
+        
+        # --- yml config example ---
+
+        - plugin: bliss_controller    <== use the dedicated bliss controller plugin
+          module: custom_module       <== module of the custom bliss controller
+          class: BCMockup             <== class of the custom bliss controller
+          name: bcmock                <== name of the custom bliss controller  (optional)
+
+          com:                        <== communication config for associated hardware (optional)
+            tcp:
+            url: bcmock
+
+          custom_param_1: value       <== a parameter for the custom bliss controller creation (optional)
+          custom_param_2: $ref1       <== a referenced object for the controller (optional/authorized)
+
+          sub-section-1:              <== a sub-section where subitems can be declared (optional) (ex: 'counters')
+            - name: sub_item_1        <== name of the subitem (and its config)
+              tag : item_tag_1        <== a tag for this item (known and interpreted by the custom bliss controller) (optional)
+              sub_param_1: value      <== a custom parameter for the item creation (optional)
+              device: $ref2           <== an external reference for this subitem (optional/authorized)
+
+          sub-section-2:              <== another sub-section where subitems can be declared (optional) (ex: 'axes')
+            - name: sub_item_2        <== name of the subitem (and its config)
+              tag : item_tag_2        <== a tag for this item (known and interpreted by the custom bliss controller) (optional)
+              input: $sub_item_1      <== an internal reference to another subitem owned by the same controller (optional/authorized)
+
+              sub-section-2-1:        <== nested sub-sections are possible (optional)
+                - name: sub_item_21
+                  tag : item_tag_21
+
+          sub-section-3 :             <== a third sub-section
+            - name: $ref3             <== a subitem as an external reference is possible (optional/authorized)
+              something: value
+    """
 
     def __init__(self, config):
+        self.__initialized = False
+        self._subitems_config = {}  # stores items info (cfg, pkey) (filled by self._prepare_subitems_configs)
+        self._subitems = {}  # stores items instances   (filled by self.__build_subitem_from_config)
+        self._hw_controller = (
+            None
+        )  # acces the low level hardware controller interface (if any)
 
-        self._config = config
+        if isinstance(config, dict):
+            self._prepare_subitems_configs(config)
+
+        # generate generic name if no controller name found in config
         self._name = config.get("name")
+        if self._name is None:
+            if isinstance(config, ConfigNode):
+                self._name = f"{self.__class__.__name__}_{config.md5hash()}"
+            else:
+                self._name = f"{self.__class__.__name__}_{id(self)}"
 
-        self._counter_controllers = {}
-        self._hw_controller = None
+        # config is a ConfigNode if this controller is imported from Config (i.e config.get(name))
+        # or config is a dict if direct instantiation of this controller (i.e bctrl = BlissController(cfg_dict))
+        self._config = config
 
-        self._load_config()
-        self._build_axes()
-        self._build_counters()
-
-        print("=== Create BlissController")
+    # ========== STANDARD METHODS ============================
 
     @autocomplete_property
     def hardware(self):
         if self._hw_controller is None:
             self._hw_controller = self._get_hardware()
-            print("=== _get_hardware", self._hw_controller)
         return self._hw_controller
 
     @property
@@ -184,252 +193,211 @@ class BlissController(CounterContainer):
     def config(self):
         return self._config
 
-    # ========== NOT IMPLEMENTED METHODS ====================
+    # ========== INTERNAL METHODS (PRIVATE) ============================
+
+    def __build_subitem_from_config(self, name):
+        """ 
+            Standard method to create an item from its config.
+            This method is called by either:
+             - the plugin, via a config.get(item_name) => create_object_from_cache => name is exported in session
+             - the controller, via self._get_subitem(item_name) => name is NOT exported in session
+        """
+
+        print(f"=== Build item {name} from {self.name}")
+
+        if name not in self._subitems_config:
+            raise ValueError(f"Cannot find item with name: {name}")
+
+        cfg, pkey = self._subitems_config[name]
+        cfg_name = cfg.get("name")
+
+        if isinstance(cfg_name, str):
+            item_class = self.__find_item_class(cfg, pkey)
+        else:  # its a referenced object (cfg_name contains the object instance)
+            item_class = None
+
+        item = self._get_config_subitem(cfg_name, cfg, pkey, item_class)
+        if item is None:
+            msg = f"\nUnable to obtain item {cfg_name} from {self.name} with:\n"
+            msg += f"  class: {item_class}\n"
+            msg += f"  parent_key: '{pkey}'\n"
+            msg += f"  config: {cfg}\n"
+            msg += f"Check item config is supported by this controller"
+            raise RuntimeError(msg)
+
+        self._subitems[name] = item
+
+    def __find_item_class(self, cfg, pkey):
+        """
+            Return a suitable class for an item of a bliss controller. 
+
+            It tries to find a class_name in the item's config or ask the controller for a default.
+            The class_name could be an absolute path, else the class is searched in the controller 
+            module first. If not found, ask the controller the path of the module where the class should be found.
+            
+            args:
+                - cfg: item config node
+                - pkey: item parent key
+
+        """
+
+        class_name = cfg.get("class")
+        if class_name is None:  # ask default class name to the controller
+            class_name = self._get_subitem_default_class_name(cfg, pkey)
+            if class_name is None:
+                msg = f"\nUnable to obtain default_class_name from {self.name} with:\n"
+                msg += f"  parent_key: '{pkey}'\n"
+                msg += f"  config: {cfg}\n"
+                msg += f"Check item config is supported by this controller\n"
+                raise RuntimeError(msg)
+
+        if "." in class_name:  # from absolute path
+            idx = class_name.rfind(".")
+            module_name, cname = class_name[:idx], class_name[idx + 1 :]
+            module = __import__(module_name, fromlist=[""])
+            return getattr(module, cname)
+        else:
+            module = import_module(
+                self.__module__
+            )  # try at the controller module level first
+            if hasattr(module, class_name):
+                return getattr(module, class_name)
+            else:  # ask the controller the module where the class should be found
+                module_name = self._get_subitem_default_module(class_name, cfg, pkey)
+                if module_name is None:
+                    msg = f"\nUnable to obtain default_module from {self.name} with:\n"
+                    msg += f"  class_name: {class_name}\n"
+                    msg += f"  parent_key: '{pkey}'\n"
+                    msg += f"  config: {cfg}\n"
+                    msg += f"Check item config is supported by this controller\n"
+                    raise RuntimeError(msg)
+                module = import_module(module_name)
+                if hasattr(module, class_name):
+                    return getattr(module, class_name)
+                else:
+                    raise ModuleNotFoundError(
+                        f"cannot find class {class_name} in {module}"
+                    )
+
+    def _prepare_subitems_configs(self, ctrl_node):
+        """ Find all sub objects with a name in the controller config.
+            Store the items config info (cfg, pkey) in the controller (including referenced items).
+            Return the list of found items (excluding referenced items).
+        """
+
+        items_list = []
+        sub_cfgs = find_sub_names_config(ctrl_node)
+        for level in sorted(sub_cfgs.keys()):
+            if level != 0:  # ignore the controller itself
+                for cfg, pkey in sub_cfgs[level]:
+                    if isinstance(cfg, ConfigNode):
+                        name = cfg.raw_get("name")
+                    else:
+                        name = cfg.get("name")
+
+                    if isinstance(name, str):
+                        # only store in items_list the subitems with a name as a string
+                        # because items_list is used by the plugin to cache subitem's controller.
+                        # (i.e exclude referenced names as they are not owned by this controller)
+                        items_list.append(name)
+                    elif isinstance(name, ConfigReference):
+                        name = name.object_name
+                    else:
+                        name = name.name
+
+                    self._subitems_config[name] = (cfg, pkey)
+
+        return items_list
+
+    def _get_subitem(self, name):
+        """ return an item (create it if not alive) """
+        if name not in self._subitems:
+            self.__build_subitem_from_config(name)
+        return self._subitems[name]
+
+    def _controller_init(self):
+        """ Instantiate a controller the same way as the plugin does.
+            This method must be called if the controller has been directly 
+            instantiated with a config dictionary (i.e without going through the plugin and YML config). 
+        """
+        if not self.__initialized:
+            self._load_config()
+            self._init()
+
+    # ========== ABSTRACT METHODS ====================
 
     def _get_hardware(self):
-        """ Must return an HardwareController object """
+        """ return the low level hardware controller interface """
         raise NotImplementedError
 
-    def _create_sub_item(self, name, cfg, parent_key):
-        """ Create/get and return an object which has a config name and which is owned by this controller
-            This method is called by the Bliss Controller Plugin and is called after the controller __init__().
-            This method is called only once per item on the first config.get('item_name') call (see plugin).
+    def _get_subitem_default_class_name(self, cfg, parent_key):
+        # Called when the class key cannot be found in the item_config.
+        # Then a default class must be returned. The choice of the item_class is usually made from the parent_key value.
+        # Elements of the item_config may also by used to make the choice of the item_class.
+
+        """ 
+            Return the appropriate default class for a given item.
+            args: 
+                - cfg: item config node
+                - parent_key: the key under which item config was found
+        """
+        raise NotImplementedError
+
+    def _get_subitem_default_module(self, class_name, cfg, parent_key):
+        # Called when the given class_name (found in cfg) cannot be found at the controller module level.
+        # Then a default module path must be returned. The choice of the item module is usually made from the parent_key value.
+        # Elements of the item_config may also by used to make the choice of the item module.
+
+        """ 
+            Return the appropriate default class for a given item.
+            args: 
+                - class_name: item class name
+                - cfg: item config node
+                - parent_key: the key under which item config was found
+        """
+
+        raise NotImplementedError
+
+    def _get_config_subitem(self, name, cfg, parent_key, item_class):
+        # Called when a new subitem is created (i.e accessed for the first time via self._get_subitem)
+        """ 
+            Return the instance of a new item owned by this controller.
 
             args:
-                'name': sub item name
-                'cfg' : sub item config
-                'parent_key': the config key under which the sub item was found (ex: 'counters').
+                name: item name  (or instance of a referenced object if item_class is None)
+                cfg : item config
+                parent_key: the config key under which the item was found (ex: 'counters').
+                item_class: a class to instantiate the item (=None for referenced item)
 
-            return: the sub item object
+            return: item instance
                 
         """
 
         # === Example ===
-        # if parent_key == 'counters':  #and name in self.counters._fields
-        #     return self.counters[name]
-
-        # elif parent_key == 'axes': # and name in self.axes._fields
-        #     return self.axes[name]
+        # return item_class(cfg)
 
         raise NotImplementedError
 
     def _load_config(self):
-        """ Read and apply the YML configuration """
+        # Called by bliss_controller plugin (after self._subitems_config has_been filled).
 
-        # for k in self.config.keys():
-        #     if k in self._SUB_CLASS:
-        #         for cfg in self.config[k]:
-        #             if cfg.get('name'):
-        #                 self._objects[cfg.get('name')] = self._SUB_CLASS[k](self, cfg)
-
-        raise NotImplementedError
-
-    def _build_counters(self):
-        """ Build the CounterControllers and associated Counters"""
-        raise NotImplementedError
-
-    def _build_axes(self):
-        """ Build the Axes (real and pseudo) """
-        raise NotImplementedError
-
-    @autocomplete_property
-    def counters(self):
-        # cnts = [ctrl.counters for ctrl in self._counter_controllers.values()]
-        # return counter_namespace(chain(*cnts))
-        raise NotImplementedError
-
-    @autocomplete_property
-    def axes(self):
-        # axes = [ctrl.axes for ctrl in self._axis_controllers]
-        # return dict(ChainMap(*axes))
-        raise NotImplementedError
-
-
-# ========== MOCKUP CLASSES ==============================
-
-
-class HCMockup(HardwareController):
-    class FakeCom:
-        def __init__(self, config):
-            pass
-
-        def read(self, cmd):
-            return 69
-
-        def write(self, cmd, *values):
-            print("HCMockup write", cmd, values)
-            return True
-
-    def _init_com(self):
-        log_info(self, "_init_com", self.config)
-        self._comm = HCMockup.FakeCom(self.config)
-        global_map.register(self._comm, parents_list=[self, "comms"])
-
-    def _write_cmd(self, cmd, *values):
-        return self._comm.write(cmd, *values)
-
-    def _read_cmd(self, cmd):
-        return self._comm.read(cmd)
-
-
-class BCMockup(BlissController):
-
-    _COUNTER_TAGS = {
-        "current_temperature": ("cur_temp_ch1", "scc"),
-        "integration_time": ("int_time", "icc"),
-    }
-
-    def _create_sub_item(self, name, cfg, parent_key):
-        """ Create/get and return an object which has a config name and which is owned by this controller
-            This method is called by the Bliss Controller Plugin and is called after the controller __init__().
-            This method is called only once per item on the first config.get('item_name') call (see plugin).
-
-            args:
-                'name': sub item name
-                'cfg' : sub item config
-                'parent_key': the config key under which the sub item was found (ex: 'counters').
-
-            return: the sub item object
-                
         """
+            Read and apply the YML configuration of the controller. 
+        """
+        raise NotImplementedError
 
-        if parent_key == "counters":
-            return self.counters[name]
+    def _init(self):
+        # Called by bliss_controller plugin (just after self._load_config)
 
-        elif parent_key == "axes":
-            return self.axes[name]
-            # return self._motor_controller.get_axis(name)
-
-    def _get_hardware(self):
-        """ Must return an HardwareController object """
-        return HCMockup(self.config["com"])
-
-    def _load_config(self):
-        """ Read and apply the YML configuration """
-        # print("load config", self.config)
-        if self.config.get("energy"):
-            self.energy = self.config.get("energy")
-
-    def _build_counters(self):
-        """ Build the CounterControllers and associated Counters"""
-        self._counter_controllers["scc"] = BCSCC("scc", self)
-        self._counter_controllers["icc"] = BCICC("icc", self)
-        self._counter_controllers["scc"].max_sampling_frequency = self.config.get(
-            "max_sampling_frequency", 1
-        )
-
-        for cfg in self.config.get("counters"):
-            name = cfg["name"]
-            tag = cfg["tag"]
-            mode = cfg.get("mode")
-            unit = cfg.get("unit")
-            convfunc = cfg.get("convfunc")
-
-            if self._COUNTER_TAGS[tag][1] == "scc":
-                cnt = self._counter_controllers["scc"].create_counter(
-                    SamplingCounter, name, unit=unit, mode=mode
-                )
-
-                cnt.tag = tag
-
-            elif self._COUNTER_TAGS[tag][1] == "icc":
-                cnt = self._counter_controllers["icc"].create_counter(
-                    IntegratingCounter, name, unit=unit
-                )
-
-                cnt.tag = tag
-
-    def _build_axes(self):
-        """ Build the Axes (real and pseudo) """
-
-        axes_cfg = {
-            cfg["name"]: (MockupAxis, cfg) for cfg in self.config.get("axes", [])
-        }
-
-        self._motor_controller = Mockup(
-            "motmock", {}, axes_cfg, [], [], []
-        )  # self.config
-
-        # === ??? initialize all now ???
-        for name in axes_cfg.keys():
-            self._motor_controller.get_axis(name)
+        """
+            Place holder for any action to perform after the configuration has been loaded.
+        """
+        pass
 
     @autocomplete_property
     def counters(self):
-        cnts = [ctrl.counters for ctrl in self._counter_controllers.values()]
-        return counter_namespace(chain(*cnts))
+        raise NotImplementedError
 
     @autocomplete_property
     def axes(self):
-        return counter_namespace(self._motor_controller.axes)
-
-
-class BCSCC(SamplingCounterController):
-    def __init__(self, name, bctrl):
-        super().__init__(name)
-        self.bctrl = bctrl
-
-    def read_all(self, *counters):
-        values = []
-        for cnt in counters:
-            tag_info = self.bctrl._COUNTER_TAGS.get(cnt.tag)
-            if tag_info:
-                values.append(self.bctrl.hardware.send_cmd(tag_info[0]))
-            else:
-                # returned number of data must be equal to the length of '*counters'
-                # so raiseError if one of the received counter is not handled
-                raise ValueError(f"Unknown counter {cnt} with tag {cnt.tag} !")
-        return values
-
-
-class BCICC(CounterController):
-    def __init__(self, name, bctrl):
-        super().__init__(name)
-        self.bctrl = bctrl
-        self.count_time = None
-
-    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
-        return BCIAS(self, ctrl_params=ctrl_params, **acq_params)
-
-    def get_default_chain_parameters(self, scan_params, acq_params):
-
-        try:
-            count_time = acq_params["count_time"]
-        except KeyError:
-            count_time = scan_params["count_time"]
-
-        try:
-            npoints = acq_params["npoints"]
-        except KeyError:
-            npoints = scan_params["npoints"]
-
-        params = {"count_time": count_time, "npoints": npoints}
-
-        return params
-
-    def read_data(self):
-        gsleep(self.count_time)
-
-
-class BCIAS(BaseCounterAcquisitionSlave):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._reading_event = event.Event()
-
-    def prepare(self):
-        self.device.count_time = self.count_time
-
-    def start(self):
-        pass
-
-    def stop(self):
-        pass
-
-    def trigger(self):
-        pass
-
-    def reading(self):
-        t0 = perf_counter()
-        self.device.read_data()
-        dt = perf_counter() - t0
-        self._emit_new_data([[dt]])
+        raise NotImplementedError

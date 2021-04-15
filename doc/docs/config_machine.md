@@ -90,7 +90,7 @@ DEMO  [5]: mama
 ### all_information
 
 `all_information` property returns most of all the machine information as a
-dictionnary:
+dictionary:
 
 ```python
 DEMO [9]: pprint.pprint(mama.all_information)

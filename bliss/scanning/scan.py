@@ -19,6 +19,7 @@ from typing import Callable, Any
 import typeguard
 import logging
 import numpy
+import itertools
 
 from bliss.common.types import _countable
 from bliss import current_session, is_bliss_shell
@@ -623,6 +624,7 @@ class Scan:
         self.__nodes = dict()
         self._devices = []
         self._axes_in_scan = []  # for pre_scan, post_scan in axes hooks
+        self._restore_motor_positions = False
 
         self._data_watch_task = None
         self._data_watch_callback = data_watch_callback
@@ -912,6 +914,18 @@ class Scan:
             return self.__scan_saving.scan_number_format % self.__scan_number
         else:
             return "{scan_number}"
+
+    @property
+    def restore_motor_positions(self):
+        """Weither to restore the initial motor positions at the end of scan run (for dscans).
+        """
+        return self._restore_motor_positions
+
+    @restore_motor_positions.setter
+    def restore_motor_positions(self, restore):
+        """Weither to restore the initial motor positions at the end of scan run (for dscans).
+        """
+        self._restore_motor_positions = restore
 
     def get_plot(
         self, channel_item, plot_type, as_axes=False, wait=False, silent=False
@@ -1420,6 +1434,12 @@ class Scan:
                 "Scan state is not idle. Scan objects can only be used once."
             )
 
+        if self.restore_motor_positions:
+            # store initial positions
+            motor_positions = [
+                (mot, mot._set_position) for mot in self._get_data_axes()
+            ]
+
         # check if watch callback has to be called in "prepare" and "stop" phases
         data_watch_call_on_prepare = data_watch_call_on_stop = False
         if self._data_watch_callback is not None:
@@ -1590,6 +1610,13 @@ class Scan:
                         killed_by_user = True
                         raise ScanAbort from e
                     raise e
+
+            # restore motors initial position
+            if self.restore_motor_positions:
+                with capture():
+                    from bliss.shell.standard import umv
+
+                    umv(*itertools.chain(*motor_positions))
 
             # execute post scan hooks
             hooks = group_hooks(self._axes_in_scan)

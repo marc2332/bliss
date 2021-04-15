@@ -83,14 +83,6 @@ def get_active_name():
     return active_mg_name.get()
 
 
-class ActiveMeasurementGroupProxy(Proxy):
-    def __init__(self):
-        super().__init__(get_active)
-
-
-ACTIVE_MG = ActiveMeasurementGroupProxy()
-
-
 def set_active_name(name):
     # Check if <name> is an existing MG name.
     all_mg_names = get_all_names()
@@ -560,3 +552,17 @@ class MeasurementGroup:
                 self._extra_counters.remove(cnt_name)
             except ValueError:
                 pass
+
+
+class ActiveMeasurementGroupProxy(Proxy):
+    def __init__(self):
+        object.__setattr__(self, "__mg_class__", MeasurementGroup)
+
+        super().__init__(get_active)
+
+    @property
+    def __class__(self):
+        return self.__mg_class__
+
+
+ACTIVE_MG = ActiveMeasurementGroupProxy()

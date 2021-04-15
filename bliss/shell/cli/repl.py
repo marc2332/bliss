@@ -6,47 +6,43 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """Bliss REPL (Read Eval Print Loop)"""
-
-import builtins
+import asyncio
+import queue
+import threading
+import contextlib
 import os
 import sys
-import signal
-import weakref
+import types
+import socket
 import warnings
 import functools
 import traceback
 import gevent
 import logging
 import platform
-from gevent import socket
 
-import __future__
-from collections import deque, defaultdict
+from collections import deque
 from datetime import datetime
 
 from ptpython.repl import PythonRepl
+
+from prompt_toolkit.patch_stdout import patch_stdout as patch_stdout_context
 import ptpython.layout
+from prompt_toolkit.output import DummyOutput
 
 # imports needed to have control over _execute of ptpython
-from ptpython.repl import _lex_python_result
-from prompt_toolkit.formatted_text.utils import fragment_list_width
-from prompt_toolkit.formatted_text import merge_formatted_text, FormattedText
-from prompt_toolkit.formatted_text import PygmentsTokens
-from prompt_toolkit.shortcuts import print_formatted_text
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.utils import is_windows
-from prompt_toolkit.eventloop.defaults import set_event_loop
-from prompt_toolkit.eventloop import future
 from prompt_toolkit.filters import has_focus
 from prompt_toolkit.enums import DEFAULT_BUFFER
 
 from bliss.shell.data.display import ScanPrinter, ScanPrinterWithProgressBar
-from bliss.shell.cli import style as repl_style
 from bliss.shell.cli.prompt import BlissPrompt
 from bliss.shell.cli.typing_helper import TypingHelper
 from bliss.shell.cli.ptpython_statusbar_patch import NEWstatus_bar, TMUXstatus_bar
 
-from bliss.common.utils import ShellStr
+from bliss import set_bliss_shell_mode
+from bliss.common.utils import ShellStr, Singleton
 from bliss.common import constants
 from bliss import release, current_session
 from bliss.config import static
@@ -54,17 +50,15 @@ from bliss.shell.standard import info
 from bliss.common.logtools import userlogger, elogbook
 from bliss.shell.cli.protected_dict import ProtectedDict
 from bliss.shell import standard
-from redis.exceptions import ConnectionError
 
 from bliss.common import session as session_mdl
 from bliss.common.session import DefaultSession
 from bliss.config.conductor.client import get_default_connection
 from bliss.shell.bliss_banners import print_rainbow_banner
 
-
 logger = logging.getLogger(__name__)
 
-if sys.platform in ["win32", "cygwin"]:
+if is_windows():
     import win32api
 
     class Terminal:
@@ -102,7 +96,7 @@ class LastError:
         try:
             return ShellStr(self.errors[-1])
         except IndexError:
-            return "Not yet exceptions in this session"
+            return "None"
 
     def append(self, item):
         self.errors.append(item)
@@ -141,89 +135,41 @@ class ErrorReport:
         self._expert_mode = bool(enable)
 
 
-class CaptureOutput:
-    SIZE = 20
-    MAX_PARAGRAPH_SIZE = 1000
-    patched = False
-
-    _data = defaultdict(list)
-    history_num = 1
-
-    def to_str(self, index: int) -> str:
-        return "".join(self._data[index])[:-1]
-
-    def append(self, args, kwargs):
-        if len(self._data) > self.MAX_PARAGRAPH_SIZE:
-            return
-
-        args = (str(arg) for arg in args)
-        sep = kwargs.pop("sep", " ")
-        end = kwargs.pop("end", "\n")
-
-        stringed = sep.join(args) + end
-
-        self._data[self.history_num].append(stringed)
-
-    def __len__(self):
-        return len(self._data)
-
-    def end_of_paragraph(self, num):
-        type(self).history_num = num
-        self._data[self.history_num] = []
-        try:
-            del self._data[self.history_num - self.SIZE]
-        except KeyError:
-            pass
-
-    def __getitem__(self, index):
-        """
-        Use [-1] to get the last element stdout
-        or [n] coresponding to shell output line number
-        """
-        if index < 0:
-            index = self.history_num + index
-        if index not in self._data:
-            raise IndexError
-        return self.to_str(index)
-
-    def patch_print(self):
-        def memorize_arguments(func):
-            @functools.wraps(func)
-            def wrapped(*args, **kwargs):
-                self.append(args, dict(kwargs))
-                return func(*args, **kwargs)
-
-            return wrapped
-
-        if not self.patched:
-            builtins.print = memorize_arguments(builtins.print)
-            type(self).patched = True
-
-
 def install_excepthook():
     """Patch the system exception hook,
     and the print exception for gevent greenlet
     """
     ERROR_REPORT = ErrorReport()
 
-    logger = logging.getLogger("exceptions")
-
-    from bliss import current_session
+    exc_logger = logging.getLogger("exceptions")
 
     def repl_excepthook(exc_type, exc_value, tb, _with_elogbook=True):
+        if exc_value is None:
+            # filter exceptions from aiogevent(?) with no traceback, no value
+            return
         err_file = sys.stderr
 
         # Store latest traceback (as a string to avoid memory leaks)
+        # next lines are inspired from "_handle_exception()" (ptpython/repl.py)
+        # skip bottom calls from ptpython
+        tblist = list(traceback.extract_tb(tb))
+        to_remove = 0
+        for line_nr, tb_tuple in enumerate(tblist):
+            if tb_tuple.filename == "<stdin>":
+                to_remove = line_nr
+        for i in range(to_remove):
+            tb = tb.tb_next
+
+        exc_text = "".join(traceback.format_exception(exc_type, exc_value, tb))
         ERROR_REPORT._last_error.append(
-            datetime.now().strftime("%d/%m/%Y %H:%M:%S ")
-            + "".join(traceback.format_exception(exc_type, exc_value, tb))
+            datetime.now().strftime("%d/%m/%Y %H:%M:%S ") + exc_text
         )
 
-        logger.error("", exc_info=True)
+        exc_logger.error(exc_text)
 
         # Adapt the error message depending on the ERROR_REPORT expert_mode
         if ERROR_REPORT._expert_mode:
-            traceback.print_exception(exc_type, exc_value, tb, file=err_file)
+            print(ERROR_REPORT._last_error, file=err_file)
         elif current_session:
             if current_session.is_loading_config:
                 print(f"{exc_type.__name__}: {exc_value}", file=err_file)
@@ -240,68 +186,20 @@ def install_excepthook():
                 repl_excepthook(*sys.exc_info(), _with_elogbook=False)
 
     def print_exception(self, context, exc_type, exc_value, tb):
-        if gevent.getcurrent() == gevent.get_hub():
+        if gevent.getcurrent() is self:
             # repl_excepthook tries to yield to the gevent loop
             gevent.spawn(repl_excepthook, exc_type, exc_value, tb)
         else:
             repl_excepthook(exc_type, exc_value, tb)
 
     sys.excepthook = repl_excepthook
-    gevent.hub.Hub.print_exception = print_exception
+    gevent.hub.Hub.print_exception = types.MethodType(print_exception, gevent.get_hub())
     return ERROR_REPORT
 
 
 def reset_excepthook():
     sys.excepthook = ErrorReport._orig_sys_excepthook
     gevent.hub.Hub.print_exception = ErrorReport._orig_gevent_print_exception
-
-
-# Patch eventloop of prompt_toolkit to be synchronous
-# don't patch the event loop on windows
-def _set_pt_event_loop():
-    if not is_windows():
-        import fcntl
-        from prompt_toolkit.eventloop.posix import PosixEventLoop
-        from prompt_toolkit.eventloop.select import PollSelector
-
-        class _PosixLoop(PosixEventLoop):
-            EVENT_LOOP_DAEMON_GREENLETS = weakref.WeakSet()
-
-            def __init__(self, *kwargs):
-                super().__init__(selector=PollSelector)
-                # ensure that write schedule pipe is non blocking
-                fcntl.fcntl(self._schedule_pipe[1], fcntl.F_SETFL, os.O_NONBLOCK)
-
-            def run_in_executor(self, callback, _daemon=False):
-                t = gevent.spawn(callback)
-                if _daemon:
-                    _PosixLoop.EVENT_LOOP_DAEMON_GREENLETS.add(t)
-
-                class F(future.Future):
-                    def result(self):
-                        if not t.ready():
-                            raise future.InvalidStateError
-                        return t.get()
-
-                    def add_done_callback(self, callback):
-                        t.link(callback)
-
-                    def set_exception(self, exception):
-                        t.kill(exception)
-
-                    def exception(self):
-                        return t.exception
-
-                    def done(self):
-                        return t.ready()
-
-                return F()
-
-            def close(self):
-                super().close()
-                gevent.killall(_PosixLoop.EVENT_LOOP_DAEMON_GREENLETS)
-
-        set_event_loop(_PosixLoop())
 
 
 __all__ = ("BlissRepl", "embed", "cli", "configure_repl")
@@ -322,9 +220,97 @@ jedi.inference.compiled.access.ALLOWED_DESCRIPTOR_ACCESS += (autocomplete_proper
 #############
 
 
-class BlissRepl(PythonRepl):
+class Info:
+    def __init__(self, obj_with_info):
+        self.info_repr = info(obj_with_info)
+
+    def __repr__(self):
+        return self.info_repr
+
+
+class WrappedStdout:
+    def __init__(self, ptpython_output, current_output):
+        self._ptpython_output = ptpython_output
+        self._current_output = current_output
+        self._orig_stdout = sys.stdout
+
+    # context manager
+    def __enter__(self, *args, **kwargs):
+        self._orig_stdout = sys.stdout
+        sys.stdout = self
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        self._ptpython_output._output.append("".join(self._current_output))
+        self._current_output.clear()
+        sys.stdout = self._orig_stdout
+
+    # delegated members
+    @property
+    def encoding(self):
+        return self._orig_stdout.encoding
+
+    @property
+    def errors(self):
+        return self._orig_stdout.errors
+
+    def fileno(self) -> int:
+        # This is important for code that expects sys.stdout.fileno() to work.
+        return self._orig_stdout.fileno()
+
+    def isatty(self) -> bool:
+        return self._orig_stdout.isatty()
+
+    def flush(self):
+        self._orig_stdout.flush()
+
+    # extended members
+    def write(self, data):
+        # wait for stdout to be ready to receive output
+        if True:  # if gevent.select.select([],[self.fileno()], []):
+            self._current_output.append(data)
+            self._orig_stdout.write(data)
+
+
+# in the next class, inheritance from DummyOutput is just needed
+# to make ptpython happy (as there are some asserts checking instance type)
+class PromptToolkitOutputWrapper(DummyOutput):
+    SIZE = 20
+
+    def __init__(self, output):
+        self.__wrapped_output = output
+        self._current_output = []
+        self._output = deque(maxlen=20)
+
+    def __getattr__(self, attr):
+        if attr.startswith("__"):
+            raise AttributeError(attr)
+        return getattr(self.__wrapped_output, attr)
+
+    @property
+    def capture_stdout(self):
+        return WrappedStdout(self, self._current_output)
+
+    def __getitem__(self, item_no):
+        if item_no >= 0:
+            # item_no starts at 1 to match "Out" number in ptpython
+            item_no -= 1
+        # if item_no is specified negative => no decrement of number of course
+        return self._output[item_no]
+
+    def write(self, data):
+        self._current_output.append(data)
+        self.__wrapped_output.write(data)
+
+    def fileno(self):
+        return self.__wrapped_output.fileno()
+
+
+class BlissRepl(PythonRepl, metaclass=Singleton):
     def __init__(self, *args, **kwargs):
-        _set_pt_event_loop()
+        self._show_result_aw = gevent.get_hub().loop.async_()
+        self._show_result_aw.start(self._on_result)
+        self._result_q = queue.Queue()
 
         prompt_label = kwargs.pop("prompt_label", "BLISS")
         title = kwargs.pop("title", None)
@@ -339,44 +325,42 @@ class BlissRepl(PythonRepl):
         self.use_tmux = kwargs.pop("use_tmux", False)
 
         # patch ptpython statusbar
-        if self.use_tmux and sys.platform not in ["win32", "cygwin"]:
+        if self.use_tmux and not is_windows():
             ptpython.layout.status_bar = TMUXstatus_bar
         else:
             ptpython.layout.status_bar = NEWstatus_bar
 
         super().__init__(*args, **kwargs)
 
-        self.current_task = None
+        self.app.output = PromptToolkitOutputWrapper(self.app.output)
+
         if title:
             self.terminal_title = title
 
         # self.show_bliss_bar = True
         # self.bliss_bar = bliss_bar
         # self.bliss_bar_format = "normal"
-        self.bliss_prompt_label = prompt_label
         self.bliss_session = session
-        self.bliss_prompt = BlissPrompt(self)
+        self.bliss_prompt = BlissPrompt(self, prompt_label)
         self.all_prompt_styles["bliss"] = self.bliss_prompt
         self.prompt_style = "bliss"
+
         self.show_signature = True
-        self.ui_styles["bliss_ui"] = repl_style.bliss_ui_style
-        self.use_ui_colorscheme("bliss_ui")
+        # self.ui_styles["bliss_ui"] = repl_style.bliss_ui_style
+        # self.use_ui_colorscheme("bliss_ui")
 
         # Monochrome mode
         self.color_depth = "DEPTH_1_BIT"
 
         # Records bliss color style and make it active in bliss shell.
-        self.code_styles["bliss_code"] = repl_style.bliss_code_style
-        self.use_code_colorscheme("bliss_code")
+        # self.code_styles["bliss_code"] = repl_style.bliss_code_style
+        # self.use_code_colorscheme("bliss_code")
 
         # PTPYTHON SHELL PREFERENCES
         self.enable_history_search = True
         self.show_status_bar = True
         self.confirm_exit = True
         self.enable_mouse_support = False
-
-        self.captured_output = CaptureOutput()
-        self.captured_output.patch_print()
 
         if self.use_tmux:
             self.exit_message = (
@@ -385,151 +369,35 @@ class BlissRepl(PythonRepl):
 
         self.typing_helper = TypingHelper(self)
 
-        self._application_stopper_callback = weakref.WeakSet()
+    def _on_result(self):
+        # spawn, because we cannot block in async watcher callback
+        gevent.spawn(self._do_handle_result, self._last_result)
 
-    def get_compiler_flags(self):
-        """
-        Give the current compiler flags by looking for _Feature instances
-        in the globals. Pached here to avoid `Unhandled exception in event loop` e.g. on quit.
-        """
-        flags = 0
+    def _do_handle_result(self, result):
+        if hasattr(result, "__info__"):
+            result = Info(result)
+        logging.getLogger("user_input").info(result)
+        elogbook.command(result)
+        self._result_q.put(result)
 
-        for value in self.get_globals().values():
-            try:
-                if isinstance(value, __future__._Feature):
-                    f = value.compiler_flag
-                    flags |= f
-            except:
-                pass
-
-        return flags
-
-    def _execute_line(self, line):
-        """
-        Evaluate the line and print the result.
-        """
-        if line.lstrip().startswith("\x1a"):
-            # When the input starts with Ctrl-Z, quit the REPL.
-            self.app.exit()
-        elif line.lstrip().startswith("!"):
-            # Run as shell command
-            os.system(line[1:])
+    ##
+    # NB: next methods are overloaded
+    ##
+    def show_result(self, result):
+        # warning: this may be called from a different thread each time
+        # (when "run_async" is used)
+        if threading.current_thread() is threading.main_thread():
+            self._do_handle_result(result)
         else:
-            # First try `eval` and then `exec`
-            try:
-                self._eval_line(line)
-                return
-            except SyntaxError:
-                pass  # SyntaxError should not be in exception chain
-            self._exec_line(line)
+            self._last_result = result
+            self._show_result_aw.send()
+        return super().show_result(self._result_q.get())
 
-    def _eval_line(self, line):
-        """Try executing line with `eval`
-        """
-        code = self._compile_with_flags(line, "eval")
-        result = eval(code, self.get_globals(), self.get_locals())
+    def _handle_keyboard_interrupt(self, e: KeyboardInterrupt) -> None:
+        sys.excepthook(*sys.exc_info())
 
-        locals = self.get_locals()
-        locals["_"] = locals["_%i" % self.current_statement_index] = result
-
-        if result is None:
-            return
-
-        out_prompt = self.get_output_prompt()
-
-        result_str = f"{info(result)}\n"  # patched here!!
-
-        # Align every line to the first one.
-        line_sep = "\n" + " " * fragment_list_width(out_prompt)
-        result_str = line_sep.join(result_str.splitlines()) + "\n"
-
-        # Write output tokens.
-        if self.enable_syntax_highlighting:
-            formatted_output = merge_formatted_text(
-                [out_prompt, PygmentsTokens(list(_lex_python_result(result_str)))]
-            )
-        else:
-            formatted_output = FormattedText(out_prompt + [("", result_str)])
-
-        self.captured_output.append((result_str,), {})
-
-        print_formatted_text(
-            formatted_output,
-            style=self._current_style,
-            style_transformation=self.style_transformation,
-            include_default_pygments_style=False,
-        )
-
-        self.app.output.flush()
-
-    def _exec_line(self, line):
-        """Try executing line with `exec`
-        """
-        code = self._compile_with_flags(line, "exec")
-        exec(code, self.get_globals(), self.get_locals())
-        self.app.output.flush()
-
-    def _compile_with_flags(self, code, mode):
-        """Compile code with the right compiler flags.
-        """
-        return compile(
-            code, "<stdin>", mode, flags=self.get_compiler_flags(), dont_inherit=True
-        )
-
-    def _execute_task(self, *args, **kwargs):
-        try:
-            self._execute_line(*args, **kwargs)
-        except BaseException as e:
-            return e
-
-    def _execute(self, *args, **kwargs):
-        self.current_task = gevent.spawn(self._execute_task, *args, **kwargs)
-        try:
-            exception = self.current_task.get()
-            if exception is not None:
-                raise exception  # .with_traceback(exception.__traceback__)
-        except gevent.Timeout:
-            self._handle_exception(*args)
-        except ConnectionError as e:
-            raise ConnectionError(
-                "Connection to Beacon server lost. "
-                + "This is a serious problem! "
-                + "Please quit the bliss session and try to restart it. ("
-                + str(e)
-                + ")"
-            )
-        except KeyboardInterrupt:
-            self.current_task.kill(KeyboardInterrupt)
-            print("\n")
-            raise
-        finally:
-            if args[0]:
-                self.bliss_prompt.python_input.current_statement_index += 1
-            self.current_task = None
-
-    def stop_current_task(self, block=True, exception=gevent.GreenletExit):
-        current_task = self.current_task
-        if current_task is not None:
-            current_task.kill(block=block, exception=exception)
-
-    def register_application_stopper(self, func):
-        """
-        As ptpython only allow one Application at at time,
-        callback registered will be called in case the shell re-enter in 
-        the main loop. This should never happens except when something
-        really go wrong.
-        This is just a fallback to keep the repl loop running.
-        """
-        self._application_stopper_callback.add(func)
-
-    def unregister_application_stopper(self, func):
-        try:
-            self._application_stopper_callback.remove(func)
-        except KeyError:
-            pass
-
-
-CONFIGS = weakref.WeakValueDictionary()
+    def _handle_exception(self, e):
+        sys.excepthook(*sys.exc_info())
 
 
 def configure_repl(repl):
@@ -689,30 +557,17 @@ def cli(
     session_name=None,
     vi_mode=False,
     startup_paths=None,
-    eventloop=None,
     use_tmux=False,
     expert_error_report=False,
     **kwargs,
 ):
     """
-    Create a command line interface without running it::
-
-        from bliss.shell.cli.repl import cli
-        from signal import SIGINT, SIGTERM
-
-        cmd_line_iface = cli(locals=locals())
-        cmd_line_iface.run()
-
+    Create a command line interface
+    
     Args:
         session_name : session to initialize (default: None)
         vi_mode (bool): Use Vi instead of Emacs key bindings.
-        eventloop: use a specific eventloop (default: PosixGeventLoop)
-        refresh_interval (float): cli refresh interval (seconds)
-                                  (default: 0.25s). Use 0 or None to
-                                  deactivate refresh.
     """
-    from bliss import set_bliss_shell_mode
-
     set_bliss_shell_mode(True)
 
     # Enable loggers
@@ -780,7 +635,7 @@ def cli(
         prompt_label = "BLISS"
 
     history_filename = ".bliss_%s_history" % (session_id)
-    if sys.platform in ["win32", "cygwin"]:
+    if is_windows():
         history_filename = os.path.join(os.environ["USERPROFILE"], history_filename)
     else:
         history_filename = os.path.join(os.environ["HOME"], history_filename)
@@ -799,17 +654,18 @@ def cli(
         **kwargs,
     )
 
-    # Run registered configurations
-    for idx in sorted(CONFIGS):
-        try:
-            CONFIGS[idx](repl)
-        except:
-            sys.excepthook(*sys.exc_info())
-
     # Custom keybindings
     configure_repl(repl)
 
     return repl
+
+
+@contextlib.contextmanager
+def filter_warnings():
+    # Hide the warnings from the users
+    warnings.filterwarnings("ignore")
+    yield
+    warnings.filterwarnings("default")
 
 
 def embed(*args, **kwargs):
@@ -824,98 +680,18 @@ def embed(*args, **kwargs):
     Args:
         session_name : session to initialize (default: None)
         vi_mode (bool): Use Vi instead of Emacs key bindings.
-        eventloop: use a specific eventloop (default: PosixGeventLoop)
-        refresh_interval (float): cli refresh interval (seconds)
-                                  (default: 0.25s). Use 0 or None to
-                                  deactivate refresh.
-        stop_signals (bool): if True (default), registers SIGINT and SIGTERM
-                             signals to stop the current task
     """
-    stop_signals = kwargs.pop("stop_signals", True)
+    use_tmux = kwargs.get("use_tmux", False)
 
-    # Hide the warnings from the users
-    warnings.filterwarnings("ignore")
-    try:
+    if not is_windows() and use_tmux:
+        # Catch scans events to show the progress bar
+        scan_printer = ScanPrinterWithProgressBar()
+    else:
+        # set old style print methods for the scans
+        scan_printer = ScanPrinter()
+
+    with filter_warnings():
         cmd_line_i = cli(*args, **kwargs)
 
-        if sys.platform not in ["win32", "cygwin"] and cmd_line_i.use_tmux:
-            # Catch scan events to show the progress bar
-            seh = ScanPrinterWithProgressBar()
-        else:
-            # set old style print methods for the scans
-            scan_printer = ScanPrinter()
-
-        if stop_signals:
-
-            def stop_current_task(signum, frame, exception=gevent.GreenletExit):
-                cmd_line_i.stop_current_task(block=False, exception=exception)
-
-            stop_with_keyboard_interrupt = functools.partial(
-                stop_current_task, exception=KeyboardInterrupt
-            )
-
-            r, w = os.pipe()
-
-            def stop_current_task_and_exit(signum, frame):
-                stop_current_task(signum, frame)
-                os.close(w)
-
-            # traps SIGINT (from ctrl-c or kill -INT)
-            signal.signal(signal.SIGINT, stop_with_keyboard_interrupt)
-
-            # traps SIGTERM (ctrl-d or kill)
-            signal.signal(signal.SIGTERM, stop_current_task_and_exit)
-
-            def watch_pipe(r):
-                gevent.select.select([r], [], [])
-                exit()
-
-            gevent.spawn(watch_pipe, r)
-
-            # ============ handle CTRL-C under windows  ============
-            # ONLY FOR Win7 (COULD BE IGNORED ON Win10 WHERE CTRL-C PRODUCES A SIGINT)
-            if sys.platform in ["win32", "cygwin"]:
-
-                def CTRL_C_handler(a, b=None):
-                    cmd_line_i.stop_current_task(
-                        block=False, exception=KeyboardInterrupt
-                    )
-
-                # ===== Install CTRL_C handler ======================
-                win32api.SetConsoleCtrlHandler(CTRL_C_handler, True)
-
-        while True:
-            # stop all Application
-            if cmd_line_i._application_stopper_callback:
-                # Should never happen but...
-                print("Warning some application left running")
-                for stop_callback in list(cmd_line_i._application_stopper_callback):
-                    stop_callback()
-
-            try:
-                inp = cmd_line_i.app.run()
-                if inp:
-                    logging.getLogger("user_input").info(inp)
-                    elogbook.command(inp)
-                cmd_line_i._execute(inp)
-            except KeyboardInterrupt:
-                cmd_line_i.default_buffer.reset()
-            except EOFError:
-                # ctrl d
-                break
-            except (SystemExit):
-                # kill and exit()
-                break
-            except BaseException:
-                sys.excepthook(*sys.exc_info())
-            finally:
-                cmd_line_i.captured_output.end_of_paragraph(
-                    cmd_line_i.current_statement_index
-                )
-
-    finally:
-        warnings.filterwarnings("default")
-
-
-if __name__ == "__main__":
-    embed()
+        with patch_stdout_context():
+            asyncio.run(cmd_line_i.run_async())

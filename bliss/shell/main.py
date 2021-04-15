@@ -48,10 +48,8 @@ from bliss.common import constants
 from bliss import logging_startup
 from bliss import current_session, global_map
 
-from .repl import embed
-from . import session_files_templates as sft
-
-__all__ = ("main",)
+from bliss.shell.cli.repl import embed
+from bliss.shell.cli import session_files_templates as sft
 
 
 def yes_or_no(question):

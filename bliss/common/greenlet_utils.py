@@ -2,6 +2,9 @@ import sys
 from contextlib import contextmanager
 from functools import wraps
 
+import asyncio
+import aiogevent
+from gevent import monkey
 from gevent import greenlet, timeout, getcurrent
 from gevent.timeout import string_types
 import gevent
@@ -105,9 +108,6 @@ class Greenlet(greenlet.Greenlet):
             raise t
 
 
-gevent.spawn = Greenlet.spawn
-gevent.spawn_later = Greenlet.spawn_later
-
 # timeout patch
 class Timeout(gevent.timeout.Timeout):
     def _on_expiration(self, prev_greenlet, ex):
@@ -117,5 +117,11 @@ class Timeout(gevent.timeout.Timeout):
             prev_greenlet.throw(ex)
 
 
-timeout.Timeout = Timeout
-gevent.Timeout = Timeout
+def patch_gevent():
+    asyncio.set_event_loop_policy(aiogevent.EventLoopPolicy())
+    monkey.patch_all(thread=False)
+
+    gevent.spawn = Greenlet.spawn
+    gevent.spawn_later = Greenlet.spawn_later
+    timeout.Timeout = Timeout
+    gevent.Timeout = Timeout

@@ -22,6 +22,7 @@ def test_library_script(beacon):
     output, err = script.communicate()
 
     assert script.returncode == 0, output
+    assert err is None
     assert b"bliss.shell" not in output, output
     assert b"SHELL_MODE: False" in output, output
 
@@ -35,6 +36,7 @@ def test_shell_script(beacon):
     output, err = script.communicate()
 
     assert script.returncode == 0, output
+    assert err is None
     assert b"SHELL_MODE: True" in output, output
 
 

@@ -117,7 +117,7 @@ version_info = [int(v) for v in _package_version.split(".")]
 
 
 console_script_entry_points = [
-    "bliss = bliss.shell.cli.main:main",
+    "bliss = bliss.shell.main:main",
     "bliss-emulator = bliss.controllers.emulator:main",
     "beacon-server = bliss.config.conductor.server:main",
     "beacon-server-list = bliss.config.beacon_server_list:main",

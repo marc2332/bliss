@@ -78,10 +78,12 @@ class ScanInfo(dict):
             axis_points: Amount of points for the axis (see scatter below)
             axis_kind: Kind of axis. It is used to speed up solid rendering in
                 GUI. Can be one of:
+
                 - `forth`: Move from start to stop always
                 - `backnforth`: Move from start to stop to start
-                - `step`: The motor position is discrete. The value can be used
-                    to group data together.
+                - `step`: The motor position is discrete. The value can be used\
+                  to group data together.
+
             group: Specify a group for the channel. All the channels from the
                 same group are supposed to contain the same amount of item at
                 the end of the scan. It also can be used as a hint for

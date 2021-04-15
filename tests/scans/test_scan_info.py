@@ -10,6 +10,8 @@ import gevent
 from bliss import setup_globals
 from bliss.common import scans
 from bliss.scanning.chain import AcquisitionChain, AcquisitionMaster, AcquisitionSlave
+from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
+from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.scanning.scan import Scan
 
 from tests.conftest import deep_compare
@@ -207,3 +209,29 @@ def test_scan_comment_feature(default_session):
 
     with pytest.raises(RuntimeError):
         s.add_comment("comment4")
+
+
+def test_multi_top_master(session, diode_acq_device_factory):
+    """Create a duplicated top master chain to check if the scan_info contains
+    the right amount of expected devices."""
+
+    def init_ascan(chain, motor):
+        start, stop, npoints, count_time = 0, 1, 20, 0.01
+        master = SoftwarePositionTriggerMaster(
+            motor, start, stop, npoints, time=count_time, name=motor.name
+        )
+        timer = SoftwareTimerMaster(count_time, name="timer", npoints=npoints)
+        acq_device_diode, _diode = diode_acq_device_factory.get(
+            count_time=count_time, npoints=npoints
+        )
+        chain.add(master, timer)
+        chain.add(timer, acq_device_diode)
+
+    m0 = session.config.get("m0")
+    m1 = session.config.get("m1")
+    chain = AcquisitionChain(parallel_prepare=True)
+    init_ascan(chain, m0)
+    init_ascan(chain, m1)
+
+    scan = Scan(chain, name="multi_master", save=False)
+    assert len(scan.scan_info["devices"]) == 3 * 2

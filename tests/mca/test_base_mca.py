@@ -157,3 +157,19 @@ def test_base_mca_logic(beacon):
 
     # Run a single acquisition
     assert mca.run_software_acquisition(1, 3.) == ([{0: [3, 2, 1]}], [{0: stats}])
+
+
+def test_base_mca_rois(beacon):
+    """
+    Tests on MCA regions of interest.
+    """
+    mca = beacon.get("simu1")
+    mca.rois.set("louisXVI", 1754, 1793)
+
+    # No negative boundary
+    with pytest.raises(ValueError):
+        mca.rois.set("Auguste", -63, 14)
+
+    # Start must be lower than end
+    with pytest.raises(ValueError):
+        mca.rois.set("BenjaminButton", 2003, 1918)

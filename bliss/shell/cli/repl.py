@@ -693,5 +693,5 @@ def embed(*args, **kwargs):
     with filter_warnings():
         cmd_line_i = cli(*args, **kwargs)
 
-        with patch_stdout_context():
+        with patch_stdout_context(raw=True):
             asyncio.run(cmd_line_i.run_async())

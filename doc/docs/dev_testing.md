@@ -16,8 +16,8 @@
 * Create a conda environment (named `testenv`) dedicated to tests
 
 ```
-conda create --name testenv --channel esrf-bcu \
-  --channel defaults --channel tango-controls --channel conda-forge \
+conda create --name testenv \
+  --channel esrf-bcu --channel defaults --channel tango-controls --channel conda-forge \
   --file requirements-conda.txt  --file requirements-test-conda.txt
 source activate testenv
 ```
@@ -168,10 +168,10 @@ apt-get update && apt-get -y install xvfb libxi6 git
 
 git clone https://gitlab.esrf.fr/bliss/bliss.git
 
-conda config --add channels conda-forge
-conda config --add channels defaults
-conda config --add channels tango-controls
-conda config --add channels esrf-bcu
+conda config --env --add channels conda-forge
+conda config --env --append channels defaults
+conda config --env --append channels esrf-bcu
+conda config --env --append channels tango-controls
 
 cd bliss
 

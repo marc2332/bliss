@@ -9,9 +9,12 @@ the environment can - of course - be chosen freely):
 ```bash
 conda create --name bliss_env
 conda activate bliss_env
-conda config --env --add channels esrf-bcu
-conda config --env --append channels conda-forge
+
+conda config --env --add channels conda-forge
+conda config --env --append channels defaults
+conda config --env --append channels esrf-bcu
 conda config --env --append channels tango-controls
+
 ```
 
 ### Installing the "release" version of the BLISS Conda package

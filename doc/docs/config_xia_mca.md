@@ -48,10 +48,11 @@ There are 2 versions of ProSpect:
     * `conda create -n bliss python=3.7 git pip`
 * activate bliss environment: `conda activate bliss`
 * install git support for python: `conda install gitpython`
-* add channels:
+* Configue channels:
 ```
-conda config --env --add channels esrf-bcu
-conda config --env --append channels conda-forge
+conda config --env --add channels conda-forge
+conda config --env --append channels defaults
+conda config --env --append channels esrf-bcu
 conda config --env --append channels tango-controls
 ```
 

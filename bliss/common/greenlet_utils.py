@@ -1,13 +1,20 @@
-import sys
 from contextlib import contextmanager
 from functools import wraps
 
 import asyncio
-import aiogevent
+
+try:
+    import aiogevent
+except:
+    # On windows trollius is not available
+    aiogevent = None
 from gevent import monkey
-from gevent import greenlet, timeout, getcurrent
-from gevent.timeout import string_types
+from gevent import greenlet, timeout
 import gevent
+import logging
+
+
+_logger = logging.getLogger(__name__)
 
 MASKED_GREENLETS = dict()
 
@@ -118,7 +125,12 @@ class Timeout(gevent.timeout.Timeout):
 
 
 def patch_gevent():
-    asyncio.set_event_loop_policy(aiogevent.EventLoopPolicy())
+    if aiogevent is not None:
+        asyncio.set_event_loop_policy(aiogevent.EventLoopPolicy())
+    else:
+        _logger.warning(
+            "aiogevent is not installed, it is mandatory in a ptpython context"
+        )
     monkey.patch_all(thread=False)
 
     gevent.spawn = Greenlet.spawn

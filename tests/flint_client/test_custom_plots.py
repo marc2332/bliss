@@ -216,3 +216,22 @@ def test_select_shapes__initial_selection(flint_session):
     assert rois[1].name == roi_rect.name
     assert rois[2].name == roi_arc.name
     assert rois[3].name == roi_profile.name
+
+
+def test_curve_stack(flint_session):
+    f = plot.get_flint()
+
+    p = f.get_plot(plot_class="curvestack", name="curve-stack")
+
+    curves = numpy.empty((10, 100))
+    for i in range(10):
+        curves[i] = numpy.sin(numpy.arange(100) / 30 + i * 6)
+    x = numpy.arange(100) * 10
+
+    p.set_data(curves=curves, x=x)
+    vrange = p.get_data_range()
+    assert vrange[0] == [0, 990]
+
+    p.clear_data()
+    vrange = p.get_data_range()
+    assert vrange == [None, None]

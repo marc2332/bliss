@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flint
     - Added histogram tool when displaying image in custom plots
     - Added a content menu option to center profile ROIs in image/scatter
+    - Added curve stack as custom plot
     - Added an overlay with size of Lima rect ROIs
     - Better handling of timeout, and try not to have 30s
     - Better handling of stucked state

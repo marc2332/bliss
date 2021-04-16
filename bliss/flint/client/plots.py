@@ -60,10 +60,7 @@ class BasePlot(object):
     class RemotePlot:
         """This class is serialized method by method and executed inside the Flint context"""
 
-        def select_data(self, method, *names, **kwargs):
-            if "legend" not in kwargs and method.startswith("add"):
-                kwargs["legend"] = " -> ".join(names)
-            # Get the data to plot
+        def set_data(self, method, *names, **kwargs):
             data_dict = self.data()
             widget = self.widget()
             args = tuple(data_dict[name] for name in names)
@@ -101,8 +98,12 @@ class BasePlot(object):
             widget = self.widget()
             widget.getIntensityHistogramAction().setVisible(show)
 
+        def get_data_range(self):
+            widget = self.widget()
+            return widget.getDataRange()
+
     def _register(self, flint, plot_id, register):
-        """Register everything needed remotly"""
+        """Register everything needed remotely"""
         self.__remote = self._remotifyClass(self.RemotePlot, register=register)
         if register:
             self._init_plot()
@@ -116,6 +117,15 @@ class BasePlot(object):
             self.submit("setGraphXLabel", self._xlabel)
         if self._ylabel is not None:
             self.submit("setGraphYLabel", self._ylabel)
+
+    @property
+    def title(self):
+        return self._title
+
+    @title.setter
+    def title(self, txt):
+        self._title = str(txt)
+        self.submit("setGraphTitle", self._title)
 
     @property
     def xlabel(self):
@@ -172,15 +182,40 @@ class BasePlot(object):
 
     # Data handling
 
+    def upload_data(self, field, data):
+        """
+        Update data as an identifier into the server side
+
+        Argument:
+            field: Identifier in the targeted plot
+            data: Data to upload
+        """
+        return self.__remote.update_data(field, data)
+
+    def upload_data_if_needed(self, field, data):
+        """Upload data only if it is a numpy array or a list
+        """
+        if isinstance(data, (numpy.ndarray, list)):
+            self.__remote.update_data(field, data)
+            return field
+        else:
+            return data
+
     def add_single_data(self, field, data):
         data = numpy.array(data)
-        if data.ndim not in self.DATA_DIMENSIONS:
-            raise ValueError(
-                "Data dimension must be in {} (got {})".format(
-                    self.DATA_DIMENSIONS, data.ndim
+        if (
+            self.DATA_DIMENSIONS is not None
+            and self.DATA_DIMENSIONS is not NotImplemented
+        ):
+            # FIXME: Testing the data here have no meaning
+            # Because this only upload the data but do not describe how it will be used
+            if data.ndim not in self.DATA_DIMENSIONS:
+                raise ValueError(
+                    "Data dimension must be in {} (got {})".format(
+                        self.DATA_DIMENSIONS, data.ndim
+                    )
                 )
-            )
-        return self.__remote.update_data(field, data)
+        return self.upload_data(field, data)
 
     def add_data(self, data, field="default"):
         # Get fields
@@ -196,7 +231,7 @@ class BasePlot(object):
             data_dict = dict((field, data[field]) for field in fields)
         # Send data
         for field, value in data_dict.items():
-            self.add_single_data(field, value)
+            self.upload_data(field, value)
         # Return data dict
         return data_dict
 
@@ -204,7 +239,10 @@ class BasePlot(object):
         self.__remote.remove_data(field)
 
     def select_data(self, *names, **kwargs):
-        self.__remote.select_data(self.METHOD, *names, **kwargs)
+        # FIXME: This have to be moved per plot widget
+        if "legend" not in kwargs and self.METHOD.startswith("add"):
+            kwargs["legend"] = " -> ".join(names)
+        self.__remote.set_data(self.METHOD, *names, **kwargs)
 
     def deselect_data(self, *names):
         self.__remote.deselect_data(*names)
@@ -214,6 +252,10 @@ class BasePlot(object):
 
     def get_data(self, field=None):
         return self.__remote.get_data(field=field)
+
+    def get_data_range(self):
+        """Returns the current data range used by this plot"""
+        return self.__remote.get_data_range()
 
     # Plotting
 
@@ -546,6 +588,40 @@ class Plot2D(BasePlot):
         return self._wait_for_user_selection(request_id)
 
 
+class CurveStack(BasePlot):
+    # Name of the corresponding silx widget
+    WIDGET = "bliss.flint.custom_plots.curve_stack.CurveStack"
+
+    # Available name to identify this plot
+    ALIASES = ["curvestack"]
+
+    # Name of the method to add data to the plot
+    METHOD = "setData"
+
+    # Single / Multiple data handling
+    MULTIPLE = False
+
+    # Data input number for a single representation
+    DATA_INPUT_NUMBER = 1
+
+    def set_data(self, curves, x=None, reset_zoom=None):
+        """
+        Set the data displayed in this plot.
+
+        Arguments:
+            curves: The data of the curves (first dim is curve index, second dim
+                    is the x index)
+            x: Mapping of the real X axis values to use
+            reset_zoom: If True force reset zoom, else the user selection is
+                        applied
+        """
+        data_field = self.upload_data_if_needed("data", curves)
+        x_field = self.upload_data_if_needed("x", x)
+        self._remote_plot().set_data(
+            self.METHOD, data_field, x_field, resetZoom=reset_zoom
+        )
+
+
 class ImageView(BasePlot):
 
     # Name of the corresponding silx widget
@@ -616,7 +692,7 @@ class LiveMcaPlot(Plot1D):
     ALIASES = ["mca"]
 
 
-CUSTOM_CLASSES = [Plot1D, Plot2D, ScatterView, ImageView, StackView]
+CUSTOM_CLASSES = [Plot1D, Plot2D, ScatterView, ImageView, StackView, CurveStack]
 
 LIVE_CLASSES = [LiveCurvePlot, LiveImagePlot, LiveScatterPlot, LiveMcaPlot]
 

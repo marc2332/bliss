@@ -544,6 +544,10 @@ class RpcConnection:
             except socket.gaierror as sockexc:
                 _msg = f"RPC socket.gaierror connecting to {self.host}:{self.port} - ERR no {sockexc.errno} : {sockexc.strerror}"
                 raise CommunicationError(_msg) from sockexc
+            except ConnectionRefusedError as cnx_err:
+                _msg = f"RPC ConnectionRefusedError error connecting to {self.host}:{self.port}"
+                raise CommunicationError(_msg) from cnx_err
+
         else:
             # ??? no  host
             self._socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)

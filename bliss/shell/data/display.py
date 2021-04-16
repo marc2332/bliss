@@ -655,8 +655,9 @@ class ScanPrinterWithProgressBar(ScanPrinter):
 
     def _on_motor_position_changed(self, position, signal=None, sender=None):
         super()._on_motor_position_changed(position, signal, sender)
-        self.progress_bar.set_description(", ".join(self.labels))
-        self.progress_bar.refresh()
+        if self.progress_bar is not None:
+            self.progress_bar.set_description(", ".join(self.labels))
+            self.progress_bar.refresh()
 
     def _is_scan_must_be_printed(self):
         """Only print scans if it is executed as forground in BLISS shell"""

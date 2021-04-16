@@ -47,10 +47,16 @@ For the development version, i.e in the `bliss_dev` Conda environement:
     needed:
 
     ```bash
-    conda config --env --add channels esrf-bcu
-    conda config --env --append channels conda-forge
+    conda config --env --add channels conda-forge
+    conda config --env --append channels defaults
+    conda config --env --append channels esrf-bcu
     conda config --env --append channels tango-controls
     ```
+    NB:
+
+    * `add` prepends
+    * `append` moves to the bottom if already exists.
+
 
 ### About BLISS version
 

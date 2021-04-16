@@ -1,5 +1,5 @@
 # Conda requirements file
-aiogevent
+aiogevent >= 0.4
 blessings
 cerberus
 colorama

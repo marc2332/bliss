@@ -330,6 +330,16 @@ def test_bench(beacon, setup_globals, capsys):
 see also: `capsysbinary`, `capfd`, and `capfdbinary` fixtures.
 
 
+#### Exceptions
+To test that an exception is well reaise, `pytest.raises()` context manager can
+be used. This test will *success* if a `ValueError` exception is raised:
+
+```python
+with pytest.raises(ValueError):
+    mca.rois.set("Auguste", -63, 14)
+```
+
+
 #### approx
 
 To test equality of floats or to test 2 values with an approximation margin,

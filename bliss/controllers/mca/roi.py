@@ -7,7 +7,8 @@ from bliss.config.settings import HashSetting
 
 
 class RoiConfig:
-    """Represent the configuration a Region Of Interest that user can define to
+    """
+    Represent the configuration a Region Of Interest that user can define to
     sum events included between low and high channel boundaries.
     """
 
@@ -58,26 +59,38 @@ class RoiConfig:
 
     @property
     def nrois(self):
+        """
+        """
         return len(self.config)
 
     # Public methods
 
     def get_names(self):
-        """Return names of all configured ROIs.
+        """
+        Return names of all configured ROIs.
         """
         return list(self.config.keys())
 
     def get(self, roi_name):
-        """Return ROI object from its name.
+        """
+        Return ROI object from its name.
         <roi_name> ('str'): name of a ROI
         """
         return literal_eval(self.config[roi_name])
 
     def set(self, name, start, end):
-        """Add a ROI named <name> defined by low channel index <start> and high
+        """
+        Add a ROI named <name> defined by low channel index <start> and high
         channel index <end>.
         """
-        # Check
+        # Check boundaries to be booth positives
+        if (end < 0) or (start < 0):
+            raise ValueError("No negative ROI limit allowed.")
+
+        # Check order of boundaries
+        if end < start:
+            raise ValueError("End of ROI limit must be greater than start limit.")
+
         self.config[name] = start, end
 
     def remove(self, name):

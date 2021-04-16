@@ -22,6 +22,7 @@ from silx.gui import qt
 from silx.gui import icons
 from silx.gui.qt import inspect
 
+from bliss.common import constants as bliss_constants
 from bliss.config.settings import HashObjSetting
 from . import manager
 from ..model import flint_model
@@ -413,26 +414,34 @@ class WorkspaceManager(qt.QObject):
 
     def __getLastWorkspaceName(self):
         settings = self.__getSessionSettings()
-        name = settings.get("@lastname", self.DEFAULT)
+        name = settings.get("@lastname", None)
         if name == "":
-            raise ValueError("lastname not set")
+            return None
         return name
 
     def loadLastWorkspace(self):
         """
         Load the last used workspace.
 
-        If Flint is not yet in a specific BLISS session, the default workspace
-        is loaded.
+        Raises:
+            ValueError: If there was no previous workspace defined
         """
-        try:
-            # The last workspace name is part of a session
-            name = self.__getLastWorkspaceName()
-        except ValueError:
-            # But workspaces are not stored in a specific session
-            # So what the base workspace can be loaded
-            name = self.DEFAULT
+        name = self.__getLastWorkspaceName()
+        if name is None:
+            raise ValueError("No previous workspace defined")
         self.loadWorkspace(name)
+
+    def loadDefaultWorkspace(self):
+        """
+        Load the default workspace according to the current session configuration.
+        """
+        flintModel = self.mainManager().flintModel()
+        sessionName = flintModel.blissSessionName()
+        if sessionName in [None, "", bliss_constants.DEFAULT_SESSION_NAME]:
+            workspaceName = self.DEFAULT
+        else:
+            workspaceName = self.DEFAULT + "_" + sessionName
+        self.loadWorkspace(workspaceName)
 
     def __closeWorkspace(self):
         flintModel = self.mainManager().flintModel()
@@ -623,7 +632,7 @@ class WorkspaceManager(qt.QObject):
         If the current workspace is the one to remove, switch first to the
         default workspace and then remove the requested workspace.
         """
-        if name == self.DEFAULT:
+        if name == self.DEFAULT or name.startswith(self.DEFAULT + "_"):
             _logger.warning("The base workspace can't be removed", self.DEFAULT)
             return
 
@@ -631,10 +640,8 @@ class WorkspaceManager(qt.QObject):
         workspace = flintModel.workspace()
         currentWorkspace = workspace.name()
         if name == currentWorkspace:
-            _logger.info(
-                "Switch to '%s' workspace before removing '%s'", self.DEFAULT, name
-            )
-            self.loadWorkspace(self.DEFAULT)
+            _logger.info("Switch to default workspace before removing '%s'", name)
+            self.loadDefaultWorkspace()
 
         names = self.__getAvailableNames()
         if name in names:

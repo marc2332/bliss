@@ -225,7 +225,13 @@ class ManageMainBehaviours(qt.QObject):
         if beaconLogHandler is None:
             self.createBeaconLogServer(sessionName)
 
-        self.workspaceManager().loadLastWorkspace()
+        workspaceManager = self.workspaceManager()
+        try:
+            workspaceManager.loadLastWorkspace()
+        except ValueError:
+            # No last workspace for now
+            workspaceManager.loadDefaultWorkspace()
+
         return True
 
     def __workspaceChanged(

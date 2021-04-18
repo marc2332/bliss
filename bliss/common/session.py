@@ -13,10 +13,10 @@ import functools
 import inspect
 import contextlib
 import shutil
-from tabulate import tabulate
 from treelib import Tree
 from types import ModuleType
 from weakref import WeakKeyDictionary
+from tabulate import tabulate
 
 from bliss import setup_globals, global_map, is_bliss_shell
 from bliss.config import static
@@ -818,7 +818,7 @@ class Session:
         for item_name in self.object_names:
             item_count += 1
 
-            # skip initialization of existing objects.
+            # Skip initialization of existing objects.
             if hasattr(setup_globals, item_name):
                 self.env_dict[item_name] = getattr(setup_globals, item_name)
                 continue
@@ -850,20 +850,28 @@ class Session:
                     else:
                         success_item_list.append(item_name)
 
+        # Clear the line.
         print(" " * 80, flush=True)
 
+        # Maximal length of objects names (min 5).
         display_width = shutil.get_terminal_size().columns
+        if len(self.object_names) == 0:
+            max_length = 5
+            print("There are no objects declared in the session's config file.")
+        else:
+            max_length = max([len(x) for x in self.object_names])
+        # Number of items displayable on one line.
+        item_number = int(display_width / max_length) + 1
 
         # SUCCESS
         success_count = len(success_item_list)
         if success_count > 0:
             success_item_list.sort(key=str.casefold)
             print(
-                f"OK: {len(success_item_list)}/{item_count} object{'s' if success_count > 1 else ''} successfully initialized.",
+                f"OK: {len(success_item_list)}/{item_count}"
+                f" object{'s' if success_count > 1 else ''} successfully initialized.",
                 flush=True,
             )
-            max_length = max([len(x) for x in success_item_list])
-            item_number = int(display_width / max_length) + 1
             print(
                 tabulate(chunk_list(success_item_list, item_number), tablefmt="plain")
             )
@@ -874,7 +882,8 @@ class Session:
         if warning_count > 0:
             warning_item_list.sort(key=str.casefold)
             print(
-                f"WARNING: {len(warning_item_list)} object{'s' if warning_count > 1 else ''} initialized with **default** plugin:"
+                f"WARNING: {len(warning_item_list)} object{'s' if warning_count > 1 else ''}"
+                f" initialized with **default** plugin:"
             )
             print(
                 tabulate(chunk_list(warning_item_list, item_number), tablefmt="plain")

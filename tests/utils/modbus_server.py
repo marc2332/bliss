@@ -22,6 +22,7 @@ basic_config(
     level=logging.DEBUG,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
+logger.addHandler(logging.StreamHandler(sys.stdout))
 
 
 def main(address):

@@ -181,7 +181,7 @@ class ScanRenderer:
 
         for device_name in chain_description["devices"]:
             device_meta = scan_info["devices"][device_name]
-            is_master = len(device_meta.get("triggers", [])) > 0
+            is_master = len(device_meta.get("triggered_devices", [])) > 0
             for channel_name in device_meta.get("channels", []):
                 channel_meta = scan_info["channels"].get(channel_name)
                 dim = channel_meta.get("dim", 0)

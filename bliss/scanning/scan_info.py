@@ -50,7 +50,7 @@ Here is a representation of the `acquisition_chain` structure:
         "devices": {
             DEVICE_MASTER_ID: {
                 "channels": [CHANNEL_PATH_1, CHANNEL_PATH_2, ...],
-                "triggers": [DEVICE_SLAVE_ID, ...]
+                "triggered_devices": [DEVICE_SLAVE_ID, ...]
                 ...
             },
             DEVICE_SLAVE_ID: {
@@ -332,7 +332,7 @@ class ScanInfo(dict):
                     self._device_fullname(d.identifier) for d in tree.children(acq_dev)
                 ]
                 if len(triggered_devices) > 0:
-                    device_info["triggers"] = triggered_devices
+                    device_info["triggered_devices"] = triggered_devices
                 channel_names = [c.fullname for c in acq_dev.channels]
                 if len(channels) > 0:
                     device_info["channels"] = channel_names

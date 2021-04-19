@@ -9,7 +9,7 @@ from bliss.data.lima_image import Frame
 SCAN_INFO_1 = {
     "acquisition_chain": {"main": {"devices": ["master", "slave"]}},
     "devices": {
-        "master": {"channels": ["axis:roby"], "triggers": ["slave"]},
+        "master": {"channels": ["axis:roby"], "triggered_devices": ["slave"]},
         "slave": {"channels": ["timer:elapsed_time"]},
     },
     "channels": {"axis:roby": {"dim": 0}, "timer:elapsed_time": {"dim": 0}},
@@ -18,7 +18,7 @@ SCAN_INFO_1 = {
 SCAN_INFO_2 = {
     "acquisition_chain": {"main": {"devices": ["master", "slave"]}},
     "devices": {
-        "master": {"channels": ["axis:robz"], "triggers": ["slave"]},
+        "master": {"channels": ["axis:robz"], "triggered_devices": ["slave"]},
         "slave": {"channels": ["timer:elapsed_time"]},
     },
     "channels": {"axis:robz": {"dim": 0}, "timer:elapsed_time": {"dim": 0}},
@@ -27,7 +27,7 @@ SCAN_INFO_2 = {
 SCAN_INFO_3 = {
     "acquisition_chain": {"main": {"devices": ["master", "slave"]}},
     "devices": {
-        "master": {"channels": ["lima:image"], "triggers": ["slave"]},
+        "master": {"channels": ["lima:image"], "triggered_devices": ["slave"]},
         "slave": {"channels": []},
     },
     "channels": {"lima:image": {"dim": 2}},

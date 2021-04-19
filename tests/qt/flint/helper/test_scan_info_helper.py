@@ -14,10 +14,10 @@ SCAN_INFO = {
     "devices": {
         "master": {
             "channels": ["timer:elapsed_time", "timer:epoch"],
-            "triggers": ["slave"],
+            "triggered_devices": ["slave"],
         },
         "slave": {"channels": ["diode:diode"]},
-        "master2": {"triggers": ["slave2"]},
+        "master2": {"triggered_devices": ["slave2"]},
         "slave2": {"channels": ["opium:mca1", "lima:image1"]},
     },
     "channels": {
@@ -47,7 +47,7 @@ SCAN_INFO_LIMA_ROIS = {
     "devices": {
         "master": {
             "channels": ["timer:elapsed_time", "timer:epoch"],
-            "triggers": ["slave"],
+            "triggered_devices": ["slave"],
         },
         "slave": {
             "channels": [
@@ -176,7 +176,10 @@ def test_create_scatter_plot_model():
     scan_info = {
         "acquisition_chain": {"axis": {"devices": ["master", "slave"]}},
         "devices": {
-            "master": {"channels": ["axis:roby", "axis:robz"], "triggers": ["slave"]},
+            "master": {
+                "channels": ["axis:roby", "axis:robz"],
+                "triggered_devices": ["slave"],
+            },
             "slave": {
                 "channels": [
                     "timer:elapsed_time",
@@ -246,7 +249,7 @@ def test_create_curve_plot_from_motor_scan():
     scan_info = {
         "acquisition_chain": {"axis": {"devices": ["master", "slave"]}},
         "devices": {
-            "master": {"channels": ["axis:roby"], "triggers": ["slave"]},
+            "master": {"channels": ["axis:roby"], "triggered_devices": ["slave"]},
             "slave": {
                 "channels": [
                     "timer:elapsed_time",
@@ -293,7 +296,10 @@ def test_amesh_scan_with_image_and_mca():
     scan_info = {
         "acquisition_chain": {"axis": {"devices": ["master", "slave"]}},
         "devices": {
-            "master": {"channels": ["axis:sy", "axis:sz"], "triggers": ["slave"]},
+            "master": {
+                "channels": ["axis:sy", "axis:sz"],
+                "triggered_devices": ["slave"],
+            },
             "slave": {
                 "channels": [
                     "timer:elapsed_time",

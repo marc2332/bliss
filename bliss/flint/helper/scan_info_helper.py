@@ -98,7 +98,7 @@ def _get_channels(
                 continue
 
             if master is not None:
-                is_master = "triggers" in device_info
+                is_master = "triggered_devices" in device_info
                 if master ^ is_master:
                     # If the filter mismatch
                     continue

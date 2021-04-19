@@ -361,7 +361,7 @@ def _create_scan_info(scalars):
         {
             "acquisition_chain": {"master_time1": {"devices": ["master", "slave"]}},
             "devices": {
-                "master": {"channels": [], "triggers": ["slave"]},
+                "master": {"channels": [], "triggered_devices": ["slave"]},
                 "slave": {"channels": []},
             },
             "channels": {},

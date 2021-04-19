@@ -11,7 +11,7 @@ def _create_ascan_scan_info(master_name, extra_name=None):
         "type": "ascan",
         "acquisition_chain": {"main": {"devices": ["master", "slave"]}},
         "devices": {
-            "master": {"channels": [master_name], "triggers": ["slave"]},
+            "master": {"channels": [master_name], "triggered_devices": ["slave"]},
             "slave": {
                 "channels": [
                     "timer:elapsed_time",
@@ -57,7 +57,7 @@ def test_consecutive_scans__loopscan_ascan(local_flint):
         "devices": {
             "master": {
                 "channels": ["timer:elapsed_time", "timer:epoch"],
-                "triggers": ["slave"],
+                "triggered_devices": ["slave"],
             },
             "slave": {"channels": ["simulation_diode_sampling_controller:diode1"]},
         },

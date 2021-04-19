@@ -183,7 +183,7 @@ def anmesh(
     for _top_master_name, chain_description in scan_info["acquisition_chain"].items():
         for device_name in chain_description["devices"]:
             device_info = scan_info["devices"][device_name]
-            is_master = len(device_info.get("triggers", [])) > 0
+            is_master = len(device_info.get("triggered_devices", [])) > 0
             if is_master:
                 continue
             for channel_name in device_info["channels"]:

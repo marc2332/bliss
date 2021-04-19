@@ -11,7 +11,7 @@ SCATTER_SCAN_INFO = {
     "devices": {
         "master": {
             "channels": ["device1:channel1", "device2:channel1", "device2:channel2"],
-            "triggers": ["slave"],
+            "triggered_devices": ["slave"],
         },
         "slave": {
             "channels": [

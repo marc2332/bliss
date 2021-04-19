@@ -272,7 +272,7 @@ def iter_devices(scan_info, scan_ndim=1):
         ntriggers = 0
         for group_name in subscan_info["devices"]:
             group_info = scan_info["devices"][group_name]
-            is_trigger = len(group_info.get("triggers", [])) > 0
+            is_trigger = len(group_info.get("triggered_devices", [])) > 0
             if is_trigger:
                 ntriggers += 1
             is_first_trigger = is_trigger and ntriggers == 1

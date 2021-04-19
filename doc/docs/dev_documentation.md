@@ -197,6 +197,14 @@ There are 6 levels of titles.
 
 ###### Level 6 title
 
+
+### Comments
+
+HTML comments `<!-- Bla Bla Bla. -->` can be used in `.md` files. They will be
+inserted in html doc but will not be displayed in documentation web page.
+
+<!-- This comment will be visible in html source code. -->
+
 ### emphasis blocks
 
 There are some ways to outline information in blocks:

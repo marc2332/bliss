@@ -421,6 +421,6 @@ def test_session_exit_on_timeout(beacon):
     NB: initial bug was: session exits on timeout.
     """
     bsession = beacon.get("test_exceptions_session")
-    bsession.setup()
+    assert not bsession.setup()
     assert bsession.name == "test_exceptions_session"
     bsession.close()

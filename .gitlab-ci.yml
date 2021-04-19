@@ -20,9 +20,10 @@ default:
     - echo ${CI_PROJECT_DIR}
     - export PIP_CACHE_DIR="/opt/cache/pip"
     - /opt/conda/bin/conda init && source /root/.bashrc
-    - conda config --prepend channels tango-controls
-    - conda config --prepend channels esrf-bcu
-    - conda config --prepend channels conda-forge
+    - conda config --add channels conda-forge
+    - conda config --append channels defaults
+    - conda config --append channels esrf-bcu
+    - conda config --append channels tango-controls
     - >
       if [[ -z $CI_MERGE_REQUEST_TARGET_BRANCH_NAME ]];then
         export COMPARE_BRANCH_NAME="master"
@@ -186,10 +187,10 @@ test_bliss_windows:
   before_script:
     - call conda create -n %CONDA_ENV%
     - call conda activate %CONDA_ENV%
-    - call conda config --env --append channels conda-forge
-    - call conda config --env --add channels defaults
-    - call conda config --env --add channels esrf-bcu
-    - call conda config --env --add channels tango-controls
+    - call conda config --env --add channels conda-forge
+    - call conda config --env --append channels defaults
+    - call conda config --env --append channels esrf-bcu
+    - call conda config --env --append channels tango-controls
     - call conda install --quiet --file requirements-conda-win64.txt --file requirements-test-conda-win64.txt
     - call pip install . --no-deps
   script:
@@ -243,10 +244,10 @@ package_windows:
     # Create a dedicated env to avoid to pollute the shared machine
     - call conda create -n %CONDA_ENV%
     - call conda activate %CONDA_ENV%
-    - call conda config --env --append channels conda-forge
-    - call conda config --env --add channels defaults
-    - call conda config --env --add channels esrf-bcu
-    - call conda config --env --add channels tango-controls
+    - call conda config --env --add channels conda-forge
+    - call conda config --env --append channels defaults
+    - call conda config --env --append channels esrf-bcu
+    - call conda config --env --append channels tango-controls
     - call conda config --env --show channels
     # create package env and install all requirements and conda-build
     # note: no need to install whole requirements.txt here (probably for linux either)

@@ -1,19 +1,34 @@
-# PEPU board #
+# PEPU board
 
+<!-- This doc comes from pepu manual made by ISG. -->
 
-PEPU is a device designed at ESRF to deal with encoder sources and to produce an
-output usable to control an actuator.
+PEPU is a device designed at ESRF to deal with encoder sources. The main
+use cases of PEPU are, among others: encoder read-out, encoder protocol
+conversion, data acquisition for metrology purposes, and multi-encoder and
+compensation for environmental conditions for high-accuracy positioning systems.
 
 PEPU stands for: Positioning Encoder Processing Unit.
 
-Encoder sources can vary in number and type. Supported standards are:
 
-* BiSS
-* EnDat
-* Quad
-* SSI
+![PEPU front view](img/pepu_isg.jpg)
 
-SSI signal output is a linear combination of inputs.
+
+PEPU receives data from position encoders and emulates encoders on its outputs
+to external devices. The instrument has eight configurable channels to receive
+(input) or transmit (output) data. PEPU channels can handle RS422 and LVDS
+electrical levels and they are able to read or emulate quadrature incremental
+encoders or SSI, BiSS-C, EnDat, or HSSL absolute encoders.
+
+PEPU can process the incoming data by applying configurable mathematical
+functions to them.
+
+The result is then available through an output channel or stored in the internal
+buffer. The buffer is part of the PEPU data acquisition features designed to
+store data that can be retrieved by the host computer.
+
+PEPU communicates with the host computer through an Ethernet conection for
+configuration and data transfer.
+
 
 
 ## Configuration example

@@ -44,6 +44,6 @@ device:
 - class: Roi2spectrumDeviceServer
   tango_name: id00/roi2spectrum/tomo_simulator
 - class: TomoSimulationDeviceServer
-  tango_name: id00/slitssimulation/tomo_simulator
+  tango_name: id00/tomo_simulation/tomo_simulator
 personal_name: tomo_simulator
 server: LimaCCDs

@@ -44,7 +44,7 @@ device:
 - class: Roi2spectrumDeviceServer
   tango_name: id00/roi2spectrum/slits_simulator
 - class: SlitsSimulationDeviceServer
-  tango_name: id00/slitssimulation/slits_simulator
+  tango_name: id00/slits_simulation/slits_simulator
   properties:
       slit_top: slit_top
       slit_bottom: slit_bottom

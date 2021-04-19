@@ -15,7 +15,6 @@ import mock
 
 from bliss.common.counter import SamplingCounter, SamplingMode, SoftCounter
 from bliss.common.scans import loopscan, ct, ascan
-from bliss.shell.cli.repl import ScanPrinter
 from bliss import setup_globals
 from bliss.common.soft_axis import SoftAxis
 
@@ -420,7 +419,6 @@ def test_integ_counter(session):
 
 
 def test_bad_counters(session, beacon):
-    sp = ScanPrinter()
     diode = session.env_dict["diode"]
     simu_mca = beacon.get("simu1")
     setup_globals.simu_mca = simu_mca

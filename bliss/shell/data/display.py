@@ -7,14 +7,11 @@
 
 """Listen the scan data and display in a selected ptpython buffer console """
 
-import sys
 import time
 from tqdm import tqdm
 import datetime
 import numpy
 import shutil
-import signal
-import atexit
 import typing
 import gevent
 import numbers
@@ -23,26 +20,10 @@ from bliss.data import scan as scan_mdl
 from bliss.common.utils import nonblocking_print
 from bliss.common.event import dispatcher
 from bliss.common.logtools import user_print
-from bliss.scanning.scan import set_scan_watch_callbacks, ScanState
+from bliss.scanning.scan import set_scan_watch_callbacks
 from bliss.scanning.scan_display import ScanDisplay
 from bliss import global_map, is_bliss_shell
 from bliss.shell.formatters.table import IncrementalTable
-
-
-if sys.platform not in ["win32", "cygwin"]:
-    import termios
-    from blessings import Terminal
-else:
-
-    class Terminal:
-        def __getattr__(self, prop):
-            if prop.startswith("__"):
-                raise AttributeError(prop)
-            return ""
-
-
-def catch_sigint(*args):
-    pass
 
 
 def get_decorated_line(msg, width=None, deco="=", head="\n", tail="\n", rdeco=None):
@@ -87,6 +68,20 @@ def _find_unit(obj):
         return
 
 
+def is_scan_supported(scan_info):
+    """Returns true if the scan is supported"""
+    if len(scan_info["acquisition_chain"].keys()) != 1:
+        return False
+
+    # Skip scans without a type or without a number of points
+    scan_type = scan_info.get("type")
+    npoints = scan_info.get("npoints")
+    if None in [scan_type, npoints]:
+        return False
+
+    return True
+
+
 class ChannelMetadata(typing.NamedTuple):
     """Store metadata about a channel"""
 
@@ -94,7 +89,10 @@ class ChannelMetadata(typing.NamedTuple):
     unit: typing.Optional[str]
 
 
-class _ScanPrinterBase:
+class ScanRenderer:
+    """Reach information from scan_info and provide an helper to display
+    top down data table view."""
+
     HEADER = (
         "\033[92m** Scan {scan_nb}: {title} **\033[0m\n\n"
         + "   date      : {start_time_str}\n"
@@ -118,83 +116,60 @@ class _ScanPrinterBase:
     RAW_SEP = "-"
     NO_NAME = "-"
 
-    def __init__(self):
-
-        self.scan_name = None
-        self.scan_is_running = False
-
-        self.channels_number = None
-        self.displayable_channel_names = None
-        self.master_channel_names = []
-        self.sorted_channel_names = []
+    def __init__(self, scan_info):
+        self._displayable_channel_names = None
+        self._master_channel_names = []
+        self._sorted_channel_names = []
         self._channels_meta = {}
-        self.other_channels = None
-        self._possible_motors = None
+        self._other_channels = None
+        self._scan_info = scan_info
+        self._tab = None
+        self._nb_data_rows = 0
+        self._channels_number = None
+        self._collect_channels_info(scan_info)
+        self._row_data = []
 
-        self.scan_steps_index = 0
-        self._warning_messages = None
+    @property
+    def nb_data_rows(self) -> int:
+        """Returns rows already received"""
+        return self._nb_data_rows
 
-    def collect_channels_info(self, scan_info):
+    @property
+    def scan_type(self) -> str:
+        """Returns the kind of the scan"""
+        return self._scan_type
 
-        """ 
-                #------------- scan_info example -------------------------------------------------------
+    @property
+    def sorted_channel_names(self):
+        """List of channel names displayed in columns"""
+        return self._sorted_channel_names
 
-                # session_name = scan_info.get('session_name')             # ex: 'test_session'
-                # user_name = scan_info.get('user_name')                   # ex: 'pguillou'
-                # filename = scan_info.get('filename')                     # ex: '/mnt/c/tmp/test_session/data.h5'
-                # node_name = scan_info.get('node_name')                   # ex: 'test_session:mnt:c:tmp:183_ascan'
+    @property
+    def displayable_channel_names(self):
+        """Channel names from this scans which displayable.
 
-                # start_time = scan_info.get('start_time')                 # ex: datetime.datetime(2019, 3, 18, 15, 28, 17, 83204)
-                # start_time_str = scan_info.get('start_time_str')         # ex: 'Mon Mar 18 15:28:17 2019'
-                # start_timestamp = scan_info.get('start_timestamp')       # ex: 1552919297.0832036
-
-                # save = scan_info.get('save')                             # ex: True
-                # sleep_time = scan_info.get('sleep_time')                 # ex: None
-
-                # title = scan_info.get('title')                           # ex: 'ascan roby 0 10 10 0.01'
-                # scan_type = scan_info.get('type')                        # ex:    ^
-                # start = scan_info.get('start')                           # ex:             ^              = [0]
-                # stop = scan_info.get('stop')                             # ex:                ^           = [10]
-                # npoints = scan_info.get('npoints')                       # ex:                   ^        = 10
-                # count_time = scan_info.get('count_time')                 # ex:                       ^    = 0.01
-
-                # total_acq_time = scan_info.get('total_acq_time')         # ex: 0.1  ( = npoints * count_time )
-                # scan_nb = scan_info.get('scan_nb')                       # ex: 183
-
-                # positioners_dial = scan_info.get('positioners_dial')     # ex: {'bad': 0.0, 'calc_mot1': 20.0, 'roby': 20.0, ... }
-                # positioners = scan_info.get('positioners')               # ex: {'bad': 0.0, 'calc_mot1': 20.0, 'roby': 10.0, ...}
-
-                # acquisition_chain = scan_info.get('acquisition_chain')  
-                # ex: {'axis':
-                #       { 
-                #         'master' : {'scalars': ['axis:roby'], 'spectra': [], 'images': [] }, 
-                #         'scalars': ['timer:elapsed_time', 'diode:diode'], 
-                #         'spectra': [], 
-                #         'images' : [] 
-                #       }
-                #     }
+        For example images and MCAs are not displayable.
         """
+        return self._displayable_channel_names
 
+    @property
+    def master_scalar_channel_names(self):
+        """Channel names from this scans which are both masters and scalars.
         """
-                # master, channels = next(iter(scan_info["acquisition_chain"].items()))
-                # master = axis
-                # channels = {'master': {'scalars': ['axis:roby'], 
-                #                        'spectra': [], 
-                #                        'images': [], 
-                #                       }, 
-                #             'scalars': ['timer:elapsed_time', 
-                #                         'timer:epoch', 
-                #                         'lima_simulator2:bpm:x', 
-                #                         'simulation_diode_sampling_controller:diode'],
-                #             'spectra': [], 
-                #             'images': [], 
-        """
+        return self._master_channel_names
 
-        # ONLY MANAGE THE FIRST ACQUISITION BRANCH (multi-top-masters scan are ignored)
-        top_master, channels = next(iter(scan_info["acquisition_chain"].items()))
+    def _collect_channels_info(self, scan_info):
+        """Collect information from scan_info
+
+        Only the first top master is reached. Others are ignored.
+        """
+        # only the first top master is used
+        _top_master, channels = next(iter(scan_info["acquisition_chain"].items()))
+
+        self._scan_type = scan_info.get("type")
 
         # get the total number of channels
-        self.channels_number = len(channels["master"]["scalars"]) + len(
+        self._channels_number = len(channels["master"]["scalars"]) + len(
             channels["scalars"]
         )
 
@@ -204,12 +179,12 @@ class _ScanPrinterBase:
         ]
 
         # get scalar channels (remove epoch)
-        scalar_channels = [
+        counter_scalar_channels = [
             cname for cname in channels["scalars"] if cname != "timer:epoch"
         ]
 
         # get all channels fullname, display names and units
-        channel_names = master_scalar_channels + scalar_channels
+        channel_names = master_scalar_channels + counter_scalar_channels
 
         channels_meta = {}
         for channel_name, meta in scan_info["channels"].items():
@@ -221,124 +196,53 @@ class _ScanPrinterBase:
             channels_meta[channel_name] = metadata
         self._channels_meta = channels_meta
 
-        master_channel_names = master_scalar_channels.copy()
-
         # get none scalar channels (spectra and images)
-        self.other_channels = (
+        self._other_channels = (
             channels["master"]["spectra"] + channels["master"]["images"]
         )
-        self.other_channels += channels["spectra"] + channels["images"]
+        self._other_channels += channels["spectra"] + channels["images"]
 
-        displayable_channels = []
+        displayable_channels = list(set(channel_names))
+
+        sorted_channel_names = []
         # First the timer channel if any
         timer_cname = "timer:elapsed_time"
         if timer_cname in channel_names:
-            displayable_channels.append(timer_cname)
-
-        # Then the masters scalars channels
-        self._possible_motors = []
+            sorted_channel_names.append(timer_cname)
+        # Then masters
         for cname in master_scalar_channels:
-            if cname != timer_cname:
-                displayable_channels.append(cname)
-                channel_meta = self._channels_meta[cname]
-                self._possible_motors.append(channel_meta.display_name)
-
+            if cname not in sorted_channel_names:
+                sorted_channel_names.append(cname)
         # Finally the other scalars channels
-        for cname in scalar_channels:
-            if cname != timer_cname:
-                displayable_channels.append(cname)
+        for cname in counter_scalar_channels:
+            if cname not in sorted_channel_names:
+                sorted_channel_names.append(cname)
 
         #  Store the channels contained in the scan_info
-        self.master_channel_names = master_channel_names
-        self.displayable_channel_names = displayable_channels
-        self.sorted_channel_names = displayable_channels.copy()
+        self._master_channel_names = master_scalar_channels
+        self._displayable_channel_names = displayable_channels
+        self._sorted_channel_names = sorted_channel_names
 
-    def build_columns_labels(self, channel_with_unit=True, with_index=True):
-        # Build the columns labels (multi-line with counter and controller names)
-        channel_labels = []
-        counter_labels = []
-        controller_labels = []
+    def set_displayed_channels(self, channel_names):
+        """Set the list of column names to display.
 
-        for cname in self.sorted_channel_names:
-            channel_meta = self._channels_meta[cname]
-
-            # build the channel label
-            if cname == "timer:elapsed_time":
-                disp_name = "dt"
-            else:
-                disp_name = channel_meta.display_name
-
-            # check if the unit must be added to channel label
-            if channel_with_unit:
-                unit = channel_meta.unit
-                if unit:
-                    disp_name += f"[{unit}]"
-
-            channel_labels.append(disp_name)
-
-            # try to get controller and counter names
-            try:
-                ctrl, cnt = cname.split(":")[0:2]
-                if cnt == channel_meta.display_name:
-                    cnt = self.NO_NAME
-                counter_labels.append(cnt)
-                controller_labels.append(ctrl)
-            except Exception:
-                counter_labels.append("")
-                controller_labels.append("")
-
-        if with_index:
-            controller_labels.insert(0, "")
-            counter_labels.insert(0, "")  # 'index'
-            channel_labels.insert(0, "#")
-
-        return [controller_labels, channel_labels]  # counter_labels useless in table
-
-    def build_header(self, scan_info):
-        """Build the header to be displayed
+        The input argument is filtered.
         """
-        # A message about not shown channels
-        not_shown_counters_str = ""
-        if self.other_channels:
-            not_shown_counters_str = ", ".join(self.other_channels)
+        # Check if the content or the order have changed
+        if self._sorted_channel_names != channel_names:
+            # Filter it with available channels
+            requested_channels = [
+                r for r in channel_names if r in self._displayable_channel_names
+            ]
+            if self._sorted_channel_names != requested_channels:
+                self._sorted_channel_names = requested_channels
 
-        master_names = ", ".join(self.master_channel_names)
-
-        header = self.HEADER.format(
-            not_shown_counters_str=not_shown_counters_str,
-            master_names=master_names,
-            **scan_info,
-        )
-
-        if scan_info.get("type") != "ct":
-            header += self._build_extra_header()
-
-        return header
-
-    def _build_extra_header(self):
-        not_selected = [
-            c
-            for c in self.displayable_channel_names
-            if c not in self.sorted_channel_names
-        ]
-        if len(not_selected) == 0:
-            return self.EXTRA_HEADER_2
-
-        not_selected = [f"'\033[91m{c}\033[0m'" for c in not_selected]
-        not_selected = ", ".join(not_selected)
-        return self.EXTRA_HEADER.format(not_selected=not_selected)
-
-    def print_scan_header(self, scan_info):
-        """Print the header of a new scan"""
-        header = self.build_header(scan_info)
-        print(header)
-
-    def print_data_header(self, scan_info):  # , first=False):
+    def print_table_header(self):
         """Print the header of the data table.
         """
-        if scan_info.get("type") != "ct":
+        if self._scan_type != "ct":
             col_max_width = 40
-            labels = self.build_columns_labels()
+            labels = self._build_columns_labels()
             self._tab = IncrementalTable(
                 labels,
                 minwidth=self.DEFAULT_WIDTH,
@@ -359,24 +263,122 @@ class _ScanPrinterBase:
 
             self._tab.add_separator(self.RAW_SEP)
             print(str(self._tab))
-        else:
-            self._tab = ""
 
-    def build_data_output(self, scan_info, data):
+    def _build_columns_labels(self):
+        # Build the columns labels (multi-line with counter and controller names)
+        channel_labels = []
+        counter_labels = []
+        controller_labels = []
+
+        for cname in self._sorted_channel_names:
+            channel_meta = self._channels_meta[cname]
+
+            # build the channel label
+            if cname == "timer:elapsed_time":
+                disp_name = "dt"
+            else:
+                disp_name = channel_meta.display_name
+
+            # check if the unit must be added to channel label
+            unit = channel_meta.unit
+            if unit:
+                disp_name += f"[{unit}]"
+
+            channel_labels.append(disp_name)
+
+            # try to get controller and counter names
+            try:
+                ctrl, cnt = cname.split(":")[0:2]
+                if cnt == channel_meta.display_name:
+                    cnt = self.NO_NAME
+                counter_labels.append(cnt)
+                controller_labels.append(ctrl)
+            except Exception:
+                counter_labels.append("")
+                controller_labels.append("")
+
+        controller_labels.insert(0, "")
+        counter_labels.insert(0, "")  # 'index'
+        channel_labels.insert(0, "#")
+
+        return [controller_labels, channel_labels]  # counter_labels useless in table
+
+    def print_scan_header(self):
+        """Print the header of a new scan"""
+        header = self._build_scan_header()
+        print(header)
+
+    def _build_scan_header(self):
+        """Build the header to be displayed
+        """
+        # A message about not shown channels
+        not_shown_counters_str = ""
+        if self._other_channels:
+            not_shown_counters_str = ", ".join(self._other_channels)
+
+        master_names = ", ".join(self._master_channel_names)
+
+        header = self.HEADER.format(
+            not_shown_counters_str=not_shown_counters_str,
+            master_names=master_names,
+            **self._scan_info,
+        )
+
+        if self._scan_type != "ct":
+            header += self._build_extra_scan_header()
+
+        return header
+
+    def _build_extra_scan_header(self):
+        not_selected = [
+            c
+            for c in self._displayable_channel_names
+            if c not in self._sorted_channel_names
+        ]
+        if len(not_selected) == 0:
+            return self.EXTRA_HEADER_2
+
+        not_selected = [f"'\033[91m{c}\033[0m'" for c in not_selected]
+        not_selected = ", ".join(not_selected)
+        return self.EXTRA_HEADER.format(not_selected=not_selected)
+
+    def append_data(self, data):
+        """Append data before printing"""
+        if not set(data.keys()).issuperset(self._sorted_channel_names):
+            return
+
+        self._row_data.append(data)
+        self._nb_data_rows += 1
+
+    def print_data_rows(self):
+        """Print and flush the available data rows"""
+        if len(self._row_data) == 0:
+            # Nothing new
+            return
+        rows = self._row_data
+        self._row_data = []
+
+        lines = []
+        for i, r in enumerate(rows):
+            index = self._nb_data_rows + i - len(rows)
+            lines.append(self._build_data_row(index, r))
+        block = "\n".join(lines)
+        print(block)
+
+    def print_data_ct(self, scan_info):
+        # ct is actually a timescan(npoints=1).
+        data = self._row_data[-1]
+        values = [data[cname] for cname in self._sorted_channel_names]
+        norm_values = numpy.array(values) / self._scan_info["count_time"]
+        block = self._build_ct_output(values, norm_values)
+        print(block)
+
+    def _build_data_row(self, index, data):
         """ data is a dict, one scalar per channel (last point) """
-
-        # Get data for the current scan step
-        values = [data[cname] for cname in self.sorted_channel_names]
-
-        # Format output line
-        if scan_info.get("type") == "ct":
-            # ct is actually a timescan(npoints=1).
-            norm_values = numpy.array(values) / scan_info["count_time"]
-            return self._build_ct_output(values, norm_values)
-        else:
-            values.insert(0, self.scan_steps_index)
-            line = self._tab.add_line(values)
-            return line
+        values = [data[cname] for cname in self._sorted_channel_names]
+        values.insert(0, index)
+        line = self._tab.add_line(values)
+        return line
 
     def _format_number(self, value, length_before, length_after) -> str:
         """Format a number in order to center the dot.
@@ -409,7 +411,7 @@ class _ScanPrinterBase:
 
         info_dict = {}
         width = 20
-        for i, cname in enumerate(self.sorted_channel_names):
+        for i, cname in enumerate(self._sorted_channel_names):
             channel_meta = self._channels_meta[cname]
 
             # display name
@@ -446,72 +448,16 @@ class _ScanPrinterBase:
 
         return "\n".join(lines)
 
-    def is_new_scan_valid(self, scan_info):
+    def print_scan_end(self, scan_info):
+        """Print the end of the scan.
 
-        # Skip multi-top-masters scans
-        if len(scan_info["acquisition_chain"].keys()) != 1:
-            return False
-
-        # Skip scans without a type or without a number of points
-        scan_type = scan_info.get("type")
-        npoints = scan_info.get("npoints")
-        if None in [scan_type, npoints]:
-            return False
-
-        # Skip secondary scans and warn user
-        if self.scan_is_running:
-            self._warning_messages.append(
-                f"\nWarning: a new scan '{scan_info.get('node_name')}' has been started while scan '{self.scan_name}' is running.\nNew scan outputs will be ignored."
-            )
-            return False
-
-        return True
-
-    def is_new_data_valid(self, scan_info, data):
-        # Skip other scan
-        if scan_info.get("node_name") != self.scan_name:
-            return False
-
-        # Skip if missing channels
-        if len(data) != self.channels_number:
-            return False
-
-        return True
-
-    def is_end_scan_valid(self, scan_info):
-        # Skip other scan
-        if scan_info.get("node_name") != self.scan_name:
-            return False
-        if scan_info["state"] not in (ScanState.STOPPING, ScanState.DONE):
-            # why is there STOPPING here?
-            return False
-        return True
-
-    def on_scan_new(self, scan_info):
-        if self.is_new_scan_valid(scan_info):
-            self.scan_is_running = True
-            self.scan_name = scan_info.get("node_name")
-            self.scan_steps_index = 0
-            self._warning_messages = []
-
-            self.collect_channels_info(scan_info)
-            self.print_scan_header(scan_info)
-            self.print_data_header(scan_info)
-
-    def on_scan_data(self, scan_info, data):
-        raise NotImplementedError
-
-    def on_scan_end(self, scan_info):
-        if self.is_end_scan_valid(scan_info):
-            self.scan_is_running = False
-            end = datetime.datetime.fromtimestamp(time.time())
-            start = datetime.datetime.fromtimestamp(scan_info["start_timestamp"])
-            dt = end - start
-
-            for msg in self._warning_messages:
-                print(msg)
-
-            print(f"\n   Took {dt}[s] \n")
+        Argument:
+            scan_info: The final state of the `scan_info`
+        """
+        end = datetime.datetime.fromtimestamp(time.time())
+        start = datetime.datetime.fromtimestamp(scan_info["start_timestamp"])
+        dt = end - start
+        print(f"\n   Took {dt}[s] \n")
 
 
 class ScanMotorListener:
@@ -536,18 +482,42 @@ class ScanMotorListener:
             )
 
 
-class ScanPrinter(_ScanPrinterBase, ScanMotorListener):
-    """compose scan output"""
+class ScanHooks:
+    """Abstract class with the expected signature to retrieve BLISS scans
+    internal hooks.
 
-    HEADER = ""
+    This do not use Redis.
+
+    .. code-block::
+
+        from bliss.scanning.scan import set_scan_watch_callbacks
+        set_scan_watch_callbacks(self.on_scan_new, self.on_scan_data, self.on_scan_end)
+
+    FIXME: It would be better to provide it from the scan class.
+    """
+
+    def on_scan_new(self, scan, scan_info):
+        """Called by BLISS callback on new scan start"""
+        pass
+
+    def on_scan_data(self, scan_info, data):
+        """Called by BLISS callback on a new scan data"""
+        pass
+
+    def on_scan_end(self, scan_info):
+        """Called by BLISS callback on scan ending"""
+        pass
+
+
+class ScanPrinter(ScanHooks, ScanMotorListener):
+    """compose scan output"""
 
     def __init__(self):
         super().__init__()
 
         self._labels = []
-        self._ct_data = None
-
-        set_scan_watch_callbacks(self.on_scan_new, self.on_scan_data, self.on_scan_end)
+        self.scan_renderer = None
+        self._print_table = True
 
     @property
     def labels(self):
@@ -557,34 +527,24 @@ class ScanPrinter(_ScanPrinterBase, ScanMotorListener):
         """Print date + scan __repr__ at the beginning of the scan output"""
         user_print(f"   {scan_info['start_time_str']}: {scan}")
 
-    def print_scan_line(self, *args, **kwargs):
-        """Forward the call to 'print', but allow subclasses to modify behaviour"""
-        # raw print is used because the scan happens in 'disable_user_output' context
-        print(*args, **kwargs)
-
     def on_scan_new(self, scan, scan_info):
         self.print_scan_info(scan, scan_info)
-        super().on_scan_new(scan_info)
+        self.scan_renderer = ScanRenderer(scan_info)
+        if self._print_table:
+            self.scan_renderer.print_table_header()
         self.connect_real_motors(scan)
 
     def on_scan_data(self, scan_info, data):
-        if self.is_new_data_valid(scan_info, data):
-            if scan_info.get("type") == "ct":
-                self._ct_data = data
-            else:
-                line = self.build_data_output(scan_info, data)
-                if line:
-                    self.print_scan_line(line)
-
-            self.scan_steps_index += 1
+        self.scan_renderer.append_data(data)
+        if self._print_table:
+            if self.scan_renderer.scan_type != "ct":
+                self.scan_renderer.print_data_rows()
 
     def on_scan_end(self, scan_info):
         self.disconnect_real_motors()
-        if scan_info.get("type") == "ct":
-            if self.is_end_scan_valid(scan_info):
-                line = self.build_data_output(scan_info, self._ct_data)
-                self.print_scan_line(line)
-        super().on_scan_end(scan_info)
+        if self.scan_renderer.scan_type == "ct":
+            self.scan_renderer.print_data_ct(scan_info)
+        self.scan_renderer.print_scan_end(scan_info)
 
     def _on_motor_position_changed(self, position, signal=None, sender=None):
         self._labels.clear()
@@ -595,63 +555,61 @@ class ScanPrinter(_ScanPrinterBase, ScanMotorListener):
                 pos += "[{0}]".format(unit)
             self._labels.append("{0}: {1}".format(motor.name, pos))
 
-        # \33[2K means: erase current line
-        self.print_scan_line(f"\33[2K\r{', '.join(self._labels)}", end="\r")
+        ERASE_CURRENT_LINE = "\33[2K"
+        print(f"{ERASE_CURRENT_LINE}\r{', '.join(self._labels)}", end="\r")
 
 
-class CtProgressBar(tqdm):
-    def __init__(self, count_time):
+class CtPrinterWithProgressBar(ScanPrinter):
+    """Dedicated ScanPrinter for ct scan.
+
+    Displays a progress bar according to the count time.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.__progress_bar = None
         self.__progress_greenlet = None
-
-        total = int(count_time / 0.1) or None
-
-        super().__init__(total=total, leave=False)
+        self._print_table = False
 
     def _progress_task(self):
-        for i in range(self.total):  # _progress_bar.total):
-            gevent.sleep(0.1)
-            self.update()  # self._progress_bar.update()
+        prev = self.__start
+        now = time.time()
+        while now < self.__end:
+            gevent.sleep(0.2)
+            now = time.time()
+            increment = now - prev
+            prev = now
+            self.__progress_bar.update(increment)
 
-    def update(self):
-        # this is called from data update,
-        # but there is only 1 data event for 'ct',
-        # so it is not useful to show progress
-        # (this is why we have greenlet for updating here)
+    def on_scan_new(self, scan, scan_info):
+        super(CtPrinterWithProgressBar, self).on_scan_new(scan, scan_info)
+        count_time = scan_info["count_time"]
+        self.__progress_bar = tqdm(total=count_time, unit_scale=True, leave=False)
+        self.__start = time.time()
+        self.__end = self.__start + count_time
+        self.__progress_bar.update(0.0)
         if self.__progress_greenlet is None:
             self.__progress_greenlet = gevent.spawn(self._progress_task)
-        return super().update()
 
-    def close(self):
+    def on_scan_end(self, scan_info):
         if self.__progress_greenlet:
             self.__progress_greenlet.kill()
-        return super().close()
+            self.__progress_greenlet = None
+        self.__progress_bar.close()
+        self.__progress_bar = None
+        super().on_scan_end(scan_info)
 
 
 class ScanPrinterWithProgressBar(ScanPrinter):
+    """Dedicated ScanPrinter for any scan.
+
+    Displays a progress bar according to the received data.
+    """
+
     def __init__(self):
-        """ Alternate ScanPrinter to be used in parallel of a ScanDataListener.
-            Prints in the user shell a progress bar during the scan execution.
-            Prints data output of 'ct' scans only.
-        """
         super().__init__()
-
         self.progress_bar = None
-
-        self._print_scan = True
-        """FIXME: This have to be managed per scans"""
-
-    def print_scan_header(self, scan_info):
-        if scan_info.get("type") == "ct":
-            return super().print_scan_header(scan_info)
-
-    def print_data_header(self, scan_info):  # , first=False):
-        if scan_info.get("type") == "ct":
-            return super().print_data_header(scan_info)
-
-    def build_data_output(self, scan_info, data):
-        if scan_info.get("type") == "ct":
-            return super().build_data_output(scan_info, data)
-        return None
+        self._print_table = False
 
     def _on_motor_position_changed(self, position, signal=None, sender=None):
         super()._on_motor_position_changed(position, signal, sender)
@@ -659,60 +617,154 @@ class ScanPrinterWithProgressBar(ScanPrinter):
             self.progress_bar.set_description(", ".join(self.labels))
             self.progress_bar.refresh()
 
-    def _is_scan_must_be_printed(self):
-        """Only print scans if it is executed as forground in BLISS shell"""
-        # display progress bar only in BLISS repl
-        if not is_bliss_shell():
-            return False
-        # If it was not started in the background
-        current = gevent.getcurrent()
-        if current.parent is not None:
-            return False
-
-        return True
-
     def on_scan_new(self, scan, scan_info):
-        self._print_scan = self._is_scan_must_be_printed()
-        if not self._print_scan:
-            return
         super().on_scan_new(scan, scan_info)
-        scan_type = scan_info.get("type")
-        if scan_type == "ct":
-            self.progress_bar = CtProgressBar(scan_info["count_time"])
-            self.progress_bar.update()  # put in place the progress task
-        else:
-            self.progress_bar = tqdm(total=scan_info["npoints"], leave=False)
+        total = scan_info["npoints"]
+        self.progress_bar = tqdm(total=total, leave=False)
 
     def on_scan_data(self, scan_info, data):
-        if not self._print_scan:
-            return
-        old_step = self.scan_steps_index
+        nb_rows = self.scan_renderer.nb_data_rows
         super().on_scan_data(scan_info, data)
-        if self.progress_bar is not None:
-            if self.scan_steps_index > old_step:
-                # only update if there is a new scan line
-                if not scan_info["npoints"]:
-                    self.progress_bar.total = self.scan_steps_index * 2
-                    self.progress_bar.refresh()
-                self.progress_bar.update()
+        steps = self.scan_renderer.nb_data_rows - nb_rows
+        if steps > 0:
+            # only update if there is a new scan line
+            self.progress_bar.update(steps)
 
     def on_scan_end(self, scan_info):
-        if not self._print_scan:
-            return
         if self.progress_bar is not None:
             self.progress_bar.close()
         super().on_scan_end(scan_info)
         self.progress_bar = None
 
 
-class ScanDataListener(_ScanPrinterBase):
-    def __init__(self, session_name):
-        super().__init__()
+class ScanDisplayDispatcher(ScanHooks):
+    """Listen scans from the BLISS session and dispatch them to dedicated scan
+    displayer"""
 
-        self.session_name = session_name
-        self.scan_display = None
-        self.scan_info = None
+    def __init__(self):
+        set_scan_watch_callbacks(self.on_scan_new, self.on_scan_data, self.on_scan_end)
+        self._scan_displayer = None
+        """Current scan displayer"""
+
+        self._scan_id = None
+        """Current scan id"""
+
+        self._use_progress_bar = False
+        """If True try to use a scan display using a progress bar"""
+
+    def set_use_progress_bar(self, use_progress_bar):
+        """When set the next displayed scan will use or not the progress bar"""
+        self._use_progress_bar = use_progress_bar
+
+    def _create_scan_displayer(self, scan, scan_info):
+        """Create a scan displayer for a specific scan"""
+
+        if not is_scan_supported(scan_info):
+            return None
+
+        # Display the scan only on the main BlissRepl
+        if not is_bliss_shell():
+            return None
+
+        # Scans started from the background are ignored
+        current = gevent.getcurrent()
+        if current.parent is not None:
+            return None
+
+        if self._use_progress_bar:
+            scan_type = scan_info.get("type")
+            if scan_type == "ct":
+                return CtPrinterWithProgressBar()
+            else:
+                return ScanPrinterWithProgressBar()
+        else:
+            return ScanPrinter()
+
+    def on_scan_new(self, scan, scan_info):
+        """Called by BLISS callback on new scan start"""
+        if self._scan_displayer is None:
+            self._scan_displayer = self._create_scan_displayer(scan, scan_info)
+            if self._scan_displayer is not None:
+                self._scan_id = scan_info["node_name"]
+                self._scan_displayer.on_scan_new(scan, scan_info)
+
+    def on_scan_data(self, scan_info, data):
+        """Called by BLISS callback on a new scan data"""
+        scan_id = scan_info["node_name"]
+        if self._scan_id == scan_id:
+            if self._scan_displayer is not None:
+                self._scan_displayer.on_scan_data(scan_info, data)
+
+    def on_scan_end(self, scan_info):
+        """Called by BLISS callback on scan ending"""
+        scan_id = scan_info["node_name"]
+        if self._scan_id == scan_id:
+            try:
+                if self._scan_displayer is not None:
+                    self._scan_displayer.on_scan_end(scan_info)
+            finally:
+                self._scan_displayer = None
+                self._scan_id = None
+
+
+class ScanDataRowStream:
+    """Hold the data received from Redis to follow the last available row.
+
+    When the row is read the data is released.
+    """
+
+    def __init__(self):
+        self._data_per_channels = {}
+        self._nb_per_channels = {}
+        self._nb_full_rows = 0
+        self._current = -1
+
+    def register(self, name: str):
+        self._data_per_channels[name] = []
+        self._nb_per_channels[name] = 0
+
+    def is_registered(self, name: str) -> bool:
+        return name in self._data_per_channels
+
+    def received_size(self, name: str) -> int:
+        return self._nb_per_channels[name]
+
+    def add_channel_data(self, name: str, index: int, data_bunch: numpy.ndarray):
+        row = self._data_per_channels.setdefault(name, [])
+        row.append([index, data_bunch])
+        self._nb_per_channels[name] = index + len(data_bunch)
+
+    def _pop_channel_value(self, name: str, index: int):
+        row = self._data_per_channels[name]
+        data_index, data_bunch = row[0]
+        while not (index < data_index + len(data_bunch)):
+            row.pop(0)
+            data_index, data_bunch = row[0]
+        return data_bunch[index - data_index]
+
+    def next_rows(self) -> typing.Iterator[typing.Dict[str, float]]:
+        """Returns a dict containing the next value of each channels.
+
+        Else returns None
+        """
+        self._nb_full_rows = min(self._nb_per_channels.values())
+        if self._nb_full_rows == 0:
+            return
+        for i in range(self._current + 1, self._nb_full_rows):
+            data = {
+                k: self._pop_channel_value(k, i) for k in self._data_per_channels.keys()
+            }
+            yield data
+        self._current = self._nb_full_rows - 1
+
+
+class ScanPrinterFromRedis(scan_mdl.ScansObserver):
+    def __init__(self, scan_display):
+        super(ScanPrinterFromRedis, self).__init__()
+        self.scan_display = scan_display
         self.update_header = False
+        self.scan_renderer = None
+        self._rows = ScanDataRowStream()
 
     def update_displayed_channels_from_user_request(self) -> bool:
         """If enabled, check ScanDisplay content and compare it to the
@@ -724,106 +776,136 @@ class ScanDataListener(_ScanPrinterBase):
         Returns:
             True if the channel selection was changed.
         """
-        if self.scan_display is None:
-            self.scan_display = ScanDisplay(self.session_name)
-
         requested_channels = []
+        scan_renderer = self.scan_renderer
         if self.scan_display.scan_display_filter_enabled:
             # Use master channel plus user request
             requested_channels = self.scan_display.displayed_channels.copy()
-            for m in self.master_channel_names:
+            if len(requested_channels) == 0:
+                return
+            for m in scan_renderer.master_scalar_channel_names:
                 if m in requested_channels:
                     requested_channels.remove(m)
             # Always use the masters
-            requested_channels = self.master_channel_names + requested_channels
-        if not requested_channels:
-            requested_channels = self.displayable_channel_names.copy()
+            requested_channels = (
+                scan_renderer.master_scalar_channel_names + requested_channels
+            )
+            if not requested_channels:
+                requested_channels = scan_renderer.displayable_channel_names.copy()
+            scan_renderer.set_displayed_channels(requested_channels)
 
-        # Check if the content or the order have changed
-        if self.sorted_channel_names != requested_channels:
-            # Filter it with available channels
-            requested_channels = [
-                r for r in requested_channels if r in self.displayable_channel_names
-            ]
-            if self.sorted_channel_names != requested_channels:
-                self.sorted_channel_names = requested_channels
-                return True
-        return False
-
-    def collect_channels_info(self, scan_info):
-        super().collect_channels_info(scan_info)
+    def on_scan_started(self, scan_db_name: str, scan_info: typing.Dict):
+        self.scan_renderer = ScanRenderer(scan_info)
         # Update the displayed channels before printing the scan header
-        self.update_displayed_channels_from_user_request()
+        if self.scan_renderer.scan_type != "ct":
+            self.update_displayed_channels_from_user_request()
+        for n in self.scan_renderer.sorted_channel_names:
+            self._rows.register(n)
+        self.scan_renderer.print_scan_header()
+        self.scan_renderer.print_table_header()
 
-    def on_scan_new_child(self, scan_info, data_channel):
-        pass
+    def on_scan_finished(self, scan_db_name: str, scan_info: typing.Dict):
+        if self.scan_renderer.scan_type == "ct":
+            self.scan_renderer.print_data_ct(scan_info)
+        self.scan_renderer.print_scan_end(scan_info)
 
-    def on_scan_new(self, scan_info):
-        self.scan_info = scan_info
-        super().on_scan_new(scan_info)
+    def on_scalar_data_received(
+        self,
+        scan_db_name: str,
+        channel_name: str,
+        index: int,
+        data_bunch: typing.Union[list, numpy.ndarray],
+    ):
+        if not self._rows.is_registered(channel_name):
+            return
 
-    def on_scan_data(self, data_dim, master_name, channel_info):
-        if data_dim != "0d":
-            return False
+        size = self._rows.received_size(channel_name)
+        if index > size:
+            # Append NaN values
+            data_gap = [numpy.nan] * (index - size)
+            self._rows.add_channel_data(channel_name, size, data_gap)
 
-        scan_info = channel_info["scan_info"]
-        data = channel_info["data"]
+        self._rows.add_channel_data(channel_name, index, data_bunch)
+        for row in self._rows.next_rows():
+            self.scan_renderer.append_data(row)
 
-        if self.is_new_data_valid(scan_info, data):
+        if self.scan_renderer.scan_type != "ct":
             with nonblocking_print():
-                # Skip if partial data
-                for cname in self.sorted_channel_names:
-                    if len(data[cname]) <= self.scan_steps_index:
-                        return False
+                self.scan_renderer.print_data_rows()
 
-                # Check if we receive more than one scan points (i.e. lines) per 'scan_data' event
-                bsize = min(len(data[cname]) for cname in data)
 
-                for i in range(bsize - self.scan_steps_index):
-                    # convert data in order to keep only the concerned line (one scalar per channel).
-                    ndata = {
-                        cname: data[cname][self.scan_steps_index] for cname in data
-                    }
-                    line = self.build_data_output(scan_info, ndata)
-                    if line:
-                        print(line)
-                    self.scan_steps_index += 1
+class ScanDataListener(scan_mdl.ScansObserver):
+    """Listen all the scans of a session from Redis and dispatch them to a
+    dedicated printer"""
 
-    def reset_terminal(self):
-        # Prevent user inputs
-        fd = sys.stdin.fileno()
-        new = termios.tcgetattr(fd)
-        new[3] |= termios.ECHO
-        termios.tcsetattr(fd, termios.TCSANOW, new)
+    def __init__(self, session_name):
+        super().__init__()
+        self.session_name = session_name
+        self.scan_display = ScanDisplay(self.session_name)
+
+        self._scan_displayer = None
+        """Current scan displayer"""
+
+        self._scan_id = None
+        """Current scan id"""
+
+        self._warning_messages = []
+
+    def _create_scan_displayer(self, scan_info):
+        """Create a scan displayer for a specific scan"""
+        if not is_scan_supported(scan_info):
+            return None
+        return ScanPrinterFromRedis(self.scan_display)
+
+    def on_scan_started(self, scan_db_name: str, scan_info: typing.Dict):
+        """Called from Redis callback on scan started"""
+        if self._scan_displayer is None:
+            self._scan_displayer = self._create_scan_displayer(scan_info)
+            if self._scan_displayer is not None:
+                self._scan_id = scan_db_name
+                self._scan_displayer.on_scan_started(scan_db_name, scan_info)
+        else:
+            self._warning_messages.append(
+                f"\nWarning: a new scan '{scan_db_name}' has been started while scan '{self._scan_id}' is running.\nNew scan outputs will be ignored."
+            )
+
+    def on_scan_finished(self, scan_db_name: str, scan_info: typing.Dict):
+        """Called from Redis callback on scan ending"""
+        scan_id = scan_info["node_name"]
+        if self._scan_id == scan_id:
+            try:
+                if self._scan_displayer is not None:
+                    self._scan_displayer.on_scan_finished(scan_db_name, scan_info)
+            finally:
+                self._scan_displayer = None
+                self._scan_id = None
+
+        messages = self._warning_messages
+        self._warning_messages.clear()
+        for msg in messages:
+            print(msg)
+
+    def on_scalar_data_received(
+        self,
+        scan_db_name: str,
+        channel_name: str,
+        index: int,
+        data_bunch: typing.Union[list, numpy.ndarray],
+    ):
+        """Called from Redis callback on a scalar data received"""
+        if self._scan_id == scan_db_name:
+            if self._scan_displayer is not None:
+                self._scan_displayer.on_scalar_data_received(
+                    scan_db_name, channel_name, index, data_bunch
+                )
 
     def start(self):
-
-        # Prevent user to close the listener with Ctrl-C
-        signal.signal(signal.SIGINT, catch_sigint)
-
-        # Prevent user inputs if using a terminal
-        fd = sys.stdin.fileno()
-        try:
-            new = termios.tcgetattr(fd)
-            new[3] &= ~termios.ECHO
-            termios.tcsetattr(fd, termios.TCSANOW, new)
-        except termios.error:
-            pass  # not in terminal (example in tests)
-        else:
-            # revert 'Prevent user inputs if using a terminal'
-            atexit.register(self.reset_terminal)
 
         msg = f" Watching scans from Bliss session: '{self.session_name}' "
         line = get_decorated_line(msg, deco=">", rdeco="<", head="\n", tail="\n")
 
-        observer = scan_mdl.DefaultScansObserver()
-        observer.scan_new_callback = self.on_scan_new
-        observer.scan_new_child_callback = self.on_scan_new_child
-        observer.scan_data_callback = self.on_scan_data
-        observer.scan_end_callback = self.on_scan_end
-
         watcher = scan_mdl.ScansWatcher(self.session_name)
-        watcher.set_observer(observer)
+        watcher.set_observer(self)
         watcher.set_exclude_existing_scans(True)
 
         def print_ready():

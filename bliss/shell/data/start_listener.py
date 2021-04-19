@@ -10,10 +10,52 @@ import sys
 import traceback
 import time
 import gevent
+import atexit
+import signal
+
 from bliss.shell.data.display import ScanDataListener
+
+if sys.platform not in ["win32", "cygwin"]:
+    import termios
+else:
+    termios = None
+
+
+def catch_sigint(*args):
+    pass
+
+
+def prevent_user_input():
+    """Prevent user input in the terminal, if the feature is available"""
+    if termios is None:
+        return
+
+    fd = sys.stdin.fileno()
+    try:
+        new = termios.tcgetattr(fd)
+        new[3] &= ~termios.ECHO
+        termios.tcsetattr(fd, termios.TCSANOW, new)
+    except termios.error:
+        pass  # not in terminal (example in tests)
+    else:
+        # revert 'Prevent user inputs if using a terminal'
+        atexit.register(release_user_input)
+
+
+def release_user_input(self):
+    """Release user input, if it was locked with `_prevent_user_input`"""
+    fd = sys.stdin.fileno()
+    new = termios.tcgetattr(fd)
+    new[3] |= termios.ECHO
+    termios.tcsetattr(fd, termios.TCSANOW, new)
 
 
 def main(session_name):
+    # Prevent user to close the listener with Ctrl-C
+    signal.signal(signal.SIGINT, catch_sigint)
+
+    # Prevent user inputs if using a terminal
+    prevent_user_input()
 
     while True:
         try:

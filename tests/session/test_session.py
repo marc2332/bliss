@@ -5,15 +5,15 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import pytest
 import re
 import os
-import textwrap
+import pytest
+from treelib import Tree
+
 from bliss import current_session
 from bliss.shell.cli import repl
 from bliss import setup_globals
 from bliss.common import scans, session
-from treelib import Tree
 from prompt_toolkit.input.defaults import create_pipe_input
 from prompt_toolkit.output import DummyOutput
 
@@ -413,3 +413,14 @@ def test_issue_2218(beacon):
     assert default_session.scan_saving.__class__.__name__ != "ESRFScanSaving"
     default_session.enable_esrf_data_policy()
     assert default_session.scan_saving.__class__.__name__ != "ESRFScanSaving"
+
+
+def test_session_exit_on_timeout(beacon):
+    """
+    Test robustness of a session setup to many exceptions.
+    NB: initial bug was: session exits on timeout.
+    """
+    bsession = beacon.get("test_exceptions_session")
+    bsession.setup()
+    assert bsession.name == "test_exceptions_session"
+    bsession.close()

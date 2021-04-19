@@ -117,3 +117,7 @@
     tmp_data_root: /tmp/scans/tmp_test_scan_saving
     visitor_data_root: /tmp/scans/visitor_test_scan_saving
     inhouse_data_root: /tmp/scans/inhouse_test_scan_saving
+- class: Session
+  name: test_exceptions_session
+  setup-file: ./test_exceptions_session_setup.py
+  config-objects: []

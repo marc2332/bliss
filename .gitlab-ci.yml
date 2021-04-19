@@ -20,6 +20,7 @@ default:
     - echo ${CI_PROJECT_DIR}
     - export PIP_CACHE_DIR="/opt/cache/pip"
     - /opt/conda/bin/conda init && source /root/.bashrc
+    - conda config --set channel_priority false
     - conda config --add channels conda-forge
     - conda config --append channels defaults
     - conda config --append channels esrf-bcu
@@ -187,6 +188,7 @@ test_bliss_windows:
   before_script:
     - call conda create -n %CONDA_ENV%
     - call conda activate %CONDA_ENV%
+    - call conda config --env --set channel_priority false
     - call conda config --env --add channels conda-forge
     - call conda config --env --append channels defaults
     - call conda config --env --append channels esrf-bcu
@@ -244,6 +246,7 @@ package_windows:
     # Create a dedicated env to avoid to pollute the shared machine
     - call conda create -n %CONDA_ENV%
     - call conda activate %CONDA_ENV%
+    - call conda config --env --set channel_priority false
     - call conda config --env --add channels conda-forge
     - call conda config --env --append channels defaults
     - call conda config --env --append channels esrf-bcu

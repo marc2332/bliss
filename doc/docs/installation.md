@@ -10,6 +10,7 @@ the environment can - of course - be chosen freely):
 conda create --name bliss_env
 conda activate bliss_env
 
+conda config --env --set channel_priority false
 conda config --env --add channels conda-forge
 conda config --env --append channels defaults
 conda config --env --append channels esrf-bcu

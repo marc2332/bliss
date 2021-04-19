@@ -168,6 +168,7 @@ apt-get update && apt-get -y install xvfb libxi6 git
 
 git clone https://gitlab.esrf.fr/bliss/bliss.git
 
+conda config --env --set channel_priority false
 conda config --env --add channels conda-forge
 conda config --env --append channels defaults
 conda config --env --append channels esrf-bcu

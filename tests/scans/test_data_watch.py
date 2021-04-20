@@ -17,7 +17,7 @@ from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 from bliss.scanning.acquisition.mca import McaAcquisitionSlave
 from bliss.scanning.acquisition.motor import LinearStepTriggerMaster
 from bliss.scanning.scan import Scan
-from bliss.data.scan import watch_session_scans
+from bliss.data.scan import watch_session_scans, ScansObserver, ScansWatcher
 from bliss.scanning.chain import AcquisitionChain
 from bliss.common import scans
 from bliss.scanning.group import Sequence
@@ -443,3 +443,37 @@ def test_scan_groups(default_session, mocker):
     session_watcher.get()
 
     assert len(callbacks.scan_new_callback.call_args_list) == 2
+
+
+def test_scan_observer(session, diode_acq_device_factory, mocker):
+    observer = mocker.Mock(spec=ScansObserver)
+    watcher = ScansWatcher(session.name)
+    watcher.set_exclude_existing_scans(True)
+    watcher.set_watch_scan_group(True)
+    watcher.set_observer(observer)
+
+    session_watcher = gevent.spawn(watcher.run)
+    watcher.wait_ready(timeout=3)
+
+    chain = AcquisitionChain()
+    acquisition_device_1, _ = diode_acq_device_factory.get(count_time=0.1, npoints=1)
+    master = SoftwareTimerMaster(0.1, npoints=1)
+    chain.add(master, acquisition_device_1)
+    scan = Scan(chain, "test", save=False)
+    try:
+        scan.run()
+    finally:
+        gevent.sleep(0.5)
+        session_watcher.kill()
+
+    observer.on_scan_created.assert_called_once()
+    observer.on_scan_finished.assert_called_once()
+    call = observer.on_scan_created.call_args_list[0]
+    scan_info = call[0][1]
+    assert "positioners_start" in scan_info["positioners"]
+    assert "start_timestamp" in scan_info
+
+    call = observer.on_scan_finished.call_args_list[0]
+    scan_info = call[0][1]
+    assert "end_timestamp" in scan_info
+    assert "positioners_end" in scan_info["positioners"]

@@ -1,4 +1,5 @@
 # Conda requirements file
+aiogevent >= 0.4
 cerberus
 colorama
 cython

@@ -216,9 +216,9 @@ class ScanManager(bliss_scan.ScansObserver):
         managed)."""
         return scan_db_name in self.__cache
 
-    def on_scan_started(self, scan_db_name: str, scan_info: Dict):
+    def on_scan_created(self, scan_db_name: str, scan_info: Dict):
         _logger.info("Scan started: %s", scan_info.get("title", scan_db_name))
-        _logger.debug("on_scan_started %s", scan_db_name)
+        _logger.debug("on_scan_created %s", scan_db_name)
         if scan_db_name in self.__cache:
             # We should receive a single new_scan per scan, but let's check anyway
             _logger.debug("new_scan from %s ignored", scan_db_name)

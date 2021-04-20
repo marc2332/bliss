@@ -803,7 +803,7 @@ class ScanPrinterFromRedis(scan_mdl.ScansObserver):
                 requested_channels = scan_renderer.displayable_channel_names.copy()
             scan_renderer.set_displayed_channels(requested_channels)
 
-    def on_scan_started(self, scan_db_name: str, scan_info: typing.Dict):
+    def on_scan_created(self, scan_db_name: str, scan_info: typing.Dict):
         self.scan_renderer = ScanRenderer(scan_info)
         # Update the displayed channels before printing the scan header
         if self.scan_renderer.scan_type != "ct":
@@ -866,13 +866,13 @@ class ScanDataListener(scan_mdl.ScansObserver):
             return None
         return ScanPrinterFromRedis(self.scan_display)
 
-    def on_scan_started(self, scan_db_name: str, scan_info: typing.Dict):
+    def on_scan_created(self, scan_db_name: str, scan_info: typing.Dict):
         """Called from Redis callback on scan started"""
         if self._scan_displayer is None:
             self._scan_displayer = self._create_scan_displayer(scan_info)
             if self._scan_displayer is not None:
                 self._scan_id = scan_db_name
-                self._scan_displayer.on_scan_started(scan_db_name, scan_info)
+                self._scan_displayer.on_scan_created(scan_db_name, scan_info)
         else:
             self._warning_messages.append(
                 f"\nWarning: a new scan '{scan_db_name}' has been started while scan '{self._scan_id}' is running.\nNew scan outputs will be ignored."

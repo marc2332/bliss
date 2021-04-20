@@ -466,7 +466,9 @@ def test_scan_observer(session, diode_acq_device_factory, mocker):
         gevent.sleep(0.5)
         session_watcher.kill()
 
+    # TODO check the order of the received events
     observer.on_scan_created.assert_called_once()
+    observer.on_scan_started.assert_called_once()
     observer.on_scan_finished.assert_called_once()
     call = observer.on_scan_created.call_args_list[0]
     scan_info = call[0][1]

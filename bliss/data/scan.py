@@ -115,6 +115,16 @@ class ScansObserver:
         """
         pass
 
+    def on_scan_started(self, scan_db_name: str, scan_info: Dict):
+        """
+        Called upon scan started (the devices was prepared).
+
+        Arguments:
+            scan_db_name: Identifier of the scan
+            scan_info: Dictionary containing scan metadata
+        """
+        pass
+
     def on_child_created(self, scan_db_name: str, node):
         """
         Called upon scan child creation (e.g. channel node)
@@ -403,6 +413,16 @@ class ScansWatcher:
                                     )
                                 except Exception:
                                     sys.excepthook(*sys.exc_info())
+                elif event_type == EventType.PREPARED_SCAN:
+                    node_type = node.type
+                    if self._watch_scan_group or node_type == "scan":
+                        db_name = node.db_name
+                        if db_name in self._running_scans:
+                            scan_info = node.info.get_all()
+                            try:
+                                observer.on_scan_started(db_name, scan_info)
+                            except Exception:
+                                sys.excepthook(*sys.exc_info())
                 elif event_type == EventType.END_SCAN:
                     node_type = node.type
                     if self._watch_scan_group or node_type == "scan":

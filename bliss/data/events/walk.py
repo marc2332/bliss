@@ -21,6 +21,7 @@ class EventType(Enum):
     NEW_NODE = 1
     NEW_DATA = 2
     END_SCAN = 3
+    PREPARED_SCAN = 4
 
 
 class EventData(NamedTuple):

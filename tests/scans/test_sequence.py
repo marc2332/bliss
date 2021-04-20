@@ -263,7 +263,7 @@ def test_sequence_events(session):
             seq_context.add(s2)
 
     event_dump = list()
-    nexpectedevents = 70
+    nexpectedevents = 74
     started_event = gevent.event.Event()
     finished_event = gevent.event.Event()
 

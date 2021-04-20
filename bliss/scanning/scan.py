@@ -1266,6 +1266,8 @@ class Scan:
         self._prepare_devices(devices_tree)
         self.writer.prepare(self)
 
+        self.node.prepared()
+
         self._axes_in_scan = self._get_data_axes(include_calc_reals=True)
         with execute_pre_scan_hooks(self._axes_in_scan):
             pass

@@ -490,7 +490,7 @@ def test_walk_after_nodes_disappeared(session):
     # Validate counting when all nodes are still present
     nroot = len(session.scan_saving._db_path_keys) - 1
     nnodes = nroot + 6  # + scan, master, epoch, elapsed, controller, diode
-    nevents = nnodes + 4  # + 3 x data + 1 x end
+    nevents = nnodes + 5  # + 3 x data + 1 x end + 1 x prepared
     validate_count(nnodes, nevents)
 
     # Scan incomplete
@@ -502,7 +502,7 @@ def test_walk_after_nodes_disappeared(session):
     names = list(s.node.search_redis(s.node.db_name + "*"))
 
     nnodes = nroot + 1
-    nevents = nnodes + 1
+    nevents = nnodes + 2
     validate_count(nnodes, nevents)
 
     # Scan missing
@@ -856,9 +856,10 @@ def test_walk_events_on_session_node(beforestart, wait, include_filter, session)
         beforestart, session, session.name, include_filter=include_filter, wait=wait
     )
     if include_filter == "scan":
-        assert set(events.keys()) == {"NEW_NODE", "END_SCAN"}
+        assert set(events.keys()) == {"NEW_NODE", "END_SCAN", "PREPARED_SCAN"}
         assert len(events["NEW_NODE"]) == 1
         assert len(events["END_SCAN"]) == 1
+        assert len(events["PREPARED_SCAN"]) == 1
     elif include_filter == "channel":
         # New node events: epoch, elapsed_time, n x detector
         assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
@@ -872,12 +873,18 @@ def test_walk_events_on_session_node(beforestart, wait, include_filter, session)
     else:
         # New node events: root nodes, scan, scan master (timer),
         #                  epoch, elapsed_time, n  x (controller, detector)
-        assert set(events.keys()) == {"NEW_NODE", "NEW_DATA", "END_SCAN"}
+        assert set(events.keys()) == {
+            "NEW_NODE",
+            "NEW_DATA",
+            "END_SCAN",
+            "PREPARED_SCAN",
+        }
         # One less because the NEW_NODE event for session.name is
         # not emitted on node session.name
         nroot = len(session.scan_saving._db_path_keys) - 1
         assert len(events["NEW_NODE"]) == nroot + 2 + nmasters + 2 * nchannels
         assert len(events["NEW_DATA"]) == nmasters + nchannels
+        assert len(events["PREPARED_SCAN"]) == 1
         assert len(events["END_SCAN"]) == 1
 
 
@@ -929,9 +936,10 @@ def test_walk_events_on_dataset_node(beforestart, wait, include_filter, session)
     )
     if include_filter == "scan":
         # New node events: scan
-        assert set(events.keys()) == {"NEW_NODE", "END_SCAN"}
+        assert set(events.keys()) == {"NEW_NODE", "END_SCAN", "PREPARED_SCAN"}
         assert len(events["NEW_NODE"]) == 1
         assert len(events["END_SCAN"]) == 1
+        assert len(events["PREPARED_SCAN"]) == 1
     elif include_filter == "channel":
         # New node events: epoch, elapsed_time, n x detector
         assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
@@ -945,10 +953,16 @@ def test_walk_events_on_dataset_node(beforestart, wait, include_filter, session)
     else:
         # New node events: dataset, scan master (timer), epoch,
         #                  elapsed_time, n  x (controller, detector)
-        assert set(events.keys()) == {"NEW_NODE", "NEW_DATA", "END_SCAN"}
+        assert set(events.keys()) == {
+            "NEW_NODE",
+            "NEW_DATA",
+            "END_SCAN",
+            "PREPARED_SCAN",
+        }
         assert len(events["NEW_NODE"]) == 2 + nmasters + 2 * nchannels
         assert len(events["NEW_DATA"]) == nmasters + nchannels
         assert len(events["END_SCAN"]) == 1
+        assert len(events["PREPARED_SCAN"]) == 1
 
 
 @pytest.mark.parametrize("beforestart, wait, include_filter", _count_parameters)
@@ -989,8 +1003,9 @@ def test_walk_events_on_scan_node(beforestart, wait, include_filter, session):
         wait=wait,
     )
     if include_filter == "scan":
-        assert set(events.keys()) == {"END_SCAN"}
+        assert set(events.keys()) == {"END_SCAN", "PREPARED_SCAN"}
         assert len(events["END_SCAN"]) == 1
+        assert len(events["PREPARED_SCAN"]) == 1
     elif include_filter == "channel":
         # New node events: epoch, elapsed_time, n x detector
         assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
@@ -1004,10 +1019,16 @@ def test_walk_events_on_scan_node(beforestart, wait, include_filter, session):
     else:
         # New node events: scan master (timer), epoch, elapsed_time,
         #                  n  x (controller, detector)
-        assert set(events.keys()) == {"NEW_NODE", "NEW_DATA", "END_SCAN"}
+        assert set(events.keys()) == {
+            "NEW_NODE",
+            "NEW_DATA",
+            "END_SCAN",
+            "PREPARED_SCAN",
+        }
         assert len(events["NEW_NODE"]) == 1 + nmasters + 2 * nchannels
         assert len(events["NEW_DATA"]) == nmasters + nchannels
         assert len(events["END_SCAN"]) == 1
+        assert len(events["PREPARED_SCAN"]) == 1
 
 
 @pytest.mark.parametrize("beforestart, wait, include_filter", _count_parameters)
@@ -1439,7 +1460,8 @@ def test_filter_nodes(session):
     nroot = len(session.scan_saving._db_path_keys)
     keys_per_channel = 3
     keys_per_container = 2
-    keys_per_scan = 4
+    streams_per_scan = 2
+    keys_per_scan = streams_per_scan + 3
     containers_per_scan = 2  # master, controller
     channels_per_scan = 3  # epoch, elapsed, diode
     keys_per_scan += (
@@ -1624,13 +1646,14 @@ def test_walk_events_filter(session):
     nevents = nroot + nscans * nodes_per_scan  # NEW_NODE
     nevents += nscans * channels_per_scan  # NEW_DATA
     nevents += nscans  # END_SCAN
+    nevents += nscans  # PREPARED_SCAN
     db_names = list(_filter_walk_get_nodes(session_node.walk_events, wait=False))
     assert len(db_names) == nevents
     assert set(scan_db_names).issubset(db_names)
 
     # Walk all scan events:
     kw = {"include_filter": "scan"}
-    nevents = 2 * nscans  # NEW_NODE + END_SCAN
+    nevents = 3 * nscans  # NEW_NODE + PREPARED + END_SCAN
     for a, b in itertools.product((None, "scan"), (None, "scan")):
         kw = {
             "include_filter": "scan",

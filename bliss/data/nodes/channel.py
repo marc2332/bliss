@@ -20,7 +20,7 @@ class _ChannelDataNodeBase(DataNode):
 
     def __init__(self, name, **kwargs):
         super().__init__(self._NODE_TYPE, name, **kwargs)
-        self._queue = self._create_stream("data", maxlen=CHANNEL_MAX_LEN)
+        self._queue = self._create_stream("data", maxlen=CHANNEL_MAX_LEN, priority=2)
         self._last_index = self._idx_to_streamid(0)
 
     @classmethod

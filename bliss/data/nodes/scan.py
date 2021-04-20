@@ -10,25 +10,47 @@ from bliss.data.node import DataNodeContainer
 from bliss.data.nodes.channel import ChannelDataNode
 from bliss.data.nodes.lima import LimaImageChannelDataNode
 from bliss.config.streaming_events import StreamEvent
-from bliss.data.events import Event, EventType, EventData, EndScanEvent
+from bliss.data.events import (
+    Event,
+    EventType,
+    EventData,
+    EndScanEvent,
+    PreparedScanEvent,
+)
 from bliss.config import settings
 
 
 class ScanNode(DataNodeContainer):
     _NODE_TYPE = "scan"
 
-    _EVENT_TYPE_MAPPING = {EndScanEvent.TYPE.decode("ascii"): EventType.END_SCAN}
+    _EVENT_TYPE_MAPPING = {
+        EndScanEvent.TYPE.decode("ascii"): EventType.END_SCAN,
+        PreparedScanEvent.TYPE.decode("ascii"): EventType.PREPARED_SCAN,
+    }
     """Mapping from event name to EventType
     """
 
     def __init__(self, name, **kwargs):
         super().__init__(self._NODE_TYPE, name, **kwargs)
         # Lower priority than all other streams
-        self._end_stream = self._create_stream("end", priority=1)
+        self._end_stream = self._create_stream("end", priority=3)
+        # Lower priority than NEW_NODE, higher than NEW_DATA
+        self._prepared_stream = self._create_stream("prepared", priority=1)
 
     @property
     def dataset(self):
         return self.parent
+
+    def prepared(self):
+        """Publish PREPARED event in Redis
+        """
+        if not self.new_node:
+            return
+        # to avoid to have multiple modification events
+        # TODO: what does the comment above mean?
+        with settings.pipeline(self._prepared_stream, self._info):
+            event = PreparedScanEvent()
+            self._prepared_stream.add_event(event)
 
     def end(self, exception=None):
         """Publish END event in Redis
@@ -46,15 +68,6 @@ class ScanNode(DataNodeContainer):
             }
             self._info.update(add_info)
             self._end_stream.add_event(event)
-
-    def _get_event_class(self, stream_event):
-        stream_event = stream_event[0]
-        kind = stream_event[1][b"__EVENT__"]
-        # FIXME: Use dict instead of iteration
-        for event_class in self._SUPPORTED_EVENTS:
-            if event_class.TYPE == kind:
-                return event_class
-        raise RuntimeError("Unsupported event kind %s", kind)
 
     def decode_raw_events(self, events):
         """Decode raw stream data
@@ -76,10 +89,11 @@ class ScanNode(DataNodeContainer):
     def get_db_names(self, **kw):
         db_names = super().get_db_names(**kw)
         db_names.append(self._end_stream.name)
+        db_names.append(self._prepared_stream.name)
         return db_names
 
     def get_settings(self):
-        return super().get_settings() + [self._end_stream]
+        return super().get_settings() + [self._end_stream, self._prepared_stream]
 
     def _subscribe_streams(self, reader, first_index=None, **kw):
         """Subscribe to all associated streams of this node.
@@ -92,6 +106,10 @@ class ScanNode(DataNodeContainer):
         self._subscribe_stream(
             suffix, reader, first_index=0, create=True, ignore_excluded=True
         )
+        suffix = self._prepared_stream.name.rsplit("_", 1)[-1]
+        self._subscribe_stream(
+            suffix, reader, first_index=0, create=True, ignore_excluded=True
+        )
 
     def get_stream_event_handler(self, stream):
         """
@@ -99,6 +117,8 @@ class ScanNode(DataNodeContainer):
         :returns callable:
         """
         if stream.name == self._end_stream.name:
+            return self._iter_data_stream_events
+        elif stream.name == self._prepared_stream.name:
             return self._iter_data_stream_events
         return super(ScanNode, self).get_stream_event_handler(stream)
 
@@ -130,9 +150,10 @@ class ScanNode(DataNodeContainer):
                     event_id = self._EVENT_TYPE_MAPPING[kind]
                     event = Event(type=event_id, node=self, data=data)
                     yield event
-        # Stop reading events from this node's streams
-        # and the streams of its children
-        reader.remove_matching_streams(f"{self.db_name}*")
+                    if event_id is EventType.END_SCAN:
+                        # Stop reading events from this node's streams
+                        # and the streams of its children
+                        reader.remove_matching_streams(f"{self.db_name}*")
 
 
 def get_data_from_nodes(pipeline, *nodes):

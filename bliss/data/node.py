@@ -41,6 +41,7 @@ A ScanNode is represented by 4 Redis keys:
  {db_name}_info -> see DataNodeContainer
  {db_name}_children -> see DataNodeContainer
  {db_name}_end -> contains the END event
+ {db_name}_prepared -> contains the PREPARED event
 
 A ChannelDataNode is represented by 3 Redis keys:
 
@@ -1407,6 +1408,7 @@ class DataNode(metaclass=DataNodeMetaClass):
         parent = self.parent
         if parent is None:
             return None
+        # Higher priority than PREPARED scan
         children_stream = parent._create_stream("children_list")
         self_db_name = self.db_name
         for index, raw in children_stream.rev_range():
@@ -1653,6 +1655,7 @@ class DataNodeContainer(DataNode):
         last_node = None
         active_streams = dict()
         excluded_stream_names = set()
+        # Higher priority than PREPARED scan
         children_stream = self._create_stream("children_list")
         first_index = children_stream.before_last_index()
         if first_index is None:

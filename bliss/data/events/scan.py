@@ -23,3 +23,8 @@ class EndScanEvent(streaming_events.EndEvent):
         :returns EndScanEvent:
         """
         return cls(raw=events[0][1])
+
+    @property
+    def description(self):
+        """Used to generate EventData description"""
+        return self.exception

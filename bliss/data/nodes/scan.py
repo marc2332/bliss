@@ -9,12 +9,17 @@ from bliss.common.greenlet_utils import AllowKill
 from bliss.data.node import DataNodeContainer
 from bliss.data.nodes.channel import ChannelDataNode
 from bliss.data.nodes.lima import LimaImageChannelDataNode
+from bliss.config.streaming_events import StreamEvent
 from bliss.data.events import Event, EventType, EventData, EndScanEvent
 from bliss.config import settings
 
 
 class ScanNode(DataNodeContainer):
     _NODE_TYPE = "scan"
+
+    _EVENT_TYPE_MAPPING = {EndScanEvent.TYPE.decode("ascii"): EventType.END_SCAN}
+    """Mapping from event name to EventType
+    """
 
     def __init__(self, name, **kwargs):
         super().__init__(self._NODE_TYPE, name, **kwargs)
@@ -41,6 +46,15 @@ class ScanNode(DataNodeContainer):
             self._info.update(add_info)
             self._sync_stream.add_event(event)
 
+    def _get_event_class(self, stream_event):
+        stream_event = stream_event[0]
+        kind = stream_event[1][b"__EVENT__"]
+        # FIXME: Use dict instead of iteration
+        for event_class in self._SUPPORTED_EVENTS:
+            if event_class.TYPE == kind:
+                return event_class
+        raise RuntimeError("Unsupported event kind %s", kind)
+
     def decode_raw_events(self, events):
         """Decode raw stream data
 
@@ -49,11 +63,14 @@ class ScanNode(DataNodeContainer):
         """
         if not events:
             return None
-        first_index = self._streamid_to_idx(events[0][0])
-        ev = EndScanEvent.merge(events)
-        return EventData(
-            first_index=first_index, data=ev.TYPE.decode(), description=ev.exception
-        )
+
+        assert len(events) == 1  # Else you are about to lose events
+        event = events[0]
+        timestamp, raw_data = event
+        first_index = self._streamid_to_idx(timestamp)
+        ev = StreamEvent.factory(raw_data)
+        data = type(ev).TYPE.decode()
+        return EventData(first_index=first_index, data=data, description=ev.description)
 
     def get_db_names(self, **kw):
         db_names = super().get_db_names(**kw)
@@ -109,7 +126,10 @@ class ScanNode(DataNodeContainer):
             return
         if yield_events and self._included(include_filter):
             with AllowKill():
-                yield Event(type=EventType.END_SCAN, node=self, data=data)
+                kind = data.data
+                event_id = self._EVENT_TYPE_MAPPING[kind]
+                event = Event(type=event_id, node=self, data=data)
+                yield event
         # Stop reading events from this node's streams
         # and the streams of its children
         reader.remove_matching_streams(f"{self.db_name}*")

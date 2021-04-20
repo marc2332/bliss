@@ -6,7 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """
-Events returned recieved when walking a `DataNode`,
+Events returned received when walking a `DataNode`,
 derived from raw Redis stream events.
 """
 

@@ -7,8 +7,6 @@
 
 """Bliss REPL (Read Eval Print Loop)"""
 import asyncio
-import queue
-import threading
 import contextlib
 import os
 import sys
@@ -20,14 +18,11 @@ import traceback
 import gevent
 import logging
 import platform
-
 from collections import deque
 from datetime import datetime
 
-from ptpython.repl import PythonRepl
-
-from prompt_toolkit.patch_stdout import patch_stdout as patch_stdout_context
 import ptpython.layout
+from prompt_toolkit.patch_stdout import patch_stdout as patch_stdout_context
 from prompt_toolkit.output import DummyOutput
 
 # imports needed to have control over _execute of ptpython
@@ -41,21 +36,21 @@ from bliss.shell.cli import style as repl_style
 from bliss.shell.cli.prompt import BlissPrompt
 from bliss.shell.cli.typing_helper import TypingHelper
 from bliss.shell.cli.ptpython_statusbar_patch import NEWstatus_bar, TMUXstatus_bar
+from bliss.shell.bliss_banners import print_rainbow_banner
+from bliss.shell.cli.protected_dict import ProtectedDict
+from bliss.shell.cli.no_thread_repl import NoThreadPythonRepl
+from bliss.shell import standard
 
 from bliss import set_bliss_shell_mode
 from bliss.common.utils import ShellStr, Singleton
 from bliss.common import constants
-from bliss import release, current_session
-from bliss.config import static
-from bliss.shell.standard import info
-from bliss.common.logtools import userlogger, elogbook
-from bliss.shell.cli.protected_dict import ProtectedDict
-from bliss.shell import standard
-
 from bliss.common import session as session_mdl
 from bliss.common.session import DefaultSession
+from bliss import release, current_session
+from bliss.config import static
 from bliss.config.conductor.client import get_default_connection
-from bliss.shell.bliss_banners import print_rainbow_banner
+from bliss.shell.standard import info
+from bliss.common.logtools import userlogger, elogbook
 
 logger = logging.getLogger(__name__)
 
@@ -307,12 +302,8 @@ class PromptToolkitOutputWrapper(DummyOutput):
         return self.__wrapped_output.fileno()
 
 
-class BlissRepl(PythonRepl, metaclass=Singleton):
+class BlissRepl(NoThreadPythonRepl, metaclass=Singleton):
     def __init__(self, *args, **kwargs):
-        self._show_result_aw = gevent.get_hub().loop.async_()
-        self._show_result_aw.start(self._on_result)
-        self._result_q = queue.Queue()
-
         prompt_label = kwargs.pop("prompt_label", "BLISS")
         title = kwargs.pop("title", None)
         session = kwargs.pop("session")
@@ -370,29 +361,15 @@ class BlissRepl(PythonRepl, metaclass=Singleton):
 
         self.typing_helper = TypingHelper(self)
 
-    def _on_result(self):
-        # spawn, because we cannot block in async watcher callback
-        gevent.spawn(self._do_handle_result, self._last_result)
-
-    def _do_handle_result(self, result):
-        if hasattr(result, "__info__"):
-            result = Info(result)
-        logging.getLogger("user_input").info(result)
-        elogbook.command(result)
-        self._result_q.put(result)
-
     ##
     # NB: next methods are overloaded
     ##
     def show_result(self, result):
-        # warning: this may be called from a different thread each time
-        # (when "run_async" is used)
-        if threading.current_thread() is threading.main_thread():
-            self._do_handle_result(result)
-        else:
-            self._last_result = result
-            self._show_result_aw.send()
-        return super().show_result(self._result_q.get())
+        if hasattr(result, "__info__"):
+            result = Info(result)
+        logging.getLogger("user_input").info(result)
+        elogbook.command(result)
+        return super().show_result(result)
 
     def _handle_keyboard_interrupt(self, e: KeyboardInterrupt) -> None:
         sys.excepthook(*sys.exc_info())

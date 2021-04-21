@@ -132,15 +132,16 @@ class ScanNode(DataNodeContainer):
         :param bool yield_events: yield Event or DataNode
         :yields Event:
         """
-        data = self.decode_raw_events(events)
-        if data is None:
-            return
-        if yield_events and self._included(include_filter):
-            with AllowKill():
-                kind = data.data
-                event_id = self._EVENT_TYPE_MAPPING[kind]
-                event = Event(type=event_id, node=self, data=data)
-                yield event
+        for event in events:
+            data = self.decode_raw_events([event])
+            if data is None:
+                return
+            if yield_events and self._included(include_filter):
+                with AllowKill():
+                    kind = data.data
+                    event_id = self._EVENT_TYPE_MAPPING[kind]
+                    event = Event(type=event_id, node=self, data=data)
+                    yield event
         # Stop reading events from this node's streams
         # and the streams of its children
         reader.remove_matching_streams(f"{self.db_name}*")

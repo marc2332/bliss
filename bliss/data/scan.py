@@ -19,6 +19,7 @@ from bliss.common.axis import Axis
 from bliss.data.nodes.scan import get_data_from_nodes
 from bliss.data.nodes.channel import ChannelDataNode
 from bliss.data.node import get_or_create_node
+from bliss.data.events import Event
 from bliss.common.utils import get_matching_names
 from bliss.config.streaming import DataStreamReaderStopHandler
 
@@ -95,7 +96,7 @@ class ScansObserver:
     scans of a session.
     """
 
-    def on_event_received(self, event_type, node, event_data):
+    def on_event_received(self, event: Event):
         """
         Called upon new event
 
@@ -323,7 +324,7 @@ class ScansWatcher:
             ):
                 event_type, node, event_data = event
                 try:
-                    observer.on_event_received(event_type, node, event_data)
+                    observer.on_event_received(event)
                 except Exception:
                     sys.excepthook(*sys.exc_info())
 
@@ -450,7 +451,7 @@ class DefaultScansObserver(ScansObserver):
         self.scan_new_child_callback: typing.Callable[[Dict, typing.Any], None] = None
         self.scan_data_callback: typing.Callable[[str, str, Dict], None] = None
         self.scan_end_callback: typing.Callable[[Dict], None] = None
-        self._current_event: typing.Tuple[typing.Any, typing.Any, typing.Any] = None
+        self._current_event: Event = None
         """
         Used to store a tuple with `event_type`, `node`, `event_data`
         during a callback event.
@@ -461,13 +462,13 @@ class DefaultScansObserver(ScansObserver):
     def _get_scan_description(self, scan_db_name) -> _ScanDescription:
         return self._running_scans.get(scan_db_name)
 
-    def on_event_received(self, event_type, node, event_data):
+    def on_event_received(self, event):
         """
         Called upon new event
 
         Mostly used for backward compatibility with `DefaultScanObserver`.
         """
-        self._current_event = event_type, node, event_data
+        self._current_event = event
 
     def on_scan_started(self, scan_db_name: str, scan_info: Dict):
         # Pre-compute mapping from each channels to its master
@@ -548,7 +549,8 @@ class DefaultScansObserver(ScansObserver):
             # Scan not part of the listened scans
             return
 
-        _event_type, source_node, event_data = self._current_event
+        source_node = self._current_event.node
+        event_data = self._current_event.data
 
         top_master = scan_desciption.channels_to_master[channel_name]
         self.scan_data_callback(

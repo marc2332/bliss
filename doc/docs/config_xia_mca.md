@@ -49,7 +49,9 @@ There are 2 versions of ProSpect:
 * activate bliss environment: `conda activate bliss`
 * install git support for python: `conda install gitpython`
 * Configue channels:
+
 ```
+conda config --env --set channel_priority false
 conda config --env --add channels conda-forge
 conda config --env --append channels defaults
 conda config --env --append channels esrf-bcu

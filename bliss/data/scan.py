@@ -316,11 +316,12 @@ class ScansWatcher:
             else:
                 exclude_existing_children = None
 
-            for event_type, node, event_data in session_node.walk_on_new_events(
+            for event in session_node.walk_on_new_events(
                 stop_handler=self._stop_handler,
                 exclude_existing_children=exclude_existing_children,
                 started_event=self._ready_event,
             ):
+                event_type, node, event_data = event
                 try:
                     observer.on_event_received(event_type, node, event_data)
                 except Exception:

@@ -20,6 +20,7 @@ from bliss.data.nodes.scan import get_data_from_nodes
 from bliss.data.nodes.channel import ChannelDataNode
 from bliss.data.node import get_or_create_node
 from bliss.data.events import Event
+from bliss.data.events import EventType
 from bliss.common.utils import get_matching_names
 from bliss.config.streaming import DataStreamReaderStopHandler
 
@@ -328,7 +329,7 @@ class ScansWatcher:
                 except Exception:
                     sys.excepthook(*sys.exc_info())
 
-                if event_type == event_type.NEW_NODE:
+                if event_type == EventType.NEW_NODE:
                     node_type = node.type
                     db_name = node.db_name
                     if node_type == "scan":
@@ -349,7 +350,7 @@ class ScansWatcher:
                                 observer.on_child_created(scan_db_name, node)
                             except Exception:
                                 sys.excepthook(*sys.exc_info())
-                elif event_type == event_type.NEW_DATA:
+                elif event_type == EventType.NEW_DATA:
                     db_name = node.db_name
                     if not hasattr(node, "fullname"):
                         # not a node we want to do anything with here
@@ -402,8 +403,7 @@ class ScansWatcher:
                                     )
                                 except Exception:
                                     sys.excepthook(*sys.exc_info())
-
-                elif event_type == event_type.END_SCAN:
+                elif event_type == EventType.END_SCAN:
                     node_type = node.type
                     if self._watch_scan_group or node_type == "scan":
                         db_name = node.db_name

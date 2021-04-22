@@ -74,7 +74,7 @@ class ScanNode(DataNodeContainer):
 
     def get_db_names(self, **kw):
         db_names = super().get_db_names(**kw)
-        db_names.append(self.db_name + "_data")
+        db_names.append(self._sync_stream.name)
         return db_names
 
     def get_settings(self):
@@ -87,7 +87,8 @@ class ScanNode(DataNodeContainer):
         :param DataStreamReader reader:
         :param str or int first_index: Redis stream index (None is now)
         """
-        if stream_suffix == "data":
+        stream_suffix_with_sepator = f"_{stream_suffix}"
+        if self._sync_stream.name.endswith(stream_suffix_with_sepator):
             # Lower priority than all other streams
             kw["priority"] = 1
         super()._subscribe_stream(stream_suffix, reader, first_index=first_index, **kw)
@@ -99,9 +100,19 @@ class ScanNode(DataNodeContainer):
         :param **kw: see DataNodeContainer
         """
         super()._subscribe_streams(reader, first_index=first_index, **kw)
+        suffix = self._sync_stream.name.rsplit("_", 1)[-1]
         self._subscribe_stream(
-            "data", reader, first_index=0, create=True, ignore_excluded=True
+            suffix, reader, first_index=0, create=True, ignore_excluded=True
         )
+
+    def get_stream_event_handler(self, stream):
+        """
+        :param DataStream stream:
+        :returns callable:
+        """
+        if stream.name == self._sync_stream.name:
+            return self._iter_data_stream_events
+        return super(ScanNode, self).get_stream_event_handler(stream)
 
     def _iter_data_stream_events(
         self,

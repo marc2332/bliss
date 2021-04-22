@@ -40,7 +40,7 @@ A ScanNode is represented by 4 Redis keys:
  {db_name} ->  see DataNodeContainer
  {db_name}_info -> see DataNodeContainer
  {db_name}_children -> see DataNodeContainer
- {db_name}_data -> contains the END event
+ {db_name}_end -> contains the END event
 
 A ChannelDataNode is represented by 3 Redis keys:
 

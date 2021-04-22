@@ -15,6 +15,7 @@ import collections
 import gevent
 from treelib import Tree
 
+from bliss.common.protocols import HasMetadataForScan
 from bliss.common.event import dispatcher
 from bliss.common.alias import CounterAlias
 from bliss.common.cleanup import capture_exceptions
@@ -463,13 +464,16 @@ class AcquisitionObject:
         In this method, acquisition device should collect and meta data
         related to this device and prepare it for publishing. it is called 
         during the scan initialization. 
-        
+
         This can be used in two ways:
         1) attaching meta data to the scan_meta object and publishing it in scan_info
            i.e: scan_meta.instrument.set(self,{"timing mode":"fast"})
         2) the return value of this function is used to fill the meta data of the
            node attached to this AcqObj
         """
+        device = self.device
+        if isinstance(device, HasMetadataForScan):
+            return device.metadata_when_prepared()
         return None
 
     def fill_meta_at_scan_end(self, scan_meta):
@@ -477,7 +481,7 @@ class AcquisitionObject:
         In this method, acquisition device should collect and meta data
         related to this device and prepare it for publishing. it is called 
         at the end of the scan. 
-        
+
         This can be used in two ways:
 
         1) attaching meta data to the scan_meta object and publishing it in scan_info

@@ -504,17 +504,11 @@ def initialize(session_name=None, session_env=None) -> session_mdl.Session:
 
     session_env["history"] = lambda: print("Please press F3-key to view history!")
 
-    try:
-        session.setup(session_env, verbose=True)
-    except Exception:
-        error_flag = True
-        sys.excepthook(*sys.exc_info())
-
-    if error_flag:
-        print("Warning: error(s) happened during setup, setup may not be complete.")
-    else:
+    if session.setup(session_env, verbose=True):
         print("Done.")
-        print("")
+    else:
+        print("Warning: error(s) happened during setup, setup may not be complete.")
+    print("")
 
     session_env["SCANS"] = current_session.scans
 

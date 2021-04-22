@@ -7,6 +7,7 @@
 
 import os
 import sys
+import typing
 import warnings
 import collections
 import functools
@@ -703,11 +704,16 @@ class Session:
                 # case #5: export_global is False, return the namespace
                 return ns
 
-    def setup(self, env_dict=None, verbose=False):
+    def _do_setup(self, env_dict: typing.Union[dict, None], verbose: bool) -> bool:
         """
-        <env_dict>: ???
-        <verbose>: ???
+        Load configuration, and execute the setup script
+
+        env_dict: globals dictionary (or None to use current session env. dict)
+        verbose: boolean flag passed to `load_config`
+
+        Return: True if setup went without error, False otherwise
         """
+        ret = True
         set_current_session(self, force=True)
 
         # Session environment
@@ -724,6 +730,7 @@ class Session:
             CURRENT_SESSION.is_loading_config = True
             self._load_config(verbose)
         except Exception:
+            ret = False
             sys.excepthook(*sys.exc_info())
         finally:
             CURRENT_SESSION.is_loading_config = False
@@ -737,9 +744,33 @@ class Session:
 
         for child_session in self._child_session_iter():
             self._register_session_importers(child_session)
-            child_session._setup(env_dict, nested=True)
+            child_session_ret = child_session._setup(env_dict, nested=True)
+            ret = ret and child_session_ret
 
-        self._setup(env_dict)
+        setup_ret = self._setup(env_dict)
+        ret = ret and setup_ret
+
+        return ret
+
+    def setup(
+        self,
+        env_dict: typing.Optional[dict] = None,
+        verbose: typing.Optional[bool] = False,
+    ) -> bool:
+        """Call _do_setup, but catch exception to display error message via except hook
+
+        In case of SystemExit: the exception is propagated.
+
+        Return: True if setup went without error, False otherwise
+        """
+        try:
+            ret = self._do_setup(env_dict, verbose)
+        except SystemExit:
+            raise
+        except BaseException:
+            sys.excepthook(*sys.exc_info())
+            return False
+        return ret
 
     @staticmethod
     def _register_session_importers(session):
@@ -787,8 +818,12 @@ class Session:
             else:
                 env_dict["load_script"] = self.load_script
 
-            code = compile(setup_file.read(), self.setup_file, "exec")
-            exec(code, env_dict)
+            try:
+                code = compile(setup_file.read(), self.setup_file, "exec")
+                exec(code, env_dict)
+            except Exception:
+                sys.excepthook(*sys.exc_info())
+                return False
 
             for obj_name, obj in env_dict.items():
                 setattr(setup_globals, obj_name, obj)

@@ -79,7 +79,7 @@ def get_data_from_redis(
 ) -> typing.Dict[str, numpy.ndarray]:
     """Read channel data from redis, and referenced by this scan_info """
     channels = list(scan_info_helper.iter_channels(scan_info))
-    channel_names = set([c.name for c in channels if c.kind == "scalar"])
+    channel_names = set([c.name for c in channels if c.info.get("dim", 0) == 0])
 
     result = {}
     scan = get_node(scan_node_name)
@@ -107,7 +107,7 @@ def get_data_from_file(
     from nexus_writer_service.subscribers.dataset_proxy import normalize_nexus_name
 
     channels = list(scan_info_helper.iter_channels(scan_info))
-    channel_names = set([c.name for c in channels if c.kind == "scalar"])
+    channel_names = set([c.name for c in channels if c.info.get("dim", 0) == 0])
     scan_nb = scan_info["scan_nb"]
 
     if "nexus" not in scan_info["data_writer"]:
@@ -147,7 +147,7 @@ def create_scan(scan_node_name: str) -> scan_model.Scan:
     scan = scan_info_helper.create_scan_model(scan_info)
 
     channels = list(scan_info_helper.iter_channels(scan_info))
-    channel_names = set([c.name for c in channels if c.kind == "scalar"])
+    channel_names = set([c.name for c in channels if c.info.get("dim", 0) == 0])
 
     redis_data = get_data_from_redis(scan_node_name, scan_info)
     for channel_name, array in redis_data.items():

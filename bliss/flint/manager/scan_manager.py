@@ -240,16 +240,17 @@ class ScanManager(bliss_scan.ScansObserver):
         # Initialize the storage for the channel data
         channels = scan_info_helper.iter_channels(scan_info)
         for channel_info in channels:
-            if channel_info.kind == "scalar":
-                group_name = None
-                channel = scan.getChannelByName(channel_info.name)
-                if channel is not None:
-                    channel_meta = channel.metadata()
-                    if channel_meta.group is not None:
-                        group_name = channel_meta.group
-                if group_name is None:
-                    group_name = "top:" + channel_info.master
-                cache.data_storage.create_channel(channel_info.name, group_name)
+            group_name = None
+            channel = scan.getChannelByName(channel_info.name)
+            if channel is not None:
+                channel_meta = channel.metadata()
+                if channel_meta.dim not in [None, 0]:
+                    continue
+                if channel_meta.group is not None:
+                    group_name = channel_meta.group
+            if group_name is None:
+                group_name = "top:" + channel_info.master
+            cache.data_storage.create_channel(channel_info.name, group_name)
 
         if self.__flintModel is not None:
             self.__flintModel.addAliveScan(scan)
@@ -508,7 +509,7 @@ class ScanManager(bliss_scan.ScansObserver):
 
     def __process_bunch_of_scalar_data_event(self, bunch_scalar_events):
         """Process scalar events and split then into groups in order to update
-        the GUI in synchonized way"""
+        the GUI in synchronized way"""
 
         now = time.time()
         groups = {}

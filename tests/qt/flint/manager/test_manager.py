@@ -9,20 +9,29 @@ from bliss.flint.helper import scan_info_helper
 def _create_ascan_scan_info(master_name, extra_name=None):
     result = {
         "type": "ascan",
-        "acquisition_chain": {
-            "axis": {
-                "master": {"scalars": [master_name]},
-                "scalars": [
+        "acquisition_chain": {"main": {"devices": ["master", "slave"]}},
+        "devices": {
+            "master": {"channels": [master_name], "triggered_devices": ["slave"]},
+            "slave": {
+                "channels": [
                     "timer:elapsed_time",
                     "timer:epoch",
                     "simulation_diode_sampling_controller:diode1",
                     "simulation_diode_sampling_controller:diode2",
-                ],
-            }
+                ]
+            },
+        },
+        "channels": {
+            master_name: {"dim": 0},
+            "timer:elapsed_time": {"dim": 0},
+            "timer:epoch": {"dim": 0},
+            "simulation_diode_sampling_controller:diode1": {"dim": 0},
+            "simulation_diode_sampling_controller:diode2": {"dim": 0},
         },
     }
     if extra_name is not None:
-        result["acquisition_chain"]["axis"]["scalars"].append(extra_name)
+        result["devices"]["slave"]["channels"].append(extra_name)
+        result["channels"][extra_name] = {"dim": 0}
     return result
 
 
@@ -44,11 +53,18 @@ def test_consecutive_scans__loopscan_ascan(local_flint):
 
     loopscan_info = {
         "type": "loopscan",
-        "acquisition_chain": {
-            "timer": {
-                "master": {"scalars": ["timer:elapsed_time", "timer:epoch"]},
-                "scalars": ["simulation_diode_sampling_controller:diode1"],
-            }
+        "acquisition_chain": {"main": {"devices": ["master", "slave"]}},
+        "devices": {
+            "master": {
+                "channels": ["timer:elapsed_time", "timer:epoch"],
+                "triggered_devices": ["slave"],
+            },
+            "slave": {"channels": ["simulation_diode_sampling_controller:diode1"]},
+        },
+        "channels": {
+            "timer:elapsed_time": {"dim": 0},
+            "timer:epoch": {"dim": 0},
+            "simulation_diode_sampling_controller:diode1": {"dim": 0},
         },
     }
     scan = scan_info_helper.create_scan_model(loopscan_info)

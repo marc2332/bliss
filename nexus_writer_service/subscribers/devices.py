@@ -13,7 +13,7 @@
 Compile device information before and after Redis publication
 """
 
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 
 mcanamemap = {
     "spectrum": "data",
@@ -61,8 +61,7 @@ countertypemap = {}
 
 
 def shortnamemap(names, separator=":"):
-    """
-    Map full Redis names to short (but still unique) names
+    """Map full Redis names to short (but still unique) names
 
     :param list(str) names:
     :param str separator:
@@ -91,8 +90,7 @@ def shortnamemap(names, separator=":"):
 
 
 def fill_device(fullname, device, device_info=None, data_info=None):
-    """
-    Add missing keys with default values
+    """Add missing keys with default values
 
         device_type: type for the writer (not saved), e.g. positioner, mca, lima
         device_name: HDF5 group name (measurement or positioners when missing)
@@ -130,8 +128,7 @@ def fill_device(fullname, device, device_info=None, data_info=None):
 
 
 def update_device(devices, fullname, device_info=None, data_info=None):
-    """
-    Add missing device and/or keys
+    """Add missing device and/or keys
 
     :param dict devices:
     :param str fullname:
@@ -144,8 +141,7 @@ def update_device(devices, fullname, device_info=None, data_info=None):
 
 
 def parse_devices(devices, short_names=True, multivalue_positioners=False):
-    """
-    Determine names and types based on device name and type
+    """Determine names and types based on device name and type
 
     :param dict devices:
     :param bool short_names:
@@ -260,16 +256,55 @@ def parse_devices(devices, short_names=True, multivalue_positioners=False):
             device["unique_name"] = device["device_name"] + ":" + device["data_name"]
 
 
-def device_info(
-    devices, scan_info, ndim=1, short_names=True, multivalue_positioners=False
-):
+Device = namedtuple(
+    "Device",
+    ["subscan", "fullname", "info", "is_positioner", "in_positioner_group", "index"],
+)
+
+
+def iter_devices(scan_info, scan_ndim=1):
     """
-    Merge device information from `writer_config_publish.device_info`
+    :param dict scan_info:
+    :param int scan_ndim:
+    :yields Device:
+    """
+    for subscan_name, subscan_info in scan_info["acquisition_chain"].items():
+        ntriggers = 0
+        for group_name in subscan_info["devices"]:
+            group_info = scan_info["devices"][group_name]
+            is_trigger = len(group_info.get("triggered_devices", [])) > 0
+            if is_trigger:
+                ntriggers += 1
+            is_first_trigger = is_trigger and ntriggers == 1
+            group_size = len(group_info["channels"])
+            for i, fullname in enumerate(group_info["channels"]):
+                info = scan_info["channels"].get(fullname, dict())
+                is_positioner = is_first_trigger and info.get("dim") == 0
+                in_positioner_group = (
+                    is_positioner
+                    and scan_ndim <= 1
+                    and group_size > 1
+                    and ":" in fullname
+                )
+                yield Device(
+                    subscan=subscan_name,
+                    fullname=fullname,
+                    info=info,
+                    is_positioner=is_positioner,
+                    in_positioner_group=in_positioner_group,
+                    index=i,
+                )
+
+
+def device_info(
+    devices, scan_info, scan_ndim=1, short_names=True, multivalue_positioners=False
+):
+    """Merge device information from `writer_config_publish.device_info`
     and from the scan info published by the Bliss core library.
 
     :param dict devices: as provided by `writer_config_publish.device_info`
     :param dict scan_info:
-    :param int ndim: number of scan dimensions
+    :param int scan_ndim: number of scan dimensions
     :param bool short_names:
     :param bool multivalue_positioners:
     :returns dict: subscanname:dict(fullname:dict)
@@ -277,62 +312,40 @@ def device_info(
                    acquisition chain
     """
     ret = OrderedDict()
-    config = bool(devices)
-    channels_info = scan_info.get("channels", {})
-    channel_save_keys = (("unit", "units"),)
-    for subscan, subscan_info in scan_info["acquisition_chain"].items():
-        subscan_devices = ret[subscan] = {}
-        for master in [True, False]:
-            for channel_type in ["scalars", "spectra", "images"]:
-                _extract_device_info(
-                    devices,
-                    subscan_devices,
-                    subscan_info,
-                    channels_info,
-                    channel_save_keys,
-                    channel_type,
-                    ndim=ndim,
-                    config=config,
-                    master=master,
-                )
-        parse_devices(
-            subscan_devices,
-            short_names=short_names,
-            multivalue_positioners=multivalue_positioners,
-        )
-    return ret
+    device_save_keys = {"unit": "units"}
+    for cdevice in iter_devices(scan_info, scan_ndim=scan_ndim):
+        # Devices are grouped per subscan
+        if cdevice.subscan not in ret:
+            subscan_devices = ret[cdevice.subscan] = dict()
 
+        # Initial device information from `writer_config_publish.device_info`
+        subscan_devices[cdevice.fullname] = devices.get(cdevice.fullname, dict())
 
-def _extract_device_info(
-    devices,
-    subscan_devices,
-    subscan_info,
-    channels_info,
-    channel_save_keys,
-    channel_type,
-    ndim=1,
-    config=True,
-    master=False,
-):
-    if master:
-        fullnames = subscan_info["master"].get(channel_type, [])
-    else:
-        fullnames = subscan_info.get(channel_type, [])
-    for i, fullname in enumerate(fullnames):
-        subscan_devices[fullname] = devices.get(fullname, {})
-        channel_info = channels_info.get(fullname, {})
+        # Add device information
         data_info = {
-            kset: channel_info.get(kget, None) for kget, kset in channel_save_keys
+            kset: cdevice.info.get(kget, None)
+            for kget, kset in device_save_keys.items()
         }
-        device = update_device(subscan_devices, fullname, data_info=data_info)
-        if channel_type == "scalars" and master:
-            if len(fullnames) > 1 and ndim <= 1 and ":" in fullname:
+        device = update_device(subscan_devices, cdevice.fullname, data_info=data_info)
+
+        # Add extra information for positioners
+        if cdevice.is_positioner:
+            if cdevice.in_positioner_group:
                 device["device_type"] = "positionergroup"
                 device["master_index"] = 0
             else:
                 device["device_type"] = "positioner"
-                device["master_index"] = i
-            if i == 0:
+                device["master_index"] = cdevice.index
+            if cdevice.index == 0:
                 device["data_type"] = "principal"
             else:
                 device["data_type"] = ""
+
+    # Parse/normalize device information
+    for devices in ret.values():
+        parse_devices(
+            devices,
+            short_names=short_names,
+            multivalue_positioners=multivalue_positioners,
+        )
+    return ret

@@ -8,24 +8,29 @@ from bliss.flint.model import plot_item_model
 
 SCAN_INFO = {
     "acquisition_chain": {
-        "timer": {
-            "master": {
-                "images": [],
-                "scalars": ["timer:elapsed_time", "timer:epoch"],
-                "spectra": [],
-            },
-            "scalars": ["diode:diode"],
+        "timer": {"devices": ["master", "slave"]},
+        "timer2": {"devices": ["master2", "slave2"]},
+    },
+    "devices": {
+        "master": {
+            "channels": ["timer:elapsed_time", "timer:epoch"],
+            "triggered_devices": ["slave"],
         },
-        "timer2": {"spectra": ["opium:mca1"], "images": ["lima:image1"]},
+        "slave": {"channels": ["diode:diode"]},
+        "master2": {"triggered_devices": ["slave2"]},
+        "slave2": {"channels": ["opium:mca1", "lima:image1"]},
     },
     "channels": {
-        "diode:diode": {"display_name": "diode"},
+        "diode:diode": {"display_name": "diode", "dim": 0},
         "timer:elapsed_time": {
             "display_name": "elapsed_time",
             "unit": "s",
             "points": 10,
+            "dim": 0,
         },
-        "timer:epoch": {"display_name": "epoch", "unit": "s"},
+        "timer:epoch": {"display_name": "epoch", "unit": "s", "dim": 0},
+        "opium:mca1": {"dim": 1},
+        "lima:image1": {"dim": 2},
     },
     "positioners": {
         "positioners_start": {"slit_bottom": 1.0, "slit_top": -1.0},
@@ -38,18 +43,32 @@ SCAN_INFO = {
 
 
 SCAN_INFO_LIMA_ROIS = {
-    "acquisition_chain": {
-        "timer": {
-            "master": {"scalars": ["timer:elapsed_time", "timer:epoch"]},
-            "scalars": [
+    "acquisition_chain": {"timer": {"devices": ["master", "slave"]}},
+    "devices": {
+        "master": {
+            "channels": ["timer:elapsed_time", "timer:epoch"],
+            "triggered_devices": ["slave"],
+        },
+        "slave": {
+            "channels": [
                 "beamviewer:roi_counters:roi1_sum",
                 "beamviewer:roi_counters:roi1_avg",
                 "beamviewer:roi_counters:roi4_sum",
                 "beamviewer:roi_counters:roi4_avg",
                 "beamviewer:roi_counters:roi5_avg",
-            ],
-            "images": ["beamviewer:image"],
-        }
+                "beamviewer:image",
+            ]
+        },
+    },
+    "channels": {
+        "timer:elapsed_time": {"dim": 0},
+        "timer:epoch": {"dim": 0},
+        "beamviewer:roi_counters:roi1_sum": {"dim": 0},
+        "beamviewer:roi_counters:roi1_avg": {"dim": 0},
+        "beamviewer:roi_counters:roi4_sum": {"dim": 0},
+        "beamviewer:roi_counters:roi4_avg": {"dim": 0},
+        "beamviewer:roi_counters:roi5_avg": {"dim": 0},
+        "beamviewer:image": {"dim": 2},
     },
     "rois": {
         "beamviewer:roi_counters:roi1": {
@@ -74,12 +93,15 @@ SCAN_INFO_LIMA_ROIS = {
 
 def test_iter_channels():
     result = scan_info_helper.iter_channels(SCAN_INFO)
+    result = [
+        scan_info_helper.ChannelInfo(r.name, None, r.device, r.master) for r in result
+    ]
     expected = [
-        scan_info_helper.Channel("diode:diode", "scalar", "diode", "timer"),
-        scan_info_helper.Channel("timer:elapsed_time", "scalar", "timer", "timer"),
-        scan_info_helper.Channel("timer:epoch", "scalar", "timer", "timer"),
-        scan_info_helper.Channel("opium:mca1", "spectrum", "opium", "timer2"),
-        scan_info_helper.Channel("lima:image1", "image", "lima", "timer2"),
+        scan_info_helper.ChannelInfo("diode:diode", None, "diode", "timer"),
+        scan_info_helper.ChannelInfo("timer:elapsed_time", None, "timer", "timer"),
+        scan_info_helper.ChannelInfo("timer:epoch", None, "timer", "timer"),
+        scan_info_helper.ChannelInfo("opium:mca1", None, "opium", "timer2"),
+        scan_info_helper.ChannelInfo("lima:image1", None, "lima", "timer2"),
     ]
     assert set(result) == set(expected)
 
@@ -152,15 +174,14 @@ def test_create_plot_model():
 
 def test_create_scatter_plot_model():
     scan_info = {
-        "data_dim": 2,
-        "acquisition_chain": {
-            "axis": {
-                "master": {
-                    "scalars": ["axis:roby", "axis:robz"],
-                    "spectra": [],
-                    "images": [],
-                },
-                "scalars": [
+        "acquisition_chain": {"axis": {"devices": ["master", "slave"]}},
+        "devices": {
+            "master": {
+                "channels": ["axis:roby", "axis:robz"],
+                "triggered_devices": ["slave"],
+            },
+            "slave": {
+                "channels": [
                     "timer:elapsed_time",
                     "timer:epoch",
                     "simulation_diode_sampling_controller:diode",
@@ -168,22 +189,32 @@ def test_create_scatter_plot_model():
                     "simulation_diode_sampling_controller:diode3",
                     "axis:roby",
                     "axis:robz",
-                    "axis:roby",
-                    "axis:robz",
-                ],
-                "spectra": [],
-                "images": [],
-            }
+                ]
+            },
         },
         "channels": {
-            "axis:roby": {"display_name": "roby"},
-            "axis:robz": {"display_name": "robz", "unit": "mm"},
-            "timer:elapsed_time": {"display_name": "elapsed_time", "unit": "s"},
-            "timer:epoch": {"display_name": "epoch", "unit": "s"},
-            "simulation_diode_sampling_controller:diode": {"display_name": "diode"},
-            "simulation_diode_sampling_controller:diode2": {"display_name": "diode2"},
-            "simulation_diode_sampling_controller:diode3": {"display_name": "diode3"},
+            "axis:roby": {"display_name": "roby", "dim": 0},
+            "axis:robz": {"display_name": "robz", "unit": "mm", "dim": 0},
+            "timer:elapsed_time": {
+                "display_name": "elapsed_time",
+                "unit": "s",
+                "dim": 0,
+            },
+            "timer:epoch": {"display_name": "epoch", "unit": "s", "dim": 0},
+            "simulation_diode_sampling_controller:diode": {
+                "display_name": "diode",
+                "dim": 0,
+            },
+            "simulation_diode_sampling_controller:diode2": {
+                "display_name": "diode2",
+                "dim": 0,
+            },
+            "simulation_diode_sampling_controller:diode3": {
+                "display_name": "diode3",
+                "dim": 0,
+            },
         },
+        "data_dim": 2,
         "npoints2": 6,
         "npoints1": 6,
     }
@@ -216,26 +247,34 @@ def test_create_scatter_plot_model():
 def test_create_curve_plot_from_motor_scan():
 
     scan_info = {
-        "acquisition_chain": {
-            "axis": {
-                "master": {"scalars": ["axis:roby"], "spectra": [], "images": []},
-                "scalars": [
+        "acquisition_chain": {"axis": {"devices": ["master", "slave"]}},
+        "devices": {
+            "master": {"channels": ["axis:roby"], "triggered_devices": ["slave"]},
+            "slave": {
+                "channels": [
                     "timer:elapsed_time",
                     "timer:epoch",
                     "simulation_diode_sampling_controller:diode",
                     "simulation_diode_sampling_controller:diode2",
-                ],
-                "spectra": [],
-                "images": [],
-            }
+                ]
+            },
         },
         "channels": {
-            "axis:roby": {"display_name": "roby"},
-            "axis:robz": {"display_name": "robz", "unit": "mm"},
-            "timer:elapsed_time": {"display_name": "elapsed_time", "unit": "s"},
-            "timer:epoch": {"display_name": "epoch", "unit": "s"},
-            "simulation_diode_sampling_controller:diode": {"display_name": "diode"},
-            "simulation_diode_sampling_controller:diode2": {"display_name": "diode2"},
+            "axis:roby": {"display_name": "roby", "dim": 0},
+            "timer:elapsed_time": {
+                "display_name": "elapsed_time",
+                "unit": "s",
+                "dim": 0,
+            },
+            "timer:epoch": {"display_name": "epoch", "unit": "s", "dim": 0},
+            "simulation_diode_sampling_controller:diode": {
+                "display_name": "diode",
+                "dim": 0,
+            },
+            "simulation_diode_sampling_controller:diode2": {
+                "display_name": "diode2",
+                "dim": 0,
+            },
         },
     }
 
@@ -255,61 +294,14 @@ def test_create_curve_plot_from_motor_scan():
 def test_amesh_scan_with_image_and_mca():
 
     scan_info = {
-        "type": "amesh",
-        "title": "amesh sy -0.75 0.75 30 sz -0.75 0.75 30 0.001",
-        "data_dim": 2,
-        "npoints": 961,
-        "start": [-0.75, -0.75],
-        "stop": [0.75, 0.75],
-        "count_time": 0.001,
-        "npoints1": 31,
-        "npoints2": 31,
-        "channels": {
-            "axis:sy": {
-                "start": -0.75,
-                "stop": 0.75,
-                "points": 961,
-                "axis-points": 31,
-                "axis-id": 0,
-                "axis-kind": "forth",
-                "group": "scatter",
+        "acquisition_chain": {"axis": {"devices": ["master", "slave"]}},
+        "devices": {
+            "master": {
+                "channels": ["axis:sy", "axis:sz"],
+                "triggered_devices": ["slave"],
             },
-            "axis:sz": {
-                "start": -0.75,
-                "stop": 0.75,
-                "points": 961,
-                "axis-points": 31,
-                "axis-id": 1,
-                "axis-kind": "forth",
-                "group": "scatter",
-            },
-            "timer:elapsed_time": {"group": "scatter"},
-            "timer:epoch": {"group": "scatter"},
-            "SampleStageDiode:fluo_signal": {"group": "scatter"},
-            "mca1:realtime_det0": {"group": "scatter"},
-            "mca1:trigger_livetime_det0": {"group": "scatter"},
-            "mca1:energy_livetime_det0": {"group": "scatter"},
-            "mca1:triggers_det0": {"group": "scatter"},
-            "mca1:events_det0": {"group": "scatter"},
-            "mca1:icr_det0": {"group": "scatter"},
-            "mca1:ocr_det0": {"group": "scatter"},
-            "mca1:deadtime_det0": {"group": "scatter"},
-        },
-        "plots": [
-            {
-                "kind": "scatter-plot",
-                "items": [{"kind": "scatter", "x": "axis:sy", "y": "axis:sz"}],
-            },
-            {
-                "kind": "scatter-plot",
-                "name": "foo",
-                "items": [{"kind": "scatter", "x": "axis:sy", "y": "axis:sz"}],
-            },
-        ],
-        "acquisition_chain": {
-            "axis": {
-                "master": {"scalars": ["axis:sy", "axis:sz"]},
-                "scalars": [
+            "slave": {
+                "channels": [
                     "timer:elapsed_time",
                     "timer:epoch",
                     "SampleStageDiode:fluo_signal",
@@ -321,12 +313,67 @@ def test_amesh_scan_with_image_and_mca():
                     "mca1:icr_det0",
                     "mca1:ocr_det0",
                     "mca1:deadtime_det0",
-                ],
-                "spectra": ["mca1:spectrum_det0"],
-                "images": ["tomocam:image"],
-            }
+                    "mca1:spectrum_det0",
+                    "tomocam:image",
+                ]
+            },
+        },
+        "channels": {
+            "axis:sy": {
+                "start": -0.75,
+                "stop": 0.75,
+                "points": 961,
+                "axis-points": 31,
+                "axis-id": 0,
+                "axis-kind": "forth",
+                "group": "scatter",
+                "dim": 0,
+            },
+            "axis:sz": {
+                "start": -0.75,
+                "stop": 0.75,
+                "points": 961,
+                "axis-points": 31,
+                "axis-id": 1,
+                "axis-kind": "forth",
+                "group": "scatter",
+                "dim": 0,
+            },
+            "timer:elapsed_time": {"group": "scatter", "dim": 0},
+            "timer:epoch": {"group": "scatter"},
+            "SampleStageDiode:fluo_signal": {"group": "scatter", "dim": 0},
+            "mca1:realtime_det0": {"group": "scatter", "dim": 0},
+            "mca1:trigger_livetime_det0": {"group": "scatter", "dim": 0},
+            "mca1:energy_livetime_det0": {"group": "scatter", "dim": 0},
+            "mca1:triggers_det0": {"group": "scatter", "dim": 0},
+            "mca1:events_det0": {"group": "scatter", "dim": 0},
+            "mca1:icr_det0": {"group": "scatter", "dim": 0},
+            "mca1:ocr_det0": {"group": "scatter", "dim": 0},
+            "mca1:deadtime_det0": {"group": "scatter", "dim": 0},
+            "mca1:spectrum_det0": {"group": "scatter", "dim": 1},
+            "tomocam:image": {"group": "scatter", "dim": 2},
         },
         "_display_extra": {"plotselect": []},
+        "plots": [
+            {
+                "kind": "scatter-plot",
+                "items": [{"kind": "scatter", "x": "axis:sy", "y": "axis:sz"}],
+            },
+            {
+                "kind": "scatter-plot",
+                "name": "foo",
+                "items": [{"kind": "scatter", "x": "axis:sy", "y": "axis:sz"}],
+            },
+        ],
+        "type": "amesh",
+        "title": "amesh sy -0.75 0.75 30 sz -0.75 0.75 30 0.001",
+        "data_dim": 2,
+        "npoints": 961,
+        "start": [-0.75, -0.75],
+        "stop": [0.75, 0.75],
+        "count_time": 0.001,
+        "npoints1": 31,
+        "npoints2": 31,
     }
     scan = scan_info_helper.create_scan_model(scan_info)
     result_plots = scan_info_helper.create_plot_model(scan_info, scan)
@@ -360,7 +407,9 @@ def test_create_plot_model_with_rois():
 def test_progress_percent_curve():
     scan_info = {
         "npoints": 10,
-        "acquisition_chain": {"axis": {"master": {"scalars": ["axis:roby"]}}},
+        "acquisition_chain": {"main": {"devices": ["main"]}},
+        "devices": {"main": {"channels": ["axis:roby"]}},
+        "channels": {"axis:roby": {"dim": 0}},
     }
     scan = scan_info_helper.create_scan_model(scan_info)
     channel = scan.getChannelByName("axis:roby")
@@ -382,7 +431,9 @@ def test_progress_percent_scatter():
     scan_info = {
         "npoints1": 2,
         "npoints2": 5,
-        "acquisition_chain": {"axis": {"master": {"scalars": ["axis:roby"]}}},
+        "acquisition_chain": {"main": {"devices": ["main"]}},
+        "devices": {"main": {"channels": ["axis:roby"]}},
+        "channels": {"axis:roby": {"dim": 0}},
     }
     scan = scan_info_helper.create_scan_model(scan_info)
     channel = scan.getChannelByName("axis:roby")
@@ -403,7 +454,9 @@ def test_progress_percent_scatter():
 def test_progress_percent_image():
     scan_info = {
         "npoints": 10,
-        "acquisition_chain": {"axis": {"master": {"images": ["axis:roby"]}}},
+        "acquisition_chain": {"main": {"devices": ["main"]}},
+        "devices": {"main": {"channels": ["axis:roby"]}},
+        "channels": {"axis:roby": {"dim": 2}},
     }
     scan = scan_info_helper.create_scan_model(scan_info)
     channel = scan.getChannelByName("axis:roby")
@@ -434,7 +487,7 @@ def test_parse_channel_metadata__bliss_1_4():
     }
     result = scan_info_helper.parse_channel_metadata(meta)
     expected = scan_model.ChannelMetadata(
-        1, 2, 3, 4, 5, 1, 6, scan_model.AxisKind.FORTH, None, None
+        1, 2, 3, 4, 5, 1, 6, scan_model.AxisKind.FORTH, None, None, None
     )
     assert result == expected
 
@@ -449,10 +502,11 @@ def test_parse_channel_metadata():
         "axis-id": 0,
         "axis-points": 6,
         "axis-kind": "backnforth",
+        "dim": 3,
     }
     result = scan_info_helper.parse_channel_metadata(meta)
     expected = scan_model.ChannelMetadata(
-        1, 2, 3, 4, 5, 0, 6, scan_model.AxisKind.BACKNFORTH, None, None
+        1, 2, 3, 4, 5, 0, 6, scan_model.AxisKind.BACKNFORTH, None, None, 3
     )
     assert result == expected
 
@@ -469,7 +523,9 @@ def test_parse_wrong_values():
         "foo": "bar",
     }
     result = scan_info_helper.parse_channel_metadata(meta)
-    expected = scan_model.ChannelMetadata(1, 2, 3, None, 5, None, 6, None, None, None)
+    expected = scan_model.ChannelMetadata(
+        1, 2, 3, None, 5, None, 6, None, None, None, None
+    )
     assert result == expected
 
 

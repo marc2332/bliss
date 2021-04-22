@@ -7,21 +7,29 @@ from bliss.flint.helper import scan_info_helper
 
 
 SCATTER_SCAN_INFO = {
-    "acquisition_chain": {
-        "master_time1": {
-            "master": {
-                "images": [],
-                "scalars": ["device1:channel1", "device2:channel1", "device2:channel2"],
-                "spectra": [],
-            },
-            "scalars": ["device3:channel1", "device4:channel1", "master_time1:index"],
-            "images": ["lima:image"],
-        }
+    "acquisition_chain": {"master_time1": {"devices": ["master", "slave"]}},
+    "devices": {
+        "master": {
+            "channels": ["device1:channel1", "device2:channel1", "device2:channel2"],
+            "triggered_devices": ["slave"],
+        },
+        "slave": {
+            "channels": [
+                "device3:channel1",
+                "device4:channel1",
+                "master_time1:index",
+                "lima:image",
+            ]
+        },
     },
     "channels": {
-        "device2:channel1": {"unit": "mm"},
-        "device3:channel1": {"unit": "mm"},
-        "master_time1:index": {"unit": "s"},
+        "device1:channel1": {"unit": "mm", "dim": 0},
+        "device2:channel1": {"unit": "mm", "dim": 0},
+        "device2:channel2": {"unit": "mm", "dim": 0},
+        "device3:channel1": {"unit": "mm", "dim": 0},
+        "device4:channel1": {"unit": "mm", "dim": 0},
+        "master_time1:index": {"unit": "s", "dim": 0},
+        "lima:image": {"dim": 2},
     },
     "data_dim": 2,
 }

@@ -6,4 +6,5 @@ This module provides all the scanning interface.
    :toctree:
 
    acquisition
+   scan_info
 """

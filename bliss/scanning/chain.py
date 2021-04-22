@@ -11,7 +11,6 @@ import logging
 import weakref
 import enum
 import collections
-from contextlib import contextmanager
 
 import gevent
 from treelib import Tree
@@ -659,7 +658,7 @@ class AcquisitionMaster(AcquisitionObject):
             )
         except StopIteration:
             raise ValueError(
-                "The device {} does not have a channel called {}".format(device, name)
+                f"The device {master} does not have a channel called {to_channel_name}"
             )
 
         attach_channels(master.channels, to_channel)
@@ -994,6 +993,11 @@ class AcquisitionChain:
         self._parallel_prepare = parallel_prepare
 
     @property
+    def tree(self) -> Tree:
+        """Return the acquisition chain tree"""
+        return self._tree
+
+    @property
     def top_masters(self):
         return [x.identifier for x in self._tree.children("root")]
 
@@ -1127,10 +1131,6 @@ class AcquisitionChain:
         # this is to manage the case where the chain tree is still empty.
         presets_list = self._presets_master_list.setdefault(master or self, list())
         presets_list.append(preset)
-
-    @property
-    def top_masters(self):
-        return [x.identifier for x in self._tree.children("root")]
 
     def get_iter_list(self):
         if len(self._tree) > 1:

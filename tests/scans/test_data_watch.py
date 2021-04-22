@@ -5,7 +5,6 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import pytest
 import gevent
 import gevent.event
 import numpy
@@ -71,17 +70,25 @@ def test_simple_continuous_scan_with_session_watcher(session, scan_saving, mocke
     scan_info = callbacks.scan_new_callback.call_args[0][0]
     assert scan_info["session_name"] == scan_saving.session
     assert scan_info["user_name"] == scan_saving.user_name
-    assert scan_info["acquisition_chain"] == {
-        master.name: {
-            "scalars": ["simulation_diode_sampling_controller:diode"],
-            "images": [],
-            "spectra": [],
-            "master": {"scalars": ["%s:m1" % master.name], "images": [], "spectra": []},
-        }
+
+    acquisition_chain = scan_info["acquisition_chain"][master.name]
+    assert len(acquisition_chain["devices"]) == 2
+    assert acquisition_chain["scalars"] == [
+        "simulation_diode_sampling_controller:diode"
+    ]
+    assert acquisition_chain["images"] == []
+    assert acquisition_chain["spectra"] == []
+    assert acquisition_chain["master"] == {
+        "scalars": ["%s:m1" % master.name],
+        "images": [],
+        "spectra": [],
     }
     assert scan_info["channels"] == {
-        "simulation_diode_sampling_controller:diode": {"display_name": "diode"},
-        "%s:m1" % master.name: {"display_name": "m1"},
+        "simulation_diode_sampling_controller:diode": {
+            "display_name": "diode",
+            "dim": 0,
+        },
+        "%s:m1" % master.name: {"display_name": "m1", "dim": 0},
     }
 
     for call_args in callbacks.scan_data_callback.call_args_list:

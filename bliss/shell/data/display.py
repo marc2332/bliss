@@ -163,28 +163,43 @@ class ScanRenderer:
 
         Only the first top master is reached. Others are ignored.
         """
-        # only the first top master is used
-        _top_master, channels = next(iter(scan_info["acquisition_chain"].items()))
-
         self._scan_type = scan_info.get("type")
 
-        # get the total number of channels
-        self._channels_number = len(channels["master"]["scalars"]) + len(
-            channels["scalars"]
+        # only the first top master is used
+        top_master, chain_description = next(
+            iter(scan_info["acquisition_chain"].items())
         )
 
+        # get the total number of channels
+        channels_number = 0
         # get master scalar channels (remove epoch)
-        master_scalar_channels = [
-            cname for cname in channels["master"]["scalars"] if cname != "timer:epoch"
-        ]
-
+        master_scalar_channels = []
         # get scalar channels (remove epoch)
-        counter_scalar_channels = [
-            cname for cname in channels["scalars"] if cname != "timer:epoch"
-        ]
+        scalar_channels = []
+        # store channels which can't be displayed
+        other_channels = []
+
+        for device_name in chain_description["devices"]:
+            device_meta = scan_info["devices"][device_name]
+            is_master = len(device_meta.get("triggered_devices", [])) > 0
+            for channel_name in device_meta.get("channels", []):
+                channel_meta = scan_info["channels"].get(channel_name)
+                dim = channel_meta.get("dim", 0)
+                if dim != 0:
+                    other_channels.append(channel_name)
+                    continue
+                if channel_name != "timer:epoch":
+                    if is_master:
+                        master_scalar_channels.append(channel_name)
+                    else:
+                        scalar_channels.append(channel_name)
+                channels_number += 1
+
+        self.channels_number = channels_number
+        self.other_channels = other_channels
 
         # get all channels fullname, display names and units
-        channel_names = master_scalar_channels + counter_scalar_channels
+        channel_names = master_scalar_channels + scalar_channels
 
         channels_meta = {}
         for channel_name, meta in scan_info["channels"].items():
@@ -196,15 +211,9 @@ class ScanRenderer:
             channels_meta[channel_name] = metadata
         self._channels_meta = channels_meta
 
-        # get none scalar channels (spectra and images)
-        self._other_channels = (
-            channels["master"]["spectra"] + channels["master"]["images"]
-        )
-        self._other_channels += channels["spectra"] + channels["images"]
-
-        displayable_channels = list(set(channel_names))
-
         sorted_channel_names = []
+        displayable_channels = []
+
         # First the timer channel if any
         timer_cname = "timer:elapsed_time"
         if timer_cname in channel_names:
@@ -214,7 +223,7 @@ class ScanRenderer:
             if cname not in sorted_channel_names:
                 sorted_channel_names.append(cname)
         # Finally the other scalars channels
-        for cname in counter_scalar_channels:
+        for cname in scalar_channels:
             if cname not in sorted_channel_names:
                 sorted_channel_names.append(cname)
 

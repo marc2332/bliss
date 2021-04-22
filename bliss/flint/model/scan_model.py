@@ -576,6 +576,7 @@ class ChannelMetadata(NamedTuple):
     axisKind: Optional[AxisKind]
     group: Optional[str]
     axisPointsHint: Optional[int]
+    dim: Optional[int]
 
 
 class ScatterData(_Sealable):
@@ -669,8 +670,10 @@ class Channel(qt.QObject, _Sealable):
     """
 
     _noneMetadata = ChannelMetadata(
-        None, None, None, None, None, None, None, None, None, None
+        None, None, None, None, None, None, None, None, None, None, None
     )
+
+    _dimToType = {0: ChannelType.COUNTER, 1: ChannelType.SPECTRUM, 2: ChannelType.IMAGE}
 
     def __init__(self, parent: Device):
         qt.QObject.__init__(self, parent=parent)
@@ -678,7 +681,7 @@ class Channel(qt.QObject, _Sealable):
         self.__data: Optional[Data] = None
         self.__metadata: ChannelMetadata = self._noneMetadata
         self.__name: str = ""
-        self.__type: ChannelType = ChannelType.COUNTER
+        self.__type: ChannelType = None
         self.__displayName: Optional[str] = None
         self.__unit: Optional[str] = None
         self.__refreshRates: Dict[str, Optional[int]] = {}
@@ -693,7 +696,11 @@ class Channel(qt.QObject, _Sealable):
     def type(self) -> ChannelType:
         """
         Returns the kind of this channel.
+
+        FIXME this have to be property checked before remove (use device type instead or not)
         """
+        if self.__type is None:
+            return self._dimToType.get(self.__metadata.dim, ChannelType.COUNTER)
         return self.__type
 
     def setMetadata(self, metadata: ChannelMetadata):
@@ -765,6 +772,13 @@ class Channel(qt.QObject, _Sealable):
         Returns the amount of dimensions of the data, before reaching the data.
 
         Mimics numpy arrays."""
+        dim = self.__metadata.dim
+        if dim is not None:
+            if dim == 0:
+                # scalar are stored with an extra "time/step" dimension
+                return dim + 1
+            return dim
+
         if self.__type == ChannelType.COUNTER:
             # one value per count
             return 1

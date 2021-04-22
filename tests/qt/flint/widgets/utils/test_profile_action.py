@@ -25,7 +25,6 @@ def test_read_stored_state_bliss_1_7(local_flint):
         for r in roiManager.getRois()
         if r.getFocusProxy() is None
     ]
-    print(result)
     assert result == expectedRois
 
 

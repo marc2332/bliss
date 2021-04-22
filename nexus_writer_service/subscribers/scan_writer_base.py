@@ -406,7 +406,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             self._devices = devices.device_info(
                 self.config_devices,
                 self.info,
-                self.scan_ndim(None),
+                scan_ndim=self.scan_ndim(None),
                 short_names=self.saveoptions["short_names"],
                 multivalue_positioners=self.saveoptions["multivalue_positioners"],
             )

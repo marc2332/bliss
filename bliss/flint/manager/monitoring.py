@@ -45,7 +45,9 @@ class MonitoringScan(scan_model.Scan):
 
         scanInfo = {
             "type": "monitoring",
-            "acquisition_chain": {"mon": {"images": [channel_name]}},
+            "acquisition_chain": {"mon": {"devices": ["monitored"]}},
+            "devices": {"monitored": {"channels": [channel_name]}},
+            "channels": {channel_name: {"dim": 2}},
             "start_time": datetime.datetime.now(),
             "title": "Monitoring",
         }
@@ -247,7 +249,9 @@ class StaticImageScan(scan_model.Scan):
 
         scanInfo = {
             "type": "static",
-            "acquisition_chain": {"static": {"images": [channel_name]}},
+            "acquisition_chain": {"static": {"devices": ["master"]}},
+            "devices": {"master": {"channels": [channel_name]}},
+            "channels": {channel_name: {"dim": 2}},
             "start_time": datetime.datetime.now(),
             "title": "Static data",
         }

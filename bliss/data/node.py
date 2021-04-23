@@ -724,6 +724,9 @@ class DataNode(metaclass=DataNodeMetaClass):
         self.__db_name = db_name
         self.node_type = node_type
 
+        self._priorities = {}
+        """Hold priorities per streams only during the initialization"""
+
         # The info dictionary associated to the DataNode
         self._info = settings.HashObjSetting(f"{db_name}_info", connection=connection)
         info_dict = self._init_info(create=create, **kwargs)
@@ -808,14 +811,20 @@ class DataNode(metaclass=DataNodeMetaClass):
         kw.setdefault("connection", self.db_connection)
         return streaming.DataStream(name, **kw)
 
-    def _create_stream(self, suffix, **kw):
+    def _create_stream(self, suffix, priority: int = None, **kw):
         """Create a stream associated to this DataNode.
 
         :param str suffix:
+        :param int priority: data from streams with a lower priority is never
+                             yielded as long as higher priority streams have
+                             data. Lower number means higher priority.
         :param `**kw`: see `_create_nonassociated_stream`
         :returns DataStream:
         """
-        return self._create_nonassociated_stream(f"{self.db_name}_{suffix}", **kw)
+        stream = self._create_nonassociated_stream(f"{self.db_name}_{suffix}", **kw)
+        if priority is not None:
+            self._priorities[stream.name] = priority
+        return stream
 
     @classmethod
     def _streamid_to_idx(cls, streamID):
@@ -1362,6 +1371,14 @@ class DataNode(metaclass=DataNodeMetaClass):
             if not self.db_connection.exists(stream_name):
                 return
         stream = self._create_nonassociated_stream(stream_name)
+
+        if "priority" not in kw:
+            # If the priority is not forced by the _subscribe_stream arguments
+            # Use the one from the config
+            priority = self._priorities.pop(stream.name, None)
+            if priority is not None:
+                kw["priority"] = priority
+
         reader.add_streams(stream, node=self, first_index=first_index, **kw)
 
     def _subscribe_streams(

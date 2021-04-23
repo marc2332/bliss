@@ -23,7 +23,8 @@ class ScanNode(DataNodeContainer):
 
     def __init__(self, name, **kwargs):
         super().__init__(self._NODE_TYPE, name, **kwargs)
-        self._sync_stream = self._create_stream("data")
+        # Lower priority than all other streams
+        self._sync_stream = self._create_stream("data", priority=1)
 
     @property
     def dataset(self):
@@ -79,19 +80,6 @@ class ScanNode(DataNodeContainer):
 
     def get_settings(self):
         return super().get_settings() + [self._sync_stream]
-
-    def _subscribe_stream(self, stream_suffix, reader, first_index=None, **kw):
-        """Subscribe to a particular stream associated with this node.
-
-        :param str stream_suffix: stream to add is "{db_name}_{stream_suffix}"
-        :param DataStreamReader reader:
-        :param str or int first_index: Redis stream index (None is now)
-        """
-        stream_suffix_with_sepator = f"_{stream_suffix}"
-        if self._sync_stream.name.endswith(stream_suffix_with_sepator):
-            # Lower priority than all other streams
-            kw["priority"] = 1
-        super()._subscribe_stream(stream_suffix, reader, first_index=first_index, **kw)
 
     def _subscribe_streams(self, reader, first_index=None, **kw):
         """Subscribe to all associated streams of this node.

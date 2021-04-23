@@ -726,7 +726,7 @@ class DataNode(metaclass=DataNodeMetaClass):
         self.node_type = node_type
 
         self._priorities = {}
-        """Hold priorities per streams only during the initialization"""
+        """Hold priorities per streams."""
 
         # The info dictionary associated to the DataNode
         self._info = settings.HashObjSetting(f"{db_name}_info", connection=connection)
@@ -743,6 +743,17 @@ class DataNode(metaclass=DataNodeMetaClass):
             self.__new_node = False
             self._ttl_setter = None
             self._struct = self._get_struct(db_name, connection=self.db_connection)
+
+    def _register_stream_priority(self, fullname: str, priority: int):
+        """
+        Register the stream priority which will be used on the reader side.
+
+        :paran str fullname: Full name of the stream
+        :param int priority: data from streams with a lower priority is never
+                             yielded as long as higher priority streams have
+                             data. Lower number means higher priority.
+        """
+        self._priorities[fullname] = priority
 
     def add_prefetch(self, async_proxy=None):
         """As long as caching on the proxy level exists in CachingRedisDbProxy,
@@ -812,19 +823,14 @@ class DataNode(metaclass=DataNodeMetaClass):
         kw.setdefault("connection", self.db_connection)
         return streaming.DataStream(name, **kw)
 
-    def _create_stream(self, suffix, priority: int = None, **kw):
+    def _create_stream(self, suffix, **kw):
         """Create a stream associated to this DataNode.
 
         :param str suffix:
-        :param int priority: data from streams with a lower priority is never
-                             yielded as long as higher priority streams have
-                             data. Lower number means higher priority.
         :param `**kw`: see `_create_nonassociated_stream`
         :returns DataStream:
         """
         stream = self._create_nonassociated_stream(f"{self.db_name}_{suffix}", **kw)
-        if priority is not None:
-            self._priorities[stream.name] = priority
         return stream
 
     @classmethod
@@ -1373,12 +1379,10 @@ class DataNode(metaclass=DataNodeMetaClass):
                 return
         stream = self._create_nonassociated_stream(stream_name)
 
-        if "priority" not in kw:
-            # If the priority is not forced by the _subscribe_stream arguments
-            # Use the one from the config
-            priority = self._priorities.pop(stream.name, None)
-            if priority is not None:
-                kw["priority"] = priority
+        # Use the priority as it was setup
+        priority = self._priorities.get(stream.name, 0)
+        if priority is not None:
+            kw["priority"] = priority
 
         reader.add_streams(stream, node=self, first_index=first_index, **kw)
 

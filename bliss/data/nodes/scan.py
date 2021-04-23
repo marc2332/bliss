@@ -32,10 +32,11 @@ class ScanNode(DataNodeContainer):
 
     def __init__(self, name, **kwargs):
         super().__init__(self._NODE_TYPE, name, **kwargs)
-        # Lower priority than all other streams
-        self._end_stream = self._create_stream("end", priority=3)
-        # Lower priority than NEW_NODE, higher than NEW_DATA
-        self._prepared_stream = self._create_stream("prepared", priority=1)
+        self._end_stream = self._create_stream("end")
+        self._prepared_stream = self._create_stream("prepared")
+        # Register to priority as the following way: NEW DATA > PREPARED > NEW NODE > END
+        self._register_stream_priority(self._end_stream.name, 3)
+        self._register_stream_priority(self._prepared_stream.name, 1)
 
     @property
     def dataset(self):

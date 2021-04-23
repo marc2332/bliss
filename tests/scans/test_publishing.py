@@ -737,7 +737,7 @@ def _count_node_events(
         """Count nodes and check order
         """
         node = n.db_name
-        error_msg = f"Node '{node}' already recieved"
+        error_msg = f"Node '{node}' already received"
         assert node not in nodes, error_msg
         nodes.append(node)
 

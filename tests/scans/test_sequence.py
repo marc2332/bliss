@@ -349,10 +349,14 @@ def test_sequence_events(session):
     end_4_dscan = event_dump.index(("END_SCAN", "scan", "4_dscan"))
     assert data_4_dscan < end_4_dscan
 
+    prepared_2_sequence_of_scans = event_dump.index(
+        ("PREPARED_SCAN", "scan_group", "2_sequence_of_scans")
+    )
     end_2_sequence_of_scans = event_dump.index(
         ("END_SCAN", "scan_group", "2_sequence_of_scans")
     )
     assert sequence_event_4_dscan < end_2_sequence_of_scans
+    assert prepared_2_sequence_of_scans < end_2_sequence_of_scans
 
 
 def test_group_with_killed_scan(default_session):

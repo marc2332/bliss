@@ -856,10 +856,7 @@ def test_walk_events_on_session_node(beforestart, wait, include_filter, session)
         beforestart, session, session.name, include_filter=include_filter, wait=wait
     )
     if include_filter == "scan":
-        assert set(events.keys()) == {"NEW_NODE", "END_SCAN", "PREPARED_SCAN"}
-        assert len(events["NEW_NODE"]) == 1
-        assert len(events["END_SCAN"]) == 1
-        assert len(events["PREPARED_SCAN"]) == 1
+        assert list(events.keys()) == ["NEW_NODE", "PREPARED_SCAN", "END_SCAN"]
     elif include_filter == "channel":
         # New node events: epoch, elapsed_time, n x detector
         assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
@@ -873,12 +870,12 @@ def test_walk_events_on_session_node(beforestart, wait, include_filter, session)
     else:
         # New node events: root nodes, scan, scan master (timer),
         #                  epoch, elapsed_time, n  x (controller, detector)
-        assert set(events.keys()) == {
+        assert list(events.keys()) == [
             "NEW_NODE",
+            "PREPARED_SCAN",
             "NEW_DATA",
             "END_SCAN",
-            "PREPARED_SCAN",
-        }
+        ]
         # One less because the NEW_NODE event for session.name is
         # not emitted on node session.name
         nroot = len(session.scan_saving._db_path_keys) - 1
@@ -936,10 +933,7 @@ def test_walk_events_on_dataset_node(beforestart, wait, include_filter, session)
     )
     if include_filter == "scan":
         # New node events: scan
-        assert set(events.keys()) == {"NEW_NODE", "END_SCAN", "PREPARED_SCAN"}
-        assert len(events["NEW_NODE"]) == 1
-        assert len(events["END_SCAN"]) == 1
-        assert len(events["PREPARED_SCAN"]) == 1
+        assert list(events.keys()) == ["NEW_NODE", "PREPARED_SCAN", "END_SCAN"]
     elif include_filter == "channel":
         # New node events: epoch, elapsed_time, n x detector
         assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
@@ -953,12 +947,12 @@ def test_walk_events_on_dataset_node(beforestart, wait, include_filter, session)
     else:
         # New node events: dataset, scan master (timer), epoch,
         #                  elapsed_time, n  x (controller, detector)
-        assert set(events.keys()) == {
+        assert list(events.keys()) == [
             "NEW_NODE",
+            "PREPARED_SCAN",
             "NEW_DATA",
             "END_SCAN",
-            "PREPARED_SCAN",
-        }
+        ]
         assert len(events["NEW_NODE"]) == 2 + nmasters + 2 * nchannels
         assert len(events["NEW_DATA"]) == nmasters + nchannels
         assert len(events["END_SCAN"]) == 1
@@ -1003,9 +997,7 @@ def test_walk_events_on_scan_node(beforestart, wait, include_filter, session):
         wait=wait,
     )
     if include_filter == "scan":
-        assert set(events.keys()) == {"END_SCAN", "PREPARED_SCAN"}
-        assert len(events["END_SCAN"]) == 1
-        assert len(events["PREPARED_SCAN"]) == 1
+        assert list(events.keys()) == ["PREPARED_SCAN", "END_SCAN"]
     elif include_filter == "channel":
         # New node events: epoch, elapsed_time, n x detector
         assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
@@ -1019,12 +1011,12 @@ def test_walk_events_on_scan_node(beforestart, wait, include_filter, session):
     else:
         # New node events: scan master (timer), epoch, elapsed_time,
         #                  n  x (controller, detector)
-        assert set(events.keys()) == {
+        assert list(events.keys()) == [
             "NEW_NODE",
+            "PREPARED_SCAN",
             "NEW_DATA",
             "END_SCAN",
-            "PREPARED_SCAN",
-        }
+        ]
         assert len(events["NEW_NODE"]) == 1 + nmasters + 2 * nchannels
         assert len(events["NEW_DATA"]) == nmasters + nchannels
         assert len(events["END_SCAN"]) == 1

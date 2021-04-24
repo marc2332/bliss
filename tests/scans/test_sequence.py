@@ -277,7 +277,7 @@ def test_sequence_events(session):
                     node.type,
                     re.split(r"test_sequence_events[0-9,_]*:", node.db_name)[-1],
                 )
-                print(len(event_dump), event)
+                print(i, event)
                 event_dump.append(event)
                 nevents += 1
                 if nevents == nexpectedevents:

@@ -2,13 +2,13 @@
 #
 # This file is part of the bliss project
 #
-# Copyright (c) 2015-2020 Beamline Control Unit, ESRF
+# Copyright (c) 2015-2021 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 # for inspiration have a look at
 # https://github.com/tektronix/Programmatic-Control-Examples/tree/master/Examples/Oscilloscopes
 
-from bliss.controllers.oscilloscope import (
+from bliss.controllers.oscilloscope.base import (
     Oscilloscope,
     OscilloscopeHardwareController,
     OscilloscopeAnalogChannel,

@@ -1,5 +1,5 @@
 - class: TektronixOsc
-  module: tektronix
+  module: oscilloscope.tektronix
   plugin: bliss
   name: tektro2
   vxi11:

@@ -697,7 +697,7 @@ class Aerotech(Controller):
     def _cmd(self, cmd, axis, *cmd_args, reply=True):
         aero_name = self._aero_name(axis)
         if aero_name:
-            args = [aero_name] + cmd_args
+            args = [aero_name] + list(cmd_args)
         else:
             args = cmd_args
         if reply:

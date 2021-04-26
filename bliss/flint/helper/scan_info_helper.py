@@ -785,91 +785,82 @@ def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
                 if default_plot is None:
                     default_plot = plots[0]
 
-    # MCA plot
+    # 1D plots
 
-    mca_plots_per_device: Dict[str, List[plot_model.Plot]] = {}
-    roi1d_plots_per_device: Dict[str, List[plot_model.Plot]] = {}
+    for device_id, device_info in scan_info.get("devices", {}).items():
+        device_type = device_info.get("type")
+        device_name = device_id.rsplit(":", 1)[-1]
+        plot = None
 
-    for master_name in acquisition_chain.keys():
-        spectra: List[str] = []
-        rois1d: List[str] = []
+        for channel_name in device_info.get("channels", []):
+            channel_info = scan_info["channels"].get(channel_name, {})
+            dim = channel_info.get("dim", 0)
+            if dim != 1:
+                continue
 
-        channel_names = _get_channels(scan_info, master_name, dim=1)
-        for c in channel_names:
-            if ":roi_profiles:" in c:
-                rois1d.append(c)
-            else:
-                spectra.append(c)
-
-        for spectrum_name in spectra:
-            device_name = get_device_from_channel(spectrum_name)
-            plot = mca_plots_per_device.get(device_name, None)
             if plot is None:
-                plot = plot_item_model.McaPlot()
-                plot.setDeviceName(device_name)
-                mca_plots_per_device[device_name] = plot
-            if default_plot is None:
-                default_plot = plot
+                device_name = get_device_from_channel(channel_name)
+                if device_type == "mca":
+                    plot = plot_item_model.McaPlot()
+                    plot.setDeviceName(device_name)
+                else:
+                    plot = plot_item_model.OneDimDataPlot()
+                    plot.setDeviceName(device_name)
+                if default_plot is None:
+                    default_plot = plot
 
-            mca_channel = plot_model.ChannelRef(plot, spectrum_name)
+            channel = plot_model.ChannelRef(plot, channel_name)
             item = plot_item_model.McaItem(plot)
-            item.setMcaChannel(mca_channel)
+            item.setMcaChannel(channel)
             plot.addItem(item)
 
-        for roi1d_name in rois1d:
-            device_name = get_device_from_channel(roi1d_name)
-            plot = roi1d_plots_per_device.get(device_name, None)
-            if plot is None:
-                plot = plot_item_model.OneDimDataPlot()
-                plot.setDeviceName(device_name)
-                roi1d_plots_per_device[device_name] = plot
-            if default_plot is None:
-                default_plot = plot
-
-            mca_channel = plot_model.ChannelRef(plot, roi1d_name)
-            item = plot_item_model.McaItem(plot)
-            item.setMcaChannel(mca_channel)
-            plot.addItem(item)
-
-    result.extend(mca_plots_per_device.values())
-    result.extend(roi1d_plots_per_device.values())
+        if plot is not None:
+            result.append(plot)
 
     # Image plot
 
-    image_plots_per_device: Dict[str, List[plot_model.Plot]] = {}
     for master_name in acquisition_chain.keys():
-        images = _get_channels(scan_info, master_name, dim=2)
-        for image_name in images:
-            device_name = get_device_from_channel(image_name)
-            plot = image_plots_per_device.get(device_name, None)
-            if plot is None:
-                plot = plot_item_model.ImagePlot()
-                plot.setDeviceName(device_name)
-                image_plots_per_device[device_name] = plot
-            if default_plot is None:
-                default_plot = plot
+        for device_id in acquisition_chain[master_name].get("devices", []):
+            device_info = scan_info["devices"].get(device_id, {})
+            device_type = device_info.get("type")
+            device_name = device_id.rsplit(":", 1)[-1]
+            plot = None
 
-            image_channel = plot_model.ChannelRef(plot, image_name)
-            item = plot_item_model.ImageItem(plot)
-            item.setImageChannel(image_channel)
-            plot.addItem(item)
+            for channel_name in device_info.get("channels", []):
+                channel_info = scan_info["channels"].get(channel_name, {})
+                dim = channel_info.get("dim", 0)
+                if dim != 2:
+                    continue
 
-            if "rois" in scan_info:
-                for roi_name, _roi_dict in scan_info["rois"].items():
-                    if not roi_name.startswith(
-                        f"{device_name}:roi_counters:"
-                    ) and not roi_name.startswith(f"{device_name}:roi_profiles:"):
-                        pass
-                    item = plot_item_model.RoiItem(plot)
-                    item.setDeviceName(f"{master_name}:{roi_name}")
-                    plot.addItem(item)
+                if plot is None:
+                    plot = plot_item_model.ImagePlot()
+                    device_name = get_device_from_channel(channel_name)
+                    plot.setDeviceName(device_name)
+                    if default_plot is None:
+                        default_plot = plot
+                    if device_type == "lima":
+                        if "rois" in scan_info:
+                            for roi_name, _roi_dict in scan_info["rois"].items():
+                                if not roi_name.startswith(
+                                    f"{device_name}:roi_counters:"
+                                ) and not roi_name.startswith(
+                                    f"{device_name}:roi_profiles:"
+                                ):
+                                    pass
+                                item = plot_item_model.RoiItem(plot)
+                                item.setDeviceName(f"{master_name}:{roi_name}")
+                                plot.addItem(item)
 
-    result.extend(image_plots_per_device.values())
+                image_channel = plot_model.ChannelRef(plot, channel_name)
+                item = plot_item_model.ImageItem(plot)
+                item.setImageChannel(image_channel)
+                plot.addItem(item)
 
-    # Final process
+            if plot is not None:
+                result.append(plot)
 
+    # Move the default plot on top
     if default_plot is not None:
-        # Move the default plot on top
         result.remove(default_plot)
         result.insert(0, default_plot)
 

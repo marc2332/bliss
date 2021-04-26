@@ -86,6 +86,7 @@ def _get_channels(
     """
     names = []
 
+    master_count = 0
     for top_master, meta in scan_info["acquisition_chain"].items():
         if top_master_name is not None:
             if top_master != top_master_name:
@@ -98,7 +99,10 @@ def _get_channels(
                 continue
 
             if master is not None:
-                is_master = "triggered_devices" in device_info
+                is_triggering = "triggered_devices" in device_info
+                if is_triggering:
+                    master_count += 1
+                is_master = is_triggering and master_count == 1
                 if master ^ is_master:
                     # If the filter mismatch
                     continue

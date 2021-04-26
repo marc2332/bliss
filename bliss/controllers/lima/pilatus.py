@@ -43,19 +43,20 @@ class Camera(CameraBase):
     def __init__(self, name, lima_device, proxy):
         self.name = name
         self._proxy = proxy
-        self._lima_proxy = lima_device.proxy
+        self._lima_dev = lima_device
         self._model = None
 
     def __find_model(self):
+        lima_proxy = self._lima_dev.proxy
         try:
-            model = self._lima_proxy.camera_model
+            model = lima_proxy.camera_model
         except:
             return None
         try:
-            back_roi = self._lima_proxy.image_roi
-            self._lima_proxy.image_roi = (0, 0, 0, 0)
-            img_size = tuple(self._lima_proxy.image_sizes[2:4])
-            self._lima_proxy.image_roi = back_roi
+            back_roi = lima_proxy.image_roi
+            lima_proxy.image_roi = (0, 0, 0, 0)
+            img_size = tuple(lima_proxy.image_sizes[2:4])
+            lima_proxy.image_roi = back_roi
         except:
             return None
 
@@ -80,39 +81,56 @@ class Camera(CameraBase):
 
     def hwroi_list(self):
         hwrois = self.__get_hwrois()
+        current = self.hwroi_get()
 
         tab_data = list()
         for (name, values) in hwrois.items():
-            tab_data.append([name] + list(values))
-        tab_head = ["name", "x0", "y0", "width", "height", "max rate (Hz)"]
-        print("\nPossible HWROI values for [{0}]:\n".format(self._model))
+            state = current == name and ">>>" or ""
+            tab_data.append([state, name] + list(values))
+        tab_head = ["set", "name", "x0", "y0", "width", "height", "max rate (Hz)"]
+        print("\nHardware ROI values for [{0}]:\n".format(self._model))
         print(tabulate.tabulate(tab_data, tab_head) + "\n")
 
     def hwroi_set(self, name):
         hwrois = self.__get_hwrois()
-        if name not in hwrois:
+        if name is None:
+            name = "FULL"
+        elif name not in hwrois:
             raise RuntimeError("Unknown HWROI for model [{0}]".format(self._model))
         roi = hwrois[name]
         print(
             "Setting ROI to ({0},{1},{2},{3}). Max rate will be {4} MHz.".format(*roi)
         )
-        self._lima_proxy.image_roi = roi[:4]
-
-    def hwroi_max_rate(self, name):
-        hwrois = self.__get_hwrois()
-        if name not in hwrois:
-            raise RuntimeError("Unknown HWROI for model [{0}]".format(self._model))
-        return hwrois[name][4]
+        self._lima_dev.image.roi = roi[:4]
 
     def hwroi_get(self):
         hwrois = self.__get_hwrois()
-        img_roi = tuple(self._lima_proxy.image_roi)
+        img_roi = tuple(self._lima_dev.image.roi)
         for (name, values) in hwrois.items():
             if img_roi == values[:4]:
                 return name
         return "SOFT"
 
+    def hwroi_reset(self):
+        self.hwroi_set(None)
+
     @property
+    def hwroi_max_rate(self):
+        hwrois = self.__get_hwrois()
+        name = self.hwroi
+        if name == "SOFT":
+            name = "FULL"
+        return hwrois[name][4]
+
+    @property
+    def hwroi(self):
+        return self.hwroi_get()
+
+    @hwroi.setter
+    def hwroi(self, name):
+        self.hwroi_set(name)
+
+    @LimaProperty
     def model(self):
         if self._model is None:
             self._model = self.__find_model()
@@ -120,7 +138,7 @@ class Camera(CameraBase):
 
     @LimaProperty
     def synchro_mode(self):
-        if self._lima_proxy.acq_trigger_mode == "INTERNAL_TRIGGER_MULTI":
+        if self._lima_dev.acquisition.trigger_mode == "INTERNAL_TRIGGER_MULTI":
             return "TRIGGER"
         else:
             return "IMAGE"

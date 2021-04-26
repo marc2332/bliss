@@ -599,6 +599,9 @@ class micos(Controller):
         # if clwintime == None:
         #    axis.axis_settings.add("cloop_wintime",float)
 
+        # Get the home position if any
+        axis.home_position = axis.config.get("home_position", float, None)
+
     def initialize_hardware_axis(self, axis):
         """
         This function serves for the HARDWARE INITIALIZION of an axis.
@@ -2960,13 +2963,9 @@ class micos(Controller):
                 # the controller position value.
                 axis.sync_hard()
 
-                # set user position to be equal to the offset
-                # axis.position = current_offset
-                # axis.position = -120.0
-                axis.position = -122.0
-
-                # set endswitch types to 2 since reset_axis() sets them to 1
-                # _ans = self._set_endswitch_types(axis,2,2)
+                # Apply a home position if any
+                if axis.home_position is not None:
+                    axis.position = axis.home_position
 
             # Restore the velocity for moving to the reference position
             # to the value as was found in the configuration

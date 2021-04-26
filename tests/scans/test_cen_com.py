@@ -49,6 +49,7 @@ def test_pkcom_ascan_gauss(session):
     s = scans.ascan(roby, 0, 10, 10, 0, simul_counter, save=False, return_scan=True)
 
     peak = s.peak(simul_counter)
+    trough = s.trough(simul_counter)
     cen = s.cen(simul_counter)
     fwhm = s.fwhm(simul_counter)
     com = s.com(simul_counter)
@@ -71,6 +72,8 @@ def test_pkcom_ascan_gauss(session):
     assert pytest.approx(roby.position) == peak
     s.goto_com(simul_counter)
     assert pytest.approx(roby.position) == com
+    s.goto_min(simul_counter)
+    assert pytest.approx(roby.position) == trough
 
 
 def test_pkcom_a2scan_gauss(session):
@@ -250,10 +253,11 @@ def test_plotselect_and_global_cen(session):
     scan_tools.goto_cen()
     scan_tools.goto_com()
     scan_tools.goto_peak()
+    scan_tools.goto_min()
 
 
 def test_goto(session):
-    from bliss.scanning.scan_tools import goto_cen, goto_com, goto_peak
+    from bliss.scanning.scan_tools import goto_cen, goto_com, goto_peak, goto_min
 
     roby = session.config.get("roby")
     m0 = session.config.get("m0")
@@ -280,6 +284,13 @@ def test_goto(session):
     assert pytest.approx(2, abs=1e-3) == roby.position
     assert pytest.approx(-80, abs=1) == m0.position
 
+    roby.move(3)
+    m0.move(-78)
+
+    goto_min(simul_counter)  # center of simul_counter
+    assert pytest.approx(0, abs=1e-3) == roby.position
+    assert pytest.approx(-100, abs=1) == m0.position
+
     ## use scan attached functions as well
     s.goto_cen(simul_counter)  # center of simul_counter
     assert pytest.approx(2.5, abs=1e-3) == roby.position
@@ -298,6 +309,13 @@ def test_goto(session):
     s.goto_peak(simul_counter)  # center of simul_counter
     assert pytest.approx(2, abs=1e-3) == roby.position
     assert pytest.approx(-80, abs=1) == m0.position
+
+    roby.move(3)
+    m0.move(-78)
+
+    s.goto_min(simul_counter)  # center of simul_counter
+    assert pytest.approx(0, abs=1e-3) == roby.position
+    assert pytest.approx(-100, abs=1) == m0.position
 
     goto_cen(diode)
     roby_center = s.cen(diode, roby)
@@ -322,6 +340,15 @@ def test_goto(session):
     m0_peak = s.peak(diode, m0)
     assert pytest.approx(roby_peak, abs=1e-3) == roby.position
     assert pytest.approx(m0_peak, abs=1) == m0.position
+
+    roby.move(3)
+    m0.move(-78)
+
+    goto_min(diode)
+    roby_min = s.trough(diode, roby)
+    m0_min = s.trough(diode, m0)
+    assert pytest.approx(roby_min, abs=1e-3) == roby.position
+    assert pytest.approx(m0_min, abs=1) == m0.position
 
     # wrong arguments check
     with pytest.raises(TypeError):

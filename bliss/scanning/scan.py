@@ -1032,6 +1032,12 @@ class Scan:
     def _peak(self, counter, axis):
         return scan_math.peak(*self._get_x_y_data(counter, axis))
 
+    def trough(self, counter, axis=None, return_axes=False):
+        return self._multimotors(self._trough, counter, axis, return_axes=return_axes)
+
+    def _trough(self, counter, axis):
+        return scan_math.trough(*self._get_x_y_data(counter, axis))
+
     def com(self, counter, axis=None, return_axes=False):
         return self._multimotors(self._com, counter, axis, return_axes=return_axes)
 
@@ -1122,6 +1128,9 @@ class Scan:
 
     def goto_peak(self, counter, axis=None):
         return self._goto_multimotors(self.peak(counter, axis, return_axes=True))
+
+    def goto_min(self, counter, axis=None):
+        return self._goto_multimotors(self.trough(counter, axis, return_axes=True))
 
     def goto_com(self, counter, axis=None, return_axes=False):
         return self._goto_multimotors(self.com(counter, axis, return_axes=True))

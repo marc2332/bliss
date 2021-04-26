@@ -18,6 +18,8 @@ Cen = namedtuple("center", ["position", "fwhm"])
 
 Peak = namedtuple("peak", ["position", "value"])
 
+Trough = namedtuple("trough", ["position", "value"])
+
 
 def peak(x: numpy.ndarray, y: numpy.ndarray) -> float:
     """Returns the x location of the peak.
@@ -57,6 +59,46 @@ def peak2(x: numpy.ndarray, y: numpy.ndarray) -> typing.Tuple[float, float]:
         index = numpy.argmax(y)
         return Peak(x[index], y[index])
     return Peak(numpy.nan, numpy.nan)
+
+
+def trough(x: numpy.ndarray, y: numpy.ndarray) -> float:
+    """Returns the x location of the trough.
+
+    On the current implementation the trough is defined as the min of the y.
+
+    The algorithm was designed to be fast. It is not using any fit function.
+
+    Args:
+        x (ndarray): X locations
+        y (ndarray): Y locations
+
+    Returns:
+        x location of the min
+    """
+    return trough2(x, y)[0]
+
+
+def trough2(x: numpy.ndarray, y: numpy.ndarray) -> typing.Tuple[float, float]:
+    """Returns the location of the trough.
+
+    On the current implementation the trough is defined as the min of the y.
+
+    The algorithm was designed to be fast. It is not using any fit function.
+
+    Args:
+        x (ndarray): X locations
+        y (ndarray): Y locations
+
+    Returns:
+        A tuple containing the x location and the y location of the min
+    """
+    if not _check_arrays(x, y):
+        return Trough(numpy.nan, numpy.nan)
+    with _capture_exceptions():
+        x, y = _extract_finite(x, y)
+        index = numpy.argmin(y)
+        return Trough(x[index], y[index])
+    return Trough(numpy.nan, numpy.nan)
 
 
 def com(x: numpy.ndarray, y: numpy.ndarray, visual=True) -> float:

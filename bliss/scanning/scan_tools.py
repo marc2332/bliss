@@ -273,6 +273,39 @@ def goto_peak(
 
 
 @typeguard.typechecked
+@shorten_signature(hidden_kwargs=[])
+def trough(
+    counter: Optional[_countable] = None,
+    axis: Optional[_scannable] = None,
+    scan: Optional[Scan] = None,
+):
+    """
+    Return position of scanned motor at minimum of <counter> of last scan.
+    If <counter> is not specified, use selected counter.
+
+    Example: min_of_scan = min()
+    """
+    return _scan_calc("trough", counter=counter, axis=axis, scan=scan)
+
+
+@typeguard.typechecked
+@shorten_signature(hidden_kwargs=[])
+def goto_min(
+    counter: Optional[_countable] = None,
+    axis: Optional[_scannable] = None,
+    scan: Optional[Scan] = None,
+):
+    """
+    Return position of scanned motor at minimum of <counter> of last scan.
+    Move scanned motor to this value.
+    If <counter> is not specified, use selected counter.
+
+    Example: goto_min()
+    """
+    return _scan_calc("trough", counter=counter, axis=axis, scan=scan, goto=True)
+
+
+@typeguard.typechecked
 @typeguardTypeError_to_hint
 def goto_custom(
     func: Callable[[Any, Any], float],

@@ -12,10 +12,14 @@ import shutil
 import threading
 import gevent
 import typing
-
+import logging
 from docopt import docopt
 
 from bliss.tango.clients import utils as tango_utils
+from bliss.common.tango import DeviceProxy
+
+
+_logger = logging.getLogger("BLISS_DEMO")
 
 
 BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -128,6 +132,24 @@ class TangoDeviceDescription(typing.NamedTuple):
     name: str
     cmdline: typing.List[str]
     server_name: str
+    post_init: typing.Optional[typing.Callable[[str], None]] = None
+
+
+def post_init_lima_simulator(device_name):
+    simulator_name = device_name.replace("/limaccds/", "/simulator/")
+    device = tango_utils.DeviceProxy(simulator_name)
+    # Only prefetch 100 frames in order to not explode the memory on very big scans
+    # Like mesh scans of 100x100
+    device.mode = "GENERATOR_PREFETCH"
+    device.nb_prefetched_frames = 100
+
+
+def post_init_lima_single_prefetched_frame(device_name):
+    simulator_name = device_name.replace("/limaccds/", "/simulator/")
+    device = tango_utils.DeviceProxy(simulator_name)
+    # Only prefetch 1 frame cause the image is overwrited by the plugin anyway
+    device.mode = "GENERATOR_PREFETCH"
+    device.nb_prefetched_frames = 1
 
 
 TANGO_DEVICES = [
@@ -135,21 +157,25 @@ TANGO_DEVICES = [
         name="id00/limaccds/simulator1",
         cmdline=("LimaCCDs", "simulator"),
         server_name="LimaCCDs",
+        post_init=post_init_lima_simulator,
     ),
     TangoDeviceDescription(
         name="id00/limaccds/slits_simulator",
         cmdline=("SlitsSimulationLimaCCDs", "slits_simulator"),
         server_name="LimaCCDs",
+        post_init=post_init_lima_single_prefetched_frame,
     ),
     TangoDeviceDescription(
         name="id00/limaccds/tomo_simulator",
         cmdline=("TomoSimulationLimaCCDs", "tomo_simulator"),
         server_name="LimaCCDs",
+        post_init=post_init_lima_single_prefetched_frame,
     ),
     TangoDeviceDescription(
         name="id00/limaccds/diff_simulator",
         cmdline=("DiffSimulationLimaCCDs", "diff_simulator"),
         server_name="LimaCCDs",
+        post_init=post_init_lima_single_prefetched_frame,
     ),
     TangoDeviceDescription(
         name="id00/metadata/demo_session",
@@ -190,6 +216,18 @@ def start_tango_servers():
         cleanup_processes(processes)
         gevent.killall(wait_tasks)
         raise
+
+    for description in TANGO_DEVICES:
+        post_init = description.post_init
+        if post_init is not None:
+            try:
+                post_init(description.name)
+            except Exception:
+                _logger.error(
+                    "Error during post initialization of %s",
+                    description.name,
+                    exc_info=True,
+                )
 
     return processes
 

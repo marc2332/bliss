@@ -124,55 +124,57 @@ def start_beacon(db_path):
     return proc
 
 
+class TangoDeviceDescription(typing.NamedTuple):
+    name: str
+    cmdline: typing.List[str]
+    server_name: str
+
+
+TANGO_DEVICES = [
+    TangoDeviceDescription(
+        name="id00/limaccds/simulator1",
+        cmdline=("LimaCCDs", "simulator"),
+        server_name="LimaCCDs",
+    ),
+    TangoDeviceDescription(
+        name="id00/limaccds/slits_simulator",
+        cmdline=("SlitsSimulationLimaCCDs", "slits_simulator"),
+        server_name="LimaCCDs",
+    ),
+    TangoDeviceDescription(
+        name="id00/limaccds/tomo_simulator",
+        cmdline=("TomoSimulationLimaCCDs", "tomo_simulator"),
+        server_name="LimaCCDs",
+    ),
+    TangoDeviceDescription(
+        name="id00/limaccds/diff_simulator",
+        cmdline=("DiffSimulationLimaCCDs", "diff_simulator"),
+        server_name="LimaCCDs",
+    ),
+    TangoDeviceDescription(
+        name="id00/metadata/demo_session",
+        cmdline=("MetadataManager", "demo"),
+        server_name="MetadataManager",
+    ),
+    TangoDeviceDescription(
+        name="id00/metaexp/demo_session",
+        cmdline=("MetaExperiment", "demo"),
+        server_name="MetaExperiment",
+    ),
+    TangoDeviceDescription(
+        name="id00/bliss_nxwriter/demo_session",
+        cmdline=("NexusWriterService", "demo"),
+        server_name="NexusWriter",
+    ),
+]
+
+
 def start_tango_servers():
     wait_tasks = []
     processes = []
 
-    class TangoDeviceDescription(typing.NamedTuple):
-        name: str
-        cmdline: typing.List[str]
-        server_name: str
-
-    tango_devices = [
-        TangoDeviceDescription(
-            name="id00/limaccds/simulator1",
-            cmdline=("LimaCCDs", "simulator"),
-            server_name="LimaCCDs",
-        ),
-        TangoDeviceDescription(
-            name="id00/limaccds/slits_simulator",
-            cmdline=("SlitsSimulationLimaCCDs", "slits_simulator"),
-            server_name="LimaCCDs",
-        ),
-        TangoDeviceDescription(
-            name="id00/limaccds/tomo_simulator",
-            cmdline=("TomoSimulationLimaCCDs", "tomo_simulator"),
-            server_name="LimaCCDs",
-        ),
-        TangoDeviceDescription(
-            name="id00/limaccds/diff_simulator",
-            cmdline=("DiffSimulationLimaCCDs", "diff_simulator"),
-            server_name="LimaCCDs",
-        ),
-        TangoDeviceDescription(
-            name="id00/metadata/demo_session",
-            cmdline=("MetadataManager", "demo"),
-            server_name="MetadataManager",
-        ),
-        TangoDeviceDescription(
-            name="id00/metaexp/demo_session",
-            cmdline=("MetaExperiment", "demo"),
-            server_name="MetaExperiment",
-        ),
-        TangoDeviceDescription(
-            name="id00/bliss_nxwriter/demo_session",
-            cmdline=("NexusWriterService", "demo"),
-            server_name="NexusWriter",
-        ),
-    ]
-
     try:
-        for description in tango_devices:
+        for description in TANGO_DEVICES:
             fqdn_prefix = f"tango://{os.environ['TANGO_HOST']}"
             # device_fqdn = f"{fqdn_prefix}/{device_name}"
             personal_name = description.cmdline[-1]

@@ -136,18 +136,26 @@ class TangoDeviceDescription(typing.NamedTuple):
 
 
 def post_init_lima_simulator(device_name):
-    simulator_name = device_name.replace("/limaccds/", "/simulator/")
-    device = tango_utils.DeviceProxy(simulator_name)
+    # Make sure Lima will not use too much memory
+    device = tango_utils.DeviceProxy(device_name)
+    device.buffer_max_memory = 20  # in percent
+
     # Only prefetch 100 frames in order to not explode the memory on very big scans
     # Like mesh scans of 100x100
+    simulator_name = device_name.replace("/limaccds/", "/simulator/")
+    device = tango_utils.DeviceProxy(simulator_name)
     device.mode = "GENERATOR_PREFETCH"
     device.nb_prefetched_frames = 100
 
 
 def post_init_lima_single_prefetched_frame(device_name):
+    # Make sure Lima will not use too much memory
+    device = tango_utils.DeviceProxy(device_name)
+    device.buffer_max_memory = 20  # in percent
+
+    # Only prefetch 1 frame cause the image is overwrited by the plugin anyway
     simulator_name = device_name.replace("/limaccds/", "/simulator/")
     device = tango_utils.DeviceProxy(simulator_name)
-    # Only prefetch 1 frame cause the image is overwrited by the plugin anyway
     device.mode = "GENERATOR_PREFETCH"
     device.nb_prefetched_frames = 1
 

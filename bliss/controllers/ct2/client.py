@@ -33,9 +33,9 @@ from bliss.controllers.counter import IntegratingCounterController
 
 
 class CT2Counter(IntegratingCounter):
-    def __init__(self, name, channel, controller):
+    def __init__(self, name, channel, controller, unit=None):
         self.channel = channel
-        super().__init__(name, controller)
+        super().__init__(name, controller, unit=unit)
 
     def convert(self, data):
         return data
@@ -48,7 +48,10 @@ class CT2CounterTimer(CT2Counter):
     def __init__(self, name, controller):
         self.timer_freq = controller._master_controller.timer_freq
         super(CT2CounterTimer, self).__init__(
-            name, controller._master_controller.internal_timer_counter, controller
+            name,
+            controller._master_controller.internal_timer_counter,
+            controller,
+            unit="s",
         )
 
     def convert(self, ticks):

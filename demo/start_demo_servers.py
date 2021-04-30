@@ -135,55 +135,63 @@ class TangoDeviceDescription(typing.NamedTuple):
     post_init: typing.Optional[typing.Callable[[str], None]] = None
 
 
-def post_init_lima_simulator(device_name):
-    # Make sure Lima will not use too much memory
-    device = tango_utils.DeviceProxy(device_name)
-    device.buffer_max_memory = 20  # in percent
+class LimaTangoDeviceDescription(typing.NamedTuple):
+    name: str
+    cmdline: typing.List[str]
+    server_name: str
 
-    # Only prefetch 100 frames in order to not explode the memory on very big scans
-    # Like mesh scans of 100x100
-    simulator_name = device_name.replace("/limaccds/", "/simulator/")
-    device = tango_utils.DeviceProxy(simulator_name)
-    device.mode = "GENERATOR_PREFETCH"
-    device.nb_prefetched_frames = 100
+    buffer_max_memory: int = None
+    """Max percent of memory of the system used by Lima (default is 70)"""
 
+    nb_prefetched_frames: int = None
+    """Number of frames prefetched by the simulator"""
 
-def post_init_lima_single_prefetched_frame(device_name):
-    # Make sure Lima will not use too much memory
-    device = tango_utils.DeviceProxy(device_name)
-    device.buffer_max_memory = 20  # in percent
+    def post_init(self, device_name):
+        """
+        Setup Lima devices in order to tune them for memory usage.
+        """
+        if self.buffer_max_memory is not None:
+            device = DeviceProxy(device_name)
+            device.buffer_max_memory = self.buffer_max_memory
 
-    # Only prefetch 1 frame cause the image is overwrited by the plugin anyway
-    simulator_name = device_name.replace("/limaccds/", "/simulator/")
-    device = tango_utils.DeviceProxy(simulator_name)
-    device.mode = "GENERATOR_PREFETCH"
-    device.nb_prefetched_frames = 1
+        if self.nb_prefetched_frames is not None:
+            simulator_name = device_name.replace("/limaccds/", "/simulator/")
+            device = DeviceProxy(simulator_name)
+            device.mode = "GENERATOR_PREFETCH"
+            device.nb_prefetched_frames = self.nb_prefetched_frames
 
 
 TANGO_DEVICES = [
-    TangoDeviceDescription(
+    LimaTangoDeviceDescription(
         name="id00/limaccds/simulator1",
         cmdline=("LimaCCDs", "simulator"),
         server_name="LimaCCDs",
-        post_init=post_init_lima_simulator,
+        buffer_max_memory=20,
+        nb_prefetched_frames=100,
     ),
-    TangoDeviceDescription(
+    LimaTangoDeviceDescription(
         name="id00/limaccds/slits_simulator",
         cmdline=("SlitsSimulationLimaCCDs", "slits_simulator"),
         server_name="LimaCCDs",
-        post_init=post_init_lima_single_prefetched_frame,
+        buffer_max_memory=20,
+        # A single frame is enough because it is overwritten by a plugin
+        nb_prefetched_frames=1,
     ),
-    TangoDeviceDescription(
+    LimaTangoDeviceDescription(
         name="id00/limaccds/tomo_simulator",
         cmdline=("TomoSimulationLimaCCDs", "tomo_simulator"),
         server_name="LimaCCDs",
-        post_init=post_init_lima_single_prefetched_frame,
+        buffer_max_memory=20,
+        # A single frame is enough because it is overwritten by a plugin
+        nb_prefetched_frames=1,
     ),
-    TangoDeviceDescription(
+    LimaTangoDeviceDescription(
         name="id00/limaccds/diff_simulator",
         cmdline=("DiffSimulationLimaCCDs", "diff_simulator"),
         server_name="LimaCCDs",
-        post_init=post_init_lima_single_prefetched_frame,
+        buffer_max_memory=20,
+        # A single frame is enough because it is overwritten by a plugin
+        nb_prefetched_frames=1,
     ),
     TangoDeviceDescription(
         name="id00/metadata/demo_session",

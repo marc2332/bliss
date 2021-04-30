@@ -24,10 +24,10 @@ from bliss.scanning.scan import Scan, StepScanDataWatch
 from bliss.scanning.acquisition.motor import MeshStepTriggerMaster
 from bliss.scanning.scan_info import ScanInfo
 from .step_by_step import DEFAULT_CHAIN
+from bliss.common.protocols import Scannable
 from bliss.common.types import (
     _int,
     _float,
-    _scannable,
     _countables,
     _scannable_start_stop_intervals_list,
 )
@@ -203,11 +203,11 @@ def anmesh(
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def amesh(
-    motor1: _scannable,
+    motor1: Scannable,
     start1: _float,
     stop1: _float,
     intervals1: _int,
-    motor2: _scannable,
+    motor2: Scannable,
     start2: _float,
     stop2: _float,
     intervals2: _int,
@@ -268,11 +268,11 @@ def amesh(
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def dmesh(
-    motor1: _scannable,
+    motor1: Scannable,
     start1: _float,
     stop1: _float,
     intervals1: _int,
-    motor2: _scannable,
+    motor2: Scannable,
     start2: _float,
     stop2: _float,
     intervals2: _int,
@@ -336,15 +336,15 @@ def dmesh(
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def a3mesh(
-    motor1: _scannable,
+    motor1: Scannable,
     start1: _float,
     stop1: _float,
     intervals1: _int,
-    motor2: _scannable,
+    motor2: Scannable,
     start2: _float,
     stop2: _float,
     intervals2: _int,
-    motor3: _scannable,
+    motor3: Scannable,
     start3: _float,
     stop3: _float,
     intervals3: _int,
@@ -410,15 +410,15 @@ def a3mesh(
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def d3mesh(
-    motor1: _scannable,
+    motor1: Scannable,
     start1: _float,
     stop1: _float,
     intervals1: _int,
-    motor2: _scannable,
+    motor2: Scannable,
     start2: _float,
     stop2: _float,
     intervals2: _int,
-    motor3: _scannable,
+    motor3: Scannable,
     start3: _float,
     stop3: _float,
     intervals3: _int,

@@ -22,12 +22,11 @@ _countables = Union[
 _float_or_countables = Union[
     numbers.Real, IterableNamespace, Counter, MeasurementGroup, CounterContainer, Tuple
 ]
-_scannable = Scannable
-_scannable_or_name = Union[_scannable, str]
-_scannable_start_stop_list = Sequence[Tuple[_scannable, _float, _float]]
-_scannable_start_stop_intervals_list = Sequence[Tuple[_scannable, _float, _float, _int]]
+_scannable_or_name = Union[Scannable, str]
+_scannable_start_stop_list = Sequence[Tuple[Scannable, _float, _float]]
+_scannable_start_stop_intervals_list = Sequence[Tuple[Scannable, _float, _float, _int]]
 _position_list = Union[Sequence, numpy.ndarray]
-_scannable_position_list = Sequence[Tuple[_scannable, _position_list]]
+_scannable_position_list = Sequence[Tuple[Scannable, _position_list]]
 
-_providing_channel = Union[None, _scannable, Counter, str]
+_providing_channel = Union[None, Scannable, Counter, str]
 """Used by plotselect"""

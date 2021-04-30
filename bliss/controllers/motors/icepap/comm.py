@@ -7,19 +7,12 @@
 
 import re
 import socket
-import time
-import gevent
-import hashlib
-import functools
-from collections import namedtuple
-from bliss.common.greenlet_utils import protect_from_kill
-from bliss.comm.tcp import Command
-from bliss.comm.exceptions import CommunicationError
 import struct
-import numpy
-import sys
 import os
 import errno
+import numpy
+from bliss.common.greenlet_utils import protect_from_kill
+from bliss.comm.exceptions import CommunicationError
 
 __all__ = ["_check_reply", "_vdata_header", "_command", "_command_raw", "_ackcommand"]
 
@@ -137,7 +130,9 @@ def _command_raw(cnx, cmd, data=None, pre_cmd=None, timeout=None):
                     timeout=timeout,
                 )
             elif msg.startswith(b"ERROR"):
-                raise RuntimeError(msg.replace(b"ERROR ", b"").decode())
+                _msg = msg.replace(b"ERROR ", b"").decode()
+                _msg += " (check http://wikiserv.esrf.fr/bliss/index.php/ICETIPS)"
+                raise RuntimeError(_msg)
             elif msg.startswith(b"?*"):
                 # a binary reply
                 header = cnx._read(transaction, size=12, clear_transaction=False)

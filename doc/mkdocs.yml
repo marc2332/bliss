@@ -45,6 +45,7 @@ nav:
                       - APC: config_apc.md
                       - AutoFilter: config_autofilter.md
                       - BCDU8: config_bcdu8.md
+                      - CITY: config_city.md
                       - Correlators:
                             - Flex: config_correlator_flex.md
                       - Electrometers:

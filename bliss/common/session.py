@@ -801,8 +801,14 @@ class Session:
             env_dict["user_script_run"] = self.user_script_run
 
     def _setup(self, env_dict, nested=False):
+        """
+        Load an execute setup file.
+
+        Called by _do_setup() which is called by setup().
+        Must return True in case of success.
+        """
         if self.setup_file is None:
-            return
+            return True
 
         print("%s: Executing setup file..." % self.name)
 

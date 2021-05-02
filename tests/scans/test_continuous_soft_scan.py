@@ -128,10 +128,13 @@ def test_multi_top_master(session, diode_acq_device_factory, diode):
 
     scan = Scan(chain, name="multi_master", save=False)
     scan.run()
-    assert (
-        pytest.approx(len(diode2.store_values) - len(diode1.store_values), abs=5)
-        == len(diode2.store_values) / 2
-    )
+
+    # Check that there are twice more stored values for diode2 than for diode1.
+    val1 = len(diode2.store_values) - len(diode1.store_values)
+    val2 = len(diode2.store_values) / 2
+
+    # Time is strange in CI. let's take a 20% margin...
+    assert pytest.approx(val1, rel=0.2) == val2
 
 
 def test_interrupted_scan(session, diode_acq_device_factory):

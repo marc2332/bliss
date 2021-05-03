@@ -29,8 +29,9 @@ Use the oxford800 hostname as the **cryoname** in the YML configuration file.
 To Install the library, clone the gitlab project and pip install:
 
 ```bash
-$ git clone https:/gitlab.esrf.fr/bliss/liboxford800
+$ git clone https://gitlab.esrf.fr/bliss/liboxford800
 $ . blissenv
+$ cd liboxford800
 $ (bliss_dev) pip install -e .
 ```
 
@@ -60,11 +61,13 @@ Ramp to a given setpoint temperature with `ox_loop.setpoint = 200`.
 
 Change the ramp rate with `ox_loop.ramprate = 360`  (in [0, 360]).
 
-If ramprate is set to zero (`ox_loop.ramprate = 0`), the controller will reach to the setpoint temperature as fast as possible.
+If ramprate is set to zero (`ox_loop.ramprate = 0`), the controller will reach
+to the setpoint temperature as fast as possible.
 
 ## Status Information
 
-In a Bliss session, type the name of the loop to show information about the Loop, its controller and associated input and output.
+In a Bliss session, type the name of the loop to show information about the
+Loop, its controller and associated input and output.
 
 ## further reading
    * [Oxford 700 and 800 series: communication protocol](https://connect.oxcryo.com/serialcomms/700series/cs_status.html)

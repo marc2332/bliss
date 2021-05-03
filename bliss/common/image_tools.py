@@ -8,8 +8,6 @@
 
 import fabio
 import numpy as np
-
-
 from PIL import Image
 
 NUMPY_MODES = {
@@ -338,46 +336,3 @@ def create_ring_image(fpath, w=800, h=600, cx=0, cy=0, r1=100, r2=120, a1=0, a2=
     array_to_file(r, fpath)
 
     return r
-
-
-# ------ PLOT 2D ARRAY AS AN IMAGE (LIVE PREVIEW) ---------------------------
-
-
-def get_image_display(interactive=True, dtmin=0.001, defsize=(800, 600)):
-    import matplotlib.pyplot as plt
-
-    class Display:
-        def __init__(self, interactive=True, dtmin=0.001, defsize=(800, 600)):
-            self._interactive = interactive
-            self._dtmin = dtmin
-
-            if interactive:
-                plt.ion()
-            else:
-                plt.ioff()
-
-            self.plot = plt.imshow(np.zeros((defsize[1], defsize[0])))
-            plt.pause(self._dtmin)
-
-        def __del__(self):
-            plt.close()
-            plt.ioff()
-
-        def show(self, arry):
-            try:
-                plt.cla()  # clear axes
-                # plt.clf()   # clear figure
-            except Exception:
-                pass
-
-            self.plot = plt.imshow(arry)
-            if self._interactive:
-                plt.pause(self._dtmin)
-            else:
-                plt.show()
-
-        def close(self):
-            plt.close()
-            plt.ioff()
-
-    return Display(interactive, dtmin, defsize)

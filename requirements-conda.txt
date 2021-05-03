@@ -25,6 +25,7 @@ numexpr
 numpy >= 1.13
 pandas
 parso >=0.5.1
+pillow
 pint
 psutil
 ptpython >= 3.0.16

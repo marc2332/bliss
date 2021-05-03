@@ -36,25 +36,24 @@ def create_objects_from_config_node(cfg_obj, cfg_node):
     # always create the bliss controller first
     bctrl = klass(ctrl_node)
 
-    print(f"\n=== From config: {item_name} from {bctrl.name}")
+    # print(f"\n=== From config: {item_name} from {bctrl.name}")
 
     if isinstance(bctrl, BlissController):
 
-        # prepare subitems configs and cache item's controller
-        names_to_cache = bctrl._prepare_subitems_configs(ctrl_node)
-        cachednames2ctrl = {name: bctrl for name in names_to_cache}
+        # prepare subitems configs and cache item's controller.
+        # the controller decides which items should be cached and which controller
+        # is associated to the cached item (in case the cached item is owned by a sub-controller of this controller)
+        cacheditemnames2ctrl = bctrl._prepare_subitems_configs()
+        # print(f"\n=== Caching: {list(cacheditemnames2ctrl.keys())} from {bctrl.name}")
 
-        print(f"\n=== Caching: {names_to_cache} from {bctrl.name}")
-
-        # # --- add the controller to stored items if it has a name
+        # --- add the controller to registered items, if it has a name.
         name2items = {}
         if ctrl_name:
             name2items[ctrl_name] = bctrl
-        # name2items[bctrl.name] = bctrl
 
         # update the config cache dict now to avoid cyclic instanciation with internal references
-        # an internal reference happens when a subitem config uses a reference to another subitem owned by the same controller.
-        yield name2items, cachednames2ctrl
+        # an internal reference occurs when a subitem config uses a reference to another subitem owned by the same controller.
+        yield name2items, cacheditemnames2ctrl
 
         # load config and init controller
         bctrl._controller_init()
@@ -77,5 +76,5 @@ def create_objects_from_config_node(cfg_obj, cfg_node):
 
 
 def create_object_from_cache(config, name, bctrl):
-    print(f"\n=== From cache: {name} from {bctrl.name}")
+    # print(f"\n=== From cache: {name} from {bctrl.name}")
     return bctrl._get_subitem(name)

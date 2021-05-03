@@ -15,6 +15,8 @@ from bliss.config.plugins.bliss_controller import create_objects_from_config_nod
 from bliss.config.plugins.bliss_controller import create_object_from_cache
 from bliss.config.plugins.bliss_controller import find_top_class_and_node
 
+# test if no class specified at controller level !
+
 
 def test_plugin_get_items_from_config(default_session):
 

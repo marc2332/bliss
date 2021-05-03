@@ -98,16 +98,24 @@ class BlissController(CounterContainer):
 
         Example: config.get(bctrl_name) or config.get(item_name) with config = bliss.config.static.get_config()
 
-        
-        # --- Plugin limitations ----
+        # --- Items and sub-controllers ---
 
-        Use references to declare subitems that also have subitems (i.e subitem of type bliss controller).
-        It is possible to build a bliss controller which have subitems of the type BlissController.
-        But in that case, the declaration of the subitems of the different bliss controllers cannot be
-        merged in the configuration of the top controller. Each bliss controller must be decalred separately
-        and one can reference this other in its config with '$name'. Using a reference to bliss_controllers 
-        subitems will ensure that the plugin will associate the correct controller to subitems.
+        A controller (top) can have sub-controllers. In that case there are two ways to create the sub_controllers:
         
+        - The most simple way to do this is to declare the sub-controller as an independant object with its own yml config
+        and use a reference to this object into the top-controller config.
+
+        - If a sub-controller has no reason to exist independently from the top-controller, then the top-controller
+        will create and manage its sub-controllers from the knowledge of the top-controller config only. 
+        In that case, some items declared in the top-controller are, in fact, managed by one of the sub-controllers. 
+        In that case, the author of the top controller class must overload the '_get_item_owner' method and specify 
+        which is the sub-controller that manages which items.
+        Example: Consider a top controller which manages a motors controller internally. The top controller config 
+        declares the axes subitems but those items are in fact managed by the motors controller.
+        In that case, '_get_item_owner' should specify that the axes subitems are managed by 'self.motor_controller'
+        instead of 'self'. The method receives the item name and the parent_key. So 'self.motor_controller' can be
+        associated to all subitems under the 'axes' parent_key (instead of doing it for each subitem name).
+
 
         # --- From config dict ---
 
@@ -155,15 +163,13 @@ class BlissController(CounterContainer):
     """
 
     def __init__(self, config):
-        self.__initialized = False
+        self.__subitems_configs_ready = False
+        self.__ctrl_is_initialized = False
         self._subitems_config = {}  # stores items info (cfg, pkey) (filled by self._prepare_subitems_configs)
         self._subitems = {}  # stores items instances   (filled by self.__build_subitem_from_config)
         self._hw_controller = (
             None
         )  # acces the low level hardware controller interface (if any)
-
-        if isinstance(config, dict):
-            self._prepare_subitems_configs(config)
 
         # generate generic name if no controller name found in config
         self._name = config.get("name")
@@ -173,8 +179,7 @@ class BlissController(CounterContainer):
             else:
                 self._name = f"{self.__class__.__name__}_{id(self)}"
 
-        # config is a ConfigNode if this controller is imported from Config (i.e config.get(name))
-        # or config is a dict if direct instantiation of this controller (i.e bctrl = BlissController(cfg_dict))
+        # config can be a ConfigNode or a dict
         self._config = config
 
     # ========== STANDARD METHODS ============================
@@ -203,7 +208,12 @@ class BlissController(CounterContainer):
              - the controller, via self._get_subitem(item_name) => name is NOT exported in session
         """
 
-        print(f"=== Build item {name} from {self.name}")
+        # print(f"=== Build item {name} from {self.name}")
+
+        if not self.__ctrl_is_initialized:
+            raise RuntimeError(
+                f"{self} not initialized:\n  call '{self.name}._controller_init()'"
+            )
 
         if name not in self._subitems_config:
             raise ValueError(f"Cannot find item with name: {name}")
@@ -279,14 +289,23 @@ class BlissController(CounterContainer):
                         f"cannot find class {class_name} in {module}"
                     )
 
-    def _prepare_subitems_configs(self, ctrl_node):
+    def _get_item_owner(self, name, cfg, pkey):
+        """ Return the controller that owns the items declared in the config.
+            By default, this controller is the owner of all config items.
+            However if this controller has sub-controllers that are the real owners 
+            of some items, this method should use to specify which sub-controller is
+            the owner of which item (identified with name and pkey). 
+        """
+        return self
+
+    def _prepare_subitems_configs(self):
         """ Find all sub objects with a name in the controller config.
             Store the items config info (cfg, pkey) in the controller (including referenced items).
             Return the list of found items (excluding referenced items).
         """
 
-        items_list = []
-        sub_cfgs = find_sub_names_config(ctrl_node)
+        cacheditemnames2ctrl = {}
+        sub_cfgs = find_sub_names_config(self._config)
         for level in sorted(sub_cfgs.keys()):
             if level != 0:  # ignore the controller itself
                 for cfg, pkey in sub_cfgs[level]:
@@ -299,7 +318,9 @@ class BlissController(CounterContainer):
                         # only store in items_list the subitems with a name as a string
                         # because items_list is used by the plugin to cache subitem's controller.
                         # (i.e exclude referenced names as they are not owned by this controller)
-                        items_list.append(name)
+                        cacheditemnames2ctrl[name] = self._get_item_owner(
+                            name, cfg, pkey
+                        )
                     elif isinstance(name, ConfigReference):
                         name = name.object_name
                     else:
@@ -307,7 +328,8 @@ class BlissController(CounterContainer):
 
                     self._subitems_config[name] = (cfg, pkey)
 
-        return items_list
+        self.__subitems_configs_ready = True
+        return cacheditemnames2ctrl
 
     def _get_subitem(self, name):
         """ return an item (create it if not alive) """
@@ -320,9 +342,17 @@ class BlissController(CounterContainer):
             This method must be called if the controller has been directly 
             instantiated with a config dictionary (i.e without going through the plugin and YML config). 
         """
-        if not self.__initialized:
-            self._load_config()
-            self._init()
+        if not self.__ctrl_is_initialized:
+            if not self.__subitems_configs_ready:
+                self._prepare_subitems_configs()
+
+            self.__ctrl_is_initialized = True
+            try:
+                self._load_config()
+                self._init()
+            except BaseException:
+                self.__ctrl_is_initialized = False
+                raise
 
     # ========== ABSTRACT METHODS ====================
 

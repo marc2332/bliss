@@ -171,6 +171,10 @@ class Controller(BlissController):
             raise
 
     @property
+    def config(self):
+        return self.__motor_config
+
+    @property
     def axes(self):
         return self._axes
 
@@ -201,14 +205,6 @@ class Controller(BlissController):
     @check_disabled
     def get_switch(self, name):
         return self._get_subitem(name)
-
-    # @property
-    # def motor_config(self):
-    #     return self.__motor_config
-
-    @property
-    def config(self):
-        return self.__motor_config
 
     def steps_position_precision(self, axis):
         """
@@ -549,6 +545,7 @@ class CalcController(Controller):
     def _init(self):
         # As any motors can be used into a calc
         # force for all axis creation
+
         for axis_name in self._axes_config.keys():
             self.get_axis(axis_name)
 

@@ -611,10 +611,7 @@ class ExternalOutput(Output):
 
         self._controller = SCC(self.name, self)
         self._controller.create_counter(
-            SamplingCounter,
-            self.name,
-            unit=self._config.get("unit"),
-            mode=self._config.get("mode", "SINGLE"),
+            SamplingCounter, self.name, unit=self._config.get("unit"), mode="SINGLE"
         )
 
     # ----------- BASE METHODS -----------------------------------------

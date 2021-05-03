@@ -5,9 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-# from bliss.physics.hkl import geometry, sample
-# import math
-# import pytest
+import numpy as np
 
 
 # @pytest.fixture
@@ -239,7 +237,106 @@ def test_zaxis(default_session):
     hkl.hscan(1, 2, 10, 0.1, diode)
     hkl.kscan(1, 2, 10, 0.1, diode)
     hkl.lscan(1, 2, 10, 0.1, diode)
-    hkl.hklscan((0, 1, 0), (0, 1, 6), 10, 0.1, diode)
+    s = hkl.hklscan((0, 1, 0), (0, 1, 6), 10, 0.1, diode)
+
+    assert np.all(
+        np.isclose(
+            s.get_data("Hz"),
+            np.array([0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]),
+            rtol=1e-05,
+            atol=1e-05,
+        )
+    )
+    assert np.all(
+        np.isclose(
+            s.get_data("Kz"),
+            np.array([1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]),
+            rtol=1e-05,
+            atol=1e-05,
+        )
+    )
+    assert np.all(
+        np.isclose(
+            s.get_data("Lz"),
+            np.array(
+                [0.0, 0.6667, 1.3333, 2.0, 2.6667, 3.3333, 4.0, 4.6667, 5.3333, 6.0]
+            ),
+            rtol=1e-05,
+            atol=1e-04,
+        )
+    )
+
+    assert np.all(
+        np.isclose(
+            s.get_data("roby"),
+            np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]),
+            rtol=1e-05,
+            atol=1e-05,
+        )
+    )
+    assert np.all(
+        np.isclose(
+            s.get_data("robu"),
+            np.array(
+                [
+                    78.7755,
+                    79.0414,
+                    79.6139,
+                    80.4951,
+                    81.6877,
+                    83.1955,
+                    85.0235,
+                    87.1792,
+                    89.6728,
+                    92.5196,
+                ]
+            ),
+            rtol=1e-05,
+            atol=1e-05,
+        )
+    )
+    assert np.all(
+        np.isclose(
+            s.get_data("robz"),
+            np.array(
+                [
+                    6.7811,
+                    6.7698,
+                    6.7604,
+                    6.7520,
+                    6.7431,
+                    6.7317,
+                    6.7150,
+                    6.6896,
+                    6.6511,
+                    6.5941,
+                ]
+            ),
+            rtol=1e-05,
+            atol=1e-05,
+        )
+    )
+    assert np.all(
+        np.isclose(
+            s.get_data("robz2"),
+            np.array(
+                [
+                    -0.0422,
+                    1.3927,
+                    2.8285,
+                    4.2660,
+                    5.7063,
+                    7.1502,
+                    8.5986,
+                    10.0527,
+                    11.5132,
+                    12.9815,
+                ]
+            ),
+            rtol=1e-05,
+            atol=1e-05,
+        )
+    )
 
     hkl.hdscan(1, 2, 10, 0.1, diode)
     hkl.kdscan(1, 2, 10, 0.1, diode)

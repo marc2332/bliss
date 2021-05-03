@@ -16,6 +16,9 @@ from bliss.common.cleanup import error_cleanup
 from bliss.common.utils import autocomplete_property
 from gevent import sleep
 
+from bliss.controllers.bliss_controller import BlissController
+from bliss.controllers.motors.hklmotors import HKLMotors
+
 __CURR_DIFF = None
 __ALL_DIFF = dict()
 
@@ -81,7 +84,7 @@ def remove_diff_settings(name, *keys):
             settings.remove(keyname)
 
 
-class Diffractometer(object):
+class Diffractometer(BlissController):
 
     """ Diffractometer base class.
 
@@ -126,17 +129,81 @@ class Diffractometer(object):
         "psi_constant_horizontal",
     ]
 
-    def __init__(self, name, config):
-        self.name = name
-        self._config = config
+    def __init__(self, config):
+        super().__init__(config)
+
         geometry = config.get("geometry")
         if geometry is None:
-            raise ValueError(f"Missing geometry in config of Diffractometer '{name}'")
-        self._settings = HashObjSetting(name)
+            raise ValueError(
+                f"Missing geometry in config of Diffractometer '{self.name}'"
+            )
+
+        self._settings = HashObjSetting(self.name)
         self._geometry = HklGeometry(geometry, self._settings)
-        self._motor_calc = None
-        self._motor_names = dict()
-        register_diffractometer(name, self)
+
+        register_diffractometer(self.name, self)
+
+        hklmot_cfg = self.__prepare_hklmotors_config()
+        self._motor_calc = HKLMotors(self, hklmot_cfg)
+
+    def __prepare_hklmotors_config(self):
+        """ Prepare axes config for the HKLMotors sub-controller.
+            Add pseudo-axes that are not declared in the config.
+        """
+
+        real_names = list(self.axis_names)
+        pseudo_names = list(self.pseudo_names)
+
+        axes_cfgs = self._config.get("axes")
+        for cfg in axes_cfgs:
+            axis_name = cfg["name"]
+            axis_tag = cfg["tags"]
+
+            # check if axes tags are valid
+            if axis_tag.startswith("real"):
+                axis_calc_name = axis_tag.split()[1]
+                if axis_calc_name in real_names:
+                    real_names.remove(axis_calc_name)
+                else:
+                    if axis_calc_name != "energy":
+                        raise KeyError(
+                            f"{axis_calc_name} is not not a valid real axis tag"
+                        )
+            else:
+                if axis_tag in pseudo_names:
+                    pseudo_names.remove(axis_tag)
+                else:
+                    raise KeyError(f"{axis_tag} is not a valid pseudo axis tag")
+
+        # check that all required reals have been found in config
+        if len(real_names):
+            raise KeyError(f"Missing real axis tags {real_names}")
+
+        # get remaining pseudo axis not declared in config
+        for axis_name in pseudo_names:
+            cfg = {"name": axis_name, "tags": axis_name}
+            axes_cfgs.append(cfg)
+
+        return {"axes": axes_cfgs}
+
+    def _get_item_owner(self, name, cfg, pkey):
+        """ Return the controller that owns the items declared in the config.
+            By default, this controller is the owner of all config items.
+            However if this controller has sub-controllers that are the real owners 
+            of some items, this method should use to specify which sub-controller is
+            the owner of which item (identified with name and pkey). 
+        """
+        if pkey == "axes":
+            return self._motor_calc
+        else:
+            return self
+
+    def _load_config(self):
+        pass
+
+    def _init(self):
+        self._motor_calc._controller_init()
+        self.calc_controller = self._motor_calc
 
     def __info__(self):
         self._calc_geo()

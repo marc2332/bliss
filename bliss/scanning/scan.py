@@ -1614,9 +1614,12 @@ class Scan:
             # restore motors initial position
             if self.restore_motor_positions:
                 with capture():
-                    from bliss.shell.standard import umv
+                    if is_bliss_shell():
+                        from bliss.shell.standard import umv as move
+                    else:
+                        from bliss.common.standard import move
 
-                    umv(*itertools.chain(*motor_positions))
+                    move(*itertools.chain(*motor_positions))
 
             # execute post scan hooks
             hooks = group_hooks(self._axes_in_scan)

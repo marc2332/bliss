@@ -1,7 +1,9 @@
 import gevent
 import pytest
+from unittest import mock
 
 from bliss.common import scans
+from bliss.common.standard import move
 from bliss.common.counter import SamplingCounter
 from bliss.controllers.counter import SamplingCounterController
 from bliss.common.soft_axis import SoftAxis
@@ -160,6 +162,24 @@ def test_exception_in_preset(default_session):
     scan_task.join()
     assert s.state == ScanState.KILLED
     assert s.node.info["state"] == ScanState.KILLED
+
+
+def test_exception_in_dscan_move_back(default_session):
+    diode = default_session.config.get("diode")
+    bad = default_session.config.get("bad")
+    bad.move(0)
+    s = scans.dscan(bad, 1, 2, 1, .1, diode, save=False, run=False)
+
+    def patched_move(*args):
+        bad.controller.bad_start = True
+        move(*args)
+
+    with mock.patch("bliss.common.standard.move", new=patched_move):
+        with pytest.raises(RuntimeError):
+            s.run()
+
+    assert bad.position > 1
+    assert bad.state.READY
 
 
 def test_sequence_state(default_session):

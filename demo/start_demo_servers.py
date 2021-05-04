@@ -11,11 +11,15 @@ import tempfile
 import shutil
 import threading
 import gevent
-
+import typing
+import logging
 from docopt import docopt
-from typing import NamedTuple
 
 from bliss.tango.clients import utils as tango_utils
+from bliss.common.tango import DeviceProxy
+
+
+_logger = logging.getLogger("BLISS_DEMO")
 
 
 BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -81,7 +85,7 @@ def start_beacon(db_path):
     redis_uds = os.path.join(db_path, "redis_demo.sock")
     redis_data_uds = os.path.join(db_path, "redis_data_demo.sock")
 
-    class Ports(NamedTuple):
+    class Ports(typing.NamedTuple):
         beacon_port: int
         tango_port: int
         redis_port: int
@@ -124,43 +128,102 @@ def start_beacon(db_path):
     return proc
 
 
+class TangoDeviceDescription(typing.NamedTuple):
+    name: str
+    cmdline: typing.List[str]
+    server_name: str
+    post_init: typing.Optional[typing.Callable[[str], None]] = None
+
+
+class LimaTangoDeviceDescription(typing.NamedTuple):
+    name: str
+    cmdline: typing.List[str]
+    server_name: str
+
+    buffer_max_memory: int = None
+    """Max percent of memory of the system used by Lima (default is 70)"""
+
+    nb_prefetched_frames: int = None
+    """Number of frames prefetched by the simulator"""
+
+    def post_init(self, device_name):
+        """
+        Setup Lima devices in order to tune them for memory usage.
+        """
+        if self.buffer_max_memory is not None:
+            device = DeviceProxy(device_name)
+            device.buffer_max_memory = self.buffer_max_memory
+
+        if self.nb_prefetched_frames is not None:
+            simulator_name = device_name.replace("/limaccds/", "/simulator/")
+            device = DeviceProxy(simulator_name)
+            device.mode = "GENERATOR_PREFETCH"
+            device.nb_prefetched_frames = self.nb_prefetched_frames
+
+
+TANGO_DEVICES = [
+    LimaTangoDeviceDescription(
+        name="id00/limaccds/simulator1",
+        cmdline=("LimaCCDs", "simulator"),
+        server_name="LimaCCDs",
+        buffer_max_memory=20,
+        nb_prefetched_frames=100,
+    ),
+    LimaTangoDeviceDescription(
+        name="id00/limaccds/slits_simulator",
+        cmdline=("SlitsSimulationLimaCCDs", "slits_simulator"),
+        server_name="LimaCCDs",
+        buffer_max_memory=20,
+        # A single frame is enough because it is overwritten by a plugin
+        nb_prefetched_frames=1,
+    ),
+    LimaTangoDeviceDescription(
+        name="id00/limaccds/tomo_simulator",
+        cmdline=("TomoSimulationLimaCCDs", "tomo_simulator"),
+        server_name="LimaCCDs",
+        buffer_max_memory=20,
+        # A single frame is enough because it is overwritten by a plugin
+        nb_prefetched_frames=1,
+    ),
+    LimaTangoDeviceDescription(
+        name="id00/limaccds/diff_simulator",
+        cmdline=("DiffSimulationLimaCCDs", "diff_simulator"),
+        server_name="LimaCCDs",
+        buffer_max_memory=20,
+        # A single frame is enough because it is overwritten by a plugin
+        nb_prefetched_frames=1,
+    ),
+    TangoDeviceDescription(
+        name="id00/metadata/demo_session",
+        cmdline=("MetadataManager", "demo"),
+        server_name="MetadataManager",
+    ),
+    TangoDeviceDescription(
+        name="id00/metaexp/demo_session",
+        cmdline=("MetaExperiment", "demo"),
+        server_name="MetaExperiment",
+    ),
+    TangoDeviceDescription(
+        name="id00/bliss_nxwriter/demo_session",
+        cmdline=("NexusWriterService", "demo"),
+        server_name="NexusWriter",
+    ),
+]
+
+
 def start_tango_servers():
     wait_tasks = []
     processes = []
 
-    tango_devices = [
-        ("id00/limaccds/simulator1", ("LimaCCDs", "simulator"), "LimaCCDs"),
-        (
-            "id00/limaccds/slits_simulator",
-            ("SlitsSimulationLimaCCDs", "slits_simulator"),
-            "LimaCCDs",
-        ),
-        (
-            "id00/limaccds/tomo_simulator",
-            ("TomoSimulationLimaCCDs", "tomo_simulator"),
-            "LimaCCDs",
-        ),
-        (
-            "id00/limaccds/diff_simulator",
-            ("DiffSimulationLimaCCDs", "diff_simulator"),
-            "LimaCCDs",
-        ),
-        ("id00/metadata/demo_session", ("MetadataManager", "demo"), "MetadataManager"),
-        ("id00/metaexp/demo_session", ("MetaExperiment", "demo"), "MetaExperiment"),
-        (
-            "id00/bliss_nxwriter/demo_session",
-            ("NexusWriterService", "demo"),
-            "NexusWriter",
-        ),
-    ]
-
     try:
-        for device_name, cmdline, server_name in tango_devices:
+        for description in TANGO_DEVICES:
             fqdn_prefix = f"tango://{os.environ['TANGO_HOST']}"
             # device_fqdn = f"{fqdn_prefix}/{device_name}"
-            personal_name = cmdline[-1]
-            admin_device_fqdn = f"{fqdn_prefix}/dserver/{server_name}/{personal_name}"
-            processes.append(subprocess.Popen(cmdline))
+            personal_name = description.cmdline[-1]
+            admin_device_fqdn = (
+                f"{fqdn_prefix}/dserver/{description.server_name}/{personal_name}"
+            )
+            processes.append(subprocess.Popen(description.cmdline))
             green_wait = gevent.spawn(tango_utils.wait_tango_device, admin_device_fqdn)
             wait_tasks.append(green_wait)
 
@@ -169,6 +232,18 @@ def start_tango_servers():
         cleanup_processes(processes)
         gevent.killall(wait_tasks)
         raise
+
+    for description in TANGO_DEVICES:
+        post_init = description.post_init
+        if post_init is not None:
+            try:
+                post_init(description.name)
+            except Exception:
+                _logger.error(
+                    "Error during post initialization of %s",
+                    description.name,
+                    exc_info=True,
+                )
 
     return processes
 

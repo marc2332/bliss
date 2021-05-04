@@ -1,2 +1,4 @@
-black==18.6b4
+# Also used by the CI to check source code with black and flake
+
+black == 18.6b4
 flake8

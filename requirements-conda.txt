@@ -1,4 +1,5 @@
 # Conda requirements file
+black == 18.6b4  # Dependency with ptpython, BLISS test, BLISS dev. Better to manage the constraint here
 aiogevent >= 0.4
 blessings
 cerberus

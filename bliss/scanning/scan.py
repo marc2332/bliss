@@ -1416,16 +1416,16 @@ class Scan:
 
             Method name can be either 'fill_meta_as_scan_start' or 'fill_meta_at_scan_end'
             """
-        for dev in self.acq_chain.nodes_list:
-            node = self.nodes.get(dev)
-            if node is None:
-                # prepare has not finished ?
-                continue
+        for acq_obj in self.acq_chain.nodes_list:
             with KillMask(masked_kill_nb=1):
-                meth = getattr(dev, method_name)
-                tmp = meth(self.user_scan_meta)
-            if tmp:
-                update_node_info(node, tmp)
+                fill_meta = getattr(acq_obj, method_name)
+                metadata = fill_meta(self.user_scan_meta)
+            if metadata is not None:
+                node = self.nodes.get(acq_obj)
+                if node is not None:
+                    update_node_info(node, metadata)
+                if method_name == "fill_meta_at_scan_start":
+                    self._scan_info._set_device_meta(acq_obj, metadata)
 
     def run(self):
         """Run the scan

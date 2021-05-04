@@ -263,6 +263,24 @@ class ScanInfo(dict):
         info = self._scan_info.setdefault("sequence-info", {})
         info["scan-count"] = int(scan_count)
 
+    def _get_key_from_acq_obj(self, acq_obj):
+        """Used device key from an acq_obj"""
+        return f"{str(id(acq_obj))}:{acq_obj.name}"
+
+    def _set_device_meta(self, acq_obj, metadata: typing.Dict):
+        """Protected function called by the scan to feed the device info after
+        the device preparation.
+
+        Argument:
+            acq_obj: A device though its acquisition object
+            metadata: A dictionary of basic python types.
+                      Few reserved keys could be ignored.
+        """
+        devices = self.setdefault("devices", {})
+        name = self._get_key_from_acq_obj(acq_obj)
+        device = devices.setdefault(name, {})
+        device.update(metadata)
+
     def _get_channels_dict(self, acq_object, channels_dict):
         scalars = channels_dict.setdefault("scalars", [])
         spectra = channels_dict.setdefault("spectra", [])

@@ -17,6 +17,7 @@ from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 from bliss.scanning.acquisition.mca import McaAcquisitionSlave
 from bliss.scanning.acquisition.motor import LinearStepTriggerMaster
 from bliss.scanning.scan import Scan
+from bliss.scanning.scan_info import ScanInfo
 from bliss.data.scan import watch_session_scans, ScansObserver, ScansWatcher
 from bliss.scanning.chain import AcquisitionChain
 from bliss.common import scans
@@ -460,6 +461,10 @@ def test_scan_observer(session, diode_acq_device_factory, mocker):
     master = SoftwareTimerMaster(0.1, npoints=1)
     chain.add(master, acquisition_device_1)
     scan = Scan(chain, "test", save=False)
+
+    meta = {"kind": "foo"}
+    acquisition_device_1.fill_meta_at_scan_start = mocker.Mock(return_value=meta)
+
     try:
         scan.run()
     finally:
@@ -470,10 +475,19 @@ def test_scan_observer(session, diode_acq_device_factory, mocker):
     observer.on_scan_created.assert_called_once()
     observer.on_scan_started.assert_called_once()
     observer.on_scan_finished.assert_called_once()
+
+    # Check that the scan_info looks like what it is expected
+    sf = ScanInfo()
+    device_key = sf._get_key_from_acq_obj(acquisition_device_1)
+
     call = observer.on_scan_created.call_args_list[0]
     scan_info = call[0][1]
     assert "positioners_start" in scan_info["positioners"]
     assert "start_timestamp" in scan_info
+
+    call = observer.on_scan_started.call_args_list[0]
+    scan_info = call[0][1]
+    assert "kind" in scan_info["devices"][device_key]
 
     call = observer.on_scan_finished.call_args_list[0]
     scan_info = call[0][1]

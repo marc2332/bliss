@@ -436,10 +436,10 @@ class PI_E753(pi_gcs.Communication, pi_gcs.Recorder, Controller):
                     (0.5 * wavelen),
                 )
             else:
-                cmd = b"WAV 1 X SIN_P %d %d %d %d %d %d" % (
+                cmd = b"WAV 1 X SIN_P %d %f %f %d %d %d" % (
                     wavelen,
                     +amplitude,
-                    offset,
+                    offset - amplitude / 2,
                     wavelen,
                     0,
                     (0.5 * wavelen),
@@ -512,3 +512,11 @@ class Axis(axis_module.Axis):
             yield
         finally:
             self.controller.stop_wave(self)
+
+    def start_wave(self, wavetype, offset, amplitude, nb_cycles, wavelen, wait=False):
+        self.controller.start_wave(
+            self, wavetype, offset, amplitude, nb_cycles, wavelen, wait=wait
+        )
+
+    def stop_wave(self):
+        self.controller.stop_wave(self)

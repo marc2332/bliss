@@ -7,7 +7,6 @@
 
 import enum
 import itertools
-import functools
 import numpy
 
 from bliss.config import settings
@@ -16,155 +15,14 @@ from bliss.common.tango import DevFailed
 from bliss.common.counter import IntegratingCounter
 from bliss.controllers.counter import IntegratingCounterController
 from bliss.controllers.counter import counter_namespace
+from bliss.controllers.lima.image import raw_roi_to_current_roi, current_roi_to_raw_roi
+from bliss.controllers.lima.image import (
+    current_coords_to_raw_coords,
+    raw_coords_to_current_coords,
+)
+from bliss.controllers.lima.image import _DEG2RAD
 from bliss.scanning.acquisition.lima import RoiProfileAcquisitionSlave
 from bliss.shell.formatters.table import IncrementalTable
-
-
-# ----------------- helpers for ROI transformation (flip, rotation, binning) --------------
-
-_DEG2RAD = numpy.pi / 180.0
-_RAD2DEG = 180.0 / numpy.pi
-
-
-def raw_roi_to_current_roi(raw_roi, raw_img_size, flip, rotation, binning):
-
-    """ Computes the new roi after applying the transformations {flip, rotation, binning} on the raw_roi.
-    args:
-        - raw_roi: roi coordinates expressed in the {unbinned, unflipped, unrotated} image referential (i.e camera chip size).
-        - raw_img_size: size of the {unbinned, unflipped, unrotated} image where the roi is defined.
-        - flip: flipping to apply (e.g. [1,0])
-        - rotation: rotation to apply
-        - binning: binning to apply (e.g. [1,1])
-         
-    """
-    assert raw_roi[2] != 0
-    assert raw_roi[3] != 0
-
-    new_roi = raw_roi
-    w0, h0 = raw_img_size
-
-    # bin roi
-    xbin, ybin = binning
-    if xbin != 1 or ybin != 1:
-        x, y, w, h = new_roi
-        new_roi = [x // xbin, y // ybin, w // xbin, h // ybin]
-        w0, h0 = w0 // xbin, h0 // ybin
-
-    # flip roi
-    if flip[0]:
-        x, y, w, h = new_roi
-        new_roi = [w0 - w - x, y, w, h]
-
-    if flip[1]:
-        x, y, w, h = new_roi
-        new_roi = [x, h0 - h - y, w, h]
-
-    # rotate roi
-    if rotation != 0:
-        new_roi = calc_roi_rotation(new_roi, rotation, (w0, h0))
-
-    x, y, w, h = new_roi
-    return [int(x), int(y), int(w), int(h)]
-
-
-def current_roi_to_raw_roi(current_roi, img_size, flip, rotation, binning):
-
-    """ computes the raw_roi (without flip, rot, bin) from the current_roi (with flip, rot, bin)
-        args:
-            - current_roi: roi coordinates expressed in the {binned, flipped, rotated} image referential.
-            - img_size: the actual size of the image where the roi is defined (taking into account binning and rotation)
-            - flip: current image flipping (e.g. [1,0])
-            - rotation: current image rotation
-            - binning: current image binning (e.g. [1,1])
-
-    """
-
-    assert current_roi[2] != 0
-    assert current_roi[3] != 0
-
-    raw_roi = [
-        float(current_roi[0]),
-        float(current_roi[1]),
-        float(current_roi[2]),
-        float(current_roi[3]),
-    ]
-    w0, h0 = img_size
-
-    # inverse rotation
-    if rotation != 0:
-        raw_roi = calc_roi_rotation(raw_roi, -rotation, (w0, h0))
-        if rotation in [90, 270]:
-            w0, h0 = img_size[1], img_size[0]
-
-    # unflipped roi
-    if flip[0]:
-        x, y, w, h = raw_roi
-        raw_roi = [w0 - w - x, y, w, h]
-
-    if flip[1]:
-        x, y, w, h = raw_roi
-        raw_roi = [x, h0 - h - y, w, h]
-
-    # unbinned roi
-    xbin, ybin = binning
-    if xbin != 1 or ybin != 1:
-        x, y, w, h = raw_roi
-        raw_roi = x * xbin, y * ybin, w * xbin, h * ybin
-
-    return raw_roi
-
-
-def calc_roi_rotation(roi, angle, img_size):
-    """ computes the roi rotation.
-        args:
-            - roi: roi coordinates
-            - angle: the angle of the rotation (degree)
-            - img_size: size of the image where the roi is defined
-    """
-
-    assert roi[2] != 0
-    assert roi[3] != 0
-
-    # define the camera fullframe
-    w0, h0 = img_size
-    p0 = (0, 0)
-    p1 = (w0, h0)
-    frame = numpy.array([p0, p1], dtype="float32")
-
-    # define the subarea
-    x, y, w, h = roi
-    r0 = (x, y)
-    r1 = (x + w, y + h)
-    rect = numpy.array([r0, r1], dtype="float32")
-
-    # define the rotation matrix
-    theta = _DEG2RAD * angle * -1  # Lima rotation is clockwise !
-    R = numpy.array(
-        [[numpy.cos(theta), -numpy.sin(theta)], [numpy.sin(theta), numpy.cos(theta)]],
-        dtype="float32",
-    )
-
-    new_frame = numpy.dot(frame, R)
-    new_rect = numpy.dot(rect, R)
-
-    # find top left corner of rotated fullframe (new origin)
-    ox = numpy.amin(new_frame[:, 0])
-    oy = numpy.amin(new_frame[:, 1])
-
-    # find top left corner of the subarea and reset origin to ox,oy
-    x0 = numpy.amin(new_rect[:, 0]) - ox
-    y0 = numpy.amin(new_rect[:, 1]) - oy
-
-    # find the new subarea width
-    w = abs(new_rect[0, 0] - new_rect[1, 0])
-    h = abs(new_rect[0, 1] - new_rect[1, 1])
-
-    new_roi = [x0, y0, w, h]
-
-    return new_roi
-
-
-# -------------------------------------------------------------------------------------------
 
 
 class ROI_PROFILE_MODES(str, enum.Enum):
@@ -187,9 +45,9 @@ _PMODE_ALIASES = {
 class _BaseRoi:
     def __init__(self, name=None):
         self.name = name
-        assert self.is_valid()
+        self.check_validity()
 
-    def is_valid(self):
+    def check_validity(self):
         raise NotImplementedError
 
     def __repr__(self):
@@ -199,6 +57,9 @@ class _BaseRoi:
         raise NotImplementedError
 
     def get_coords(self):
+        raise NotImplementedError
+
+    def get_points(self):
         raise NotImplementedError
 
     def to_array(self):
@@ -226,8 +87,12 @@ class Roi(_BaseRoi):
     def p1(self):
         return (self.x + self.width, self.y + self.height)
 
-    def is_valid(self):
-        return self.x >= 0 and self.y >= 0 and self.width >= 0 and self.height >= 0
+    def check_validity(self):
+        if self.width <= 0:
+            raise ValueError(f"Roi {self.name}: width must be > 0, not {self.width}")
+
+        if self.height <= 0:
+            raise ValueError(f"Roi {self.name}: height must be > 0, not {self.height}")
 
     def __repr__(self):
         return "<%s,%s> <%s x %s>" % (self.x, self.y, self.width, self.height)
@@ -242,6 +107,10 @@ class Roi(_BaseRoi):
 
     def get_coords(self):
         return [self.x, self.y, self.width, self.height]
+
+    def get_points(self):
+        """ return the coordinates of the top-left and bottom-right corners as a list of points """
+        return [self.p0, self.p1]
 
     def to_dict(self):
         return {
@@ -269,11 +138,21 @@ class ArcRoi(_BaseRoi):
 
         super().__init__(name)
 
-    def is_valid(self):
-        ans = self.r1 >= 0 and self.r2 > 0
-        ans = ans and self.a1 != self.a2
-        ans = ans and self.r1 != self.r2
-        return ans
+    def check_validity(self):
+        if self.r1 < 0:
+            raise ValueError(
+                f"ArcRoi {self.name}: first radius must be >= 0, not {self.r1}"
+            )
+
+        if self.r2 < self.r1:
+            raise ValueError(
+                f"ArcRoi {self.name}: second radius must be >= first radius, not {self.r2}"
+            )
+
+        if self.a1 == self.a2:
+            raise ValueError(
+                f"ArcRoi {self.name}: first and second angles must be different"
+            )
 
     def __repr__(self):
         return "<%.1f, %.1f> <%.1f, %.1f> <%.1f, %.1f>" % (
@@ -296,6 +175,42 @@ class ArcRoi(_BaseRoi):
 
     def get_coords(self):
         return [self.cx, self.cy, self.r1, self.r2, self.a1, self.a2]
+
+    def get_points(self):
+        """ return the coordinates of the typical points of the arc region """
+
+        cx, cy, r1, r2, a1, a2 = self.get_coords()
+        a3 = a1 + (a2 - a1) / 2
+        pts = [[cx, cy]]
+
+        ca1, ca2, ca3 = (
+            numpy.cos(_DEG2RAD * a1),
+            numpy.cos(_DEG2RAD * a2),
+            numpy.cos(_DEG2RAD * a3),
+        )
+        sa1, sa2, sa3 = (
+            numpy.sin(_DEG2RAD * a1),
+            numpy.sin(_DEG2RAD * a2),
+            numpy.sin(_DEG2RAD * a3),
+        )
+
+        pts.append([r1 * ca1 + cx, r1 * sa1 + cy])  # p1 => (r1, a1)
+        pts.append([r2 * ca1 + cx, r2 * sa1 + cy])  # p2 => (r2, a1)
+        pts.append([r2 * ca2 + cx, r2 * sa2 + cy])  # p3 => (r2, a2)
+        pts.append([r1 * ca2 + cx, r1 * sa2 + cy])  # p4 => (r1, a2)
+        pts.append([r2 * ca3 + cx, r2 * sa3 + cy])  # p5 => (r2, a1 + (a2 - a1) / 2)
+
+        return pts
+
+    def get_bounding_box(self):
+        """ return the coordinates of rectangular box that surrounds the arc roi """
+        pts = self.get_points()
+        pts = numpy.array(pts[0:])  # exclude center p0
+        x0 = numpy.amin(pts[:, 0])
+        y0 = numpy.amin(pts[:, 1])
+        x1 = numpy.amax(pts[:, 0])
+        y1 = numpy.amax(pts[:, 1])
+        return [[x0, y0], [x1, y1]]
 
     def to_dict(self):
         return {
@@ -384,6 +299,20 @@ def dict_to_roi(dico: dict) -> _BaseRoi:
     except Exception as e:
         raise ValueError("Wrong ROI dictionary") from e
     return roi
+
+
+def coords_to_arc(coords):
+    cx, cy = coords[0]
+    x1, y1 = coords[1]
+    x3, y3 = coords[2]
+
+    a1 = numpy.arctan2((y1 - cy), (x1 - cx)) / _DEG2RAD
+    a2 = numpy.arctan2((y3 - cy), (x3 - cx)) / _DEG2RAD
+
+    r1 = numpy.sqrt((x1 - cx) ** 2 + (y1 - cy) ** 2)
+    r2 = numpy.sqrt((x3 - cx) ** 2 + (y3 - cy) ** 2)
+
+    return [cx, cy, r1, r2, a1, a2]
 
 
 # ============ ROI COUNTERS ===========
@@ -568,9 +497,16 @@ class RoiCounters(IntegratingCounterController):
             self.fullname, default_value="default"
         )
         settings_name = "%s:%s" % (self.fullname, self._current_config.get())
+        settings_name_raw_coords = "%s_raw_coords:%s" % (
+            self.fullname,
+            self._current_config.get(),
+        )
+        self._stored_raw_coodinates = settings.HashObjSetting(settings_name_raw_coords)
         self._save_rois = settings.HashObjSetting(settings_name)
         self._roi_ids = {}
         self.__cached_counters = {}
+
+        self._restore_rois_from_settings()
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
         # avoid cyclic import
@@ -584,6 +520,72 @@ class RoiCounters(IntegratingCounterController):
 
         return RoiCountersAcquisitionSlave(self, ctrl_params=ctrl_params, **acq_params)
 
+    def _store_roi(self, roi):
+        """ Transform roi coordinates to raw coordinates and store them as settings """
+
+        img = self._master_controller.image
+
+        if isinstance(roi, ArcRoi):
+            pts = roi.get_points()
+            pts = numpy.array([pts[0], pts[1], pts[3]])
+            # take into account the offset of current image roi
+            pts[:, 0] = pts[:, 0] + img.roi[0]
+            pts[:, 1] = pts[:, 1] + img.roi[1]
+            raw_coords = current_coords_to_raw_coords(
+                pts, img.fullsize, img.flip, img.rotation, img.binning
+            )
+        elif isinstance(roi, Roi):
+            coords = roi.get_coords()
+            # take into account the offset of current image roi
+            coords[0] = coords[0] + img.roi[0]
+            coords[1] = coords[1] + img.roi[1]
+            raw_coords = current_roi_to_raw_roi(
+                coords, img.fullsize, img.flip, img.rotation, img.binning
+            )
+
+        else:
+            raise ValueError(f"Unknown roi type {type(roi)}")
+
+        self._stored_raw_coodinates[roi.name] = raw_coords
+        self._save_rois[roi.name] = roi
+
+    def _restore_rois_from_settings(self):
+        img = self._master_controller.image
+        for name in self._stored_raw_coodinates.keys():
+            raw_coords = self._stored_raw_coodinates[name]
+            if len(raw_coords) == 4:
+                coords = raw_roi_to_current_roi(
+                    raw_coords,
+                    img._get_detector_max_size(),
+                    img.flip,
+                    img.rotation,
+                    img.binning,
+                )
+                coords[0] = coords[0] - img.roi[0]
+                coords[1] = coords[1] - img.roi[1]
+                roi = Roi(*coords, name=name)
+            else:
+
+                coords = raw_coords_to_current_coords(
+                    raw_coords,
+                    img._get_detector_max_size(),
+                    img.flip,
+                    img.rotation,
+                    img.binning,
+                )
+                coords = coords_to_arc(list(coords))
+                coords[0] = coords[0] - img.roi[0]
+                coords[1] = coords[1] - img.roi[1]
+                roi = ArcRoi(*coords, name=name)
+
+            if self._check_roi_validity(roi):
+                self._save_rois[name] = roi
+            else:
+                print(
+                    f"Roi {roi.name} {roi.get_coords()} has been temporarily deactivated (outside image)"
+                )
+                del self._save_rois[name]
+
     def _check_roi_name_is_unique(self, name):
         if name in self._master_controller.roi_profiles._save_rois:
             raise ValueError(
@@ -595,6 +597,43 @@ class RoiCounters(IntegratingCounterController):
                 raise ValueError(
                     f"Names conflict: '{name}' is already used in roi_collection, please use another name"
                 )
+
+    def _check_roi_validity(self, roi):
+
+        x0, y0, w0, h0 = self._master_controller.image.roi
+
+        if isinstance(roi, Roi):
+            x, y, w, h = roi.get_coords()
+            if x < 0 or x >= w0 or y < 0 or y >= h0:
+                return False
+            if (x + w) > w0 or (y + h) > h0:
+                return False
+            return True
+
+        elif isinstance(roi, ArcRoi):
+            # pts = roi.get_bounding_box() # This returns a bounding box around the arc roi (would be more accurate than next line but would prevent portion of the arc to be off image)
+            pts = roi.get_points()[
+                1:5
+            ]  # Lima only checks if the corners of the arc roi are in image (i.e only checks p1, p2, p3, p4) so part of the roi could be out of image.
+            x0, y0 = pts[0]
+            x1, y1 = pts[1]
+
+            if x0 < 0 or x0 >= w0:
+                return False
+
+            if y0 < 0 or y0 >= h0:
+                return False
+
+            if x1 < 0 or x1 > w0:
+                return False
+
+            if y1 < 0 or y1 > h0:
+                return False
+
+            return True
+
+        else:
+            raise NotImplementedError
 
     def _set_roi(self, name, roi_values):
 
@@ -617,13 +656,19 @@ class RoiCounters(IntegratingCounterController):
                 " or (cx, cy, r1, r2, a1, a2) values"
             )
 
-        self._save_rois[roi.name] = roi
+        if not self._check_roi_validity(roi):
+            raise ValueError(
+                f"Roi coordinates {roi.get_coords()} are not valid (outside image)"
+            )
+
+        self._store_roi(roi)
 
     def _remove_rois(self, names):
         # rois pushed on proxy have an entry in self._roi_ids
         on_proxy = []
         for name in names:
             del self._save_rois[name]
+            del self._stored_raw_coodinates[name]
             self.__cached_counters.pop(name, None)
             if name in self._roi_ids:
                 on_proxy.append(name)
@@ -661,7 +706,7 @@ class RoiCounters(IntegratingCounterController):
 
     def upload_rois(self):
 
-        roi_list = [roi for roi in self.get_rois() if roi.is_valid()]
+        roi_list = [roi for roi in self.get_rois()]
         roi_id_list = self._proxy.addNames([x.name for x in roi_list])
 
         rois_values = list()
@@ -980,7 +1025,7 @@ class RoiProfileController(IntegratingCounterController):
         self._save_rois = settings.HashObjSetting("%s:%s" % (self.name, name))
 
     def upload_rois(self):
-        roi_list = [roi for roi in self.get_rois() if roi.is_valid()]
+        roi_list = [roi for roi in self.get_rois()]
         roi_id_list = self._proxy.addNames([x.name for x in roi_list])
 
         rois_values = list()

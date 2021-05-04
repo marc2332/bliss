@@ -12,7 +12,6 @@ from bliss.controllers.lima.limatools import (
 
 from bliss.data.lima_image import image_from_server
 from bliss.shell.formatters.table import IncrementalTable
-
 from bliss.common.image_tools import get_image_display
 
 

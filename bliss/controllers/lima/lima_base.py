@@ -442,11 +442,10 @@ class Lima(CounterController, HasMetadataForScan):
         # ------- send the params to tango-lima ---------------------------------------------
 
         # Lima rules and order of image transformations:
-        # 0) set back binning to 1,1 before any flip or rot modif (else lima crashes if a roi/subarea is already defined with lima-core < 1.9.6rc3))
-        # 1) flip [Left-Right, Up-Down]  (in bin 1,1 only else lima crashes if a roi/subarea is already defined)
-        # 2) rotation (clockwise and negative angles not possible) (in bin 1,1 only for same reason)
-        # 3) binning
-        # 4) roi (expressed in the current state f(flip, rot, bin))
+        # 1) binning
+        # 2) flip [Left-Right, Up-Down]
+        # 3) rotation (clockwise!)
+        # 4) roi (expressed in the current state f(bin, flip, rot))
 
         # --- Extract special params from ctrl_params and sort them -----------
         special_params = {}

@@ -7,10 +7,14 @@
 # Distributed under the GNU LGPLv3. See LICENSE.txt for more info.
 
 # PI GCS
+import numpy
 
 from warnings import warn
 
 from bliss.comm.util import get_comm, get_comm_type, TCP
+from bliss.common.event import connect, disconnect
+from bliss.common.utils import grouped
+from bliss import global_map
 
 
 def get_pi_comm(config, ctype=None, **opts):
@@ -415,3 +419,334 @@ pi_gcs_errors = {
     -1080: "Parameter DAT file does not have correct revision.",
     -1081: "User stages DAT file does not have correct revision.",
 }
+
+
+class Communication:
+    def __init__(self):
+        self.sock = None
+
+    def com_initialize(self):
+        self.sock = get_pi_comm(self.config, TCP)
+        global_map.register(self, children_list=[self.sock])
+        connect(self.sock, "connect", self._clear_error)
+
+    def finalize(self):
+        """
+        Closes the controller socket.
+        """
+        self.close()
+        disconnect(self.sock, "connect", self._clear_error)
+
+    def close(self):
+        if self.sock:
+            self.sock.close()
+
+    def get_error(self):
+        _error_number = int(self.sock.write_readline(b"ERR?\n"))
+        _error_str = get_error_str(_error_number)
+
+        return (_error_number, _error_str)
+
+    def _clear_error(self, connected):
+        if connected:
+            self.get_error()  # read and clear any error
+
+    def command(self, cmd, nb_line=1):
+        """
+        Method to send a command to the controller.
+
+        Read answer if needed (ie. `cmd` contains a `?`).
+
+        - Encode `cmd` string.
+        - Add `\\n` terminator.
+        """
+
+        with self.sock.lock:
+            cmd = cmd.strip()
+            need_reply = cmd.find("?") > -1
+            cmd = cmd.encode()
+            if need_reply:
+                if nb_line > 1:
+                    reply = self.sock.write_readlines(cmd + b"\n", nb_line)
+                else:
+                    reply = self.sock.write_readline(cmd + b"\n")
+
+                if not reply:  # it's an error
+                    errors = [self.name] + list(self.get_error())
+                    raise RuntimeError(
+                        "Device {0} error nb {1} => ({2})".format(*errors)
+                    )
+
+                if nb_line > 1:
+                    parsed_reply = list()
+                    commands = cmd.split(b"\n")
+                    if len(commands) == nb_line:  # one reply per command
+                        for cmd, rep in zip(commands, reply):
+                            space_pos = cmd.find(b" ")
+                            if space_pos > -1:
+                                args = cmd[space_pos + 1 :]
+                                parsed_reply.append(self._parse_reply(rep, args))
+                            else:
+                                parsed_reply.append(rep)
+                    else:  # a command with several replies
+                        space_pos = cmd.find(b" ")
+                        if space_pos > -1:
+                            args = cmd[space_pos + 1 :]
+                            for arg, rep in zip(args.split(), reply):
+                                parsed_reply.append(self._parse_reply(rep, arg))
+                    reply = parsed_reply
+                else:
+                    space_pos = cmd.find(b" ")
+                    if space_pos > -1:
+                        reply = self._parse_reply(reply, cmd[space_pos + 1 :])
+                    else:
+                        reply = reply.decode()
+                return reply
+            else:
+                self.sock.write(cmd + b"\n")
+                errno, error_message = self.get_error()
+                if errno:
+                    errors = [self.name, cmd] + [errno, error_message]
+                    raise RuntimeError(
+                        "Device {0} command {1} error nb {2} => ({3})".format(*errors)
+                    )
+
+    def raw_write(self, axis, com):
+        com = com.encode()
+        self.sock.write(b"%s\n" % com)
+
+    def raw_write_read(self, axis, com):
+        com = com.encode()
+        return self.sock.write_readline(b"%s\n" % com)
+
+    def _parse_reply(self, reply, args):
+        args_pos = reply.find(b"=")
+        if reply[:args_pos] != args:  # weird
+            print("Weird thing happens with connection of %s" % self.name)
+            return reply.decode()
+        else:
+            return reply[args_pos + 1 :].decode()
+
+
+class Recorder:
+    # POSSIBLE DATA TRIGGER SOURCE
+    WAVEFORM = 0
+    MOTION = 1
+    EXTERNAL = 3
+    IMMEDIATELY = 4
+
+    def _add_recoder_enum_on_axis(self, axis):
+        # POSSIBLE DATA RECORDER TYPE
+        axis.TARGET_POSITION_OF_AXIS = 1
+        axis.CURRENT_POSITION_OF_AXIS = 2
+        axis.POSITION_ERROR_OF_AXIS = 3
+        axis.CONTROL_VOLTAGE_OF_OUTPUT_CHAN = 7
+        axis.DDL_OUTPUT_OF_AXIS = 13
+        axis.OPEN_LOOP_CONTROL_OF_AXIS = 14
+        axis.CONTROL_OUTPUT_OF_AXIS = 15
+        axis.VOLTAGE_OF_OUTPUT_CHAN = 16
+        axis.SENSOR_NORMALIZED_OF_INPUT_CHAN = 17
+        axis.SENSOR_FILTERED_OF_INPUT_CHAN = 18
+        axis.SENSOR_ELECLINEAR_OF_INPUT_CHAN = 19
+        axis.SENSOR_MECHLINEAR_OF_INPUT_CHAN = 20
+        axis.SLOWED_TARGET_OF_AXIS = 22
+
+        # POSSIBLE DATA TRIGGER SOURCE
+        axis.WAVEFORM = 0
+        axis.MOTION = 1
+        axis.EXTERNAL = 3
+        axis.IMMEDIATELY = 4
+
+    def get_data_len(self):
+        """
+        return how many point you can get from recorder
+        """
+        return int(self.command("DRL? 1"))
+
+    def get_data_max_len(self):
+        """
+        return the maximum number of records
+        """
+        return int(self.command("SPA? 1 0x16000200"))
+
+    def get_data(self, from_event_id=0, npoints=None, rec_table_id=None):
+        """
+        retrieved store data as a numpy structured array,
+        struct name will be the data_type + motor name.
+        i.e:
+        Target_Position_of_<motor_name> or Current_Position_of_<motor_name>
+
+        Args:
+         - from_event_id from which point id you want to read
+         - rec_table_id list of table you want to read, None means all
+        """
+        if rec_table_id is None:  # All table
+            # just ask the first table because they have the same synchronization
+            nb_availabe_points = int(self.command("DRL? 1"))
+            nb_availabe_points -= from_event_id
+            if npoints is None:
+                npoints = nb_availabe_points
+            else:
+                npoints = min(nb_availabe_points, npoints)
+            cmd = b"DRR? %d %d\n" % ((from_event_id + 1), npoints)
+        else:
+            rec_tables = " ".join((str(x) for x in rec_table_id))
+            nb_points = self.command("DRL? %s" % rec_tables, len(rec_table_id))
+            if isinstance(nb_points, list):
+                nb_points = min([int(x) for x in nb_points])
+            else:
+                nb_points = int(nb_points)
+            point_2_read = nb_points - from_event_id
+            if point_2_read < 0:
+                point_2_read = 0
+            elif npoints is not None and point_2_read > npoints:
+                point_2_read = npoints
+            cmd = b"DRR? %d %d %s\n" % (from_event_id + 1, point_2_read, rec_tables)
+
+        try:
+            exception_occurred = False
+            with self.sock.lock:
+                self.sock._write(cmd)
+                # HEADER
+                header = dict()
+                while 1:
+                    line = self.sock.readline()
+                    if not line:
+                        return  # no data available
+                    if line.find(b"END_HEADER") > -1:
+                        break
+
+                    key, value = (x.strip().decode() for x in line[1:].split(b"="))
+                    header[key] = value
+
+                ndata = int(header["NDATA"])
+                separator = chr(int(header["SEPARATOR"])).encode()
+                sample_time = float(header["SAMPLE_TIME"])
+                dim = int(header["DIM"])
+                column_info = dict()
+                keep_axes = {
+                    x.channel: x for x in self.axes.values() if hasattr(x, "channel")
+                }
+                for name_id in range(8):
+                    try:
+                        desc = header["NAME%d" % name_id]
+                    except KeyError:
+                        break
+                    else:
+                        axis_pos = desc.find("axis")
+                        if axis_pos < 0:
+                            axis_pos = desc.find("chan")
+                        axis_id = int(desc[axis_pos + len("axis") :])
+                        if axis_id in keep_axes:
+                            new_desc = desc[:axis_pos] + keep_axes[axis_id].name
+                            column_info[name_id] = new_desc.replace(" ", "_")
+
+                dtype = [("timestamp", "f8")]
+                dtype += [(name, "f8") for name in column_info.values()]
+                data = numpy.zeros(ndata, dtype=dtype)
+                data["timestamp"] = (
+                    numpy.arange(from_event_id, from_event_id + ndata) * sample_time
+                )
+                for line_id in range(ndata):
+                    line = self.sock.readline().strip()
+                    values = line.split(separator)
+                    for column_id, name in column_info.items():
+                        data[name][line_id] = values[column_id]
+                return data
+        except:
+            exception_occurred = True
+            try:
+                errno, error_message = self.get_error()
+            except:
+                pass
+            self.sock.close()  # safe in case of ctrl-c
+            raise
+        finally:
+            if not exception_occurred:
+                errno, error_message = self.get_error()
+                # If we ask data in advance, ** Out of range **
+                # error is return.
+                # in that case it's not an error
+                if errno > 0 and errno != 17:
+                    errors = [self.name, "get_data"] + [errno, error_message]
+                    raise RuntimeError(
+                        "Device {0} command {1} error nb {2} => ({3})".format(*errors)
+                    )
+
+    def set_recorder_data_type(self, *motor_data_type):
+        """
+        Configure the data recorder
+
+        Args:
+          motor_data_type should be a list of tuple with motor and datatype
+          i.e: motor_data_type=[px,px.CURRENT_POSITION_OF_AXIS,
+                                py,py.CURRENT_POSITION_OF_AXIS]
+        """
+        nb_recorder_table = len(motor_data_type) / 2
+        if nb_recorder_table * 2 != len(motor_data_type):
+            raise RuntimeError(
+                "Argument must be grouped by 2 "
+                "(motor1,data_type1,motor2,data_type2...)"
+            )
+
+        self.command("SPA 1 0x16000300 %d" % nb_recorder_table)
+        max_nb_recorder = int(self.command("TNR?"))
+        if nb_recorder_table > max_nb_recorder:
+            raise RuntimeError(
+                "Device %s too many recorder data, can only record %d"
+                % (self.name, max_nb_recorder)
+            )
+        cmd = "DRC "
+        cmd += " ".join(
+            (
+                "%d %s %d" % (rec_id + 1, motor.channel, data_type)
+                for rec_id, (motor, data_type) in enumerate(grouped(motor_data_type, 2))
+            )
+        )
+        self.command(cmd)
+
+    def start_recording(self, trigger_source, value=0, recorder_rate=None):
+        """
+        start recording data according to what was asked to record.
+        @see set_recorder_data_type
+
+        Args:
+          - trigger_source could be WAVEFORM,MOTION,EXTERNAL,IMMEDIATELY
+          - value for EXTERNAL value is the trigger input line (0 mean all)
+          - recorder_rate if None max speed otherwise the period in seconds
+        """
+        if trigger_source not in (
+            self.WAVEFORM,
+            self.MOTION,
+            self.EXTERNAL,
+            self.IMMEDIATELY,
+        ):
+            raise RuntimeError(
+                "Device %s trigger source can only be:"
+                "WAVEFORM,MOTION,EXTERNAL or IMMEDIATELY"
+            )
+
+        if recorder_rate is not None:
+            cycle_time = float(self.command("SPA? 1 0xe000200"))
+            rate = int(recorder_rate / cycle_time)  # should be faster than asked
+        else:
+            rate = 1
+
+        self.command("RTR %d" % rate)
+
+        nb_recorder = int(self.command("TNR?"))
+        cmd = "DRT "
+        cmd += " ".join(
+            (
+                "%d %d %d" % (rec_id, trigger_source, value)
+                for rec_id in range(1, nb_recorder + 1)
+            )
+        )
+        self.command(cmd)
+
+    def get_recorder_data_rate(self):
+        """
+        return the rate of the data recording in seconds
+        """
+        cycle_time, rtr = self.command("SPA? 1 0xe000200\nRTR?", 2)
+        return float(cycle_time) * int(rtr)

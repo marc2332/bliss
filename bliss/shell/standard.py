@@ -106,9 +106,9 @@ import tabulate
 from bliss.common.utils import typeguardTypeError_to_hint
 from typing import Optional, Union
 from bliss.controllers.lima.lima_base import Lima
+from bliss.common.protocols import Scannable
 from bliss.common.types import (
     _countable,
-    _scannable,
     _scannable_or_name,
     _float,
     _providing_channel,
@@ -789,7 +789,7 @@ def wm(*axes: _scannable_or_name, **kwargs):
     display_original_msg=False,
 )
 @modify_annotations({"args": "motor1, pos1, motor2, pos2, ..."})
-@typecheck_var_args_pattern([_scannable, _float])
+@typecheck_var_args_pattern([Scannable, _float])
 def umv(*args):
     """
     Move given axes to given absolute positions providing updated display of
@@ -807,7 +807,7 @@ def umv(*args):
     display_original_msg=False,
 )
 @modify_annotations({"args": "motor1, rel. pos1, motor2, rel. pos2, ..."})
-@typecheck_var_args_pattern([_scannable, _float])
+@typecheck_var_args_pattern([Scannable, _float])
 def umvr(*args):
     """
     Move given axes to given relative positions providing updated display of
@@ -825,7 +825,7 @@ def umvr(*args):
     display_original_msg=False,
 )
 @modify_annotations({"args": "motor1, pos1, motor2, pos2, ..."})
-@typecheck_var_args_pattern([_scannable, _float])
+@typecheck_var_args_pattern([Scannable, _float])
 def umvd(*args):
     """
     Move given axes to given absolute dial positions providing updated display of
@@ -843,7 +843,7 @@ def umvd(*args):
     display_original_msg=False,
 )
 @modify_annotations({"args": "motor1, rel. pos1, motor2, rel. pos2, ..."})
-@typecheck_var_args_pattern([_scannable, _float])
+@typecheck_var_args_pattern([Scannable, _float])
 def umvdr(*args):
     """
     Move given axes to given relative dial positions providing updated display of

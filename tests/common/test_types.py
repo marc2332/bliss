@@ -1,11 +1,11 @@
-from bliss.common.types import _scannable
+from bliss.common.protocols import Scannable
 
 import typeguard
 
 
 def test_scannable_type(default_session):
     @typeguard.typechecked
-    def func_with_scannable(axis: _scannable):
+    def func_with_scannable(axis: Scannable):
         return True
 
     bad = default_session.config.get("bad")

@@ -43,12 +43,12 @@ from bliss.scanning.toolbox import DefaultAcquisitionChain
 from bliss.scanning.scan import Scan, StepScanDataWatch
 from bliss.scanning.acquisition.motor import VariableStepTriggerMaster
 from bliss.scanning.scan_info import ScanInfo
+from bliss.common.protocols import Scannable
 from bliss.common.types import (
     _int,
     _float,
     _countable,
     _countables,
-    _scannable,
     _scannable_start_stop_list,
     _position_list,
     _scannable_position_list,
@@ -63,7 +63,7 @@ DEFAULT_CHAIN = DefaultAcquisitionChain()
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def ascan(
-    motor: _scannable,
+    motor: Scannable,
     start: _float,
     stop: _float,
     intervals: _int,
@@ -128,7 +128,7 @@ def ascan(
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def dscan(
-    motor: _scannable,
+    motor: Scannable,
     start: _float,
     stop: _float,
     intervals: _int,
@@ -196,7 +196,7 @@ def dscan(
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def lineup(
-    motor: _scannable,
+    motor: Scannable,
     start: _float,
     stop: _float,
     intervals: _int,
@@ -241,10 +241,10 @@ def lineup(
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def a2scan(
-    motor1: _scannable,
+    motor1: Scannable,
     start1: _float,
     stop1: _float,
-    motor2: _scannable,
+    motor2: Scannable,
     start2: _float,
     stop2: _float,
     intervals: _int,
@@ -616,13 +616,13 @@ def dnscan(
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def a3scan(
-    motor1: _scannable,
+    motor1: Scannable,
     start1: _float,
     stop1: _float,
-    motor2: _scannable,
+    motor2: Scannable,
     start2: _float,
     stop2: _float,
-    motor3: _scannable,
+    motor3: Scannable,
     start3: _float,
     stop3: _float,
     intervals: _int,
@@ -661,16 +661,16 @@ def a3scan(
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def a4scan(
-    motor1: _scannable,
+    motor1: Scannable,
     start1: _float,
     stop1: _float,
-    motor2: _scannable,
+    motor2: Scannable,
     start2: _float,
     stop2: _float,
-    motor3: _scannable,
+    motor3: Scannable,
     start3: _float,
     stop3: _float,
-    motor4: _scannable,
+    motor4: Scannable,
     start4: _float,
     stop4: _float,
     intervals: _int,
@@ -715,19 +715,19 @@ def a4scan(
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def a5scan(
-    motor1: _scannable,
+    motor1: Scannable,
     start1: _float,
     stop1: _float,
-    motor2: _scannable,
+    motor2: Scannable,
     start2: _float,
     stop2: _float,
-    motor3: _scannable,
+    motor3: Scannable,
     start3: _float,
     stop3: _float,
-    motor4: _scannable,
+    motor4: Scannable,
     start4: _float,
     stop4: _float,
-    motor5: _scannable,
+    motor5: Scannable,
     start5: _float,
     stop5: _float,
     intervals: _int,
@@ -772,13 +772,13 @@ def a5scan(
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def d3scan(
-    motor1: _scannable,
+    motor1: Scannable,
     start1: _float,
     stop1: _float,
-    motor2: _scannable,
+    motor2: Scannable,
     start2: _float,
     stop2: _float,
-    motor3: _scannable,
+    motor3: Scannable,
     start3: _float,
     stop3: _float,
     intervals: _int,
@@ -817,16 +817,16 @@ def d3scan(
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def d4scan(
-    motor1: _scannable,
+    motor1: Scannable,
     start1: _float,
     stop1: _float,
-    motor2: _scannable,
+    motor2: Scannable,
     start2: _float,
     stop2: _float,
-    motor3: _scannable,
+    motor3: Scannable,
     start3: _float,
     stop3: _float,
-    motor4: _scannable,
+    motor4: Scannable,
     start4: _float,
     stop4: _float,
     intervals: _int,
@@ -870,19 +870,19 @@ def d4scan(
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def d5scan(
-    motor1: _scannable,
+    motor1: Scannable,
     start1: _float,
     stop1: _float,
-    motor2: _scannable,
+    motor2: Scannable,
     start2: _float,
     stop2: _float,
-    motor3: _scannable,
+    motor3: Scannable,
     start3: _float,
     stop3: _float,
-    motor4: _scannable,
+    motor4: Scannable,
     start4: _float,
     stop4: _float,
-    motor5: _scannable,
+    motor5: Scannable,
     start5: _float,
     stop5: _float,
     intervals: _int,
@@ -927,10 +927,10 @@ def d5scan(
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def d2scan(
-    motor1: _scannable,
+    motor1: Scannable,
     start1: _float,
     stop1: _float,
-    motor2: _scannable,
+    motor2: Scannable,
     start2: _float,
     stop2: _float,
     intervals: _int,
@@ -1142,7 +1142,7 @@ def loopscan(
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def pointscan(
-    motor: _scannable,
+    motor: Scannable,
     positions: _position_list,
     count_time: _float,
     *counter_args: _countables,

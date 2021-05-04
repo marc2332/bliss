@@ -948,7 +948,7 @@ def typecheck_var_args_pattern(args_pattern, empty_var_pos_args_allowed=False):
 
     .. code-block::
 
-        @typecheck_var_args_pattern([_scannable,_float])
+        @typecheck_var_args_pattern([Scannable,_float])
         def umv(*args):
             ...
     """

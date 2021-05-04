@@ -3,7 +3,8 @@ import typeguard
 from typing import Optional, Callable, Any
 from bliss.data.scan import get_counter_names
 from bliss import current_session, global_map
-from bliss.common.types import _countable, _scannable
+from bliss.common.protocols import Scannable
+from bliss.common.types import _countable
 from bliss.common.plot import display_motor
 from bliss.scanning.scan import Scan
 from bliss.scanning.scan_display import ScanDisplay
@@ -150,7 +151,7 @@ def _scan_calc(func, counter=None, axis=None, scan=None, marker=True, goto=False
 @shorten_signature(hidden_kwargs=[])
 def fwhm(
     counter: Optional[_countable] = None,
-    axis: Optional[_scannable] = None,
+    axis: Optional[Scannable] = None,
     scan: Optional[Scan] = None,
 ):
     """
@@ -166,7 +167,7 @@ def fwhm(
 @shorten_signature(hidden_kwargs=[])
 def cen(
     counter: Optional[_countable] = None,
-    axis: Optional[_scannable] = None,
+    axis: Optional[Scannable] = None,
     scan: Optional[Scan] = None,
 ):
     """
@@ -183,7 +184,7 @@ def cen(
 def find_position(
     func: Callable[[Any, Any], float],
     counter: Optional[_countable] = None,
-    axis: Optional[_scannable] = None,
+    axis: Optional[Scannable] = None,
     scan: Optional[Scan] = None,
 ):
     return _scan_calc(func, counter=counter, axis=axis, scan=scan)
@@ -193,7 +194,7 @@ def find_position(
 @shorten_signature(hidden_kwargs=[])
 def goto_cen(
     counter: Optional[_countable] = None,
-    axis: Optional[_scannable] = None,
+    axis: Optional[Scannable] = None,
     scan: Optional[Scan] = None,
 ):
     """
@@ -210,7 +211,7 @@ def goto_cen(
 @shorten_signature(hidden_kwargs=[])
 def com(
     counter: Optional[_countable] = None,
-    axis: Optional[_scannable] = None,
+    axis: Optional[Scannable] = None,
     scan: Optional[Scan] = None,
 ):
     """
@@ -226,7 +227,7 @@ def com(
 @shorten_signature(hidden_kwargs=[])
 def goto_com(
     counter: Optional[_countable] = None,
-    axis: Optional[_scannable] = None,
+    axis: Optional[Scannable] = None,
     scan: Optional[Scan] = None,
 ):
     """
@@ -243,7 +244,7 @@ def goto_com(
 @shorten_signature(hidden_kwargs=[])
 def peak(
     counter: Optional[_countable] = None,
-    axis: Optional[_scannable] = None,
+    axis: Optional[Scannable] = None,
     scan: Optional[Scan] = None,
 ):
     """
@@ -259,7 +260,7 @@ def peak(
 @shorten_signature(hidden_kwargs=[])
 def goto_peak(
     counter: Optional[_countable] = None,
-    axis: Optional[_scannable] = None,
+    axis: Optional[Scannable] = None,
     scan: Optional[Scan] = None,
 ):
     """
@@ -276,7 +277,7 @@ def goto_peak(
 @shorten_signature(hidden_kwargs=[])
 def trough(
     counter: Optional[_countable] = None,
-    axis: Optional[_scannable] = None,
+    axis: Optional[Scannable] = None,
     scan: Optional[Scan] = None,
 ):
     """
@@ -292,7 +293,7 @@ def trough(
 @shorten_signature(hidden_kwargs=[])
 def goto_min(
     counter: Optional[_countable] = None,
-    axis: Optional[_scannable] = None,
+    axis: Optional[Scannable] = None,
     scan: Optional[Scan] = None,
 ):
     """
@@ -310,7 +311,7 @@ def goto_min(
 def goto_custom(
     func: Callable[[Any, Any], float],
     counter: Optional[_countable] = None,
-    axis: Optional[_scannable] = None,
+    axis: Optional[Scannable] = None,
     scan: Optional[Scan] = None,
 ):
     return _scan_calc(func, counter=counter, axis=axis, scan=scan, goto=True)

@@ -682,7 +682,7 @@ class DataNode(metaclass=DataNodeMetaClass):
     """
 
     _TIMETOLIVE = 24 * 3600  # 1 day
-    VERSION = (1, 0)  # change major version for incompatible API changes
+    VERSION = (1, 1)  # change major version for incompatible API changes
 
     @staticmethod
     def _principal_db_name(name, parent=None):

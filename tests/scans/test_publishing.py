@@ -12,6 +12,8 @@ import numpy
 import itertools
 import pickle
 import logging
+from collections import OrderedDict
+
 from bliss import setup_globals, current_session
 from bliss.common import scans
 from bliss.scanning.scan import Scan, ScanState, ScanAbort
@@ -752,14 +754,16 @@ def _count_node_events(
         result = nodes
         process_event = process_node
     else:
-        result = {}
+        result = OrderedDict()
         nodes_with_event = set()
+        prepared_scan_received = False
         end_scan_recieved = False
 
         def process_event(ev):
             """Count events and check order
             """
             nonlocal end_scan_recieved
+            nonlocal prepared_scan_received
             e, n, d = ev
             node = n.db_name
 
@@ -769,13 +773,27 @@ def _count_node_events(
             )
             assert not end_scan_recieved, error_msg
 
-            # Make sure the NEW_NODE event (if any) is the first event
+            # Verify event order
             if e == e.NEW_NODE:
-                process_node(n)
                 error_msg = f"NEW_NODE not the first event of '{node}'"
                 assert node not in nodes_with_event, error_msg
+
+                error_msg = f"Event '{e.name}' of '{node}' arrived after the 'PREPARED_SCAN' event"
+                assert not prepared_scan_received, error_msg
+            elif e == e.PREPARED_SCAN:
+                error_msg = (
+                    f"Event '{e.name}' of '{node}' arrived after the 'NEW_DATA' event"
+                )
+                assert node not in result.get("NEW_DATA", []), error_msg
+
+            # Process event
+            if e == e.NEW_NODE:
+                process_node(n)
             elif e == e.END_SCAN:
                 end_scan_recieved = True
+            elif e == e.PREPARED_SCAN:
+                prepared_scan_received = True
+
             nodes_with_event.add(node)
             result.setdefault(e.name, []).append(node)
 

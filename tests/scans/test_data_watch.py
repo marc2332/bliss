@@ -144,6 +144,12 @@ def test_mca_with_watcher(session, test_observer):
     test_observer.on_ndim_data_received.assert_called()
     test_observer.on_scan_finished.assert_called_once()
 
+    sf = ScanInfo()
+    device_key = sf._get_key_from_acq_obj(mca_device)
+    scan_info = test_observer.on_scan_started__scan_info()
+    assert device_key in scan_info["devices"]
+    assert scan_info["devices"][device_key]["type"] == "mca"
+
 
 def test_limatake_with_watcher(session, lima_simulator, test_observer):
     lima_simulator = session.config.get("lima_simulator")
@@ -165,6 +171,8 @@ def test_limatake_with_watcher(session, lima_simulator, test_observer):
     for node in builder.get_nodes_by_controller_type(Lima):
         node.set_parameters(acq_params=lima_params)
         chain.add(node)
+        lima_acq_obj = node.acquisition_obj
+
     scan = Scan(chain, name="limatake", save=False)
 
     with watching(session, test_observer):
@@ -174,6 +182,12 @@ def test_limatake_with_watcher(session, lima_simulator, test_observer):
     test_observer.on_scan_started.assert_called_once()
     test_observer.on_lima_ref_received.assert_called()
     test_observer.on_scan_finished.assert_called_once()
+
+    sf = ScanInfo()
+    device_key = sf._get_key_from_acq_obj(lima_acq_obj)
+    scan_info = test_observer.on_scan_started__scan_info()
+    assert device_key in scan_info["devices"]
+    assert scan_info["devices"][device_key]["type"] == "lima"
 
 
 def test_data_watch_callback(session, diode_acq_device_factory, mocker):

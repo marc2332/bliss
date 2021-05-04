@@ -109,6 +109,10 @@ class PI_E753(pi_gcs.Communication, pi_gcs.Recorder, Controller):
     """ STATE """
 
     def state(self, axis):
+        # check if WAV motion is active
+        if self.sock.write_readline(chr(9).encode()) != b"0":
+            return AxisState("MOVING")
+
         if self._get_closed_loop_status(axis):
             if self._get_on_target_status(axis):
                 return AxisState("READY")

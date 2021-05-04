@@ -154,7 +154,8 @@ class PI_E753(pi_gcs.Communication, pi_gcs.Recorder, Controller):
         * 24    -> stop asap
         * to check : copy of current position into target position ???
         """
-        self.command("STP")
+        if self._get_closed_loop_status(axis):
+            self.command("STP")
 
     """
     E753 specific

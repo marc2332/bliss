@@ -1278,6 +1278,8 @@ class Scan:
         self._prepare_devices(devices_tree)
         self.writer.prepare(self)
 
+        self._fill_meta("fill_meta_at_scan_start")
+
         self.node.prepared()
 
         self._axes_in_scan = self._get_data_axes(include_calc_reals=True)
@@ -1530,8 +1532,6 @@ class Scan:
 
                         # starting the scan
                         self._set_state(ScanState.STARTING)
-
-                        self._fill_meta("fill_meta_at_scan_start")
 
                         self._execute_preset("start")
 

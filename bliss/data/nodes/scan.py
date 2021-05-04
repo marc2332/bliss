@@ -42,7 +42,7 @@ class ScanNode(DataNodeContainer):
     def dataset(self):
         return self.parent
 
-    def prepared(self):
+    def prepared(self, scan_info):
         """Publish PREPARED event in Redis
         """
         if not self.new_node:
@@ -51,6 +51,7 @@ class ScanNode(DataNodeContainer):
         # TODO: what does the comment above mean?
         with settings.pipeline(self._prepared_stream, self._info):
             event = PreparedScanEvent()
+            self._info.update(scan_info)
             self._prepared_stream.add_event(event)
 
     def end(self, exception=None):

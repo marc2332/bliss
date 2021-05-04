@@ -1280,7 +1280,8 @@ class Scan:
 
         self._fill_meta("fill_meta_at_scan_start")
 
-        self.node.prepared()
+        # The scan info was updated with device metadata
+        self.node.prepared(self._scan_info)
 
         self._axes_in_scan = self._get_data_axes(include_calc_reals=True)
         with execute_pre_scan_hooks(self._axes_in_scan):

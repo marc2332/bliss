@@ -183,7 +183,7 @@ class SimulationCounterAcquisitionSlave(AcquisitionSlave):
         log_debug(self, "SIMULATION_COUNTER_ACQ_DEV -- prepare()")
         self._index = 0
 
-        #### Get scan paramerters
+        #### Get scan parameters
         nbpoints = self.npoints
 
         # npoints should be 0 only in case of timescan without 'npoints' parameter

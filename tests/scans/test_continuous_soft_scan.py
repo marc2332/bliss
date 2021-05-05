@@ -10,6 +10,7 @@ import time
 import numpy as np
 import pytest
 import gevent
+from unittest import mock
 
 from bliss.common import event
 from bliss.common import scans
@@ -161,6 +162,40 @@ def test_interrupted_scan(session, diode_acq_device_factory):
 
     assert s.state == ScanState.USER_ABORTED
     assert acquisition_device_1.stop_flag
+    assert acquisition_device_2.stop_flag
+
+
+def test_timeout_error(session, diode_acq_device_factory):
+    robz = session.config.get("robz")
+    robz.velocity_limits = 0, 100
+    robz.velocity = 1
+    chain = AcquisitionChain()
+    acquisition_device_1, _ = diode_acq_device_factory.get(count_time=0.1, npoints=5)
+    acquisition_device_2, _ = diode_acq_device_factory.get(count_time=0.1, npoints=5)
+    master = SoftwarePositionTriggerMaster(robz, 0, 1, 5)
+    chain.add(master, acquisition_device_1)
+    chain.add(master, acquisition_device_2)
+    s = Scan(chain, save=False)
+
+    with mock.patch.object(robz, "stop", side_effect=gevent.Timeout) as stop_method:
+        with mock.patch.object(
+            acquisition_device_1, "stop", side_effect=gevent.Timeout
+        ) as acq_dev_stop_method:
+            # Run scan
+            scan_task = gevent.spawn(s.run)
+
+            with gevent.Timeout(1):
+                s.wait_state(ScanState.STARTING)
+
+            gevent.sleep(0.2)
+
+            try:
+                scan_task.kill(KeyboardInterrupt)
+            except:
+                assert scan_task.ready()
+
+    assert stop_method.called_once
+    assert acq_dev_stop_method.called_once
     assert acquisition_device_2.stop_flag
 
 

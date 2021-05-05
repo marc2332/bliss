@@ -6,7 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """
-Events returned recieved when walking a `DataNode`,
+Events returned received when walking a `DataNode`,
 derived from raw Redis stream events.
 """
 
@@ -21,6 +21,7 @@ class EventType(Enum):
     NEW_NODE = 1
     NEW_DATA = 2
     END_SCAN = 3
+    PREPARED_SCAN = 4
 
 
 class EventData(NamedTuple):

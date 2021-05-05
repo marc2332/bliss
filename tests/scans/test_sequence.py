@@ -263,7 +263,7 @@ def test_sequence_events(session):
             seq_context.add(s2)
 
     event_dump = list()
-    nexpectedevents = 70
+    nexpectedevents = 74
     started_event = gevent.event.Event()
     finished_event = gevent.event.Event()
 
@@ -277,7 +277,7 @@ def test_sequence_events(session):
                     node.type,
                     re.split(r"test_sequence_events[0-9,_]*:", node.db_name)[-1],
                 )
-                print(len(event_dump), event)
+                print(i, event)
                 event_dump.append(event)
                 nevents += 1
                 if nevents == nexpectedevents:
@@ -349,10 +349,14 @@ def test_sequence_events(session):
     end_4_dscan = event_dump.index(("END_SCAN", "scan", "4_dscan"))
     assert data_4_dscan < end_4_dscan
 
+    prepared_2_sequence_of_scans = event_dump.index(
+        ("PREPARED_SCAN", "scan_group", "2_sequence_of_scans")
+    )
     end_2_sequence_of_scans = event_dump.index(
         ("END_SCAN", "scan_group", "2_sequence_of_scans")
     )
     assert sequence_event_4_dscan < end_2_sequence_of_scans
+    assert prepared_2_sequence_of_scans < end_2_sequence_of_scans
 
 
 def test_group_with_killed_scan(default_session):

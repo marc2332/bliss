@@ -40,7 +40,8 @@ A ScanNode is represented by 4 Redis keys:
  {db_name} ->  see DataNodeContainer
  {db_name}_info -> see DataNodeContainer
  {db_name}_children -> see DataNodeContainer
- {db_name}_data -> contains the END event
+ {db_name}_end -> contains the END event
+ {db_name}_prepared -> contains the PREPARED event
 
 A ChannelDataNode is represented by 3 Redis keys:
 
@@ -681,7 +682,7 @@ class DataNode(metaclass=DataNodeMetaClass):
     """
 
     _TIMETOLIVE = 24 * 3600  # 1 day
-    VERSION = (1, 0)  # change major version for incompatible API changes
+    VERSION = (1, 1)  # change major version for incompatible API changes
 
     @staticmethod
     def _principal_db_name(name, parent=None):
@@ -724,6 +725,9 @@ class DataNode(metaclass=DataNodeMetaClass):
         self.__db_name = db_name
         self.node_type = node_type
 
+        self._priorities = {}
+        """Hold priorities per streams."""
+
         # The info dictionary associated to the DataNode
         self._info = settings.HashObjSetting(f"{db_name}_info", connection=connection)
         info_dict = self._init_info(create=create, **kwargs)
@@ -739,6 +743,17 @@ class DataNode(metaclass=DataNodeMetaClass):
             self.__new_node = False
             self._ttl_setter = None
             self._struct = self._get_struct(db_name, connection=self.db_connection)
+
+    def _register_stream_priority(self, fullname: str, priority: int):
+        """
+        Register the stream priority which will be used on the reader side.
+
+        :paran str fullname: Full name of the stream
+        :param int priority: data from streams with a lower priority is never
+                             yielded as long as higher priority streams have
+                             data. Lower number means higher priority.
+        """
+        self._priorities[fullname] = priority
 
     def add_prefetch(self, async_proxy=None):
         """As long as caching on the proxy level exists in CachingRedisDbProxy,
@@ -815,7 +830,8 @@ class DataNode(metaclass=DataNodeMetaClass):
         :param `**kw`: see `_create_nonassociated_stream`
         :returns DataStream:
         """
-        return self._create_nonassociated_stream(f"{self.db_name}_{suffix}", **kw)
+        stream = self._create_nonassociated_stream(f"{self.db_name}_{suffix}", **kw)
+        return stream
 
     @classmethod
     def _streamid_to_idx(cls, streamID):
@@ -1362,6 +1378,12 @@ class DataNode(metaclass=DataNodeMetaClass):
             if not self.db_connection.exists(stream_name):
                 return
         stream = self._create_nonassociated_stream(stream_name)
+
+        # Use the priority as it was setup
+        priority = self._priorities.get(stream.name, 0)
+        if priority is not None:
+            kw["priority"] = priority
+
         reader.add_streams(stream, node=self, first_index=first_index, **kw)
 
     def _subscribe_streams(
@@ -1390,6 +1412,7 @@ class DataNode(metaclass=DataNodeMetaClass):
         parent = self.parent
         if parent is None:
             return None
+        # Higher priority than PREPARED scan
         children_stream = parent._create_stream("children_list")
         self_db_name = self.db_name
         for index, raw in children_stream.rev_range():
@@ -1535,31 +1558,32 @@ class DataNodeContainer(DataNode):
         search_data_streams = False
 
         # Subscribe to the streams of all children, not only the direct children.
-        # TODO: this assumes that all streams to subscribe too are called
-        #       "*_children_list" and "*_data". Can be solved with DataNode
-        #       derived class self-registration and each class adding
-        #       stream suffixes and orders.
+        # TODO: this makes assumptions about the data nodes and their streams.
+        #       Any change in streams (rename stream, add new streams, ...) will
+        #       affect this code.
 
         # Subscribe to streams found by a recursive search
-        nodes_with_data = list()
+        nodes_with_data = dict()
+        search_suffixes = {"data": ["data"], "end": ["prepared", "end"]}
         nodes_with_children = list()
         excluded_stream_names = set(reader.excluded_stream_names)
         if search_data_streams:
-            # Make sure the NEW_NODE event always arrives before the NEW_DATA event:
+            # Make sure the NEW_NODE event always arrives before any other node event:
             # - assume "...:parent_children_list" is created BEFORE "...parent:child_data"
             # - search for *_children_list AFTER searching for *_data
             # - subscribe to *_children_list BEFORE subscribing to *_data
-            node_names = self._search_nodes_with_streams(
-                "data", excluded_stream_names, include_parent=False
-            )
-            nodes_with_data = list(
-                self.get_filtered_nodes(
-                    *node_names,
-                    include_filter=include_filter,
-                    recursive_exclude=exclude_children,
-                    strict_recursive_exclude=False,
+            for suffix in search_suffixes:
+                node_names = self._search_nodes_with_streams(
+                    suffix, excluded_stream_names, include_parent=False
                 )
-            )
+                nodes_with_data[suffix] = list(
+                    self.get_filtered_nodes(
+                        *node_names,
+                        include_filter=include_filter,
+                        recursive_exclude=exclude_children,
+                        strict_recursive_exclude=False,
+                    )
+                )
         if not exclude_my_children:
             node_names = self._search_nodes_with_streams(
                 "children_list", excluded_stream_names, include_parent=False
@@ -1574,8 +1598,13 @@ class DataNodeContainer(DataNode):
         # Subscribe to the streams that were searched
         for node in nodes_with_children:
             node._subscribe_stream("children_list", reader, first_index=first_index)
-        for node in nodes_with_data:
-            node._subscribe_stream("data", reader, first_index=first_index)
+        for search_suffix, nodes in nodes_with_data.items():
+            subscribe_suffixes = search_suffixes[search_suffix]
+            for node in nodes:
+                for subscribe_suffix in subscribe_suffixes:
+                    node._subscribe_stream(
+                        subscribe_suffix, reader, first_index=first_index
+                    )
 
         # Exclude searched Redis keys from further subscription attempts
         reader.excluded_stream_names |= excluded_stream_names
@@ -1636,6 +1665,7 @@ class DataNodeContainer(DataNode):
         last_node = None
         active_streams = dict()
         excluded_stream_names = set()
+        # Higher priority than PREPARED scan
         children_stream = self._create_stream("children_list")
         first_index = children_stream.before_last_index()
         if first_index is None:

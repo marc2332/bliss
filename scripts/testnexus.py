@@ -345,7 +345,7 @@ class PrintScanProgress(scan_mdl.ScansObserver):
     def __init__(self):
         self._data = {}
 
-    def on_scan_started(self, scan_db_name: str, scan_info: typing.Dict):
+    def on_scan_created(self, scan_db_name: str, scan_info: typing.Dict):
         self._data = {}
 
     def on_ndim_data_received(

@@ -12,6 +12,8 @@ import numpy
 import itertools
 import pickle
 import logging
+from collections import OrderedDict
+
 from bliss import setup_globals, current_session
 from bliss.common import scans
 from bliss.scanning.scan import Scan, ScanState, ScanAbort
@@ -490,7 +492,7 @@ def test_walk_after_nodes_disappeared(session):
     # Validate counting when all nodes are still present
     nroot = len(session.scan_saving._db_path_keys) - 1
     nnodes = nroot + 6  # + scan, master, epoch, elapsed, controller, diode
-    nevents = nnodes + 4  # + 3 x data + 1 x end
+    nevents = nnodes + 5  # + 3 x data + 1 x end + 1 x prepared
     validate_count(nnodes, nevents)
 
     # Scan incomplete
@@ -502,7 +504,7 @@ def test_walk_after_nodes_disappeared(session):
     names = list(s.node.search_redis(s.node.db_name + "*"))
 
     nnodes = nroot + 1
-    nevents = nnodes + 1
+    nevents = nnodes + 2
     validate_count(nnodes, nevents)
 
     # Scan missing
@@ -737,7 +739,7 @@ def _count_node_events(
         """Count nodes and check order
         """
         node = n.db_name
-        error_msg = f"Node '{node}' already recieved"
+        error_msg = f"Node '{node}' already received"
         assert node not in nodes, error_msg
         nodes.append(node)
 
@@ -752,14 +754,16 @@ def _count_node_events(
         result = nodes
         process_event = process_node
     else:
-        result = {}
+        result = OrderedDict()
         nodes_with_event = set()
+        prepared_scan_received = False
         end_scan_recieved = False
 
         def process_event(ev):
             """Count events and check order
             """
             nonlocal end_scan_recieved
+            nonlocal prepared_scan_received
             e, n, d = ev
             node = n.db_name
 
@@ -769,13 +773,27 @@ def _count_node_events(
             )
             assert not end_scan_recieved, error_msg
 
-            # Make sure the NEW_NODE event (if any) is the first event
+            # Verify event order
             if e == e.NEW_NODE:
-                process_node(n)
                 error_msg = f"NEW_NODE not the first event of '{node}'"
                 assert node not in nodes_with_event, error_msg
+
+                error_msg = f"Event '{e.name}' of '{node}' arrived after the 'PREPARED_SCAN' event"
+                assert not prepared_scan_received, error_msg
+            elif e == e.PREPARED_SCAN:
+                error_msg = (
+                    f"Event '{e.name}' of '{node}' arrived after the 'NEW_DATA' event"
+                )
+                assert node not in result.get("NEW_DATA", []), error_msg
+
+            # Process event
+            if e == e.NEW_NODE:
+                process_node(n)
             elif e == e.END_SCAN:
                 end_scan_recieved = True
+            elif e == e.PREPARED_SCAN:
+                prepared_scan_received = True
+
             nodes_with_event.add(node)
             result.setdefault(e.name, []).append(node)
 
@@ -856,9 +874,7 @@ def test_walk_events_on_session_node(beforestart, wait, include_filter, session)
         beforestart, session, session.name, include_filter=include_filter, wait=wait
     )
     if include_filter == "scan":
-        assert set(events.keys()) == {"NEW_NODE", "END_SCAN"}
-        assert len(events["NEW_NODE"]) == 1
-        assert len(events["END_SCAN"]) == 1
+        assert list(events.keys()) == ["NEW_NODE", "PREPARED_SCAN", "END_SCAN"]
     elif include_filter == "channel":
         # New node events: epoch, elapsed_time, n x detector
         assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
@@ -872,12 +888,18 @@ def test_walk_events_on_session_node(beforestart, wait, include_filter, session)
     else:
         # New node events: root nodes, scan, scan master (timer),
         #                  epoch, elapsed_time, n  x (controller, detector)
-        assert set(events.keys()) == {"NEW_NODE", "NEW_DATA", "END_SCAN"}
+        assert list(events.keys()) == [
+            "NEW_NODE",
+            "PREPARED_SCAN",
+            "NEW_DATA",
+            "END_SCAN",
+        ]
         # One less because the NEW_NODE event for session.name is
         # not emitted on node session.name
         nroot = len(session.scan_saving._db_path_keys) - 1
         assert len(events["NEW_NODE"]) == nroot + 2 + nmasters + 2 * nchannels
         assert len(events["NEW_DATA"]) == nmasters + nchannels
+        assert len(events["PREPARED_SCAN"]) == 1
         assert len(events["END_SCAN"]) == 1
 
 
@@ -929,9 +951,7 @@ def test_walk_events_on_dataset_node(beforestart, wait, include_filter, session)
     )
     if include_filter == "scan":
         # New node events: scan
-        assert set(events.keys()) == {"NEW_NODE", "END_SCAN"}
-        assert len(events["NEW_NODE"]) == 1
-        assert len(events["END_SCAN"]) == 1
+        assert list(events.keys()) == ["NEW_NODE", "PREPARED_SCAN", "END_SCAN"]
     elif include_filter == "channel":
         # New node events: epoch, elapsed_time, n x detector
         assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
@@ -945,10 +965,16 @@ def test_walk_events_on_dataset_node(beforestart, wait, include_filter, session)
     else:
         # New node events: dataset, scan master (timer), epoch,
         #                  elapsed_time, n  x (controller, detector)
-        assert set(events.keys()) == {"NEW_NODE", "NEW_DATA", "END_SCAN"}
+        assert list(events.keys()) == [
+            "NEW_NODE",
+            "PREPARED_SCAN",
+            "NEW_DATA",
+            "END_SCAN",
+        ]
         assert len(events["NEW_NODE"]) == 2 + nmasters + 2 * nchannels
         assert len(events["NEW_DATA"]) == nmasters + nchannels
         assert len(events["END_SCAN"]) == 1
+        assert len(events["PREPARED_SCAN"]) == 1
 
 
 @pytest.mark.parametrize("beforestart, wait, include_filter", _count_parameters)
@@ -989,8 +1015,7 @@ def test_walk_events_on_scan_node(beforestart, wait, include_filter, session):
         wait=wait,
     )
     if include_filter == "scan":
-        assert set(events.keys()) == {"END_SCAN"}
-        assert len(events["END_SCAN"]) == 1
+        assert list(events.keys()) == ["PREPARED_SCAN", "END_SCAN"]
     elif include_filter == "channel":
         # New node events: epoch, elapsed_time, n x detector
         assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
@@ -1004,10 +1029,16 @@ def test_walk_events_on_scan_node(beforestart, wait, include_filter, session):
     else:
         # New node events: scan master (timer), epoch, elapsed_time,
         #                  n  x (controller, detector)
-        assert set(events.keys()) == {"NEW_NODE", "NEW_DATA", "END_SCAN"}
+        assert list(events.keys()) == [
+            "NEW_NODE",
+            "PREPARED_SCAN",
+            "NEW_DATA",
+            "END_SCAN",
+        ]
         assert len(events["NEW_NODE"]) == 1 + nmasters + 2 * nchannels
         assert len(events["NEW_DATA"]) == nmasters + nchannels
         assert len(events["END_SCAN"]) == 1
+        assert len(events["PREPARED_SCAN"]) == 1
 
 
 @pytest.mark.parametrize("beforestart, wait, include_filter", _count_parameters)
@@ -1439,7 +1470,8 @@ def test_filter_nodes(session):
     nroot = len(session.scan_saving._db_path_keys)
     keys_per_channel = 3
     keys_per_container = 2
-    keys_per_scan = 4
+    streams_per_scan = 2
+    keys_per_scan = streams_per_scan + 3
     containers_per_scan = 2  # master, controller
     channels_per_scan = 3  # epoch, elapsed, diode
     keys_per_scan += (
@@ -1624,13 +1656,14 @@ def test_walk_events_filter(session):
     nevents = nroot + nscans * nodes_per_scan  # NEW_NODE
     nevents += nscans * channels_per_scan  # NEW_DATA
     nevents += nscans  # END_SCAN
+    nevents += nscans  # PREPARED_SCAN
     db_names = list(_filter_walk_get_nodes(session_node.walk_events, wait=False))
     assert len(db_names) == nevents
     assert set(scan_db_names).issubset(db_names)
 
     # Walk all scan events:
     kw = {"include_filter": "scan"}
-    nevents = 2 * nscans  # NEW_NODE + END_SCAN
+    nevents = 3 * nscans  # NEW_NODE + PREPARED + END_SCAN
     for a, b in itertools.product((None, "scan"), (None, "scan")):
         kw = {
             "include_filter": "scan",

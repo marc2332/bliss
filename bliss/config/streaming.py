@@ -585,10 +585,9 @@ class DataStreamReader:
         self._publish_synchro_event()
         self._start_read_task()
 
-    def _read_active_streams(self, priority_threshold=None):
+    def _read_active_streams(self):
         """Get data from the active streams
 
-        :param int priority_threshold: read only from this priority or higher
         :returns list(2-tuple): list((name, events))
                                 name: name of the stream
                                 events: list((index, raw)))
@@ -599,14 +598,8 @@ class DataStreamReader:
         streams_to_read = sorted(
             self._active_streams.items(), key=lambda item: item[1]["priority"]
         )
-        if priority_threshold is None:
-            streams_to_read = {k: v["first_index"] for k, v in streams_to_read}
-        else:
-            streams_to_read = {
-                k: v["first_index"]
-                for k, v in streams_to_read
-                if v["priority"] <= priority_threshold
-            }
+        streams_to_read = {k: v["first_index"] for k, v in streams_to_read}
+
         # first_index: yield events with stream ID larger then this
         # block=None: yield nothing when no events
         # block=0: always yield something (no timeout)

@@ -8,7 +8,7 @@
 
 from bliss.config import streaming_events
 
-__all__ = ["EndScanEvent"]
+__all__ = ["EndScanEvent", "PreparedScanEvent"]
 
 
 class EndScanEvent(streaming_events.EndEvent):
@@ -23,3 +23,27 @@ class EndScanEvent(streaming_events.EndEvent):
         :returns EndScanEvent:
         """
         return cls(raw=events[0][1])
+
+    @property
+    def description(self):
+        """Used to generate EventData description"""
+        return self.exception
+
+
+class PreparedScanEvent(streaming_events.PreparedEvent):
+
+    TYPE = b"PREPARED_SCAN"
+
+    @classmethod
+    def merge(cls, events):
+        """Keep only the first event.
+
+        :param list((index, raw)) events:
+        :returns PreparedScanEvent:
+        """
+        return cls(raw=events[0][1])
+
+    @property
+    def description(self):
+        """Used to generate EventData description"""
+        return None

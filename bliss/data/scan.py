@@ -105,9 +105,19 @@ class ScansObserver:
         """
         pass
 
+    def on_scan_created(self, scan_db_name: str, scan_info: Dict):
+        """
+        Called upon scan created (devices are not yet prepared).
+
+        Arguments:
+            scan_db_name: Identifier of the scan
+            scan_info: Dictionary containing scan metadata
+        """
+        pass
+
     def on_scan_started(self, scan_db_name: str, scan_info: Dict):
         """
-        Called upon scan start.
+        Called upon scan started (the devices was prepared).
 
         Arguments:
             scan_db_name: Identifier of the scan
@@ -336,13 +346,13 @@ class ScansWatcher:
                         # New scan was created
                         scan_info = node.info.get_all()
                         self._running_scans.add(db_name)
-                        observer.on_scan_started(db_name, scan_info)
+                        observer.on_scan_created(db_name, scan_info)
                     elif node_type == "scan_group":
                         if self._watch_scan_group:
                             # New scan was created
                             scan_info = node.info.get_all()
                             self._running_scans.add(db_name)
-                            observer.on_scan_started(db_name, scan_info)
+                            observer.on_scan_created(db_name, scan_info)
                     else:
                         scan_db_name = self._get_scan_db_name_from_child(db_name)
                         if scan_db_name is not None:
@@ -403,6 +413,16 @@ class ScansWatcher:
                                     )
                                 except Exception:
                                     sys.excepthook(*sys.exc_info())
+                elif event_type == EventType.PREPARED_SCAN:
+                    node_type = node.type
+                    if self._watch_scan_group or node_type == "scan":
+                        db_name = node.db_name
+                        if db_name in self._running_scans:
+                            scan_info = node.info.get_all()
+                            try:
+                                observer.on_scan_started(db_name, scan_info)
+                            except Exception:
+                                sys.excepthook(*sys.exc_info())
                 elif event_type == EventType.END_SCAN:
                     node_type = node.type
                     if self._watch_scan_group or node_type == "scan":
@@ -470,7 +490,7 @@ class DefaultScansObserver(ScansObserver):
         """
         self._current_event = event
 
-    def on_scan_started(self, scan_db_name: str, scan_info: Dict):
+    def on_scan_created(self, scan_db_name: str, scan_info: Dict):
         # Pre-compute mapping from each channels to its master
         top_master_per_channels = {}
         for top_master, meta in scan_info["acquisition_chain"].items():

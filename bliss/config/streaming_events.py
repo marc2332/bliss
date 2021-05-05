@@ -333,6 +333,11 @@ class StartEvent(TimeEvent):
     TYPE = b"START"
 
 
+class PreparedEvent(TimeEvent):
+
+    TYPE = b"PREPARED"
+
+
 class EndEvent(TimeEvent):
 
     TYPE = b"END"

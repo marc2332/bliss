@@ -343,15 +343,10 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
 
             else:
                 # SINGLE_COUNT case
-                acc_value = numpy.array(
-                    [
-                        counters[i].conversion_function(x)
-                        for i, x in enumerate(self.device.read_all(*self._counters))
-                    ],
-                    dtype=numpy.double,
-                    ndmin=1,
-                )
-                samples = [[v] for v in acc_value]
+                data = [
+                    counters[i].conversion_function(x)
+                    for i, x in enumerate(self.device.read_all(*self._counters))
+                ]
 
                 acc_read_time = 0
                 nb_read = 1
@@ -373,9 +368,15 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
                 stats.append(st)
 
             # apply the necessary operation per channel to convert the read data depending on the mode of each channel
-            data = self.apply_vectorized(
-                self.mode_helpers, acc_value, stats, samples, nb_read, self.count_time
-            )
+            if not self._SINGLE_COUNT:
+                data = self.apply_vectorized(
+                    self.mode_helpers,
+                    acc_value,
+                    stats,
+                    samples,
+                    nb_read,
+                    self.count_time,
+                )
 
             for counter, channel_list in self._counters.items():
                 if counter.mode == SamplingMode.SAMPLES:

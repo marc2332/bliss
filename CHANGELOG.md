@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
           too much memory is used
     - `scan_info["requests"]` is not anymore read (replaced by `channels`)
     - Update to silx 0.15
+- Demo
+    - Added regulation mock to the demo session
 
 ### Changed
 
@@ -38,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flint
     - Fixed slow rendering occurred on live curves and scatters with fast scans
     - The video image is now also used for Lima EXTRERNAL_TRIGGER and EXTERNAL_GATE
+    - Fixed blinking of the regulation plot legend
 
 ### Removed
 

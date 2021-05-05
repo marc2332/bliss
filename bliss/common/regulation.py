@@ -2109,7 +2109,7 @@ class RegPlot:
 
                 self.fig.submit("setAutoReplot", True)
 
-            except (gevent.timeout.Timeout, Exception) as e:
-                pass
+            except (gevent.timeout.Timeout, Exception):
+                log_debug(self, "Error while plotting the data", exc_info=True)
 
             gevent.sleep(self.sleep_time)

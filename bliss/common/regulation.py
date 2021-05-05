@@ -2075,8 +2075,6 @@ class RegPlot:
             try:
                 self.fig.submit("setAutoReplot", False)
 
-                self.fig.clear_data()
-
                 self.fig.add_data(self.loop.history_data["time"], field="time")
                 self.fig.add_data(self.loop.history_data["input"], field="Input")
                 self.fig.add_data(self.loop.history_data["output"], field="Output")

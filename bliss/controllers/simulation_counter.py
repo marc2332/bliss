@@ -401,13 +401,8 @@ class SimulationCounter(Counter):
         self.config = config
 
 
-class FixedShapeCounter:
-    """Counter which generates a signal of predefined shape.
-    The predefined shape can be obtained by scanning the
-    associated software axis from 0 to 1:
-
-        s = ascan(self.axis, 0, 1, self.npoints, expo, self.counter)
-    """
+class _Signal:
+    """Helper to provide a set of predefined signals"""
 
     @staticmethod
     def _missing_edge_of_gaussian_left(npoints, frac_missing):
@@ -429,22 +424,20 @@ class FixedShapeCounter:
                 signal.gaussian(npoints // 2, .1 * npoints),
             )
         ),
-        "missing_edge_of_gaussian_left": lambda npoints: FixedShapeCounter._missing_edge_of_gaussian_left(
+        "missing_edge_of_gaussian_left": lambda npoints: _Signal._missing_edge_of_gaussian_left(
             npoints, 0.25
         ),
-        "missing_edge_of_gaussian_right": lambda npoints: FixedShapeCounter._missing_edge_of_gaussian_left(
+        "missing_edge_of_gaussian_right": lambda npoints: _Signal._missing_edge_of_gaussian_left(
             npoints, 0.25
         )[
             ::-1
         ],
-        "half_gaussian_right": lambda npoints: FixedShapeCounter._missing_edge_of_gaussian_left(
+        "half_gaussian_right": lambda npoints: _Signal._missing_edge_of_gaussian_left(
             npoints, 0.4
         ),
-        "half_gaussian_left": lambda npoints: FixedShapeCounter._missing_edge_of_gaussian_left(
+        "half_gaussian_left": lambda npoints: _Signal._missing_edge_of_gaussian_left(
             npoints, 0.4
-        )[
-            ::-1
-        ],
+        )[::-1],
         "triangle": lambda npoints: np.concatenate(
             (
                 np.arange(0, 1, 1 / (npoints // 2)),
@@ -478,11 +471,35 @@ class FixedShapeCounter:
         ),
     }
 
-    def __init__(self, signal="sawtooth", npoints=50):
+    def __init__(self, name: str = "sawtooth", npoints: int = 50):
+        if name not in self.SIGNALS:
+            raise RuntimeError(f"Signal name '{name}' undefined")
+        self.name = name
+        self.npoints = npoints
+
+    def compute(self) -> np.ndarray:
+        return self.SIGNALS[self.name](self.npoints)
+
+
+class FixedShapeCounter:
+    """Counter which generates a signal of predefined shape.
+
+    The predefined shape can be obtained by scanning the
+    associated software axis from 0 to 1:
+
+    .. code-block:: python
+
+        dev = FixedShapeCounter()
+        s = ascan(dev.axis, 0, 1, dev.npoints, expo, dev.counter)
+    """
+
+    SIGNALS = set(_Signal.SIGNALS.keys())
+
+    def __init__(self, signal: str = "sawtooth", npoints: int = 50):
         self._axis = SoftAxis("TestAxis", self)
         self._counter = SoftCounter(self)
         self._npoints = npoints
-        self.signal = signal
+        self._signal = _Signal(name=signal, npoints=npoints)
         self._position = 0
 
     @property
@@ -508,16 +525,16 @@ class FixedShapeCounter:
         ascan of the associated axis between 0 and 1. This ensures
         the predefined signal shape.
         """
-        self._data = self.SIGNALS[self._signal](self._npoints)
+        self._data = self._signal.compute()
 
     @property
     def signal(self):
-        return self._signal
+        return self._signal.name
 
     @signal.setter
     def signal(self, value):
         assert value in self.SIGNALS
-        self._signal = value
+        self._signal.name = value
         self.init_signal()
 
     @property

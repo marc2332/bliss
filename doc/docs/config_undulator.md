@@ -3,12 +3,17 @@
 BLISS has a motor controller exporting axes from ESRF insertion devices.
 
 * `ds_name` has to be the fully qualified name of the corresponding Tango server.
+* `period`: period in mm of the undulator. Read from config (Usually the number
+  in undulator name)
+* `alpha`: alpha is a magic parameter used for undulator calibration. Read from
+  config (To be set by BL staff or undulator group member)
 
-* `period`: period in mm of the undulator. Read from config
-* `alpha`: alpha is a magic parameter used for undulator calibration. Read from config
-
-For each axis the corresponding Tango attribute names for position,
+For each axis, the corresponding Tango attribute names for position,
 velocity and acceleration have to be specified.
+
+!!!note
+    `ESRF_Undulator` controller is a `NoSettingsAxis`, i.e. the parameters
+    like velocity, accelerations are not configured in Beacon but read from Tango DS.
 
 There are 2 ways to do that:
 
@@ -61,36 +66,37 @@ In this example, the 2 types of configuration are used:
 
 ## info
 
-Example of non-initilized undulator:
+Example of non-initialized undulator:
 ```
-DEMO  [4]: u42b
-  Out [4]: AXIS:
-                name (R): u42b
-                unit (R): None
-                offset (R): 0.00000
-                backlash (R): 0.00000
-                sign (R): 1
-                steps_per_unit (R): 1.00
-                tolerance (R) (to check pos. before a move): 0.1
-                limits (RW):    Low: 0.01000 High: 500.00000    (config Low: 0.01000 High: 500.00000)
-                dial (RW): 200.00213
-                position (RW): 200.00213
-                state (R): READY (Axis is READY)
-                acceleration: None
-                velocity: None
-           UNDU DEVICE SERVER: //acs.esrf.fr:10000/id/master/id42
-                status = All undulator axis are ready to move
-                state = ON
-                Power = 0.239 (max: 3)
-                PowerDensity = 6.2  (max: 30)
-           TANGO DEVICE SERVER VALUES:
-                U42B_GAP_Position = 16.009625 mm
-                U42B_GAP_Velocity = 5.0 mm/s
-                U42B_GAP_FirstVelocity = 0.166 mm/s
-                U42B_GAP_Acceleration = 0.166 mm/s/s
-           UNDU SPECIFIC INFO:
-                config alpha: 1.9206
-                config period: 42.0
-           ENCODER:
-                None
+u42b
+AXIS:
+     name (R): u42b
+     unit (R): None
+     offset (R): 0.00000
+     backlash (R): 0.00000
+     sign (R): 1
+     steps_per_unit (R): 1.00
+     tolerance (R) (to check pos. before a move): 0.1
+     limits (RW):    Low: 0.01000 High: 500.00000
+                     (config Low: 0.01000 High: 500.00000)
+     dial (RW): 200.00213
+     position (RW): 200.00213
+     state (R): READY (Axis is READY)
+     acceleration: None
+     velocity: None
+UNDU DEVICE SERVER: //acs.esrf.fr:10000/id/master/id42
+     status = All undulator axis are ready to move
+     state = ON
+     Power = 0.239 (max: 3)
+     PowerDensity = 6.2  (max: 30)
+TANGO DEVICE SERVER VALUES:
+     U42B_GAP_Position = 16.009625 mm
+     U42B_GAP_Velocity = 5.0 mm/s
+     U42B_GAP_FirstVelocity = 0.166 mm/s
+     U42B_GAP_Acceleration = 0.166 mm/s/s
+UNDU SPECIFIC INFO:
+     config alpha: 1.9206
+     config period: 42.0
+ENCODER:
+     None
 ```

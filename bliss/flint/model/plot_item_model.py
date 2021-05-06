@@ -239,8 +239,29 @@ class McaPlot(plot_model.Plot):
         return True
 
 
-class OneDimDataPlot(McaPlot):
-    """Hack for now to display Lima 1D ROI inside a right widget"""
+class OneDimDataPlot(plot_model.Plot):
+    """Define a plot which is specific for one dim data.
+
+    It is not the same as `CurvePlot` as the content of the channels is 1D for
+    each steps of the scan.
+    """
+
+    def __init__(self, parent=None):
+        plot_model.Plot.__init__(self, parent=parent)
+        self.__deviceName: Optional[str] = None
+
+    def deviceName(self) -> Optional[str]:
+        return self.__deviceName
+
+    def setDeviceName(self, name: str):
+        self.__deviceName = name
+
+    def hasSameTarget(self, other: plot_model.Plot) -> bool:
+        if type(self) is not type(other):
+            return False
+        if self.__deviceName != other.deviceName():
+            return False
+        return True
 
 
 class McaItem(plot_model.Item):

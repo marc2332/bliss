@@ -810,8 +810,15 @@ def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
                     default_plot = plot
 
             channel = plot_model.ChannelRef(plot, channel_name)
-            item = plot_item_model.McaItem(plot)
-            item.setMcaChannel(channel)
+            if isinstance(plot, plot_item_model.McaPlot):
+                item = plot_item_model.McaItem(plot)
+                item.setMcaChannel(channel)
+            else:
+                item = plot_item_model.CurveItem(plot)
+                item.setYChannel(channel)
+                # FIXME: Have to be properly setup with a concept of arange
+                item.setXChannel(channel)
+
             plot.addItem(item)
 
         if plot is not None:

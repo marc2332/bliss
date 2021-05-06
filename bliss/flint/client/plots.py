@@ -692,9 +692,22 @@ class LiveMcaPlot(Plot1D):
     ALIASES = ["mca"]
 
 
+class LiveOneDimPlot(Plot1D):
+
+    WIDGET = None
+
+    ALIASES = ["onedim"]
+
+
 CUSTOM_CLASSES = [Plot1D, Plot2D, ScatterView, ImageView, StackView, CurveStack]
 
-LIVE_CLASSES = [LiveCurvePlot, LiveImagePlot, LiveScatterPlot, LiveMcaPlot]
+LIVE_CLASSES = [
+    LiveCurvePlot,
+    LiveImagePlot,
+    LiveScatterPlot,
+    LiveMcaPlot,
+    LiveOneDimPlot,
+]
 
 # For compatibility
 CurvePlot = Plot1D

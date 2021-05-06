@@ -265,6 +265,10 @@ class TooltipItemManager:
             x, y = int(x), int(y)
             xName = "Channel ID"
             yName = "Count"
+        elif isinstance(plotModel, plot_item_model.OneDimDataPlot):
+            x, y = int(x), int(y)
+            xName = "Channel ID"
+            yName = "Count"
         elif isinstance(plotModel, plot_item_model.ImagePlot):
             # Round to the pixel
             x, y = int(x), int(y)

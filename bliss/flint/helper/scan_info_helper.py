@@ -785,11 +785,15 @@ def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
                 if default_plot is None:
                     default_plot = plots[0]
 
-    # 1D plots
+    # MCA devices
 
     for device_id, device_info in scan_info.get("devices", {}).items():
         device_type = device_info.get("type")
         device_name = device_id.rsplit(":", 1)[-1]
+
+        if device_type != "mca":
+            continue
+
         plot = None
 
         for channel_name in device_info.get("channels", []):
@@ -799,25 +803,51 @@ def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
                 continue
 
             if plot is None:
-                device_name = get_device_from_channel(channel_name)
-                if device_type == "mca":
-                    plot = plot_item_model.McaPlot()
-                    plot.setDeviceName(device_name)
-                else:
-                    plot = plot_item_model.OneDimDataPlot()
-                    plot.setDeviceName(device_name)
+                plot = plot_item_model.McaPlot()
+                plot.setDeviceName(device_name)
                 if default_plot is None:
                     default_plot = plot
 
             channel = plot_model.ChannelRef(plot, channel_name)
-            if isinstance(plot, plot_item_model.McaPlot):
-                item = plot_item_model.McaItem(plot)
-                item.setMcaChannel(channel)
-            else:
-                item = plot_item_model.CurveItem(plot)
-                item.setYChannel(channel)
-                # FIXME: Have to be properly setup with a concept of arange
-                item.setXChannel(channel)
+            item = plot_item_model.McaItem(plot)
+            item.setMcaChannel(channel)
+
+            plot.addItem(item)
+
+        if plot is not None:
+            result.append(plot)
+
+    # Other 1D devices
+
+    for device_id, device_info in scan_info.get("devices", {}).items():
+        device_type = device_info.get("type")
+        device_name = device_id.rsplit(":", 1)[-1]
+
+        if device_type == "mca":
+            continue
+
+        plot = None
+
+        for channel_name in device_info.get("channels", []):
+            channel_info = scan_info["channels"].get(channel_name, {})
+            dim = channel_info.get("dim", 0)
+            if dim != 1:
+                continue
+
+            if plot is None:
+                # In case of Lima roi_counter, it is easier to reach the device
+                # name this way for now
+                device_fullname = get_device_from_channel(channel_name)
+                plot = plot_item_model.OneDimDataPlot()
+                plot.setDeviceName(device_fullname)
+                if default_plot is None:
+                    default_plot = plot
+
+            channel = plot_model.ChannelRef(plot, channel_name)
+            item = plot_item_model.CurveItem(plot)
+            item.setYChannel(channel)
+            # FIXME: Have to be properly setup with a concept of arange
+            item.setXChannel(channel)
 
             plot.addItem(item)
 

@@ -23,10 +23,8 @@ import itertools
 
 from bliss.common.types import _countable
 from bliss import current_session, is_bliss_shell
-from bliss.common.axis import Axis
 from bliss.common.motor_group import is_motor_group
 from bliss.common.hook import group_hooks, execute_pre_scan_hooks
-from bliss.common.event import connect, disconnect
 from bliss.common import event
 from bliss.common.cleanup import error_cleanup, axis as cleanup_axis, capture_exceptions
 from bliss.common.greenlet_utils import KillMask
@@ -1616,6 +1614,8 @@ class Scan:
                 with capture():
                     if is_bliss_shell():
                         from bliss.shell.standard import umv as move
+
+                        event.send(self, "close_progress_bar")
                     else:
                         from bliss.common.standard import move
 

@@ -16,6 +16,8 @@ import typing
 import gevent
 import numbers
 
+from louie import Any
+
 from bliss.data import scan as scan_mdl
 from bliss.common.utils import nonblocking_print
 from bliss.common.event import dispatcher
@@ -626,10 +628,17 @@ class ScanPrinterWithProgressBar(ScanPrinter):
             self.progress_bar.set_description(", ".join(self.labels))
             self.progress_bar.refresh()
 
+    def _close_progress_bar(self):
+        if self.progress_bar is not None:
+            self.progress_bar.close()
+
     def on_scan_new(self, scan, scan_info):
         super().on_scan_new(scan, scan_info)
         total = scan_info["npoints"]
         self.progress_bar = tqdm(total=total, leave=False)
+        dispatcher.connect(
+            self._close_progress_bar, signal="close_progress_bar", sender=Any
+        )
 
     def on_scan_data(self, scan_info, data):
         nb_rows = self.scan_renderer.nb_data_rows

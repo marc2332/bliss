@@ -25,6 +25,7 @@
     - transfocator
     - wcid00a
     - white_beam_attn
+    - regulation
 - class: MeasurementGroup
   name: MG1
   counters:

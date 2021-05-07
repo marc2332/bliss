@@ -97,12 +97,12 @@ def start_beacon(db_path):
 
     args = [
         "--port=%d" % ports.beacon_port,
-        "--redis_port=%d" % ports.redis_port,
-        "--redis_socket=" + redis_uds,
+        "--redis-port=%d" % ports.redis_port,
+        "--redis-socket=" + redis_uds,
         "--redis-data-port=%d" % ports.redis_data_port,
         "--redis-data-socket=" + redis_data_uds,
         "--db_path=" + db_path,
-        "--tango_port=%d" % ports.tango_port,
+        "--tango-port=%d" % ports.tango_port,
         # "--log-level=INFO",
         # "--tango_debug_level=1",
     ]

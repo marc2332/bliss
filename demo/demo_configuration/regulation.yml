@@ -1,0 +1,44 @@
+-
+    class: Mockup
+    module: temperature.mockup
+    plugin: regulation
+    inputs:
+        -
+            name: thermo_sample_new
+            channel: A
+            unit: deg
+            cooling_rate: 1.0
+            tango_server: temp1
+        -
+            name: sensor_new
+            channel: B
+            cooling_rate: 2.0
+            tango_server: temp1
+
+    outputs:
+        -
+            name: heater_new
+            channel: A 
+            unit: Volt
+            low_limit:  0.0
+            high_limit: 100.0
+            ramprate: 0.0
+            heating_rate: 10.0
+            tango_server: temp1
+
+    ctrl_loops:
+        -
+            name: regulation
+            input: $thermo_sample_new
+            output: $heater_new
+            P: 0.5
+            I: 0.2
+            D: 0.0
+            low_limit: 0.0
+            high_limit: 1.0
+            frequency: 10.0
+            deadband: 0.05
+            deadband_time: 1.5
+            ramprate: 1.0
+            wait_mode: deadband
+            tango_server: temp1

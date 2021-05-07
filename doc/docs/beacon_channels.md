@@ -110,3 +110,9 @@ BLISS [5]: ['event 0', 'event 1', 'event 2', 'event 3', 'event 4',
             'event 5', 'event 6', 'event 7', 'event 8', 'event 9']
 ```
 
+To disconnect the channel in process B:
+```python
+c.unregister_callback(f)
+```
+
+

@@ -68,7 +68,11 @@ class BaseCounterAcquisitionSlave(AcquisitionSlave):
         self.channels.update_from_iterable(data)
 
     def fill_meta_at_scan_start(self, scan_meta):
-        tmp_dict = {}
+        tmp_dict = super(BaseCounterAcquisitionSlave, self).fill_meta_at_scan_start(
+            scan_meta
+        )
+        if tmp_dict is None:
+            tmp_dict = {}
 
         for cnt in self._counters:
             deep_update(tmp_dict, cnt.get_metadata())

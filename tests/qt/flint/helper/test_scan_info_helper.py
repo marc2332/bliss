@@ -97,6 +97,28 @@ SCAN_INFO_LIMA_ROIS = {
 }
 
 
+SCAN_INFO_ONEDIM_DETECTOR = {
+    "acquisition_chain": {"timer": {"devices": ["master", "onedim"]}},
+    "devices": {
+        "master": {
+            "channels": ["timer:elapsed_time", "timer:epoch"],
+            "triggered_devices": ["onedim"],
+        },
+        "onedim": {
+            "type": "lima",
+            "triggered_devices": ["beamviewer:roi_counters"],
+            "channels": ["onedim:d1", "onedim:d2"],
+        },
+    },
+    "channels": {
+        "timer:elapsed_time": {"dim": 0},
+        "timer:epoch": {"dim": 0},
+        "onedim:d1": {"dim": 1},
+        "onedim:d2": {"dim": 1},
+    },
+}
+
+
 def test_iter_channels():
     result = scan_info_helper.iter_channels(SCAN_INFO)
     result = [
@@ -687,3 +709,49 @@ def test_read_scatter_data__non_regular_3d():
     diode1 = scan.getChannelByName("diode1")
     assert not scatterData.contains(diode1)
     assert scatterData.maxDim() == 3
+
+
+def test_read_onedim_detector():
+    scan_info = SCAN_INFO_ONEDIM_DETECTOR
+
+    scan = scan_info_helper.create_scan_model(scan_info)
+    plots = scan_info_helper.create_plot_model(scan_info, scan)
+    assert len(plots) == 1
+    plot = plots[0]
+    assert isinstance(plot, plot_item_model.OneDimDataPlot)
+    assert len(plot.items()) == 2
+    item = plot.items()[0]
+    assert isinstance(item, plot_item_model.XIndexCurveItem)
+
+
+def test_read_onedim_detector__xaxis_array():
+    scan_info = {}
+    scan_info.update(SCAN_INFO_ONEDIM_DETECTOR)
+    scan_info["devices"]["onedim"]["xaxis_array"] = numpy.array([0, 1, 2])
+
+    scan = scan_info_helper.create_scan_model(scan_info)
+    plots = scan_info_helper.create_plot_model(scan_info, scan)
+    assert len(plots) == 1
+    plot = plots[0]
+    assert isinstance(plot, plot_item_model.OneDimDataPlot)
+    assert len(plot.items()) == 2
+    item = plot.items()[0]
+    assert isinstance(item, plot_item_model.XConstCurveItem)
+    numpy.testing.assert_array_equal(item.xData(None).array(), [0, 1, 2])
+
+
+def test_read_onedim_detector__xaxis_channel():
+    scan_info = {}
+    scan_info.update(SCAN_INFO_ONEDIM_DETECTOR)
+    scan_info["devices"]["onedim"]["xaxis_channel"] = "onedim:d1"
+
+    scan = scan_info_helper.create_scan_model(scan_info)
+    plots = scan_info_helper.create_plot_model(scan_info, scan)
+    assert len(plots) == 1
+    plot = plots[0]
+    assert isinstance(plot, plot_item_model.OneDimDataPlot)
+    assert len(plot.items()) == 1
+    item = plot.items()[0]
+    assert isinstance(item, plot_item_model.CurveItem)
+    assert item.xChannel().name() == "onedim:d1"
+    assert item.yChannel().name() == "onedim:d2"

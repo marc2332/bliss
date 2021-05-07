@@ -11,7 +11,6 @@ from typing import Tuple
 from typing import Dict
 from typing import List
 
-import numpy
 import logging
 
 from silx.gui import qt
@@ -347,25 +346,21 @@ class OneDimDataPlotWidget(plot_helper.PlotWidget):
                 self.__updatePlotZoom(updateZoomNow)
             return
 
-        yChannel = item.yChannel()
-        if yChannel is None:
+        xData = item.xData(scan)
+        yData = item.yData(scan)
+        if xData is None or yData is None:
             if wasUpdated:
                 self.__updatePlotZoom(updateZoomNow)
             return
 
-        # Channels from channel ref
-        yChannel = yChannel.channel(scan)
-        if yChannel is None:
-            return
-
-        y = yChannel.array()
-        if y is None:
+        x = xData.array()
+        y = yData.array()
+        if x is None or y is None:
             if wasUpdated:
                 self.__updatePlotZoom(updateZoomNow)
             return
-        x = numpy.arange(len(y))
 
-        legend = yChannel.name()
+        legend = item.displayName("y", scan)
         style = item.getStyle(self.__scan)
 
         curveItem = plot_helper.FlintCurve()

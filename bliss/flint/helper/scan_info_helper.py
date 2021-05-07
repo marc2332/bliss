@@ -15,6 +15,7 @@ from typing import Optional
 from typing import MutableMapping
 from typing import NamedTuple
 
+import numpy
 import weakref
 import logging
 from ..model import scan_model
@@ -828,8 +829,27 @@ def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
 
         plot = None
 
+        xaxis_channel_name = device_info.get("xaxis_channel", None)
+        xaxis_array = device_info.get("xaxis_array", None)
+        if xaxis_array is not None:
+            try:
+                xaxis_array = numpy.array(xaxis_array)
+                if len(xaxis_array.shape) != 1:
+                    raise RuntimeError("scan_info xaxis_array expect a 1D data")
+            except Exception:
+                _logger.warning("scan_info contains wrong xaxis_array: %s", xaxis_array)
+                xaxis_array = None
+
+        if xaxis_channel_name is not None and xaxis_array is not None:
+            _logger.warning(
+                "Both xaxis_array and xaxis_channel are defined. xaxis_array will be ignored"
+            )
+            xaxis_array = None
+
         for channel_name in device_info.get("channels", []):
             channel_info = scan_info["channels"].get(channel_name, {})
+            if channel_name == xaxis_channel_name:
+                continue
             dim = channel_info.get("dim", 0)
             if dim != 1:
                 continue
@@ -844,10 +864,19 @@ def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
                     default_plot = plot
 
             channel = plot_model.ChannelRef(plot, channel_name)
-            item = plot_item_model.CurveItem(plot)
-            item.setYChannel(channel)
-            # FIXME: Have to be properly setup with a concept of arange
-            item.setXChannel(channel)
+
+            if xaxis_channel_name is not None:
+                item = plot_item_model.CurveItem(plot)
+                item.setYChannel(channel)
+                xchannel = plot_model.ChannelRef(plot, xaxis_channel_name)
+                item.setXChannel(xchannel)
+            elif xaxis_array is not None:
+                item = plot_item_model.XConstCurveItem(plot)
+                item.setXArray(xaxis_array)
+                item.setYChannel(channel)
+            else:
+                item = plot_item_model.XIndexCurveItem(plot)
+                item.setYChannel(channel)
 
             plot.addItem(item)
 

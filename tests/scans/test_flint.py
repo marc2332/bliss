@@ -6,12 +6,14 @@ import logging
 
 import bliss
 from bliss.common import plot
-from bliss.scanning.scan_info import ScanInfo
+from bliss.controllers import simulation_counter
 from bliss.flint.client import plots
 from bliss.scanning.scan import Scan
+from bliss.scanning.scan_info import ScanInfo
 from bliss.scanning.scan_display import ScanDisplay
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
+from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 from bliss.scanning.group import Sequence
 
 
@@ -483,3 +485,102 @@ def test_sequence(test_session_with_flint, lima_simulator):
     assert len(p2_data) == 6  # 5 intervals
     assert numpy.allclose(p1_data, numpy.arange(6))
     assert len(p3_data.shape) == 2
+
+
+def create_1d_controller(device_name, fixed_xarray=False, fixed_xchannel=False):
+    class OneDimAcquisitionSlave(SamplingCounterAcquisitionSlave):
+        def fill_meta_at_scan_start(self, scan_meta):
+            def get_channel_by_counter_name(name):
+                for counter, channels in self._counters.items():
+                    if counter.name == name:
+                        return channels[0]
+                return None
+
+            if fixed_xarray:
+                meta = {"xaxis_array": numpy.arange(32) * 10}
+            elif fixed_xchannel:
+                xaxis_channel = get_channel_by_counter_name("d2")
+                meta = {"xaxis_channel": xaxis_channel.fullname}
+            else:
+                meta = None
+            return meta
+
+    class OneDimController(simulation_counter.OneDimSimulationController):
+        def __init__(self):
+            simulation_counter.OneDimSimulationController.__init__(
+                self, name=device_name
+            )
+            simulation_counter.OneDimSimulationCounter(
+                name="d1", controller=self, signal="gaussian", coef=100, poissonian=True
+            )
+            simulation_counter.OneDimSimulationCounter(
+                name="d2", controller=self, signal="linear_up", coef=100
+            )
+
+        def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
+            return OneDimAcquisitionSlave(self, ctrl_params=ctrl_params, **acq_params)
+
+    return OneDimController()
+
+
+def test_onedim_controller(test_session_with_flint):
+    session = test_session_with_flint
+    ct = session.env_dict["ct"]
+    controller = create_1d_controller("det")
+
+    flint = plot.get_flint()
+
+    # p2_data = flint.get_live_scan_data(diode.fullname)
+    # p3_data = flint.get_live_scan_data(lima.image.fullname)
+
+    ct(0.1, controller)
+    flint.wait_end_of_scans()
+
+    p1 = flint.get_live_plot(onedim_detector="det")
+    assert p1 is not None
+    p1_data = flint.get_live_scan_data("det:d1")
+    p2_data = flint.get_live_scan_data("det:d2")
+    assert len(p1_data) == 32
+    assert len(p2_data) == 32
+
+
+def test_onedim_controller__fixed_xarray(test_session_with_flint):
+    session = test_session_with_flint
+    ct = session.env_dict["ct"]
+    controller = create_1d_controller("det", fixed_xarray=True)
+
+    flint = plot.get_flint()
+
+    # p2_data = flint.get_live_scan_data(diode.fullname)
+    # p3_data = flint.get_live_scan_data(lima.image.fullname)
+
+    ct(0.1, controller)
+    flint.wait_end_of_scans()
+
+    p1 = flint.get_live_plot(onedim_detector="det")
+    assert p1 is not None
+    p1_data = flint.get_live_scan_data("det:d1")
+    p2_data = flint.get_live_scan_data("det:d2")
+    assert len(p1_data) == 32
+    assert len(p2_data) == 32
+
+
+def test_onedim_controller__fixed_xchannel(test_session_with_flint):
+    session = test_session_with_flint
+    ct = session.env_dict["ct"]
+    controller = create_1d_controller("det", fixed_xchannel=True)
+
+    flint = plot.get_flint()
+
+    # p2_data = flint.get_live_scan_data(diode.fullname)
+    # p3_data = flint.get_live_scan_data(lima.image.fullname)
+
+    ct(0.1, controller)
+    flint.wait_end_of_scans()
+
+    p1 = flint.get_live_plot(onedim_detector="det")
+    assert p1 is not None
+    p1_data = flint.get_live_scan_data("det:d1")
+    p2_data = flint.get_live_scan_data("det:d2")
+    assert len(p1_data) == 32
+    assert len(p2_data) == 32

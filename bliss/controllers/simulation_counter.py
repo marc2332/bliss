@@ -473,6 +473,7 @@ class _Signal:
         "expo_gaussian": lambda npoints: numpy.exp(
             signal.gaussian(npoints, .1 * npoints) * 30
         ),
+        "linear_up": lambda npoints: numpy.linspace(0, 1, num=npoints),
     }
 
     def __init__(self, name: str = "sawtooth", npoints: int = 50):

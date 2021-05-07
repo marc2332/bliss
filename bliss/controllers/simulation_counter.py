@@ -5,7 +5,7 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import numpy as np
+import numpy
 from scipy import signal
 from scipy.special import erf
 
@@ -221,14 +221,14 @@ class SimulationCounterAcquisitionSlave(AcquisitionSlave):
 
         #### Generation of the distribution
         if self.distribution == "FLAT":
-            self.data = np.ones(nbpoints) * self.shape_param["height_factor"]
+            self.data = numpy.ones(nbpoints) * self.shape_param["height_factor"]
         elif self.distribution == "LINEAR":
-            xdata = np.linspace(scan_start, scan_stop, nbpoints)
+            xdata = numpy.linspace(scan_start, scan_stop, nbpoints)
             self.data = (
                 xdata * self.shape_param["sigma_factor"] + self.shape_param["mu_offset"]
             )
         else:
-            xdata = np.linspace(scan_start, scan_stop, nbpoints)
+            xdata = numpy.linspace(scan_start, scan_stop, nbpoints)
             self.data = self.gauss(
                 xdata, self.shape_param["mu_offset"], self.shape_param["sigma_factor"]
             )
@@ -239,9 +239,9 @@ class SimulationCounterAcquisitionSlave(AcquisitionSlave):
 
         # applying noise
         if self.timescan_or_ct():
-            noise = (np.random.rand(1)[0] * self.noise_factor) + 1
+            noise = (numpy.random.rand(1)[0] * self.noise_factor) + 1
         else:
-            noise = (np.random.rand(nbpoints) * self.noise_factor) + 1
+            noise = (numpy.random.rand(nbpoints) * self.noise_factor) + 1
         self.data = self.data * noise
         log_debug_data(
             self, "SIMULATION_COUNTER_ACQ_DEV -- prepare() -- data+noise=", self.data
@@ -252,8 +252,8 @@ class SimulationCounterAcquisitionSlave(AcquisitionSlave):
         log_debug(self, "SIMULATION_COUNTER_ACQ_DEV -- prepare() END")
 
     def calc_gaussian(self, x, mu, sigma):
-        one_over_sqtr = 1.0 / np.sqrt(2.0 * np.pi * np.square(sigma))
-        exp = np.exp(-np.square(x - mu) / (2.0 * np.square(sigma)))
+        one_over_sqtr = 1.0 / numpy.sqrt(2.0 * numpy.pi * numpy.square(sigma))
+        exp = numpy.exp(-numpy.square(x - mu) / (2.0 * numpy.square(sigma)))
 
         _val = one_over_sqtr * exp
 
@@ -283,7 +283,7 @@ class SimulationCounterAcquisitionSlave(AcquisitionSlave):
             sigma = sigma_factor * (xmax - xmin) / 6.0
 
         self.sigma = sigma
-        self.fwhm = 2 * np.sqrt(2 * np.log(2)) * sigma  # ~ 2.35 * sigma
+        self.fwhm = 2 * numpy.sqrt(2 * numpy.log(2)) * sigma  # ~ 2.35 * sigma
 
         log_debug(
             self,
@@ -408,19 +408,23 @@ class _Signal:
     def _missing_edge_of_gaussian_left(npoints, frac_missing):
         p = npoints // 2
         p2 = int(p * frac_missing)
-        return np.concatenate(
-            (signal.gaussian(p, .1 * npoints)[p2:], np.zeros(p2), np.zeros(npoints - p))
+        return numpy.concatenate(
+            (
+                signal.gaussian(p, .1 * npoints)[p2:],
+                numpy.zeros(p2),
+                numpy.zeros(npoints - p),
+            )
         )
 
     SIGNALS = {
         "sawtooth": lambda npoints: signal.sawtooth(
-            np.arange(0, 2 * np.pi * 1.1, 2 * np.pi * 1.1 / npoints), width=.9
+            numpy.arange(0, 2 * numpy.pi * 1.1, 2 * numpy.pi * 1.1 / npoints), width=.9
         ),
         "gaussian": lambda npoints: signal.gaussian(npoints, .2 * npoints),
-        "flat": lambda npoints: np.ones(npoints),
-        "off_center_gaussian": lambda npoints: np.concatenate(
+        "flat": lambda npoints: numpy.ones(npoints),
+        "off_center_gaussian": lambda npoints: numpy.concatenate(
             (
-                np.zeros(npoints - npoints // 2),
+                numpy.zeros(npoints - npoints // 2),
                 signal.gaussian(npoints // 2, .1 * npoints),
             )
         ),
@@ -438,35 +442,35 @@ class _Signal:
         "half_gaussian_left": lambda npoints: _Signal._missing_edge_of_gaussian_left(
             npoints, 0.4
         )[::-1],
-        "triangle": lambda npoints: np.concatenate(
+        "triangle": lambda npoints: numpy.concatenate(
             (
-                np.arange(0, 1, 1 / (npoints // 2)),
-                np.flip(np.arange(0, 1, 1 / (npoints - npoints // 2))),
+                numpy.arange(0, 1, 1 / (npoints // 2)),
+                numpy.flip(numpy.arange(0, 1, 1 / (npoints - npoints // 2))),
             )
         ),
-        "square": lambda npoints: np.concatenate(
+        "square": lambda npoints: numpy.concatenate(
             (
-                np.zeros(npoints // 3),
-                np.ones(npoints // 3),
-                np.zeros(npoints - 2 * (npoints // 3)),
+                numpy.zeros(npoints // 3),
+                numpy.ones(npoints // 3),
+                numpy.zeros(npoints - 2 * (npoints // 3)),
             )
         ),
-        "bimodal": lambda npoints: np.concatenate(
+        "bimodal": lambda npoints: numpy.concatenate(
             (
                 signal.gaussian(npoints - npoints // 2, .15 * npoints) * 1.5,
                 signal.gaussian(npoints // 2, .15 * npoints),
             )
         ),
-        "step_down": lambda npoints: np.concatenate(
-            (np.ones(npoints // 2), np.zeros(npoints - npoints // 2))
+        "step_down": lambda npoints: numpy.concatenate(
+            (numpy.ones(npoints // 2), numpy.zeros(npoints - npoints // 2))
         ),
-        "step_up": lambda npoints: np.concatenate(
-            (np.zeros(npoints // 2), np.ones(npoints - npoints // 2))
+        "step_up": lambda npoints: numpy.concatenate(
+            (numpy.zeros(npoints // 2), numpy.ones(npoints - npoints // 2))
         ),
-        "erf_down": lambda npoints: 1 - erf(np.arange(-3, 3, 6 / (npoints))),
-        "erf_up": lambda npoints: erf(np.arange(-3, 3, 6 / (npoints))),
+        "erf_down": lambda npoints: 1 - erf(numpy.arange(-3, 3, 6 / (npoints))),
+        "erf_up": lambda npoints: erf(numpy.arange(-3, 3, 6 / (npoints))),
         "inverted_gaussian": lambda npoints: 1 - signal.gaussian(npoints, .2 * npoints),
-        "expo_gaussian": lambda npoints: np.exp(
+        "expo_gaussian": lambda npoints: numpy.exp(
             signal.gaussian(npoints, .1 * npoints) * 30
         ),
     }
@@ -477,7 +481,7 @@ class _Signal:
         self.name = name
         self.npoints = npoints
 
-    def compute(self) -> np.ndarray:
+    def compute(self) -> numpy.ndarray:
         return self.SIGNALS[self.name](self.npoints)
 
 
@@ -610,7 +614,7 @@ class AutoFilterDetMon:
     def init_signal(self):
         n = self._npoints + 1
         stdev = .1 * self._npoints + 1
-        self._data = np.exp(signal.gaussian(n, stdev) * 10)
+        self._data = numpy.exp(signal.gaussian(n, stdev) * 10)
 
     @property
     def npoints(self):

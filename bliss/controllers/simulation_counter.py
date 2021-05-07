@@ -402,7 +402,13 @@ class SimulationCounter(Counter):
 
 
 class _Signal:
-    """Helper to provide a set of predefined signals"""
+    """Helper to provide a set of predefined 1D signals
+
+    Arguments:
+        name: Name of the shape of the signal. See `SIGNALS`.
+        npoints: Number of points generated for this signal
+        poissonian: If true the signal is randomized with poissonian filter
+    """
 
     @staticmethod
     def _missing_edge_of_gaussian_left(npoints, frac_missing):
@@ -476,14 +482,20 @@ class _Signal:
         "linear_up": lambda npoints: numpy.linspace(0, 1, num=npoints),
     }
 
-    def __init__(self, name: str = "sawtooth", npoints: int = 50):
+    def __init__(
+        self, name: str = "sawtooth", npoints: int = 50, poissonian: bool = False
+    ):
         if name not in self.SIGNALS:
             raise RuntimeError(f"Signal name '{name}' undefined")
         self.name = name
         self.npoints = npoints
+        self.poissonian = poissonian
 
     def compute(self) -> numpy.ndarray:
-        return self.SIGNALS[self.name](self.npoints)
+        signal = self.SIGNALS[self.name](self.npoints)
+        if self.poissonian:
+            signal = numpy.random.poisson(signal)
+        return signal
 
 
 class FixedShapeCounter:

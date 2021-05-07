@@ -407,6 +407,7 @@ class _Signal:
     Arguments:
         name: Name of the shape of the signal. See `SIGNALS`.
         npoints: Number of points generated for this signal
+        coef: Coefficient applied to the generator
         poissonian: If true the signal is randomized with poissonian filter
     """
 
@@ -483,16 +484,24 @@ class _Signal:
     }
 
     def __init__(
-        self, name: str = "sawtooth", npoints: int = 50, poissonian: bool = False
+        self,
+        name: str = "sawtooth",
+        npoints: int = 50,
+        poissonian: bool = False,
+        coef: float = 1.0,
     ):
         if name not in self.SIGNALS:
             raise RuntimeError(f"Signal name '{name}' undefined")
         self.name = name
         self.npoints = npoints
         self.poissonian = poissonian
+        self.coef = coef
 
     def compute(self) -> numpy.ndarray:
-        signal = self.SIGNALS[self.name](self.npoints)
+        generator = self.SIGNALS[self.name]
+        signal = generator(self.npoints)
+        if self.coef != 1:
+            signal = signal * self.coef
         if self.poissonian:
             signal = numpy.random.poisson(signal)
         return signal

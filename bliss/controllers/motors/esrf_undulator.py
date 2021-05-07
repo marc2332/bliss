@@ -88,6 +88,9 @@ class ESRF_Undulator(Controller):
     """
 
     def initialize_axis(self, axis):
+        """
+        Read configuration to forge tango attributes names.
+        """
 
         attr_pos_name = axis.config.get("attribute_position", str, "Position")
 
@@ -110,17 +113,20 @@ class ESRF_Undulator(Controller):
         log_debug(self, f"alpha={alpha}  period={period}")
 
         undu_prefix = axis.config.get("undu_prefix", str)
+
         if undu_prefix is None:
-            log_debug(self, "'undu_prefix' not specified in config")
-            if attr_pos_name == "Position":
-                raise RuntimeError("'undu_prefix' must be specified in config")
+            undu_prefix = axis.config.get("undulator_prefix", str)
+            if undu_prefix is None:
+                log_debug(self, "'undu_prefix' not specified in config")
+                if attr_pos_name == "Position":
+                    raise RuntimeError("'undu_prefix' must be specified in config")
+                else:
+                    undu_prefix = ""
             else:
-                undu_prefix = ""
-        else:
-            attr_pos_name = undu_prefix + attr_pos_name
-            attr_vel_name = undu_prefix + attr_vel_name
-            attr_fvel_name = undu_prefix + attr_fvel_name
-            attr_acc_name = undu_prefix + attr_acc_name
+                attr_pos_name = undu_prefix + attr_pos_name
+                attr_vel_name = undu_prefix + attr_vel_name
+                attr_fvel_name = undu_prefix + attr_fvel_name
+                attr_acc_name = undu_prefix + attr_acc_name
 
         # check for revolver undulator
         is_revolver = False

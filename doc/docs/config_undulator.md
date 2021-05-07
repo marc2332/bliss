@@ -15,7 +15,7 @@ velocity and acceleration have to be specified.
     `ESRF_Undulator` controller is a `NoSettingsAxis`, i.e. the parameters
     like velocity, accelerations are not configured in Beacon but read from Tango DS.
 
-There are 2 ways to do that:
+There are 2 ways to configure undulators axes:
 
 * either giving the fulls names of the attributes:
 ```
@@ -24,10 +24,10 @@ There are 2 ways to do that:
         attribute_first_velocity: U42B_GAP_FirstVelocity
         attribute_acceleration: U42B_GAP_Acceleration
 ```
-* or just giving the undu_prefix:
+* or better give only the `undulator_prefix` (or `undu_prefix`):
 
 ```
-         undu_prefix: U42C_GAP_
+         undulator_prefix: U42C_GAP_
 ```
 
 ## YAML configuration file example
@@ -54,7 +54,7 @@ In this example, the 2 types of configuration are used:
         alpha: 1.9206
       -
         name: u42c
-        undu_prefix: U42C_GAP_
+        undulator_prefix: U42C_GAP_
         steps_per_unit: 1
         tolerance: 0.1
         low_limit: 0.01
@@ -64,9 +64,24 @@ In this example, the 2 types of configuration are used:
 ```
 
 
-## info
+## information
 
-Example of non-initialized undulator:
+`wid()` command gives info about all undulators configured in a session:
+
+```
+DEMO [1]: wid()
+
+    ---------------------------------------
+    ID Device Server //acs.esrf.fr:10000/id/master/id42
+            Power: 0.000 /  10.0  KW
+    Power density: 0.000 / 300.0  KW/mr2
+
+    u42b - GAP:200.000 - ENABLED
+    u42c - GAP:199.999 - ENABLED
+    u32a - GAP:199.999 - ENABLED
+```
+
+Inline info provides detailed information about undulator axis:
 ```
 u42b
 AXIS:

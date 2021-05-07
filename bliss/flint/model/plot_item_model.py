@@ -253,6 +253,42 @@ class XIndexCurveItem(CurveItem):
             self.yChannel(),
             self.yAxis(),
         )
+
+
+class XConstCurveItem(CurveItem):
+    """Define a curve as part of a plot.
+
+    X and Y values are defined by a `ChannelRef`.
+    """
+
+    def __init__(self, parent: plot_model.Plot = None):
+        CurveItem.__init__(self, parent=parent)
+        self.__xarray = None
+
+    def isValid(self):
+        channel = self.yChannel()
+        return channel is not None
+
+    def setXArray(self, array):
+        self.__xarray = array
+
+    def xData(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
+        array = self.__xarray
+        return scan_model.Data(array=array)
+
+    def displayName(self, axisName, scan: scan_model.Scan) -> str:
+        """Helper to reach the axis display name"""
+        if axisName == "x":
+            return "predefined"
+        elif axisName == "y":
+            return self.yChannel().displayName(scan)
+        else:
+            assert False
+
+    def __str__(self):
+        return "<%s y=%s yaxis=%s />" % (
+            type(self).__name__,
+            self.yChannel(),
             self.yAxis(),
         )
 

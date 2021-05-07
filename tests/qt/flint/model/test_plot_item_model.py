@@ -62,3 +62,23 @@ def test_XIndexCurveItem():
     assert item.isValid()
     numpy.testing.assert_array_equal(item.yData(scan).array(), [1, 1, 1])
     numpy.testing.assert_array_equal(item.xData(scan).array(), [0, 1, 2])
+
+
+def test_XConstCurveItem():
+    scan = scan_model.Scan()
+    device = scan_model.Device(scan)
+    channel = scan_model.Channel(device)
+    channel.setName("y")
+    channel.setType(scan_model.ChannelType.SPECTRUM)
+    scan.seal()
+
+    channel.setData(scan_model.Data(array=numpy.ones(3)))
+
+    plot = plot_item_model.OneDimDataPlot()
+    item = plot_item_model.XConstCurveItem(plot)
+    item.setYChannel(plot_model.ChannelRef(None, "y"))
+    item.setXArray(numpy.array([0, 1, 4]))
+
+    assert item.isValid()
+    numpy.testing.assert_array_equal(item.yData(scan).array(), [1, 1, 1])
+    numpy.testing.assert_array_equal(item.xData(scan).array(), [0, 1, 4])

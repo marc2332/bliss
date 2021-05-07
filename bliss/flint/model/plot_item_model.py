@@ -218,6 +218,45 @@ class CurveItem(plot_model.Item, CurveMixIn):
         )
 
 
+class XIndexCurveItem(CurveItem):
+    """Define a curve as part of a plot.
+
+    X is fixed as an index and Y value is defined by a `ChannelRef`.
+    """
+
+    def isValid(self):
+        channel = self.yChannel()
+        return channel is not None
+
+    def xData(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
+        yData = self.yData(scan)
+        if yData is None:
+            return None
+        y = yData.array()
+        if y is None:
+            return None
+        array = numpy.arange(len(y))
+        return scan_model.Data(array=array)
+
+    def displayName(self, axisName, scan: scan_model.Scan) -> str:
+        """Helper to reach the axis display name"""
+        if axisName == "x":
+            return "index"
+        elif axisName == "y":
+            return self.yChannel().displayName(scan)
+        else:
+            assert False
+
+    def __str__(self):
+        return "<%s y=%s yaxis=%s />" % (
+            type(self).__name__,
+            self.yChannel(),
+            self.yAxis(),
+        )
+            self.yAxis(),
+        )
+
+
 class McaPlot(plot_model.Plot):
     """Define a plot which is specific for MCAs."""
 

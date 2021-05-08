@@ -120,10 +120,12 @@ nav:
                       - Static configuration API: beacon_static_api.md
                       - Log services: beacon_logservice.md
                       - Web portal: beacon_webportal.md
-                - BLISS objects:
-                      - Object instantiation: config_plugins.md
+                - Sessions:
                       - Sessions: config_sessions.md
                       - Aliases: config_alias.md
+
+                - BLISS objects:
+                      - Object instantiation: config_plugins.md
                       - Measurement groups: config_mg.md
                 - Data Policy:
                       - ICAT Meta-Data: dev_icat.md
@@ -147,7 +149,6 @@ nav:
                 - Logging: shell_logging.md
                 - Dialogs: shell_dialogs.md
                 - Object protection: shell_obj_protection.md
-        - BLISS library: bliss_as_library.md
         - Motion:
                 - Axis: motion_axis.md
                 - Encoder: motion_encoder.md
@@ -195,6 +196,7 @@ nav:
                 - Writing documentation: dev_documentation.md
                 - Testing: dev_testing.md
                 - Communication API: dev_comm.md
+                - BLISS library: bliss_as_library.md
                 - BLISS controller: dev_write_ctrl.md
                 - Writing a motor controller: dev_write_motctrl.md
                 - Writing a calculational controller: dev_write_calc_ctrl.md

@@ -25,13 +25,13 @@ Targeted gauges are Bazlers' Prani and Penning gauges.
 ## Usage examples
 
 ```python
-RH [1]: pir121.state
-Out [1]: 'ON'
+DEMO [1]: pir121.state
+ Out [1]: 'ON'
 ```
 
 ```python
-CYRIL [2]: pen71
-  Out [2]:
+DEMO [2]: pen71
+ Out [2]:
            ----------------  id42/v-pen/71 ---------------
            State: ON
            Gauge is ON  -  Channel A1 (1)

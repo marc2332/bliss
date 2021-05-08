@@ -9,10 +9,14 @@
 
 # Imports
 import enum
+import socket
+
 from bliss import is_bliss_shell
 from bliss.common.logtools import log_debug, user_print
 from bliss.common import event
 from bliss.config.beacon_object import BeaconObject
+from bliss.comm.exceptions import CommunicationError
+from bliss.common.greenlet_utils import Timeout as GreenletTimeoutError
 
 from bliss.comm import rpc
 from .base import (
@@ -116,16 +120,37 @@ class BaseXIA(BaseMCA):
         self.gate_polarity = self.config.get("gate_polarity", GatePolarity.NORMAL)
 
     def initialize_hardware(self):
-        """ Called at session startup
+        """
+        Called at session startup
         """
         logger.debug("initialize_hardware()")
-        self._proxy = rpc.Client(self.beacon_obj.url)
-        event.connect(self._proxy, "data", self._event)
-        event.connect(self._proxy, "current_pixel", self._current_pixel_event)
+        try:
+            self._proxy = rpc.Client(self.beacon_obj.url)
+            event.connect(self._proxy, "data", self._event)
+            event.connect(self._proxy, "current_pixel", self._current_pixel_event)
+        except CommunicationError as prox_comm_err:
+            _msg = f"XIA init error: cannot connect to {self.url}"
+            #            breakpoint()
+            if isinstance(prox_comm_err.__cause__, GreenletTimeoutError):
+                _msg += " GreenletTimeoutError (check server is running ?)"
+            elif isinstance(prox_comm_err.__cause__, socket.gaierror):
+                _msg += " socket.gaierror (check host ?)"
+            elif isinstance(prox_comm_err.__cause__, ConnectionRefusedError):
+                _msg += " ConnectionRefusedError (check host/port/FW ?)"
+            else:
+                _msg += " CommError (check  ?)"
+            raise CommunicationError(_msg) from prox_comm_err
+        except BaseException as base_err:
+            # got a greenlet timeout...
+            _msg = f"XIA init error: cannot connect to {self.url}"
+            _msg += f" greenlet timeout (check server is running?)"
+            raise CommunicationError(_msg) from base_err
+
         # global_map.register(self._proxy, parents_list=[self], tag="comm")
         try:
-            # Getting the current configuration will
-            # Call load_configuration on the first peers.
+            # Accessing to current configuration will
+            #  call load_configuration on the first peers.
+            # pylint: disable=pointless-statement
             self.beacon_obj.current_configuration
             logger.debug(
                 "current_configuration=%s", self.beacon_obj.current_configuration

@@ -91,6 +91,7 @@ from bliss import global_map
 
 from bliss.common.msgpack_ext import MsgpackContext
 from bliss.comm.exceptions import CommunicationError
+from bliss.common.greenlet_utils import Timeout as GreenletTimeoutError
 
 
 MAX_MEMORY = min(psutil.virtual_memory().total, sys.maxsize)
@@ -541,9 +542,19 @@ class RpcConnection:
                 # Disable Nagle and set TOS to low delay
                 self._socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
                 self._socket.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
-            except socket.gaierror as sockexc:
-                _msg = f"RPC socket.gaierror connecting to {self.host}:{self.port} - ERR no {sockexc.errno} : {sockexc.strerror}"
-                raise CommunicationError(_msg) from sockexc
+
+            except socket.gaierror as sock_err:
+                _msg = f"socket.gaierror connecting to {self.host}:{self.port} - ERR no {sock_err.errno} : {sock_err.strerror}"
+                raise CommunicationError(_msg) from sock_err
+
+            except socket.timeout as sock_err:
+                _msg = f"socket.timeout error connecting to {self.host}:{self.port}"
+                raise CommunicationError(_msg) from sock_err
+
+            except GreenletTimeoutError as grt_err:
+                _msg = f"RPC GreenletTimeoutError connecting to {self.host}:{self.port}"
+                raise CommunicationError(_msg) from grt_err
+
             except ConnectionRefusedError as cnx_err:
                 _msg = f"RPC ConnectionRefusedError error connecting to {self.host}:{self.port}"
                 raise CommunicationError(_msg) from cnx_err
@@ -552,6 +563,7 @@ class RpcConnection:
             # ??? no  host
             self._socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             self._socket.connect(self.port)
+
         self._reading_task = gevent.spawn(self._raw_read)
 
     def get_class(self):
@@ -639,6 +651,7 @@ class RpcConnection:
     def _raw_read(self):
         unpacker = msgpack.Unpacker(raw=False, max_buffer_size=MAX_BUFFER_SIZE)
         exception = None
+
         try:
             while True:
                 msg = self._socket.recv(READ_BUFFER_SIZE)
@@ -658,8 +671,8 @@ class RpcConnection:
                         wq = self._queues.get(call_id)
                         if wq:
                             wq.put(return_values)
-        except Exception as e:
-            exception = e
+        except Exception as err:
+            exception = err
             sys.excepthook(*sys.exc_info())
         finally:
             for _, wq in self._queues.items():

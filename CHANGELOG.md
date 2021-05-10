@@ -28,6 +28,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Update to silx 0.15
 - Demo
     - Added regulation mock to the demo session
+- Scan publication
+    - Added device/channel metadata to the `scan_info`
+    - Added a `PREPARED` event with an updated scan_info
+    - `AcqObj.fill_meta_at_scan_start` is used to fill to `scan_info`
+    - Added metadata `type` for Lima detector and MCAs
+    - Added `ScansWatcher` and `ScansObserver` to replace `watch_session_scans`
 
 ### Changed
 
@@ -60,7 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Wago modules catalogue: 750-342,352,363,515
 - Writer
     - explicit exception if parent node is missing
-    - OFF and RUNNING states, now means respecitively "not listening to events and resources released" and "writer alive"
+    - OFF and RUNNING states, now means respectively "not listening to events and resources released" and "writer alive"
 
 ### Changed
 

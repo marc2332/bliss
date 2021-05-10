@@ -66,6 +66,7 @@ DEMO [11]: mot1.velocity       ⏎   # to READ the velocity
  Out [11]: 1.25
 
 DEMO [12]: mot1.velocity = 3.0 ⏎   # to SET a new velocity
+'mot1` velocity changed from 1.25 to 3.0
 DEMO [13]:
 
 DEMO [14]: mot1.velocity ⏎
@@ -128,7 +129,8 @@ position in user units. The dial position is accessible through the
 The **user position** derives from the dial, following the formula
 defined below:
 
-`velocity_low_limit` and `velocity_high_limit` are optional velocity limit defined in the configuration.
+`velocity_low_limit` and `velocity_high_limit` are optional velocity limit
+defined in the configuration.
 
 ```user_position = (sign * dial_position) + offset```
 
@@ -179,7 +181,6 @@ Thus:
 * when acceleration is changed, acctime is updated
 * when acctime is changed, acceleration is updated.
 
-
 ```python
 DEMO [17]: mot1.acceleration  ⏎
  Out [17]: 10.0
@@ -188,15 +189,17 @@ DEMO [18]: mot1.acctime  ⏎
  Out [18]: 0.4
 
 DEMO [19]: mot1.acceleration=20  ⏎
+'mot1` acceleration changed from 10.0 to 20.0
+
 DEMO [20]: mot1.acctime  ⏎
  Out [20]: 0.2
 
 DEMO [21]: mot1.acctime=1  ⏎
+'mot1` acceleration changed from 20.0 to 4.0
+
 DEMO [22]: mot1.acceleration  ⏎
  Out [22]: 4.0
-
 ```
-
 
 ### limits
 

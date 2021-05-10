@@ -1268,7 +1268,7 @@ class Axis(Scannable):
     @velocity.setter
     @lazy_init
     def velocity(self, new_velocity):
-        # Write -> Converts into motor units to change velocity of axis."
+        # Write -> Converts into motor units to change velocity of axis.
         new_velocity = float(
             new_velocity
         )  # accepts both float or numpy array of 1 element
@@ -1296,6 +1296,9 @@ class Axis(Scannable):
                 f"Controller velocity ({_user_vel}) is different from set velocity ({new_velocity})",
             )
 
+        curr_vel = self.settings.get("velocity")
+        if curr_vel != _user_vel:
+            user_print(f"'{self.name}` velocity changed from {curr_vel} to {_user_vel}")
         self.settings.set("velocity", _user_vel)
 
         return _user_vel
@@ -1494,6 +1497,11 @@ class Axis(Scannable):
         self.__controller.set_acceleration(self, new_acc * abs(self.steps_per_unit))
         _ctrl_acc = self.__controller.read_acceleration(self)
         _acceleration = _ctrl_acc / abs(self.steps_per_unit)
+        curr_acc = self.settings.get("acceleration")
+        if curr_acc != _acceleration:
+            user_print(
+                f"'{self.name}` acceleration changed from {curr_acc} to {_acceleration}"
+            )
         self.settings.set("acceleration", _acceleration)
         return _acceleration
 

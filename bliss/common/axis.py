@@ -637,10 +637,8 @@ def lazy_init(func):
 @with_custom_members
 class Axis(Scannable):
     """
-    Bliss motor axis
-
-    Typical usage goes through the bliss configuration (see this module
-    documentation above for an example)
+    This class is typically used by motor controllers in bliss to export
+    axis with harmonised interface for users and configuration.
     """
 
     READ_POSITION_MODE = enum.Enum("Axis.READ_POSITION_MODE", "CONTROLLER ENCODER")
@@ -716,12 +714,12 @@ class Axis(Scannable):
 
     @property
     def unit(self):
-        """Axis name"""
+        """unit used for the Axis (mm, deg, um...)"""
         return self._unit
 
     @property
     def name(self):
-        """Axis name"""
+        """name of the axis"""
         return self.__name
 
     @property
@@ -735,7 +733,10 @@ class Axis(Scannable):
 
     @autocomplete_property
     def controller(self):
-        """Reference to :class:`~bliss.controllers.motor.Controller`"""
+        """
+        Motor controller of the axis
+        Reference to :class:`~bliss.controllers.motor.Controller`
+        """
         return self.__controller
 
     @property
@@ -951,9 +952,9 @@ class Axis(Scannable):
     @lazy_init
     def measured_position(self):
         """
-        Return the encoder value in user units.
+        Return measured position (ie: usually the encoder value).
 
-        Return:
+        Returns:
             float: encoder value in user units
         """
         return self.dial2user(self.dial_measured_position)
@@ -962,10 +963,10 @@ class Axis(Scannable):
     @lazy_init
     def dial_measured_position(self):
         """
-        Return the dial encoder position.
+        Dial encoder position.
 
-        Return:
-            float: dial encoder position
+        Returns:
+            float: Dial encoder position
         """
         if self.encoder is not None:
             return self.encoder.read()
@@ -1002,7 +1003,7 @@ class Axis(Scannable):
         """
         Return current dial position, or set dial
 
-        Return:
+        Returns:
             float: current dial position (dimensionless)
         """
         dial_pos = self.settings.get("dial_position")
@@ -1050,10 +1051,21 @@ class Axis(Scannable):
     @lazy_init
     def position(self):
         """
-        Return current user position, or set new user position
+        Return current user position, or set new user position in user units.
 
-        Return:
+        Returns
+        -------
             float: current user position (user units)
+
+        Parameters
+        ----------
+        new_pos : float
+            New position to set, in user units.
+
+        Note
+        ----
+        This update offset.
+
         """
         pos = self.settings.get("position")
         if pos is None:
@@ -1064,6 +1076,7 @@ class Axis(Scannable):
     @position.setter
     @lazy_init
     def position(self, new_pos):
+        """ see property getter """
         log_debug(self, "axis.py : position(new_pos=%r)" % new_pos)
         if self.is_moving:
             raise RuntimeError(
@@ -1128,12 +1141,7 @@ class Axis(Scannable):
     @property
     @lazy_init
     def hw_state(self):
-        """
-        Return the current hardware axis state
-
-        Return:
-            AxisState: axis state
-        """
+        """ Return the current hardware axis state (:obj:`AxisState`) """
         return self.__controller.state(self)
 
     @lazy_init
@@ -1253,10 +1261,12 @@ class Axis(Scannable):
     @lazy_init
     def velocity(self):
         """
-        Return the current velocity 
-        
+        Return or set the current velocity.
+
+        Parameters:
+            float: new_velocity in user unit/second
         Return:
-            float: current velocity (user units/second)
+            float: current velocity in user unit/second
         """
         # Read -> Return velocity read from motor axis.
         _user_vel = self.settings.get("velocity")
@@ -1468,7 +1478,7 @@ class Axis(Scannable):
         Return the config jog velocity.
 
         Return:
-            float: config jog velocity (user units/second)
+            float: config jog velocity (user_units/second)
         """
         return self.__config_jog_velocity
 
@@ -1476,7 +1486,13 @@ class Axis(Scannable):
     @lazy_init
     def acceleration(self, new_acc=None, from_config=False):
         """
-        <new_acc> is given in user_units/s2.
+        Parameters:
+        new_acc: float
+            new acceleration that has to be provided in user_units/s2.
+
+        Return:
+        acceleration: float
+            acceleration (user_units/s2)
         """
         _acceleration = self.settings.get("acceleration")
         if _acceleration is None:
@@ -1508,6 +1524,13 @@ class Axis(Scannable):
     @property
     @lazy_init
     def config_acceleration(self):
+        """
+        Acceleration specified in IN-MEMORY config.
+
+        Note
+        ----
+        this is not necessarily the current acceleration.
+        """
         return self.__config_acceleration
 
     @property
@@ -1586,6 +1609,11 @@ class Axis(Scannable):
 
         Return:
             tuple<float, float>: axis software limits (user units)
+
+        Example:
+
+            $ my_axis.limits = (-10,10)
+
         """
         return tuple(map(self.dial2user, self.dial_limits))
 
@@ -1849,14 +1877,15 @@ class Axis(Scannable):
         """
         Move axis to the given absolute/relative position
 
-        Args:
-            user_target_pos: destination (user units)
-
-        Keyword Args:
-            wait (bool): wait or not for end of motion
-            relative (bool): False if *user_target_pos* is given in absolute \
-            position or True if it is given in relative position
-            polling_time (float): motion loop polling time (seconds)
+        Parameters:
+            user_target_pos: float
+                Destination (user units)
+            wait : bool, optional
+                Wait or not for end of motion
+            relative : bool
+                False if *user_target_pos* is given in absolute position or True if it is given in relative position
+            polling_time : float
+                Motion loop polling time (seconds)
 
         Raises:
             RuntimeError
@@ -2193,7 +2222,16 @@ class Axis(Scannable):
         backlash=True,
     ):
         """
-        Applies configuration values to settings (ie: reset axis)
+        Applies configuration values (yml) to the current settings.
+
+        Note
+        ----
+        This resets the axis settings to those specified in the config
+
+        Parameters
+        ----------
+        reload : bool
+            if True config files are reloaded by beacon.
         """
         if reload:
             self.config.reload()

@@ -35,6 +35,22 @@ def test_axis_stdout(roby, capsys, log_shell_mode):
         == "'roby` position reset from 0.0 to 2.0 (sign: 1, offset: 1.0)\n'roby` dial position reset from 1.0 to 2.0\n"
     )
 
+    vel = roby.velocity
+    roby.velocity = vel + 1
+
+    assert (
+        capsys.readouterr().out
+        == f"'roby` velocity changed from {vel} to {roby.velocity}\n"
+    )
+
+    acc = roby.acceleration
+    roby.acceleration = acc + 1
+
+    assert (
+        capsys.readouterr().out
+        == f"'roby` acceleration changed from {acc} to {roby.acceleration}\n"
+    )
+
 
 def test_axis_stdout2(roby, bad_motor, capsys, log_shell_mode):
     """Ensure "Moving..." and "...stopped at..." messages are present.

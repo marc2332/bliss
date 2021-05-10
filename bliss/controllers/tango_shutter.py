@@ -6,20 +6,12 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """
-Tango shutter is used to control frontend or safety shutter or a valve.
-Some commands/attributes (like automatic/manual) are only implemented in the
-front end device server, set by the _frontend variable.
+Tango shutter is used to control Tango safety shutter or valve.
 
 Example yml file:
 
 .. code-block::
 
-    -
-      # front end shutter
-      class: TangoShutter
-      name: frontend
-      uri: //orion:10000/fe/master/id42
-    
     -
       # safety shutter
       class: TangoShutter
@@ -51,39 +43,151 @@ TangoShutterState = Enum(
 )
 
 
+""" FRONTEND
+
+    The state of a Tango FrontEnd server can be (according to JLP):
+
+    * Tango::OPEN:    FrontEnd is open with the automtic mode disabled
+    * Tango::RUNNING: FrontEnd is open with the automtic mode enabled
+    => OPEN
+
+    * Tango::CLOSE:   FrontEnd is close with the injection mode disabled
+    * Tango::STANDBY: FrontEnd is close with the injection mode enabled
+    => CLOSED
+
+    * Tango::FAULT:   FrontEnd in fault
+    * Tango::DISABLE: No operation permission
+    => ???
+"""
+
+
+""" SAFETY SHUTTER
+
+    Overloading of `is_open` and `is_closed` properties to deal with Tango
+    states.
+    The state of a Safety Shutter Tango server can be:
+
+    * Tango::OPEN
+    => OPEN
+
+    * Tango::CLOSE (not CLOSED)
+    * Tango::DISABLE
+    => CLOSED
+
+    * ON OFF INSERT EXTRACT MOVING STANDBY FAULT INIT RUNNING ALARM UNKNOWN
+    => ???
+"""
+
+""" Valve
+
+    Overloading of `is_open` and `is_closed` properties to deal with Tango
+    Vacuum Valves
+    The state of a Valve Tango server can be:
+
+    * Tango::OPEN
+    => OPEN
+
+    * Tango::CLOSE (not CLOSED)
+    * Tango::DISABLE
+    => CLOSED
+
+    * ON OFF INSERT EXTRACT MOVING STANDBY FAULT INIT RUNNING ALARM UNKNOWN
+    => ???
+"""
+
+
+TANGO_OPEN_STATES = {
+    "SafetyShutter": ["OPEN", "RUNNING"],
+    "FrontEnd": ["OPEN", "RUNNING"],
+    "Valve": ["OPEN", "RUNNING"],
+    "Default": ["OPEN", "RUNNING"],
+}
+
+TANGO_CLOSED_STATES = {
+    "SafetyShutter": ["CLOSE", "STANDBY", "FAULT"],
+    "FrontEnd": ["CLOSE", "STANDBY"],
+    "Valve": ["CLOSE", "STANDBY", "FAULT", "DISABLE"],
+    "Default": ["CLOSE", "STANDBY"],
+}
+
+
 class TangoShutter(BaseShutter):
     """ Handle Tango frontend or safety shutter or a valve"""
 
-    def __init__(self, name, config):
-        tango_uri = config.get("uri")
+    def __init__(self, name, config, shutter_type=None):
+        self._tango_uri = config.get("uri")
+
+        if shutter_type is None:
+            self.__shutter_type = config.get("shutter_type", "Default")
+        else:
+            self.__shutter_type = shutter_type
+
         self.__name = name
         self.__config = config
-        self.__control = DeviceProxy(tango_uri)
+        self.__control = DeviceProxy(self._tango_uri)
         global_map.register(self, children_list=[self.__control], tag=f"Shutter:{name}")
-        self._frontend = None
         self._mode = None
-        self._init_type()
 
         self._state_channel = Channel(
             f"{name}:state", default_value="UNKNOWN", callback=self._state_changed
         )
 
-    def _init_type(self):
-        self._frontend = "FrontEnd" in self.__control.info().dev_class
+    @property
+    def shutter_type(self):
+        """
+        Set / Get shutter type in
+
+        Parameters:
+            stype (str): shutter type in "FrontEnd" "SafetyShutter" "Valve"
+        """
+        return self.__shutter_type
+
+    @shutter_type.setter
+    def shutter_type(self, stype):
+        self.__shutter_type = stype
+
+    """
+    Overloading of `is_open` and `is_closed` properties to deal with Tango
+    states.
+    """
+
+    @property
+    def is_open(self):
+        """Check if the Tango Shutter is open"""
+        _state = self._tango_state
+        _open = _state in TANGO_OPEN_STATES[self.shutter_type]
+        _closed = _state in TANGO_CLOSED_STATES[self.shutter_type]
+        if _open and _closed:
+            user_print(
+                f"WARNING: {self.shutter_type} state coherency problem: state is : {_state} (please report this error)"
+            )
+        if not _open and not _closed:
+            user_print(
+                f"WARNING: {self.shutter_type} state coherency problem: state is : {_state} (please report this error)"
+            )
+
+        return _open
+
+    @property
+    def is_closed(self):
+        """Check if the Tango Shutter is closed"""
+        _state = self._tango_state
+        _open = _state in TANGO_OPEN_STATES[self.shutter_type]
+        _closed = _state in TANGO_CLOSED_STATES[self.shutter_type]
+        if _open and _closed:
+            user_print(
+                f"WARNING: {self.shutter_type} state coherency problem: state is : {_state} (please report this error)"
+            )
+        if not _open and not _closed:
+            user_print(
+                f"WARNING: {self.shutter_type} state coherency problem: state is : {_state} (please report this error)"
+            )
+
+        return _closed
 
     @property
     def proxy(self):
         return self.__control
-
-    @property
-    def frontend(self):
-        """ Check if the device is a front end type
-        Returns:
-            (bool): True if it is a front end, False otherwise
-        """
-        if self._frontend is None:
-            self._init_type()
-        return self._frontend
 
     @property
     def name(self):
@@ -97,11 +201,11 @@ class TangoShutter(BaseShutter):
 
     @property
     def _tango_state(self):
-        """ Read the tango state. Available PyTango states: 'ALARM', 'CLOSE',
+        """ Read the tango state. PyTango states: 'ALARM', 'CLOSE',
             'DISABLE', 'EXTRACT', 'FAULT', 'INIT', 'INSERT', 'MOVING', 'OFF',
             'ON', 'OPEN', 'RUNNING', 'STANDBY', 'UNKNOWN'.
         Returns:
-            (str): The state from the device server.
+            (str): The state read from the device server.
         """
         return self.__control.state().name
 
@@ -120,6 +224,9 @@ class TangoShutter(BaseShutter):
             (enum): state as enum
         Raises:
             RuntimeError: If DevFailed from the device server
+
+        Notes:
+            Use this state with care: values do not match with Tango States.
         """
         try:
             state = self._tango_state
@@ -143,7 +250,12 @@ class TangoShutter(BaseShutter):
         return self.state.value, self._tango_status
 
     def __info__(self):
-        return self._tango_status.rstrip("\n")
+        if self.is_closed:
+            info_str = f"{self.shutter_type} `{self.name}` is closed\n"
+        else:
+            info_str = f"{self.shutter_type} `{self.name}` is open\n"
+        info_str += self._tango_status.rstrip("\n")
+        return info_str
 
     def open(self, timeout=60):
         """Open
@@ -207,7 +319,7 @@ class TangoShutter(BaseShutter):
         Raises:
             NotImplementedError: Not a Frontend shutter
         """
-        if not self.frontend:
+        if self.shutter_type != "FrontEnd":
             raise NotImplementedError("Not a Frontend shutter")
 
         try:
@@ -219,7 +331,7 @@ class TangoShutter(BaseShutter):
 
     @mode.setter
     def mode(self, mode):
-        if not self.frontend:
+        if self.shutter_type != "FrontEnd":
             raise NotImplementedError("Not a Frontend shutter")
 
         try:

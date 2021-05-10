@@ -210,37 +210,37 @@ WARNING 2020-03-19 00:13:23,937 global.controllers.rv9: rv9 already open, comman
 ```
 
 
-
 ### Configuration examples
 
 Safety shutter and FrontEnd:
 ```yaml
--
-  name: safshut
+- name: safshut
   class: TangoShutter
+  shutter_type: SafetyShutter
   uri: id42/bsh/1
 
--
-  # front end shutter
+- name: frontend
   class: TangoShutter
-  name: frontend
+  shutter_type: FrontEnd
   uri: acs.esrf.fr:10000/fe/master/id42
 
 ```
 
 Remote valves:
 ```yaml
--
-  name: rv0
+- name: rv0
   class: TangoShutter
+  shutter_type: Valve
   uri: id42/v-rv/0
--
-  name: rv1
+
+- name: rv1
   class: TangoShutter
+  shutter_type: Valve
   uri: id42/v-rv/1
--
-  name: rv2
+
+- name: rv2
   class: TangoShutter
+  shutter_type: Valve
   uri: id42/v-rv/2
 ```
 

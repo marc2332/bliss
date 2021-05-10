@@ -1131,6 +1131,8 @@ def expected_detector_content(name, config=True, save_images=True):
                     datasets = {"type", "data", "acq_parameters", "ctrl_parameters"}
                 else:
                     datasets = {"type", "acq_parameters", "ctrl_parameters"}
+        elif name.startswith("simu1_") or name.startswith("simu2_"):
+            datasets = {"data", "type"}
         else:
             datasets = {"data"}
     else:
@@ -1145,20 +1147,34 @@ def expected_detector_content(name, config=True, save_images=True):
                 datasets = {"data"}
             else:
                 if save_images:
-                    datasets = {"data", "acq_parameters", "ctrl_parameters"}
+                    datasets = {"data", "acq_parameters", "ctrl_parameters", "type"}
                 else:
-                    datasets = {"acq_parameters", "ctrl_parameters"}
+                    datasets = {"acq_parameters", "ctrl_parameters", "type"}
         elif name == "image":
             if save_images:
-                datasets = {"data", "acq_parameters", "ctrl_parameters"}
+                datasets = {"data", "acq_parameters", "ctrl_parameters", "type"}
             else:
-                datasets = {"acq_parameters", "ctrl_parameters"}
+                datasets = {"acq_parameters", "ctrl_parameters", "type"}
         elif re.match("roi[1-3]_(sum|avg|std|min|max)", name):
             datasets = {"data", "roi1", "roi2", "roi3"}
         elif name == "roi4":
             datasets = {"data", "roi4"}
         elif name == "roi_collection_counter":
             datasets = {"data", "roi_collection_counter"}
+        elif re.match("roi[1-3]", name):
+            # Lima
+            datasets = {"data", "type"}
+        elif name.startswith("simu1_") or name.startswith("simu2_"):
+            # MCAs
+            datasets = {"data", "type"}
+        elif (
+            name.endswith("_det0")
+            or name.endswith("_det1")
+            or name.endswith("_det2")
+            or name.endswith("_det3")
+        ):
+            # MCAs
+            datasets = {"data", "type"}
         else:
             datasets = {"data"}
     return datasets

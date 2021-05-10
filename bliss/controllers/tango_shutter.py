@@ -18,13 +18,13 @@ Example yml file:
       # front end shutter
       class: TangoShutter
       name: frontend
-      uri: //orion:10000/fe/master/id30
+      uri: //orion:10000/fe/master/id42
     
     -
       # safety shutter
       class: TangoShutter
       name: safshut
-      uri: id30/bsh/1
+      uri: id42/bsh/1
 """
 
 from enum import Enum
@@ -196,7 +196,14 @@ class TangoShutter(BaseShutter):
 
     @property
     def mode(self):
-        """ Get the opening mode. (only for FrontEnd).
+        """
+        Get or set the opening mode of the FrontEnd.
+        state is read from tango attribute: `automatic_mode`.
+        Only available for FrontEnd shutters.
+
+        Parameters:
+            mode: (str): 'MANUAL' or 'AUTOMATIC'
+
         Raises:
             NotImplementedError: Not a Frontend shutter
         """
@@ -212,11 +219,6 @@ class TangoShutter(BaseShutter):
 
     @mode.setter
     def mode(self, mode):
-        """Set the opening mode (only for FrontEnd).
-        Args:
-            mode (str): MANUAL or AUTOMATIC
-        Raises: NotImplementedError: Not a Fronend shutter.
-        """
         if not self.frontend:
             raise NotImplementedError("Not a Frontend shutter")
 
@@ -225,9 +227,12 @@ class TangoShutter(BaseShutter):
                 self.__control.manual()
             elif mode == "AUTOMATIC":
                 self.__control.automatic()
+            else:
+                raise RuntimeError(f"Unknown mode: {mode}")
+
             self._wait_mode(mode=mode)
-        except DevFailed:
-            raise RuntimeError(f"Cannot set {mode} opening")
+        except DevFailed as df_err:
+            raise RuntimeError(f"Cannot set {mode} opening") from df_err
 
     def reset(self):
         """Reset
@@ -251,9 +256,25 @@ class TangoShutter(BaseShutter):
             self._state_changed(self.state)
 
     def _wait_mode(self, mode, timeout=3):
-        with Timeout(timeout, RuntimeError(f"Cannot set {mode} opening")):
+        """
+        Wait until set mode is equal to read mode.
+        """
+        with Timeout(timeout, RuntimeError(f"Cannot set {mode} opening mode")):
+
+            # FE tango server feature: 'automatic_mode' goes True even
+            # if it's not allowed (ex: MDT)
+            # It switches back to False after ~1 second.
+            # So this method can return without error even if AUTOMATIC
+            # mode is not set properly.
+            sleep(2)  # to be removed when FE tango server will be fixed.
+
             while self.mode != mode:
-                sleep(1)
+                # print(f"{self.mode} != {mode}")    # to be removed when FE tango server will be fixed.
+                sleep(0.2)
+
+            # for i in range(100):                   # to be removed when FE tango server will be fixed.
+            #     print(f"{self.mode} =?  {mode}")   # to be removed when FE tango server will be fixed.
+            #     sleep(0.05)                        # to be removed when FE tango server will be fixed.
 
     def __enter__(self):
         self.open()

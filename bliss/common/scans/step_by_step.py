@@ -327,6 +327,7 @@ def lookupscan(
     return_scan: bool = True,
     scan_info: Optional[dict] = None,
     scan_params: Optional[dict] = None,
+    restore_motor_positions: bool = False,
 ):
     """Lookupscan usage:
     lookupscan([(m0,numpy.arange(0,2,0.5)),(m1,numpy.linspace(1,3,4))],0.1,diode2)
@@ -349,6 +350,7 @@ def lookupscan(
     return_scan: bool = True,
     scan_info: Optional[dict] = None,
     scan_params: Optional[dict] = None,
+    restore_motor_positions: bool = False,
     """
     scan_info = ScanInfo.normalize(scan_info)
     if scan_params is None:
@@ -406,6 +408,9 @@ def lookupscan(
         data_watch_callback=StepScanDataWatch(),
     )
 
+    if restore_motor_positions:
+        scan.restore_motor_positions = True
+
     if run:
         scan.run()
 
@@ -431,6 +436,7 @@ def anscan(
     run: bool = True,
     return_scan: bool = True,
     scan_info: Optional[dict] = None,
+    restore_motor_positions: bool = False,
 ):
     """
     anscan usage:
@@ -456,6 +462,7 @@ def anscan(
     return_scan: bool = True,
     scan_info: Optional[dict] = None,
     scan_params: Optional[dict] = None,
+    restore_motor_positions: bool = False,
 
     example:
       anscan( [(m1, 1, 2), (m2, 3, 7)], 10, 0.1, diode2)
@@ -534,6 +541,7 @@ def anscan(
         return_scan=return_scan,
         scan_info=scan_info,
         scan_params=scan_params,
+        restore_motor_positions=restore_motor_positions,
     )
 
 
@@ -593,17 +601,8 @@ def dnscan(
         sleep_time=sleep_time,
         run=False,
         scan_info=scan_info,
+        restore_motor_positions=True,
     )
-
-    def run_with_cleanup(self, __run__=scan.run):
-        with cleanup(
-            *[m[0] for m in motor_tuple_list],
-            restore_list=(cleanup_axis.POS,),
-            verbose=True,
-        ):
-            __run__()
-
-    scan.run = types.MethodType(run_with_cleanup, scan)
 
     if run:
         scan.run()

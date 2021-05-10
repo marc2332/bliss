@@ -121,7 +121,8 @@ class ScansObserver:
 
         Arguments:
             scan_db_name: Identifier of the scan
-            scan_info: Dictionary containing scan metadata
+            scan_info: Dictionary containing scan metadata updated with metadata
+                       prepared metadata from controllers
         """
         pass
 
@@ -200,8 +201,10 @@ class ScansObserver:
 
         Arguments:
             scan_db_name: Identifier of the parent scan
-            scan_info: Dictionary containing scan metadata. It can be different
-                       from the one at start.
+            scan_info: Dictionary containing scan metadata updated with
+                       prepared and finished metadata from controllers
+                       Other fields like positioners and datetime are also
+                       updated.
         """
         pass
 

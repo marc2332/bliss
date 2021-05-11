@@ -293,6 +293,8 @@ class ImagePlotPropertyWidget(qt.QWidget):
             device = deviceItem.device()
             if device.type() == scan_model.DeviceType.VIRTUAL_ROI:
                 continue
+            if device.type() == scan_model.DeviceType.VIRTUAL_MCA_DETECTOR:
+                continue
             if device.name() in ["roi_counters", "roi_profiles"]:
                 continue
             if deviceItem not in channelsPerDevices:

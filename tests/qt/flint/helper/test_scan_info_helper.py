@@ -120,6 +120,34 @@ SCAN_INFO_ONEDIM_DETECTOR = {
 }
 
 
+SCAN_INFO_MCA = {
+    "acquisition_chain": {"timer": {"devices": ["timer", "mca"]}},
+    "devices": {
+        "timer": {
+            "channels": ["timer:elapsed_time", "timer:epoch"],
+            "triggered_devices": ["mca"],
+        },
+        "mca": {
+            "type": "mca",
+            "channels": [
+                "mca:realtime_det0",
+                "mca:realtime_det1",
+                "mca:deadtime_det0",
+                "mca:deadtime_det1",
+            ],
+        },
+    },
+    "channels": {
+        "timer:elapsed_time": {"dim": 0},
+        "timer:epoch": {"dim": 0},
+        "mca:realtime_det0": {"dim": 0},
+        "mca:realtime_det1": {"dim": 0},
+        "mca:deadtime_det0": {"dim": 0},
+        "mca:deadtime_det1": {"dim": 0},
+    },
+}
+
+
 def test_iter_channels():
     result = scan_info_helper.iter_channels(SCAN_INFO)
     result = [
@@ -762,3 +790,24 @@ def test_read_onedim_detector__xaxis_channel():
     assert isinstance(item, plot_item_model.CurveItem)
     assert item.xChannel().name() == "onedim:d1"
     assert item.yChannel().name() == "onedim:d2"
+
+
+def test_create_scan_model_with_mca():
+    scan_info = {}
+    scan_info.update(SCAN_INFO_MCA)
+
+    scan = scan_info_helper.create_scan_model(scan_info)
+    assert scan.isSealed()
+
+    channelCount = 0
+    deviceCount = len(list(scan.devices()))
+    for device in scan.devices():
+        channelCount += len(list(device.channels()))
+    assert channelCount == 6
+    assert deviceCount == 5
+
+    channel = scan.getChannelByName("mca:realtime_det0")
+    assert channel.name() == "mca:realtime_det0"
+    device = channel.device()
+    assert device.name() == "det0"
+    assert device.type() == scan_model.DeviceType.VIRTUAL_MCA_DETECTOR

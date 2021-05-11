@@ -421,6 +421,12 @@ class DeviceType(enum.Enum):
     It is a GUI concept, there is no related device on the BLISS side.
     """
 
+    VIRTUAL_MCA_DETECTOR = 4
+    """Device containing channel data from a MCA detector.
+
+    A MCA device can contain many detectors.
+    """
+
 
 class DeviceMetadata(NamedTuple):
     info: Dict

@@ -447,3 +447,55 @@ result:
 PNG, SVG or GIF files can be used
 
 ![Screenshot](img/CT2/p201.png)
+
+
+
+## inline docstrings
+
+Inline docstrings in BLISS code try to follow
+https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_numpy.html
+style.
+
+example:
+```python
+@lazy_init
+def move(self, user_target_pos, wait=True, relative=False, polling_time=None):
+    """
+    Move axis to the given absolute/relative position
+
+    Parameters:
+        user_target_pos: float
+            Destination (user units)
+        wait : bool, optional
+            Wait or not for end of motion
+        relative : bool
+            False if *user_target_pos* is given in absolute position or True if it is given in relative position
+        polling_time : float
+            Motion loop polling time (seconds)
+
+    Raises:
+        RuntimeError
+
+    Returns:
+        None
+
+    """
+```
+
+Keywords:
+* Parameters
+* Raises
+* Returns
+* Notes
+* Attributes
+
+
+To build sphinx API documentation:
+```
+python setup.py build_sphinx
+```
+
+and to consult it, visit:
+```
+build/sphinx/html/index.html
+```

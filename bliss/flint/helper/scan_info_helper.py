@@ -153,56 +153,124 @@ def iter_channels(scan_info: Dict[str, Any]):
         yield channel
 
 
-def create_scan_model(scan_info: Dict) -> scan_model.Scan:
-    is_group = scan_info.get("is-scan-sequence", False)
-    if is_group:
-        scan = scan_model.ScanGroup()
-    else:
-        scan = scan_model.Scan()
-    scan.setScanInfo(scan_info)
+class ScanModelReader:
+    """Object reading a scan_info and generating a scan model"""
 
-    devices: Dict[str, scan_model.Device] = {}
-    channel_units = read_units(scan_info)
-    channel_display_names = read_display_names(scan_info)
+    def __init__(self, scan_info):
+        self._scan_info = scan_info
+        self._acquisition_chain_description = scan_info.get("acquisition_chain", {})
+        self._device_description = scan_info.get("devices", {})
+        self._channel_description = scan_info.get("channels", {})
+        self._roi_description = scan_info.get("rois", {})
 
-    def get_device(master_name, device_name):
-        """Returns the device object.
+        scan_info = self._scan_info
+        is_group = scan_info.get("is-scan-sequence", False)
+        if is_group:
+            scan = scan_model.ScanGroup()
+        else:
+            scan = scan_model.Scan()
 
-        Create it if it is not yet available.
-        """
-        if device_name is None:
-            key = master_name
-            master = devices.get(key, None)
-            if master is None:
-                # Master have to be created
-                master = scan_model.Device(scan)
-                master.setName(master_name)
-                devices[key] = master
-            return master
+        scan.setScanInfo(scan_info)
+        self._scan = scan
+        self._virtual_roi_devices = {}
+        self._parsed_devices = set()
 
-        key = master_name + ":" + device_name
-        device = devices.get(key, None)
-        if device is None:
-            if ":" in device_name:
-                parent_device_name, name = device_name.rsplit(":", 1)
-                parent = get_device(master_name, parent_device_name)
-            else:
-                name = device_name
-                parent = get_device(master_name, None)
-            device = scan_model.Device(scan)
-            device.setName(name)
-            device.setMaster(parent)
-            devices[key] = device
-        return device
+    def parse(self):
+        """Parse the whole scan info and return scan model"""
+        assert self._scan is not None, "The scan was already parsed"
+        self._parse_scan()
+        self._precache_scatter_constraints()
+        scan = self._scan
+        self._scan = None
+        scan.seal()
+        return scan
 
-    def create_virtual_roi(roi_name, key, parent):
-        device = scan_model.Device(scan)
+    def _parse_scan(self):
+        """Parse the whole scan structure"""
+        for top_master_name, meta in self._acquisition_chain_description.items():
+            self._parse_top_device(top_master_name, meta)
+
+    def _parse_top_device(self, name, meta) -> scan_model.Device:
+        top_master = scan_model.Device(self._scan)
+        top_master.setName(name)
+
+        sub_device_names = meta["devices"]
+
+        for i, sub_device_name in enumerate(sub_device_names):
+            if sub_device_name in self._parsed_devices:
+                continue
+            self._parsed_devices.add(sub_device_name)
+            sub_meta = self._device_description.get(sub_device_name, None)
+            if sub_meta is None:
+                _logger.error(
+                    "scan_info mismatch. Device name %s metadata not found",
+                    sub_device_name,
+                )
+                continue
+            sub_name = sub_device_name.rsplit(":", 1)[-1]
+            self._parse_device(
+                sub_name, sub_meta, parent=top_master, parse_sub_devices=i != 0
+            )
+
+    def _parse_device(
+        self,
+        name: str,
+        meta: Dict,
+        parent: scan_model.Device,
+        parse_sub_devices: bool = True,
+    ):
+        self._parse_default_device(
+            name, meta, parent=parent, parse_sub_devices=parse_sub_devices
+        )
+
+    def _parse_default_device(
+        self,
+        name: str,
+        meta: Dict,
+        parent: scan_model.Device,
+        parse_sub_devices: bool = True,
+    ):
+        device = scan_model.Device(self._scan)
+        device.setName(name)
+        device.setMaster(parent)
+
+        if parse_sub_devices:
+            sub_device_names = meta.get("triggered_devices", [])
+            for sub_device_name in sub_device_names:
+                self._parsed_devices.add(sub_device_name)
+                sub_meta = self._device_description.get(sub_device_name, None)
+                if sub_meta is None:
+                    _logger.error(
+                        "scan_info mismatch. Device name %s metadata not found",
+                        sub_device_name,
+                    )
+                    continue
+                sub_name = sub_device_name.rsplit(":", 1)[-1]
+                self._parse_device(sub_name, sub_meta, parent=device)
+
+        channel_names = meta.get("channels", [])
+        for channel_fullname in channel_names:
+            channel_meta = self._channel_description.get(channel_fullname, None)
+            if channel_meta is None:
+                _logger.error(
+                    "scan_info mismatch. Channel name %s metadata not found",
+                    channel_fullname,
+                )
+                continue
+            self._parse_channel(channel_fullname, channel_meta, parent=device)
+
+    def _create_virtual_roi(self, roi_name, key, parent):
+        if key in self._virtual_roi_devices:
+            return self._virtual_roi_devices[key]
+
+        device = scan_model.Device(self._scan)
         device.setName(roi_name)
         device.setMaster(parent)
         device.setType(scan_model.DeviceType.VIRTUAL_ROI)
+        self._virtual_roi_devices[key] = device
 
         # Read metadata
-        roi_dict = scan_info.get("rois", {}).get(key)
+        roi_dict = self._roi_description.get(key)
         roi = None
         if roi_dict is not None:
             try:
@@ -214,14 +282,8 @@ def create_scan_model(scan_info: Dict) -> scan_model.Scan:
         device.setMetadata(metadata)
         return device
 
-    channelsDict = {}
-    channels = iter_channels(scan_info)
-    for channel_info in channels:
-        master_name = channel_info.master
-        device_name = channel_info.device
-        parent = get_device(master_name, device_name)
-        name = channel_info.name
-        short_name = name.rsplit(":")[-1]
+    def _parse_channel(self, channel_fullname: str, meta, parent: scan_model.Device):
+        short_name = channel_fullname.rsplit(":", 1)[-1]
 
         # Some magic to create virtual device for each ROIs
         if parent.name() in ["roi_counters", "roi_profiles"]:
@@ -231,74 +293,53 @@ def create_scan_model(scan_info: Dict) -> scan_model.Scan:
                 roi_name, _ = short_name.rsplit("_", 1)
             else:
                 roi_name = short_name
-            key = f"{channel_info.device}:{roi_name}"
-            device = devices.get(key, None)
-            if device is None:
-                device = create_virtual_roi(roi_name, key, parent)
-                devices[key] = device
-            parent = device
+
+            key = f"{parent.master().name()}:{parent.name()}:{roi_name}"
+            roi_device = self._create_virtual_roi(roi_name, key, parent)
+            parent = roi_device
 
         channel = scan_model.Channel(parent)
-        channelsDict[channel_info.name] = channel
-        channel.setName(name)
-        unit = channel_units.get(channel_info.name, None)
+        channel.setName(channel_fullname)
+
+        # protect mutation of the original object, with the following `pop`
+        meta = dict(meta)
+
+        # FIXME: This have to be cleaned up (unit and display name are part of the metadata)
+        unit = meta.pop("unit", None)
         if unit is not None:
             channel.setUnit(unit)
-        display_name = channel_display_names.get(channel_info.name, None)
+        display_name = meta.pop("channel_name", None)
         if display_name is not None:
             channel.setDisplayName(display_name)
 
-    scatterDataDict: Dict[str, scan_model.ScatterData] = {}
-    channels = scan_info.get("channels", None)
-    if channels:
-        for channel_name, metadata_dict in channels.items():
-            channel = channelsDict.get(channel_name, None)
-            if channel is not None:
-                metadata = parse_channel_metadata(metadata_dict)
-                channel.setMetadata(metadata)
+        metadata = parse_channel_metadata(meta)
+        channel.setMetadata(metadata)
+
+    def _precache_scatter_constraints(self):
+        """Precache information about group of data and available scatter axis"""
+        scan = self._scan
+        scatterDataDict: Dict[str, scan_model.ScatterData] = {}
+        for device in scan.devices():
+            for channel in device.channels():
+                metadata = channel.metadata()
                 if metadata.group is not None:
                     scatterData = scatterDataDict.get(metadata.group, None)
                     if scatterData is None:
                         scatterData = scan_model.ScatterData()
                         scatterDataDict[metadata.group] = scatterData
-                    if (
-                        channel.metadata().axisKind is not None
-                        or channel.metadata().axisId is not None
-                    ):
+                    if metadata.axisKind is not None or metadata.axisId is not None:
                         scatterData.addAxisChannel(channel, metadata.axisId)
                     else:
                         scatterData.addCounterChannel(channel)
-            else:
-                _logger.warning(
-                    "Channel %s is part of the request but not part of the acquisition chain. Info ignored",
-                    channel_name,
-                )
 
-    for scatterData in scatterDataDict.values():
-        scan.addScatterData(scatterData)
+        for scatterData in scatterDataDict.values():
+            scan.addScatterData(scatterData)
 
-    scan.seal()
+
+def create_scan_model(scan_info: Dict) -> scan_model.Scan:
+    reader = ScanModelReader(scan_info)
+    scan = reader.parse()
     return scan
-
-
-def read_units(scan_info: Dict) -> Dict[str, str]:
-    """Merge all units together"""
-    if "channels" not in scan_info:
-        return {}
-    result = {k: v["unit"] for k, v in scan_info["channels"].items() if "unit" in v}
-    return result
-
-
-def read_display_names(scan_info: Dict) -> Dict[str, str]:
-    """Merge all display names together"""
-    if "channels" not in scan_info:
-        return {}
-    result = {
-        k: v["display_name"]
-        for k, v in scan_info["channels"].items()
-        if "display_name" in v
-    }
-    return result
 
 
 def _pop_and_convert(meta, key, func):

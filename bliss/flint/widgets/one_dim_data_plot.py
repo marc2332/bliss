@@ -367,8 +367,11 @@ class OneDimDataPlotWidget(plot_helper.PlotWidget):
         curveItem.setData(x, y, copy=False)
         curveItem.setName(legend)
         curveItem.setLineStyle(style.lineStyle)
+        if len(x) == 1:
+            curveItem.setSymbol(".")
+        else:
+            curveItem.setSymbol("")
         curveItem.setColor(style.lineColor)
-        curveItem.setSymbol("")
         curveItem.setCustomItem(item)
         plot.addItem(curveItem)
 

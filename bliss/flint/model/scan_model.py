@@ -407,13 +407,25 @@ class DeviceType(enum.Enum):
     NONE = 0
     """Default type"""
 
-    VIRTUAL_ROI = 1
+    UNKNOWN = -1
+    """Unknown value specified in the scan_info"""
+
+    LIMA = 1
+    """Lima device as specified by the scan_info"""
+
+    MCA = 2
+    """MCA device as specified by the scan_info"""
+
+    VIRTUAL_ROI = 3
     """Device containing channel data from the same ROI.
     It is a GUI concept, there is no related device on the BLISS side.
     """
 
 
 class DeviceMetadata(NamedTuple):
+    info: Dict
+    """raw metadata as stored by the scan_info"""
+
     roi: Optional[object]
     """Define a ROI geometry, is one"""
 
@@ -426,7 +438,7 @@ class Device(qt.QObject, _Sealable):
     and channels. This could not exactly match the Bliss API.
     """
 
-    _noneMetadata = DeviceMetadata(None)
+    _noneMetadata = DeviceMetadata({}, None)
 
     def __init__(self, parent: Scan):
         qt.QObject.__init__(self, parent=parent)

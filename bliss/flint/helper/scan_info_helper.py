@@ -156,12 +156,18 @@ def iter_channels(scan_info: Dict[str, Any]):
 class ScanModelReader:
     """Object reading a scan_info and generating a scan model"""
 
+    DEVICE_TYPES = {
+        None: scan_model.DeviceType.NONE,
+        "lima": scan_model.DeviceType.LIMA,
+        "mca": scan_model.DeviceType.MCA,
+    }
+
     def __init__(self, scan_info):
         self._scan_info = scan_info
         self._acquisition_chain_description = scan_info.get("acquisition_chain", {})
         self._device_description = scan_info.get("devices", {})
         self._channel_description = scan_info.get("channels", {})
-        self._roi_description = scan_info.get("rois", {})
+        self._rois_description = scan_info.get("rois", {})
 
         scan_info = self._scan_info
         is_group = scan_info.get("is-scan-sequence", False)
@@ -172,7 +178,6 @@ class ScanModelReader:
 
         scan.setScanInfo(scan_info)
         self._scan = scan
-        self._virtual_roi_devices = {}
         self._parsed_devices = set()
 
     def parse(self):
@@ -208,112 +213,153 @@ class ScanModelReader:
                 )
                 continue
             sub_name = sub_device_name.rsplit(":", 1)[-1]
+            if i == 0:
+                parser_class = self.TopDeviceParser
+            else:
+                parser_class = None
             self._parse_device(
-                sub_name, sub_meta, parent=top_master, parse_sub_devices=i != 0
+                sub_name, sub_meta, parent=top_master, parser_class=parser_class
             )
 
-    def _parse_device(
-        self,
-        name: str,
-        meta: Dict,
-        parent: scan_model.Device,
-        parse_sub_devices: bool = True,
-    ):
-        self._parse_default_device(
-            name, meta, parent=parent, parse_sub_devices=parse_sub_devices
-        )
+    class DefaultDeviceParser:
+        def __init__(self, reader):
+            self.reader = reader
 
-    def _parse_default_device(
-        self,
-        name: str,
-        meta: Dict,
-        parent: scan_model.Device,
-        parse_sub_devices: bool = True,
-    ):
-        device = scan_model.Device(self._scan)
-        device.setName(name)
-        device.setMaster(parent)
+        def parse(self, name, meta, parent):
+            device = self.create_device(name, meta, parent)
+            self.parse_sub_devices(device, meta)
+            self.parse_channels(device, meta)
 
-        if parse_sub_devices:
-            sub_device_names = meta.get("triggered_devices", [])
-            for sub_device_name in sub_device_names:
-                self._parsed_devices.add(sub_device_name)
-                sub_meta = self._device_description.get(sub_device_name, None)
+        def create_device(self, name, meta, parent):
+            device = scan_model.Device(self.reader._scan)
+            device.setName(name)
+            device.setMaster(parent)
+            device_type = meta.get("type", None)
+            device_type = self.reader.DEVICE_TYPES.get(
+                device_type, scan_model.DeviceType.UNKNOWN
+            )
+            device.setType(device_type)
+            metadata = scan_model.DeviceMetadata(info=meta, roi=None)
+            device.setMetadata(metadata)
+            return device
+
+        def parse_sub_devices(self, device, meta):
+            device_ids = meta.get("triggered_devices", [])
+            for device_id in device_ids:
+                self.reader._parsed_devices.add(device_id)
+                sub_meta = self.reader._device_description.get(device_id, None)
                 if sub_meta is None:
                     _logger.error(
                         "scan_info mismatch. Device name %s metadata not found",
-                        sub_device_name,
+                        device_id,
                     )
                     continue
-                sub_name = sub_device_name.rsplit(":", 1)[-1]
-                self._parse_device(sub_name, sub_meta, parent=device)
+                sub_name = device_id.rsplit(":", 1)[-1]
+                self.reader._parse_device(sub_name, sub_meta, parent=device)
 
-        channel_names = meta.get("channels", [])
-        for channel_fullname in channel_names:
-            channel_meta = self._channel_description.get(channel_fullname, None)
-            if channel_meta is None:
-                _logger.error(
-                    "scan_info mismatch. Channel name %s metadata not found",
-                    channel_fullname,
+        def parse_channels(self, device, meta):
+            channel_names = meta.get("channels", [])
+            for channel_fullname in channel_names:
+                channel_meta = self.reader._channel_description.get(
+                    channel_fullname, None
                 )
-                continue
-            self._parse_channel(channel_fullname, channel_meta, parent=device)
+                if channel_meta is None:
+                    _logger.error(
+                        "scan_info mismatch. Channel name %s metadata not found",
+                        channel_fullname,
+                    )
+                    continue
+                self.parse_channel(channel_fullname, channel_meta, parent=device)
 
-    def _create_virtual_roi(self, roi_name, key, parent):
-        if key in self._virtual_roi_devices:
-            return self._virtual_roi_devices[key]
+        def parse_channel(self, channel_fullname: str, meta, parent: scan_model.Device):
+            channel = scan_model.Channel(parent)
+            channel.setName(channel_fullname)
 
-        device = scan_model.Device(self._scan)
-        device.setName(roi_name)
-        device.setMaster(parent)
-        device.setType(scan_model.DeviceType.VIRTUAL_ROI)
-        self._virtual_roi_devices[key] = device
+            # protect mutation of the original object, with the following `pop`
+            meta = dict(meta)
 
-        # Read metadata
-        roi_dict = self._roi_description.get(key)
-        roi = None
-        if roi_dict is not None:
-            try:
-                roi = lima_roi.dict_to_roi(roi_dict)
-            except Exception:
-                _logger.warning("Error while reading roi '%s'", key, exc_info=True)
+            # FIXME: This have to be cleaned up (unit and display name are part of the metadata)
+            unit = meta.pop("unit", None)
+            if unit is not None:
+                channel.setUnit(unit)
+            display_name = meta.pop("display_name", None)
+            if display_name is not None:
+                channel.setDisplayName(display_name)
 
-        metadata = scan_model.DeviceMetadata(roi)
-        device.setMetadata(metadata)
-        return device
+            metadata = parse_channel_metadata(meta)
+            channel.setMetadata(metadata)
 
-    def _parse_channel(self, channel_fullname: str, meta, parent: scan_model.Device):
-        short_name = channel_fullname.rsplit(":", 1)[-1]
+    class TopDeviceParser(DefaultDeviceParser):
+        def parse_sub_devices(self, device, meta):
+            # Ignore sub devices to make it a bit more flat
+            pass
 
-        # Some magic to create virtual device for each ROIs
-        if parent.name() in ["roi_counters", "roi_profiles"]:
-            # guess the computation part do not contain _
-            # FIXME: It would be good to have a real ROI concept in BLISS
-            if "_" in short_name:
-                roi_name, _ = short_name.rsplit("_", 1)
-            else:
-                roi_name = short_name
+    class LimaRoiDeviceParser(DefaultDeviceParser):
+        def parse_channels(self, device, meta):
+            # cache virtual roi devices
+            virtual_rois = {}
 
-            key = f"{parent.master().name()}:{parent.name()}:{roi_name}"
-            roi_device = self._create_virtual_roi(roi_name, key, parent)
-            parent = roi_device
+            def get_virtual_roi(channel_fullname):
+                """Some magic to create virtual device for each ROIs"""
+                short_name = channel_fullname.rsplit(":", 1)[-1]
 
-        channel = scan_model.Channel(parent)
-        channel.setName(channel_fullname)
+                # FIXME: It would be good to have a real ROI concept in BLISS
+                if "_" in short_name:
+                    roi_name, _ = short_name.rsplit("_", 1)
+                else:
+                    roi_name = short_name
 
-        # protect mutation of the original object, with the following `pop`
-        meta = dict(meta)
+                key = f"{device.master().name()}:{device.name()}:{roi_name}"
+                if key in virtual_rois:
+                    return virtual_rois[key]
+                roi_device = self.create_virtual_roi(roi_name, key, device)
+                virtual_rois[key] = roi_device
+                return roi_device
 
-        # FIXME: This have to be cleaned up (unit and display name are part of the metadata)
-        unit = meta.pop("unit", None)
-        if unit is not None:
-            channel.setUnit(unit)
-        display_name = meta.pop("channel_name", None)
-        if display_name is not None:
-            channel.setDisplayName(display_name)
+            channel_names = meta.get("channels", [])
+            for channel_fullname in channel_names:
+                channel_meta = self.reader._channel_description.get(
+                    channel_fullname, None
+                )
+                if channel_meta is None:
+                    _logger.error(
+                        "scan_info mismatch. Channel name %s metadata not found",
+                        channel_fullname,
+                    )
+                    continue
+                roi_device = get_virtual_roi(channel_fullname)
+                self.parse_channel(channel_fullname, channel_meta, parent=roi_device)
 
-        metadata = parse_channel_metadata(meta)
-        channel.setMetadata(metadata)
+        def create_virtual_roi(self, roi_name, key, parent):
+            device = scan_model.Device(self.reader._scan)
+            device.setName(roi_name)
+            device.setMaster(parent)
+            device.setType(scan_model.DeviceType.VIRTUAL_ROI)
+
+            # Read metadata
+            roi_dict = self.reader._rois_description.get(key)
+            roi = None
+            if roi_dict is not None:
+                try:
+                    roi = lima_roi.dict_to_roi(roi_dict)
+                except Exception:
+                    _logger.warning("Error while reading roi '%s'", key, exc_info=True)
+
+            metadata = scan_model.DeviceMetadata({}, roi)
+            device.setMetadata(metadata)
+            return device
+
+    def _parse_device(
+        self, name: str, meta: Dict, parent: scan_model.Device, parser_class=None
+    ):
+        if parent.type() == scan_model.DeviceType.LIMA:
+            if name == "roi_counters" or name == "roi_profiles":
+                parser_class = self.LimaRoiDeviceParser
+        if parser_class is None:
+            parser_class = self.DefaultDeviceParser
+
+        node_parser = parser_class(self)
+        node_parser.parse(name, meta, parent=parent)
 
     def _precache_scatter_constraints(self):
         """Precache information about group of data and available scatter axis"""

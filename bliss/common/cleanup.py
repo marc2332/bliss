@@ -242,14 +242,19 @@ def capture_exceptions(raise_index=-1, excepthook=None):
                 do_C()
 
     The inner contexts protect the execution by capturing any exception
-    raised. This allows the next contexts to run. When leaving the main
-    context, the last exception is raised, if any. If the `raise_index`
-    argument is set to `0`, the first exception is raised instead. This
-    behavior can also be disabled by setting `raise_index` to None. The
-    other exceptions are processed through the given excepthook, which
-    defaults to `sys.excepthook`. A list containing the information about
-    the raised exception can be retreived using the `exception_infos`
-    attribute of the `capture` object or the raised exception.
+    raised. This allows the next contexts to run. When leaving the main context,
+    the last exception is raised, if any.
+
+    If the `raise_index` argument is set to `0`, the first exception is raised
+    instead. This behavior can also be disabled by setting `raise_index` to
+    None.
+
+    The other exceptions are processed through the given excepthook, which
+    defaults to `sys.excepthook`.
+
+    A list containing the information about the raised exception can be
+    retreived using the `exception_infos` attribute of the `capture` object or
+    the raised exception.
     """
     assert raise_index in (0, -1, None)
 

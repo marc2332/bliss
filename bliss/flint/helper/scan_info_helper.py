@@ -855,11 +855,21 @@ def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
                 continue
 
             if plot is None:
+                plot = plot_item_model.OneDimDataPlot()
+
                 # In case of Lima roi_counter, it is easier to reach the device
                 # name this way for now
                 device_fullname = get_device_from_channel(channel_name)
-                plot = plot_item_model.OneDimDataPlot()
-                plot.setDeviceName(device_fullname)
+                device_root_name = device_fullname.split(":", 1)[0]
+                if device_name == "roi_collection":
+                    plot.setDeviceName(device_fullname)
+                    plot.setPlotTitle(f"{device_root_name} (roi collection)")
+                elif device_name == "roi_profile":
+                    plot.setDeviceName(device_fullname)
+                    plot.setPlotTitle(f"{device_root_name} (roi profiles)")
+                else:
+                    plot.setDeviceName(device_fullname)
+                    plot.setPlotTitle(device_root_name)
                 if default_plot is None:
                     default_plot = plot
 

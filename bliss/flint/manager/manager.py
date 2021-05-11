@@ -643,12 +643,8 @@ class ManageMainBehaviours(qt.QObject):
 
         title = plotModel.name()
         if title is None:
-            if isinstance(plotModel, plot_item_model.OneDimDataPlot):
-                title = plotModel.deviceName() + " (1D rois)"
-            elif isinstance(
-                plotModel, (plot_item_model.ImagePlot, plot_item_model.McaPlot)
-            ):
-                title = plotModel.deviceName()
+            if hasattr(plotModel, "plotTitle"):
+                title = plotModel.plotTitle()
             else:
                 prefix = str(widgetClass.__name__).replace("PlotWidget", "")
                 title = self.__getUnusedTitle(prefix, workspace)

@@ -306,6 +306,9 @@ class McaPlot(plot_model.Plot):
     def setDeviceName(self, name: str):
         self.__deviceName = name
 
+    def plotTitle(self) -> str:
+        return self.__deviceName
+
     def hasSameTarget(self, other: plot_model.Plot) -> bool:
         if type(self) is not type(other):
             return False
@@ -324,9 +327,16 @@ class OneDimDataPlot(plot_model.Plot):
     def __init__(self, parent=None):
         plot_model.Plot.__init__(self, parent=parent)
         self.__deviceName: Optional[str] = None
+        self.__plotTitle = "%s"
+
+    def setPlotTitle(self, title):
+        self.__plotTitle = title
 
     def deviceName(self) -> Optional[str]:
         return self.__deviceName
+
+    def plotTitle(self) -> str:
+        return self.__plotTitle
 
     def setDeviceName(self, name: str):
         self.__deviceName = name
@@ -381,6 +391,9 @@ class ImagePlot(plot_model.Plot):
         self.__deviceName: Optional[str] = None
 
     def deviceName(self) -> Optional[str]:
+        return self.__deviceName
+
+    def plotTitle(self) -> str:
         return self.__deviceName
 
     def setDeviceName(self, name: str):

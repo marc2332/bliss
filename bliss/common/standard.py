@@ -11,6 +11,7 @@ Standard bliss macros (:func:`~bliss.common.standard.wa`, \
 """
 from collections import namedtuple
 import functools
+import fnmatch
 import inspect
 import contextlib
 import gevent
@@ -298,13 +299,13 @@ def iter_counters(counters=None):
 
 def info(obj):
     """
-    In Bliss `__info__` is used by the command line interface (Bliss shell or Bliss repl) 
-    to enquire information of the internal state of any object / controller in case it is 
-    available. this info function is to be seen as equivalent of str(obj) or repr(obj) in
-    this context.
+    In Bliss `__info__` is used by the command line interface (Bliss shell or
+    Bliss repl) to enquire information of the internal state of any object /
+    controller in case it is available. this info function is to be seen as
+    equivalent of str(obj) or repr(obj) in this context.
 
-    if *obj* has `__info__` implemented this `__info__` function will be called. As a fallback 
-    option (`__info__` not implemented) repr(obj) is used. 
+    if *obj* has `__info__` implemented this `__info__` function will be
+    called. As a fallback option (`__info__` not implemented) repr(obj) is used.
     """
 
     if not inspect.isclass(obj) and hasattr(obj, "__info__"):
@@ -322,6 +323,48 @@ def info(obj):
         info_str = repr(obj)
 
     return info_str
+
+
+def _lsobj(pattern=None):
+    """
+    Used by bliss.shell.standard.lsobj()
+    """
+    obj_list = list()
+
+    if pattern is None:
+        pattern = "*"
+
+    # Names of objects found in session
+    for name in current_session.object_names:
+        if fnmatch.fnmatch(name, pattern):
+
+            # check if an object is an aliased object.
+            try:
+                # "name" is aliased -> add it's alias name.
+                name = global_map.alias_or_name(name)
+            except AttributeError:
+                # "name" is not aliased -> add it.
+                pass
+            obj_list.append(name)
+
+    # Add aliases (some are not in config-objects)
+    for name in global_map.aliases.names_iter():
+        if fnmatch.fnmatch(name, pattern):
+            obj_list.append(name)
+
+    return obj_list
+
+
+def _lsmot():
+    """
+    Return list of motors configured in current session
+    Used by bliss.shell.standard.lsmot()
+    """
+    motor_list = list()
+    for name in global_map.get_axes_names_iter():
+        motor_list.append(name)
+
+    return motor_list
 
 
 def wid():

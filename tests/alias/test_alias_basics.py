@@ -1,5 +1,7 @@
 import pytest
 import gevent
+
+import bliss
 from bliss.shell.standard import wm
 from bliss import global_map
 from bliss.common.scans import loopscan
@@ -236,3 +238,34 @@ def test_alias_connect(alias_session):
 
     robzz.rmove(0.1)
     assert move_done.is_set()
+
+
+def test_alias_lsobj(alias_session):
+    """
+    Ensure that lsobj() find all objects in the session.
+    """
+    obj_in_session = [
+        "simu1",
+        "robu",
+        "lima_simulator",
+        "m1",
+        "m2",
+        "mot0",
+        "robyy",
+        "robzz",
+        "dtime",
+        "rtime",
+        "ltime",
+        "dtime1",
+        "dtime2",
+        "robenc",
+    ]
+    obj_in_session.append("myroi")  # myroi and myroi3 are added in test_alias
+    obj_in_session.append("myroi3")  #   session only during tests.
+    obj_in_session.sort()
+
+    obj_in_lsobj = bliss.common.standard._lsobj()
+    obj_in_lsobj = list(set(obj_in_lsobj))  # for uniqueness of names.
+    obj_in_lsobj.sort()
+
+    assert obj_in_session == obj_in_lsobj

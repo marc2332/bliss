@@ -27,7 +27,7 @@ There are 2 versions of ProSpect:
 
 ## Windows PC installation
 
-!!! note "Windows version must be 7 or 10 pro 64 bits"
+!!! note "Windows version must be 10 pro 64 bits"
     Windows 7 is now deprecated.
 
 ### Installation of conda
@@ -41,13 +41,13 @@ There are 2 versions of ProSpect:
     * ??? untick ??? "Add Miniconda3 to the system PATH environment variable"
     * ??? tick ??? "Register Miniconda3 as the system Python 3.8"
 * Create a link from taskbar to anaconda shell
-    * win7: start / all program / anaconda3 / right click on anaconda shell / pin to taskbar
     * win10: Windows / type anaconda / highlight "Anaconda Powershell Prompt" + select "Pin to taskbar" on the right panel
+    * (deprecated) *win7: start / all program / anaconda3 / right click on anaconda shell / pin to taskbar*
 * create `bliss` Conda environment with python 3.7 and git
     * Start anaconda shell
     * `conda create -n bliss python=3.7 git pip`
 * activate bliss environment: `conda activate bliss`
-* install git support for python: `conda install gitpython`
+* install git support for python: `conda install gitpython` (2021-05: V3.1.11)
 * Configue channels:
 
 ```
@@ -65,7 +65,7 @@ conda config --env --append channels tango-controls
     conda install bliss
     ```
 
-*Alternatively*, in order to install BLISS from the sources or to devellop or to
+*Alternatively*, in order to install BLISS from the sources or to develop or to
 have on-the-edge version:
 
 * ensure some packages are installed:
@@ -125,9 +125,10 @@ The packages are copied in `C:\blissadm\xia_software\` directory
     * Check firware version (must be 20.1.0)
 
 * Install Handel libraries and make them accessible:
-    * Xmap/mercury: extract `handel-all-1.2.22-x64.zip` file (right clic on it, 7-zip / extract here...)
-    * Falconx: idem with `handel-sitoro-fxn-1.1.21-x64.zip`
-    * move it in the `blissadm` directory: `C:\blissadm\handel-all-1.2.22-x64`
+    - Xmap/mercury: extract `handel-all-1.2.22-x64.zip` file (right clic on it, 7-zip / extract here...)
+        * move it in the `blissadm` directory: `C:\blissadm\handel-all-1.2.22-x64\`
+    - Falconx: idem with `handel-sitoro-fxn-1.1.21-x64.zip`
+        * move it in the `blissadm` directory: `C:\blissadm\handel-sitoro-fxn-1.1.21-x64\`
 
 * Create a batch script to start `bliss-handel-server`:
     * right clic "New / Text Document"

@@ -224,9 +224,11 @@ class McaPlotPropertyWidget(qt.QWidget):
         channelsPerDevices: Dict[qt.QStandardItem, int] = {}
 
         for device in scan.devices():
-            item = _DataItem()
-            item.setEnvironment(self.__tree, self.__flintModel)
-            scanTree[device] = item
+            if device.type() == scan_model.DeviceType.VIRTUAL_MCA_DETECTOR:
+                # hide this node
+                hide_device = True
+            else:
+                hide_device = False
 
             master = device.master()
             if master is None:
@@ -240,10 +242,17 @@ class McaPlotPropertyWidget(qt.QWidget):
                 else:
                     parent = itemMaster
 
-            parent.appendRow(item.rowItems())
-            # It have to be done when model index are initialized
-            item.setDevice(device)
-            devices.append(item)
+            if not hide_device:
+                item = _DataItem()
+                item.setEnvironment(self.__tree, self.__flintModel)
+                scanTree[device] = item
+                parent.appendRow(item.rowItems())
+                # It have to be done when model index are initialized
+                item.setDevice(device)
+                devices.append(item)
+            else:
+                # Feed the content to the parent
+                item = parent
 
             channels = []
             for channel in device.channels():

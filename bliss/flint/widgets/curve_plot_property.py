@@ -360,6 +360,9 @@ class _AddItemAction(qt.QWidgetAction):
 
 
 class _DataItem(_property_tree_helper.ScanRowItem):
+
+    XAxisIndexRole = 1
+
     def __init__(self):
         super(_DataItem, self).__init__()
         qt.QStandardItem.__init__(self)
@@ -370,6 +373,8 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         self.__remove = qt.QStandardItem("")
         self.__error = qt.QStandardItem("")
         self.__xAxisSelected = False
+        self.__role = None
+        self.__device = None
 
         self.__plotModel: Optional[plot_model.Plot] = None
         self.__plotItem: Optional[plot_model.Item] = None
@@ -440,7 +445,7 @@ class _DataItem(_property_tree_helper.ScanRowItem):
             assert yAxis in ["left", "right"]
 
             _curve, _wasUpdated = model_helper.createCurveItem(
-                plot, self.__channel, yAxis
+                plot, self.__channel, yAxis, allowIndexed=True
             )
 
     def __visibilityViewChanged(self, item: qt.QStandardItem):
@@ -464,16 +469,22 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         self.__treeView.openPersistentEditor(self.__xaxis.index())
 
     def __xAxisChanged(self, item: qt.QStandardItem):
-        assert self.__channel is not None
         assert self.__plotModel is not None
+        plotModel = self.__plotModel
 
-        # Reach the top master
-        topMaster = self.__channel.device().topMaster()
-        scan = topMaster.scan()
-
-        plotMpdel = self.__plotModel
-        xChannelName = self.__channel.name()
-        model_helper.updateXAxis(plotMpdel, scan, topMaster, xChannelName=xChannelName)
+        if self.__channel is not None:
+            topMaster = self.__channel.device().topMaster()
+            scan = topMaster.scan()
+            xChannelName = self.__channel.name()
+            model_helper.updateXAxis(
+                plotModel, scan, topMaster, xChannelName=xChannelName
+            )
+        elif self.__role == self.XAxisIndexRole:
+            topMaster = self.__device.topMaster()
+            scan = topMaster.scan()
+            model_helper.updateXAxis(plotModel, scan, topMaster, xIndex=True)
+        else:
+            assert False
 
     def setDevice(self, device: scan_model.Device):
         self.setDeviceLookAndFeel(device)
@@ -499,6 +510,27 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         self.__xaxis.setBackground(cellColors[i % 2])
         self.__xaxis.modelUpdated = old
 
+    def setRole(self, role, device=None):
+        self.__role = role
+        if role == self.XAxisIndexRole:
+            assert device is not None
+            self.__device = device
+            items = self.__plotModel.items()
+            if len(items) > 0:
+                item = items[0]
+                checked = isinstance(item, plot_item_model.XIndexCurveItem)
+            else:
+                checked = True
+            self.setText("index")
+            qtchecked = qt.Qt.Checked if checked else qt.Qt.Unchecked
+            self.__updateXAxisStyle(True, qtchecked)
+            self.__xaxis.modelUpdated = weakref.WeakMethod(self.__xAxisChanged)
+            self.__treeView.openPersistentEditor(self.__xaxis.index())
+            icon = icons.getQIcon("flint:icons/item-index")
+            self.setIcon(icon)
+        else:
+            assert False, f"Role '{role}' is unknown"
+
     def setChannel(self, channel: scan_model.Channel):
         assert self.__treeView is not None
         self.__channel = channel
@@ -516,7 +548,9 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         return _property_tree_helper.ScanRowItem.data(self, role)
 
     def toolTip(self):
-        if self.__channel is not None:
+        if self.__role == self.XAxisIndexRole:
+            return "Use data index as x-axis"
+        elif self.__channel is not None:
             data = self.__channel.data()
             if data is not None:
                 array = data.array()
@@ -938,6 +972,14 @@ class CurvePlotPropertyWidget(qt.QWidget):
                 if channel.type() != channelFilter:
                     continue
                 channels.append(channel)
+
+            if device.master() is None:
+                indexItem = _DataItem()
+                indexItem.setEnvironment(self.__tree, self.__flintModel)
+                indexItem.setPlotModel(self.__plotModel)
+                item.appendRow(indexItem.rowItems())
+                # It have to be done when model index are initialized
+                indexItem.setRole(_DataItem.XAxisIndexRole, device=device)
 
             for channel in channels:
                 channelItem = _DataItem()

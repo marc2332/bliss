@@ -259,18 +259,33 @@ class Scan(qt.QObject, _Sealable):
             raise ValueError("Already in the device list")
         self.__devices.append(device)
 
-    def getDeviceByName(self, name: str) -> Device:
-        elements = name.split(":")
-        for device in self.__devices:
-            current = device
-            for e in reversed(elements):
-                if current is None or current.name() != e:
-                    break
-                current = current.master()
-            else:
-                # The item was found
-                if current is None:
-                    return device
+    def getDeviceByName(self, name: str, fromTopMaster=False) -> Device:
+        """
+        Returns a device from an absolute path name.
+
+        Arguments:
+            fromTopMaster: If true, the path is relative to the top master
+        """
+        if fromTopMaster:
+            for topmaster in self.__devices:
+                if topmaster.master() is not None:
+                    continue
+                try:
+                    return self.getDeviceByName(topmaster.name() + ":" + name)
+                except ValueError:
+                    continue
+        else:
+            elements = name.split(":")
+            for device in self.__devices:
+                current = device
+                for e in reversed(elements):
+                    if current is None or current.name() != e:
+                        break
+                    current = current.master()
+                else:
+                    # The item was found
+                    if current is None:
+                        return device
 
         raise ValueError("Device %s not found." % name)
 

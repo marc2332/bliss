@@ -162,13 +162,22 @@ class Sequence:
     @contextmanager
     def sequence_context(self):
         self._build_scan()
+
         group_scan = gevent.spawn(self.scan.run)
 
+        self.scan.wait_state(ScanState.STARTING)
+
+        if self.scan.state >= ScanState.USER_ABORTED:
+            # error
+            try:
+                group_scan.get()
+            except BaseException as exc:
+                raise RuntimeError("Failed to prepare scan sequence") from exc
+
+        if self.group_custom_slave is not None:
+            self.group_custom_slave.start_event.wait()
+
         try:
-            with gevent.timeout.Timeout(3):
-                self.scan.wait_state(ScanState.STARTING)
-                if self.group_custom_slave is not None:
-                    self.group_custom_slave.start_event.wait()
             yield SequenceContext(self)
         finally:
             # Stop the iteration over group_acq_master
@@ -194,7 +203,7 @@ class Sequence:
                     events_published = False
 
             # Wait until the sequence itself finishes
-            group_scan.get(timeout=None)
+            group_scan.get()
 
             # Raise exception when incomplete
             if not scans_finished:
@@ -266,8 +275,7 @@ class Group(Sequence):
                     scan_node = self.find_scan_node(s)
                 else:
                     raise ScanSequenceError(
-                        "Invalid argument: no scan node found that corresponds to "
-                        + str(s)
+                        f"Invalid argument: no scan node corresponds to {s}"
                     )
 
                 seq_context._add_via_node(scan_node)

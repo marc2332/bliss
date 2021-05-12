@@ -785,7 +785,7 @@ class Scan:
             self.scan_connection.disable_caching()
 
     def _prepare_node(self):
-        if self.__node is not None:
+        if self.node is not None:
             return
         # The root nodes will not have caching
         self.root_node = self.__scan_saving.get_parent_node()
@@ -1277,7 +1277,6 @@ class Scan:
     def prepare(self, scan_info, devices_tree):
         self._prepare_devices(devices_tree)
         self.writer.prepare(self)
-
         self._fill_meta("fill_meta_at_scan_start")
 
         # The scan info was updated with device metadata
@@ -1407,7 +1406,10 @@ class Scan:
         """
         if self.__state < state:
             self.__state = state
-            self.node.info["state"] = state
+            if self.node is not None:
+                # node can be None if the state change happens before
+                # the node is constructed (in case of error for example)
+                self.node.info["state"] = state
             self._scan_info["state"] = state
             self.__state_change.set()
 
@@ -1462,33 +1464,33 @@ class Scan:
         )
 
         with capture_exceptions(raise_index=0) as capture:
-            # check that icat metadata has been colleted for the dataset
-            self.__scan_saving.on_scan_run(not self._shadow_scan_number)
-            self._prepare_node()  # create scan node in redis
+            with capture():
+                # check that icat metadata has been colleted for the dataset
+                self.__scan_saving.on_scan_run(not self._shadow_scan_number)
 
-            # start data watch task, if needed
-            if self._data_watch_callback is not None:
-                with capture():
+                # create scan node in redis
+                self._prepare_node()
+
+                # start data watch task, if needed
+                if self._data_watch_callback is not None:
                     self._data_watch_callback.on_scan_new(self, self.scan_info)
-                if capture.failed:
-                    # if the data watch callback for "new" scan failed,
-                    # better to not continue: let's put the final state
-                    # and end the scan node
+
+            if capture.failed:
+                if self.node:
                     self._end_node()
 
-                    self._set_state(ScanState.KILLED)
+                self._set_state(ScanState.KILLED)
 
-                    self._disable_caching()
-                    return
-                self._data_watch_running = False
-                self._data_watch_task = gevent.spawn(
-                    Scan._data_watch,
-                    weakref.proxy(
-                        self, lambda _: self._data_watch_callback_event.set()
-                    ),
-                    self._data_watch_callback_event,
-                    self._data_watch_callback_done,
-                )
+                self._disable_caching()
+                return
+
+            self._data_watch_running = False
+            self._data_watch_task = gevent.spawn(
+                Scan._data_watch,
+                weakref.proxy(self, lambda _: self._data_watch_callback_event.set()),
+                self._data_watch_callback_event,
+                self._data_watch_callback_done,
+            )
 
             killed = killed_by_user = False
 
@@ -1554,7 +1556,7 @@ class Scan:
                     except KeyboardInterrupt as e:
                         killed = killed_by_user = True
                         raise ScanAbort from e
-                    except BaseException:
+                    except BaseException as e:
                         killed = True
                         raise
 
@@ -1639,11 +1641,13 @@ class Scan:
                 else:
                     self._set_state(ScanState.KILLED)
 
-            if self._data_watch_task is not None:
+            if self._data_watch_callback is not None:
                 # call "scan end" data watch callback
                 with capture():
                     self._data_watch_callback.on_scan_end(self.scan_info)
 
+            if self._data_watch_task is not None:
+                # call "scan end" data watch callback
                 with capture():
                     # ensure data watch task is stopped
                     if self._data_watch_task.ready():

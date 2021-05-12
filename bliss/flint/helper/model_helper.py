@@ -296,7 +296,7 @@ def createScatterItem(
 
 
 def createCurveItem(
-    plot: plot_model.Plot, channel: scan_model.Channel, yAxis: str
+    plot: plot_model.Plot, channel: scan_model.Channel, yAxis: str, allowIndexed=False
 ) -> Tuple[plot_model.Item, bool]:
     """
     Create an item to a plot using a channel.
@@ -317,31 +317,39 @@ def createCurveItem(
             item.setYAxis(yAxis)
             return item, True
         else:
-            xChannel = cloneChannelRef(plot, item.xChannel())
-            newItem = plot_item_model.CurveItem(plot)
-            newItem.setXChannel(xChannel)
+            newItem = None
+            if allowIndexed:
+                if isinstance(item, plot_item_model.XIndexCurveItem):
+                    newItem = plot_item_model.XIndexCurveItem(plot)
+            if newItem is None:
+                newItem = plot_item_model.CurveItem(plot)
+                xChannel = cloneChannelRef(plot, item.xChannel())
+                newItem.setXChannel(xChannel)
             newItem.setYChannel(plot_model.ChannelRef(plot, channel.name()))
             newItem.setYAxis(yAxis)
     else:
         # No other x-axis is specified
         # Reach another channel name from the same top master
-        channelNames = []
-        for device in scan.devices():
-            if device.topMaster() is not topMaster:
-                continue
-            channelNames.extend([c.name() for c in device.channels()])
-        channelNames.remove(channel.name())
-
-        if len(channelNames) > 0:
-            # Pick the first one
-            # FIXME: Maybe we could use scan infos to reach the default channel
-            channelName = channelNames[0]
+        if allowIndexed:
+            newItem = plot_item_model.XIndexCurveItem(plot)
         else:
-            # FIXME: Maybe it's better idea to display it with x-index
-            channelName = channel.name()
+            channelNames = []
+            for device in scan.devices():
+                if device.topMaster() is not topMaster:
+                    continue
+                channelNames.extend([c.name() for c in device.channels()])
+            channelNames.remove(channel.name())
 
-        newItem = plot_item_model.CurveItem(plot)
-        newItem.setXChannel(plot_model.ChannelRef(plot, channelName))
+            if len(channelNames) > 0:
+                # Pick the first one
+                # FIXME: Maybe we could use scan infos to reach the default channel
+                channelName = channelNames[0]
+            else:
+                # FIXME: Maybe it's better idea to display it with x-index
+                channelName = channel.name()
+            newItem = plot_item_model.CurveItem(plot)
+            newItem.setXChannel(plot_model.ChannelRef(plot, channelName))
+
         newItem.setYChannel(plot_model.ChannelRef(plot, channel.name()))
         newItem.setYAxis(yAxis)
 
@@ -709,3 +717,55 @@ def copyItemConfig(sourceItem: plot_model.Item, destinationItem: plot_model.Item
             newItem.setSource(destinationSource)
             destinationPlot.addItem(newItem)
             sourceToDest[item] = newItem
+
+
+def updateXAxis(
+    plotModel: plot_model.Plot,
+    scan: scan_model.Scan,
+    topMaster: plot_model.Item,
+    xChannelName: Optional[str] = None,
+    xIndex: bool = False,
+):
+    """Update the x-axis used by a plot
+
+    Arguments:
+        xChannelName: If set, Name of the channel to use as X-axis
+        xIndex: If true, use Y data index as X-axis
+    """
+    # Reach all plot items from this top master
+    curves = reachAllCurveItemFromDevice(plotModel, scan, topMaster)
+
+    if len(curves) == 0:
+        # FIXME: it would be good to remove that stuff
+        if xChannelName is not None:
+            # Create an item to store the x-value
+            newItem = plot_item_model.CurveItem(plotModel)
+            newItem.setXChannel(plot_model.ChannelRef(plotModel, xChannelName))
+        elif xIndex:
+            newItem = plot_item_model.XIndexCurveItem(plotModel)
+        plotModel.addItem(newItem)
+    else:
+        # Update the x-channel of all this curves
+        with plotModel.transaction():
+            useXIndex = isinstance(curves[0], plot_item_model.XIndexCurveItem)
+            if xChannelName is not None and not useXIndex:
+                # Update only
+                for curve in curves:
+                    xChannel = plot_model.ChannelRef(curve, xChannelName)
+                    curve.setXChannel(xChannel)
+            elif xIndex:
+                plotModel.clear()
+                for curve in curves:
+                    item = plot_item_model.XIndexCurveItem(plotModel)
+                    item.setYChannel(curve.yChannel())
+                    item.setYAxis(curve.yAxis())
+                    plotModel.addItem(item)
+            else:
+                plotModel.clear()
+                for curve in curves:
+                    item = plot_item_model.CurveItem(plotModel)
+                    item.setYChannel(curve.yChannel())
+                    item.setYAxis(curve.yAxis())
+                    xChannel = plot_model.ChannelRef(curve, xChannelName)
+                    item.setXChannel(xChannel)
+                    plotModel.addItem(item)

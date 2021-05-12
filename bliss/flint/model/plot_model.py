@@ -166,6 +166,14 @@ class Plot(qt.QObject):
                 items.append(i)
         return items
 
+    def clear(self):
+        with self.transaction():
+            for i in reversed(self.__items):
+                i._setPlot(None)
+                self.itemRemoved.emit(i)
+            self.__items = []
+        self.invalidateStructure()
+
     def removeItem(self, item: Item):
         items = self.__itemTree(item)
         with self.transaction():

@@ -471,25 +471,9 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         topMaster = self.__channel.device().topMaster()
         scan = topMaster.scan()
 
-        # Reach all plot items from this top master
-        curves = model_helper.reachAllCurveItemFromDevice(
-            self.__plotModel, scan, topMaster
-        )
-
-        if len(curves) == 0:
-            # Create an item to store the x-value
-            plot = self.__plotModel
-            channelName = self.__channel.name()
-            newItem = plot_item_model.CurveItem(plot)
-            newItem.setXChannel(plot_model.ChannelRef(plot, channelName))
-            plot.addItem(newItem)
-        else:
-            # Update the x-channel of all this curves
-            with self.__plotModel.transaction():
-                xChannelName = self.__channel.name()
-                for curve in curves:
-                    xChannel = plot_model.ChannelRef(curve, xChannelName)
-                    curve.setXChannel(xChannel)
+        plotMpdel = self.__plotModel
+        xChannelName = self.__channel.name()
+        model_helper.updateXAxis(plotMpdel, scan, topMaster, xChannelName=xChannelName)
 
     def setDevice(self, device: scan_model.Device):
         self.setDeviceLookAndFeel(device)

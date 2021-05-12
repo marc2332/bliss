@@ -255,19 +255,23 @@ class McaPlotPropertyWidget(qt.QWidget):
                 item = parent
 
             channels = []
-            for channel in device.channels():
-                if channel.type() != channelFilter:
-                    continue
-                channels.append(channel)
+            if device.type() in [
+                scan_model.DeviceType.MCA,
+                scan_model.DeviceType.VIRTUAL_MCA_DETECTOR,
+            ]:
+                for channel in device.channels():
+                    if channel.type() != channelFilter:
+                        continue
+                    channels.append(channel)
 
-            for channel in channels:
-                channelItem = _DataItem()
-                channelItem.setEnvironment(self.__tree, self.__flintModel)
-                item.appendRow(channelItem.rowItems())
-                # It have to be done when model index are initialized
-                channelItem.setChannel(channel)
-                channelItem.setPlotModel(self.__plotModel)
-                channelItems[channel.name()] = channelItem
+                for channel in channels:
+                    channelItem = _DataItem()
+                    channelItem.setEnvironment(self.__tree, self.__flintModel)
+                    item.appendRow(channelItem.rowItems())
+                    # It have to be done when model index are initialized
+                    channelItem.setChannel(channel)
+                    channelItem.setPlotModel(self.__plotModel)
+                    channelItems[channel.name()] = channelItem
 
             # Update channel use
             parent = item

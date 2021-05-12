@@ -10,8 +10,8 @@ from scipy import signal
 from scipy.special import erf
 
 from bliss.scanning.chain import AcquisitionSlave
-from bliss.common.counter import Counter, SoftCounter
-from bliss.controllers.counter import CounterController
+from bliss.common.counter import Counter, SoftCounter, SamplingMode, SamplingCounter
+from bliss.controllers.counter import CounterController, SamplingCounterController
 from bliss.common.soft_axis import SoftAxis
 from bliss.common.protocols import counter_namespace
 
@@ -587,6 +587,55 @@ class FixedShapeCounter:
     @property
     def axis(self):
         return self._axis
+
+
+class OneDimSimulationController(SamplingCounterController):
+    """Controller to handle `OneDimSimulationCounter`"""
+
+    def read(self, counter):
+        return counter._get_data()
+
+
+class OneDimSimulationCounter(SamplingCounter):
+    """Create a 1D simulated counter.
+
+    Arguments:
+        signal: Name of the signal shape to generate. See `_Signal.SIGNALS`
+        size: Number of points to generate
+        coef: Coefficient applied to the generator
+        poissonian: If true the signal is randomized with poissonian filter
+    """
+
+    def __init__(
+        self,
+        name: str,
+        controller: OneDimSimulationController,
+        conversion_function=None,
+        unit=None,
+        signal: str = "sawtooth",
+        coef: float = 1.0,
+        poissonian: bool = False,
+        size: int = 32,
+    ):
+        SamplingCounter.__init__(
+            self,
+            name=name,
+            mode=SamplingMode.SINGLE,
+            unit=unit,
+            conversion_function=conversion_function,
+            controller=controller,
+        )
+        self._size = size
+        self._signal = _Signal(
+            name=signal, npoints=size, poissonian=poissonian, coef=coef
+        )
+
+    def _get_data(self):
+        return self._signal.compute()
+
+    @property
+    def shape(self):
+        return (self._size,)
 
 
 class AutoFilterDetMon:

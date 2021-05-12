@@ -15,6 +15,7 @@ from bliss.common.tango import DeviceProxy, DevFailed, Database, DevState
 from bliss.config import settings
 from bliss.config.beacon_object import BeaconObject
 from bliss.common.logtools import log_debug
+from bliss.common.protocols import HasMetadataForScan
 
 from bliss.controllers.counter import CounterController, counter_namespace
 from bliss import current_session
@@ -80,7 +81,7 @@ class ChangeTangoTimeout(object):
         self.__device.set_timeout_millis(self.__back_timeout)
 
 
-class Lima(CounterController):
+class Lima(CounterController, HasMetadataForScan):
     """
     Lima controller.
     Basic configuration:
@@ -154,6 +155,9 @@ class Lima(CounterController):
         global_map.register(
             self, parents_list=["lima", "controllers"], children_list=[self._proxy]
         )
+
+    def metadata_when_prepared(self) -> dict:
+        return {"type": "lima"}
 
     @property
     def disable_bpm(self):

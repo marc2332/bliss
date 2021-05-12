@@ -116,3 +116,16 @@ class IcatPublisher(ABC):
         Return a dict containing metadata
         """
         raise NotImplementedError
+
+
+class HasMetadataForScan(ABC):
+    """
+    Any controller which provides metadata during a scan life cycle.
+    """
+
+    def metadata_when_prepared(self) -> dict:
+        """
+        Return a dict containing metadata when the device was prepared by the
+        scan.
+        """
+        raise NotImplementedError

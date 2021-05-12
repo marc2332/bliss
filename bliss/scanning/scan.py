@@ -1278,7 +1278,10 @@ class Scan:
         self._prepare_devices(devices_tree)
         self.writer.prepare(self)
 
-        self.node.prepared()
+        self._fill_meta("fill_meta_at_scan_start")
+
+        # The scan info was updated with device metadata
+        self.node.prepared(self._scan_info)
 
         self._axes_in_scan = self._get_data_axes(include_calc_reals=True)
         with execute_pre_scan_hooks(self._axes_in_scan):
@@ -1413,16 +1416,16 @@ class Scan:
 
             Method name can be either 'fill_meta_as_scan_start' or 'fill_meta_at_scan_end'
             """
-        for dev in self.acq_chain.nodes_list:
-            node = self.nodes.get(dev)
-            if node is None:
-                # prepare has not finished ?
-                continue
+        for acq_obj in self.acq_chain.nodes_list:
             with KillMask(masked_kill_nb=1):
-                meth = getattr(dev, method_name)
-                tmp = meth(self.user_scan_meta)
-            if tmp:
-                update_node_info(node, tmp)
+                fill_meta = getattr(acq_obj, method_name)
+                metadata = fill_meta(self.user_scan_meta)
+            if metadata is not None:
+                node = self.nodes.get(acq_obj)
+                if node is not None:
+                    update_node_info(node, metadata)
+                if method_name == "fill_meta_at_scan_start":
+                    self._scan_info._set_device_meta(acq_obj, metadata)
 
     def run(self):
         """Run the scan
@@ -1530,8 +1533,6 @@ class Scan:
 
                         # starting the scan
                         self._set_state(ScanState.STARTING)
-
-                        self._fill_meta("fill_meta_at_scan_start")
 
                         self._execute_preset("start")
 

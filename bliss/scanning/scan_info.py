@@ -80,6 +80,40 @@ For now:
 So reaching name for devices or channels can be done the following way:
 `name = key.rsplit(":", 1)[-1]`.
 
+Device metadata
+===============
+
+Metadata can be exposed per devices. It can be feed by the controller or by the
+acquisition object during the preparation of the controllers.
+
+BLISS provides a type metadata only 2 kind of objects: `mca` and `lima`
+
+===================  ===========  ===========  ========================
+ Name                 Type         Flag         Description
+===================  ===========  ===========  ========================
+`channels`            list[str]    optional     If set, list of channels exposed
+                                                by this device
+`triggered_devices`   list[str]    optional     If set, list of sub devices
+                                                triggered by this device
+`type`                str          optional     One of `lima` or `mca`
+                                                (other values could be used
+                                                but are not yet normalized)
+===================  ===========  ===========  ========================
+
+This can be used to infer sub devices and channels.
+
+- A device typed as `mca`
+   - contains 1D channels which are spectrums
+- A device typed as `lima`
+   - can contain an 2D channel which is the image of the detector
+   - can contain a device named `bpm`
+   - can contain a device named `roi_counters`
+      - this device contains a bunch of 0D channels associated to a BMP
+   - can contain a device named `roi_profiles`
+      - this device contains a bunch of 1D channels associated to ROIs
+   - can contain a device named `roi_collection`
+      - this device contains a bunch of 1D channels, each value is associated to a single ROI
+
 Channel metadata
 ================
 
@@ -88,12 +122,16 @@ the scan_info.
 
 The following metadata are automatically generated.
 
-- `display_name` (optional, str): Expected displayed name
-- `unit` (optional, str): SI unit used by the data
-- `dim` (mandatory, int): Dimensionality of the data
-                          (0: scalar, 1: 1D data, 2: 2D data)
+==============  ======  ===========  ========================
+ Name            Type    Flag          Description
+==============  ======  ===========  ========================
+`display_name`   str     optional      Expected displayed name
+`unit`           str     optional      SI unit used by the data
+`dim`            int     mandatory     Dimensionality of the data
+                                       (0: scalar, 1: 1D data, 2: 2D data)
+==============  ======  ===========  ========================
 
-There is other metadata which can be feed by the scan designers.
+Other metadata can be feed by the scan designers.
 Take a look at :meth:`ScanInfo.set_channel_meta`.
 
 
@@ -262,6 +300,24 @@ class ScanInfo(dict):
         """
         info = self._scan_info.setdefault("sequence-info", {})
         info["scan-count"] = int(scan_count)
+
+    def _get_key_from_acq_obj(self, acq_obj):
+        """Used device key from an acq_obj"""
+        return f"{str(id(acq_obj))}:{acq_obj.name}"
+
+    def _set_device_meta(self, acq_obj, metadata: typing.Dict):
+        """Protected function called by the scan to feed the device info after
+        the device preparation.
+
+        Argument:
+            acq_obj: A device though its acquisition object
+            metadata: A dictionary of basic python types.
+                      Few reserved keys could be ignored.
+        """
+        devices = self.setdefault("devices", {})
+        name = self._get_key_from_acq_obj(acq_obj)
+        device = devices.setdefault(name, {})
+        device.update(metadata)
 
     def _get_channels_dict(self, acq_object, channels_dict):
         scalars = channels_dict.setdefault("scalars", [])

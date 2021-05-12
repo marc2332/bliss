@@ -35,8 +35,8 @@ SCAN_INFO_3 = {
 
 
 class MockedScanManager(scan_manager.ScanManager):
-    def emit_scan_created(self, scan_info):
-        self.on_scan_created(scan_info["node_name"], scan_info)
+    def emit_scan_started(self, scan_info):
+        self.on_scan_started(scan_info["node_name"], scan_info)
 
     def emit_scan_finished(self, scan_info):
         self.on_scan_finished(scan_info["node_name"], scan_info)
@@ -67,12 +67,12 @@ def test_interleaved_scans():
     scans = manager.get_alive_scans()
     assert len(scans) == 0
 
-    manager.emit_scan_created(scan_info_1)
+    manager.emit_scan_started(scan_info_1)
     scans = manager.get_alive_scans()
     assert len(scans) == 1
     assert scans[0].scanInfo() == scan_info_1
 
-    manager.emit_scan_created(scan_info_2)
+    manager.emit_scan_started(scan_info_2)
     manager.emit_scalar_updated(scan_info_1, "axis:roby", numpy.arange(2))
     manager.emit_scalar_updated(scan_info_2, "axis:robz", numpy.arange(3))
     manager.wait_data_processed()
@@ -95,7 +95,7 @@ def test_sequencial_scans():
 
     manager = MockedScanManager(flintModel=None)
 
-    manager.emit_scan_created(scan_info_1)
+    manager.emit_scan_started(scan_info_1)
     manager.emit_scalar_updated(scan_info_1, "axis:roby", numpy.arange(2))
     manager.wait_data_processed()
     scans = manager.get_alive_scans()
@@ -104,7 +104,7 @@ def test_sequencial_scans():
     assert manager.get_alive_scans() == []
     assert scans[0].scanInfo() == scan_info_1
 
-    manager.emit_scan_created(scan_info_2)
+    manager.emit_scan_started(scan_info_2)
     manager.emit_scalar_updated(scan_info_2, "axis:robz", numpy.arange(3))
     manager.wait_data_processed()
     scans = manager.get_alive_scans()
@@ -119,7 +119,7 @@ def test_bad_sequence__end_before_new():
     manager = MockedScanManager(flintModel=None)
 
     manager.emit_scan_finished(scan_info_1)
-    manager.emit_scan_created(scan_info_1)
+    manager.emit_scan_started(scan_info_1)
     # FIXME What to do anyway then? The manager is locked
 
 
@@ -170,7 +170,7 @@ def test_image__default():
 
     manager = MockedScanManager(flintModel=None)
 
-    manager.emit_scan_created(scan_info_3)
+    manager.emit_scan_started(scan_info_3)
     scan = manager.get_alive_scans()[0]
 
     image = numpy.arange(1).reshape(1, 1)
@@ -191,7 +191,7 @@ def test_image__disable_video():
 
     manager = MockedScanManager(flintModel=None)
 
-    manager.emit_scan_created(scan_info_3)
+    manager.emit_scan_started(scan_info_3)
     scan = manager.get_alive_scans()[0]
 
     image = numpy.arange(1).reshape(1, 1)
@@ -216,7 +216,7 @@ def test_image__decoding_error():
 
     manager = MockedScanManager(flintModel=None)
 
-    manager.emit_scan_created(scan_info_3)
+    manager.emit_scan_started(scan_info_3)
     scan = manager.get_alive_scans()[0]
 
     image = numpy.arange(1).reshape(1, 1)
@@ -241,7 +241,7 @@ def test_prefered_user_refresh():
 
     manager = MockedScanManager(flintModel=None)
 
-    manager.emit_scan_created(scan_info_3)
+    manager.emit_scan_started(scan_info_3)
     scan = manager.get_alive_scans()[0]
     channel = scan.getChannelByName("lima:image")
     channel.setPreferedRefreshRate("foo", 500)
@@ -275,7 +275,7 @@ def test_scalar_data_lost():
     manager = MockedScanManager(flintModel=None)
     # Disabled async consumption
 
-    manager.emit_scan_created(scan_info_1)
+    manager.emit_scan_started(scan_info_1)
     scans = manager.get_alive_scans()
     assert len(scans) == 1
     assert scans[0].scanInfo() == scan_info_1

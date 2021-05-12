@@ -43,20 +43,26 @@ SCAN_INFO = {
 
 
 SCAN_INFO_LIMA_ROIS = {
-    "acquisition_chain": {"timer": {"devices": ["master", "slave"]}},
+    "acquisition_chain": {
+        "timer": {"devices": ["master", "beamviewer", "beamviewer:roi_counters"]}
+    },
     "devices": {
         "master": {
             "channels": ["timer:elapsed_time", "timer:epoch"],
-            "triggered_devices": ["slave"],
+            "triggered_devices": ["beamviewer"],
         },
-        "slave": {
+        "beamviewer": {
+            "type": "lima",
+            "triggered_devices": ["beamviewer:roi_counters"],
+            "channels": ["beamviewer:image"],
+        },
+        "beamviewer:roi_counters": {
             "channels": [
                 "beamviewer:roi_counters:roi1_sum",
                 "beamviewer:roi_counters:roi1_avg",
                 "beamviewer:roi_counters:roi4_sum",
                 "beamviewer:roi_counters:roi4_avg",
                 "beamviewer:roi_counters:roi5_avg",
-                "beamviewer:image",
             ]
         },
     },
@@ -301,6 +307,7 @@ def test_amesh_scan_with_image_and_mca():
                 "triggered_devices": ["slave"],
             },
             "slave": {
+                "type": "mca",
                 "channels": [
                     "timer:elapsed_time",
                     "timer:epoch",
@@ -315,7 +322,7 @@ def test_amesh_scan_with_image_and_mca():
                     "mca1:deadtime_det0",
                     "mca1:spectrum_det0",
                     "tomocam:image",
-                ]
+                ],
             },
         },
         "channels": {

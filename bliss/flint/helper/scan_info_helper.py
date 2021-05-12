@@ -86,6 +86,7 @@ def _get_channels(
     """
     names = []
 
+    master_count = 0
     for top_master, meta in scan_info["acquisition_chain"].items():
         if top_master_name is not None:
             if top_master != top_master_name:
@@ -98,7 +99,10 @@ def _get_channels(
                 continue
 
             if master is not None:
-                is_master = "triggered_devices" in device_info
+                is_triggering = "triggered_devices" in device_info
+                if is_triggering:
+                    master_count += 1
+                is_master = is_triggering and master_count == 1
                 if master ^ is_master:
                     # If the filter mismatch
                     continue
@@ -582,258 +586,281 @@ def read_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
     return result
 
 
-def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
-    """Infer description of plot models from a scan_info using
-    `acquisition_chain`."""
-    result: List[plot_model.Plot] = []
+def _infer_default_curve_plot(
+    scan_info: Dict, have_scatter: bool
+) -> Optional[plot_model.Plot]:
+    """Create a curve plot by inferring the acquisition chain content.
 
-    channel_units = read_units(scan_info)
+    If there is a scatter as main plot, try to use a time counter as axis.
+    """
+    plot = plot_item_model.CurvePlot()
 
-    default_plot = None
+    def get_unit(channel_name: str) -> Optional[str]:
+        return scan_info["channels"][channel_name].get("unit", None)
 
-    have_scalar = False
-    have_scatter = False
     acquisition_chain = scan_info.get("acquisition_chain", None)
-    if len(acquisition_chain.keys()) == 1:
-        first_key = list(acquisition_chain.keys())[0]
-        if first_key == "GroupingMaster":
-            # Make sure groups does not generate anything plots
-            return []
-
     for master_name in acquisition_chain.keys():
         scalars = _get_channels(scan_info, master_name, dim=0, master=False)
-        if len(scalars) > 0:
-            have_scalar = True
-        if scan_info.get("data_dim", 1) == 2 or scan_info.get("dim", 1) == 2:
-            have_scatter = True
+        master_channels = _get_channels(scan_info, master_name, dim=0, master=True)
 
-    # Ct
+        if have_scatter:
+            # In case of scatter the curve plot have to plot the time in x
+            # Masters in y1 and the first value in y2
 
-    if scan_info.get("type", None) == "ct":
-        plot = plot_item_model.ScalarPlot()
-        result.append(plot)
-        have_scalar = False
-        have_scatter = False
-
-    # Scalar plot
-
-    if have_scalar:
-        plot = plot_item_model.CurvePlot()
-        if not have_scalar:
-            default_plot = plot
-
-        for master_name in acquisition_chain.keys():
-            scalars = _get_channels(scan_info, master_name, dim=0, master=False)
-            master_channels = _get_channels(scan_info, master_name, dim=0, master=True)
-
-            if have_scatter:
-                # In case of scatter the curve plot have to plot the time in x
-                # Masters in y1 and the first value in y2
-
-                for timer in scalars:
-                    if timer in master_channels:
-                        # skip the masters
-                        continue
-                    if channel_units.get(timer, None) != "s":
-                        # skip non time base
-                        continue
-                    break
-                else:
-                    timer = None
-
-                for scalar in scalars:
-                    if scalar in master_channels:
-                        # skip the masters
-                        continue
-                    if channel_units.get(scalar, None) == "s":
-                        # skip the time base
-                        continue
-                    break
-                else:
-                    scalar = None
-
-                if timer is not None:
-                    if scalar is not None:
-                        item = plot_item_model.CurveItem(plot)
-                        x_channel = plot_model.ChannelRef(plot, timer)
-                        y_channel = plot_model.ChannelRef(plot, scalar)
-                        item.setXChannel(x_channel)
-                        item.setYChannel(y_channel)
-                        item.setYAxis("left")
-                        plot.addItem(item)
-
-                    for channel_name in master_channels:
-                        item = plot_item_model.CurveItem(plot)
-                        x_channel = plot_model.ChannelRef(plot, timer)
-                        y_channel = plot_model.ChannelRef(plot, channel_name)
-                        item.setXChannel(x_channel)
-                        item.setYChannel(y_channel)
-                        item.setYAxis("right")
-                        plot.addItem(item)
-                else:
-                    # The plot will be empty
-                    pass
-            else:
-                if len(master_channels) > 0 and master_channels[0].startswith("axis:"):
-                    master_channel = master_channels[0]
-                    master_channel_unit = channel_units.get(master_channel, None)
-                    is_motor_scan = master_channel_unit != "s"
-                else:
-                    is_motor_scan = False
-
-                for channel_name in scalars:
-                    channel_unit = channel_units.get(channel_name, None)
-                    if is_motor_scan and channel_unit == "s":
-                        # Do not display base time for motor based scan
-                        continue
-
-                    item = plot_item_model.CurveItem(plot)
-                    data_channel = plot_model.ChannelRef(plot, channel_name)
-
-                    if len(master_channels) == 0:
-                        master_channel = None
-                    else:
-                        master_channel = plot_model.ChannelRef(plot, master_channels[0])
-
-                    item.setXChannel(master_channel)
-                    item.setYChannel(data_channel)
-                    plot.addItem(item)
-                    # Only display the first counter
-                    break
-
-        result.append(plot)
-
-    # Scatter plot
-
-    if have_scatter:
-        for master_name in acquisition_chain.keys():
-            plot = plot_item_model.ScatterPlot()
-            if default_plot is None:
-                default_plot = plot
-
-            scalars = _get_channels(scan_info, master_name, dim=0, master=False)
-            axes_channels = _get_channels(scan_info, master_name, dim=0, master=True)
-
-            # Reach the first scalar which is not a time unit
-            for scalar in scalars:
-                if scalar in axes_channels:
+            for timer in scalars:
+                if timer in master_channels:
                     # skip the masters
                     continue
-                if channel_units.get(scalar, None) == "s":
+                if get_unit(timer) != "s":
+                    # skip non time base
+                    continue
+                break
+            else:
+                timer = None
+
+            for scalar in scalars:
+                if scalar in master_channels:
+                    # skip the masters
+                    continue
+                if get_unit(scalar) == "s":
                     # skip the time base
                     continue
                 break
             else:
                 scalar = None
 
-            if len(axes_channels) >= 1:
-                x_channel = plot_model.ChannelRef(plot, axes_channels[0])
+            if timer is not None:
+                if scalar is not None:
+                    item = plot_item_model.CurveItem(plot)
+                    x_channel = plot_model.ChannelRef(plot, timer)
+                    y_channel = plot_model.ChannelRef(plot, scalar)
+                    item.setXChannel(x_channel)
+                    item.setYChannel(y_channel)
+                    item.setYAxis("left")
+                    plot.addItem(item)
+
+                for channel_name in master_channels:
+                    item = plot_item_model.CurveItem(plot)
+                    x_channel = plot_model.ChannelRef(plot, timer)
+                    y_channel = plot_model.ChannelRef(plot, channel_name)
+                    item.setXChannel(x_channel)
+                    item.setYChannel(y_channel)
+                    item.setYAxis("right")
+                    plot.addItem(item)
             else:
-                x_channel = None
-
-            if len(axes_channels) >= 2:
-                y_channel = plot_model.ChannelRef(plot, axes_channels[1])
+                # The plot will be empty
+                pass
+        else:
+            if len(master_channels) > 0 and master_channels[0].startswith("axis:"):
+                master_channel = master_channels[0]
+                master_channel_unit = get_unit(master_channel)
+                is_motor_scan = master_channel_unit != "s"
             else:
-                y_channel = None
+                is_motor_scan = False
 
-            if scalar is not None:
-                data_channel = plot_model.ChannelRef(plot, scalar)
-            else:
-                data_channel = None
+            for channel_name in scalars:
+                if is_motor_scan and get_unit(channel_name) == "s":
+                    # Do not display base time for motor based scan
+                    continue
 
-            item = plot_item_model.ScatterItem(plot)
-            item.setXChannel(x_channel)
-            item.setYChannel(y_channel)
-            item.setValueChannel(data_channel)
-            plot.addItem(item)
+                item = plot_item_model.CurveItem(plot)
+                data_channel = plot_model.ChannelRef(plot, channel_name)
 
-            result.append(plot)
+                if len(master_channels) == 0:
+                    master_channel = None
+                else:
+                    master_channel = plot_model.ChannelRef(plot, master_channels[0])
 
-    # MCA plot
+                item.setXChannel(master_channel)
+                item.setYChannel(data_channel)
+                plot.addItem(item)
+                # Only display the first counter
+                break
+    return plot
 
-    mca_plots_per_device: Dict[str, List[plot_model.Plot]] = {}
-    roi1d_plots_per_device: Dict[str, List[plot_model.Plot]] = {}
+
+def _infer_default_scatter_plot(scan_info: Dict) -> List[plot_model.Plot]:
+    """Create a set of scatter plots according to the content of acquisition
+    chain"""
+    plots: List[plot_model.Plot] = []
+
+    def get_unit(channel_name: str) -> Optional[str]:
+        return scan_info["channels"][channel_name].get("unit", None)
+
+    acquisition_chain = scan_info.get("acquisition_chain", None)
 
     for master_name in acquisition_chain.keys():
-        spectra: List[str] = []
-        rois1d: List[str] = []
+        plot = plot_item_model.ScatterPlot()
 
-        channel_names = _get_channels(scan_info, master_name, dim=1)
-        for c in channel_names:
-            if ":roi_profiles:" in c:
-                rois1d.append(c)
-            else:
-                spectra.append(c)
+        scalars = _get_channels(scan_info, master_name, dim=0, master=False)
+        axes_channels = _get_channels(scan_info, master_name, dim=0, master=True)
 
-        for spectrum_name in spectra:
-            device_name = get_device_from_channel(spectrum_name)
-            plot = mca_plots_per_device.get(device_name, None)
+        # Reach the first scalar which is not a time unit
+        for scalar in scalars:
+            if scalar in axes_channels:
+                # skip the masters
+                continue
+            if get_unit(scalar) == "s":
+                # skip the time base
+                continue
+            break
+        else:
+            scalar = None
+
+        if len(axes_channels) >= 1:
+            x_channel = plot_model.ChannelRef(plot, axes_channels[0])
+        else:
+            x_channel = None
+
+        if len(axes_channels) >= 2:
+            y_channel = plot_model.ChannelRef(plot, axes_channels[1])
+        else:
+            y_channel = None
+
+        if scalar is not None:
+            data_channel = plot_model.ChannelRef(plot, scalar)
+        else:
+            data_channel = None
+
+        item = plot_item_model.ScatterItem(plot)
+        item.setXChannel(x_channel)
+        item.setYChannel(y_channel)
+        item.setValueChannel(data_channel)
+        plot.addItem(item)
+        plots.append(plot)
+
+    return plots
+
+
+def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
+    """Infer description of plot models from a scan_info using
+    `acquisition_chain`.
+
+    - Dedicated default plot is created for 0D channels according to the kind
+      of scan. It could be:
+        - ct plot
+        - curve plot
+        - scatter plot
+    - A dedicated image plot is created per lima detectors
+    - A dedicated MCA plot is created per mca detectors
+    - Remaining 2D channels are displayed as an image widget
+    - Remaining 1D channels are displayed as a 1D plot
+    """
+    result: List[plot_model.Plot] = []
+
+    default_plot = None
+
+    acquisition_chain = scan_info.get("acquisition_chain", None)
+    if len(acquisition_chain.keys()) == 1:
+        first_key = list(acquisition_chain.keys())[0]
+        if first_key == "GroupingMaster":
+            # Make sure groups does not generate any plots
+            return []
+
+    # ct / curve / scatter
+
+    if scan_info.get("type", None) == "ct":
+        plot = plot_item_model.ScalarPlot()
+        result.append(plot)
+    else:
+        have_scalar = False
+        have_scatter = False
+        for master_name in acquisition_chain.keys():
+            scalars = _get_channels(scan_info, master_name, dim=0, master=False)
+            if len(scalars) > 0:
+                have_scalar = True
+            if scan_info.get("data_dim", 1) == 2 or scan_info.get("dim", 1) == 2:
+                have_scatter = True
+
+        if have_scalar:
+            plot = _infer_default_curve_plot(scan_info, have_scatter)
+            if plot is not None:
+                result.append(plot)
+                if not have_scalar:
+                    default_plot = plot
+        if have_scatter:
+            plots = _infer_default_scatter_plot(scan_info)
+            if len(plots) > 0:
+                result.extend(plots)
+                if default_plot is None:
+                    default_plot = plots[0]
+
+    # 1D plots
+
+    for device_id, device_info in scan_info.get("devices", {}).items():
+        device_type = device_info.get("type")
+        device_name = device_id.rsplit(":", 1)[-1]
+        plot = None
+
+        for channel_name in device_info.get("channels", []):
+            channel_info = scan_info["channels"].get(channel_name, {})
+            dim = channel_info.get("dim", 0)
+            if dim != 1:
+                continue
+
             if plot is None:
-                plot = plot_item_model.McaPlot()
-                plot.setDeviceName(device_name)
-                mca_plots_per_device[device_name] = plot
-            if default_plot is None:
-                default_plot = plot
+                device_name = get_device_from_channel(channel_name)
+                if device_type == "mca":
+                    plot = plot_item_model.McaPlot()
+                    plot.setDeviceName(device_name)
+                else:
+                    plot = plot_item_model.OneDimDataPlot()
+                    plot.setDeviceName(device_name)
+                if default_plot is None:
+                    default_plot = plot
 
-            mca_channel = plot_model.ChannelRef(plot, spectrum_name)
+            channel = plot_model.ChannelRef(plot, channel_name)
             item = plot_item_model.McaItem(plot)
-            item.setMcaChannel(mca_channel)
+            item.setMcaChannel(channel)
             plot.addItem(item)
 
-        for roi1d_name in rois1d:
-            device_name = get_device_from_channel(roi1d_name)
-            plot = roi1d_plots_per_device.get(device_name, None)
-            if plot is None:
-                plot = plot_item_model.OneDimDataPlot()
-                plot.setDeviceName(device_name)
-                roi1d_plots_per_device[device_name] = plot
-            if default_plot is None:
-                default_plot = plot
-
-            mca_channel = plot_model.ChannelRef(plot, roi1d_name)
-            item = plot_item_model.McaItem(plot)
-            item.setMcaChannel(mca_channel)
-            plot.addItem(item)
-
-    result.extend(mca_plots_per_device.values())
-    result.extend(roi1d_plots_per_device.values())
+        if plot is not None:
+            result.append(plot)
 
     # Image plot
 
-    image_plots_per_device: Dict[str, List[plot_model.Plot]] = {}
     for master_name in acquisition_chain.keys():
-        images = _get_channels(scan_info, master_name, dim=2)
-        for image_name in images:
-            device_name = get_device_from_channel(image_name)
-            plot = image_plots_per_device.get(device_name, None)
-            if plot is None:
-                plot = plot_item_model.ImagePlot()
-                plot.setDeviceName(device_name)
-                image_plots_per_device[device_name] = plot
-            if default_plot is None:
-                default_plot = plot
+        for device_id in acquisition_chain[master_name].get("devices", []):
+            device_info = scan_info["devices"].get(device_id, {})
+            device_type = device_info.get("type")
+            device_name = device_id.rsplit(":", 1)[-1]
+            plot = None
 
-            image_channel = plot_model.ChannelRef(plot, image_name)
-            item = plot_item_model.ImageItem(plot)
-            item.setImageChannel(image_channel)
-            plot.addItem(item)
+            for channel_name in device_info.get("channels", []):
+                channel_info = scan_info["channels"].get(channel_name, {})
+                dim = channel_info.get("dim", 0)
+                if dim != 2:
+                    continue
 
-            if "rois" in scan_info:
-                for roi_name, _roi_dict in scan_info["rois"].items():
-                    if not roi_name.startswith(
-                        f"{device_name}:roi_counters:"
-                    ) and not roi_name.startswith(f"{device_name}:roi_profiles:"):
-                        pass
-                    item = plot_item_model.RoiItem(plot)
-                    item.setDeviceName(f"{master_name}:{roi_name}")
-                    plot.addItem(item)
+                if plot is None:
+                    plot = plot_item_model.ImagePlot()
+                    device_name = get_device_from_channel(channel_name)
+                    plot.setDeviceName(device_name)
+                    if default_plot is None:
+                        default_plot = plot
+                    if device_type == "lima":
+                        if "rois" in scan_info:
+                            for roi_name, _roi_dict in scan_info["rois"].items():
+                                if not roi_name.startswith(
+                                    f"{device_name}:roi_counters:"
+                                ) and not roi_name.startswith(
+                                    f"{device_name}:roi_profiles:"
+                                ):
+                                    pass
+                                item = plot_item_model.RoiItem(plot)
+                                item.setDeviceName(f"{master_name}:{roi_name}")
+                                plot.addItem(item)
 
-    result.extend(image_plots_per_device.values())
+                image_channel = plot_model.ChannelRef(plot, channel_name)
+                item = plot_item_model.ImageItem(plot)
+                item.setImageChannel(image_channel)
+                plot.addItem(item)
 
-    # Final process
+            if plot is not None:
+                result.append(plot)
 
+    # Move the default plot on top
     if default_plot is not None:
-        # Move the default plot on top
         result.remove(default_plot)
         result.insert(0, default_plot)
 

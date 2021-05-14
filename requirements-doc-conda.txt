@@ -1,6 +1,6 @@
 # Conda requirement file 
 # Documentation requirements
-sphinx!=4.0.0  # See https://gitlab.esrf.fr/bliss/bliss/-/issues/2749
+sphinx<4.0.0  # sphinx release is not yet stable
 graphviz
 pygments
 markdown-inline-graphviz

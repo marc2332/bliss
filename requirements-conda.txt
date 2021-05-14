@@ -64,3 +64,6 @@ scipy
 silx == 0.15.0
 sortedcontainers
 hkl >= 5.0.0
+
+# Fix subpackage issues
+click!=8.0.0  # coilmq is not working anymore with click 8.0.0

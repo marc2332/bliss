@@ -40,6 +40,7 @@ class OneDimDataPlotWidget(plot_helper.PlotWidget):
         self.__scan: Optional[scan_model.Scan] = None
         self.__flintModel: Optional[flint_model.FlintState] = None
         self.__plotModel: plot_model.Plot = None
+        self.__deviceName: str = None
 
         self.__items: Dict[plot_model.Item, List[Tuple[str, str]]] = {}
 
@@ -93,8 +94,10 @@ class OneDimDataPlotWidget(plot_helper.PlotWidget):
         self.__plot.addItem(self.__tooltipManager.marker())
 
     def deviceName(self):
-        # FIXME: This have to be saved in the configuration
-        return self.windowTitle().split(" ")[0]
+        return self.__deviceName
+
+    def setDeviceName(self, name):
+        self.__deviceName = name
 
     def getRefreshManager(self) -> refresh_helper.RefreshManager:
         return self.__refreshManager

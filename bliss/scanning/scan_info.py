@@ -88,17 +88,27 @@ acquisition object during the preparation of the controllers.
 
 BLISS provides a type metadata only 2 kind of objects: `mca` and `lima`
 
-===================  ===========  ===========  ========================
- Name                 Type         Flag         Description
-===================  ===========  ===========  ========================
-`channels`            list[str]    optional     If set, list of channels exposed
-                                                by this device
-`triggered_devices`   list[str]    optional     If set, list of sub devices
-                                                triggered by this device
-`type`                str          optional     One of `lima` or `mca`
-                                                (other values could be used
-                                                but are not yet normalized)
-===================  ===========  ===========  ========================
+====================  ===========  ===========  ========================
+ Name                  Type         Flag         Description
+====================  ===========  ===========  ========================
+`channels`             list[str]    optional     If set, list of channels exposed
+                                                 by this device
+`triggered_devices`    list[str]    optional     If set, list of sub devices
+                                                 triggered by this device
+`type`                 str          optional     One of `lima` or `mca`
+                                                 (other values could be used
+                                                 but are not yet normalized)
+`xaxis_channel`        str          optional     If defined, 1D channels exposed
+                                                 by this device should be displayed
+                                                 using this channel as x-axis
+`xaxis_array`          ndarray      optional     If defined, 1D channels exposed
+                                                 by this device should be displayed
+                                                 using this array as x-axis
+`xaxis_array_label`    str          optional     Label for the x-axis if `xaxis_array`
+                                                 is used
+`xaxis_array_unit`     str          optional     Unit for the x-axis if `xaxis_array`
+                                                 is used
+====================  ===========  ===========  ========================
 
 This can be used to infer sub devices and channels.
 

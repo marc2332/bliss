@@ -497,7 +497,11 @@ def create_1d_controller(device_name, fixed_xarray=False, fixed_xchannel=False):
                 return None
 
             if fixed_xarray:
-                meta = {"xaxis_array": numpy.arange(32) * 10}
+                meta = {
+                    "xaxis_array": numpy.arange(32) * 10,
+                    "xaxis_array_unit": "eV",
+                    "xaxis_array_label": "energy",
+                }
             elif fixed_xchannel:
                 xaxis_channel = get_channel_by_counter_name("d2")
                 meta = {"xaxis_channel": xaxis_channel.fullname}

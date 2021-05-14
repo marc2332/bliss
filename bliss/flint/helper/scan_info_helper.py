@@ -284,8 +284,14 @@ class ScanModelReader:
                     )
                     xaxis_array = numpy.array([])
 
+                unit = meta.get("xaxis_array_unit", None)
+                label = meta.get("xaxis_array_label", None)
                 channel = scan_model.Channel(device)
                 channel.setType(scan_model.ChannelType.SPECTRUM)
+                if unit is not None:
+                    channel.setUnit(unit)
+                if label is not None:
+                    channel.setDisplayName(label)
                 data = scan_model.Data(array=xaxis_array)
                 channel.setData(data)
                 fullname = device.name()

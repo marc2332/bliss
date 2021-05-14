@@ -68,7 +68,7 @@ Example:
   name: MG_sim
   counters:
   - sim_ct_1
-  - simulation_counter_controller:sim_ct_2   <------ full name
+  - simulation_counter_controller:sim_ct_2   <------ full name with colon
 ```
 
 

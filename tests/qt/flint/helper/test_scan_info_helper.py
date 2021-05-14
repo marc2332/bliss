@@ -762,7 +762,7 @@ def test_read_onedim_detector():
 def test_read_onedim_detector__xaxis_array():
     scan_info = {}
     scan_info.update(SCAN_INFO_ONEDIM_DETECTOR)
-    scan_info["devices"]["onedim"]["xaxis_array"] = numpy.array([0, 1, 2])
+    scan_info["devices"]["onedim"]["xaxis_array"] = numpy.array([0, 1, 4])
 
     scan = scan_info_helper.create_scan_model(scan_info)
     plots = scan_info_helper.create_plot_model(scan_info, scan)
@@ -771,8 +771,8 @@ def test_read_onedim_detector__xaxis_array():
     assert isinstance(plot, plot_item_model.OneDimDataPlot)
     assert len(plot.items()) == 2
     item = plot.items()[0]
-    assert isinstance(item, plot_item_model.XConstCurveItem)
-    numpy.testing.assert_array_equal(item.xData(None).array(), [0, 1, 2])
+    assert isinstance(item, plot_item_model.CurveItem)
+    numpy.testing.assert_array_equal(item.xData(scan).array(), [0, 1, 4])
 
 
 def test_read_onedim_detector__xaxis_channel():

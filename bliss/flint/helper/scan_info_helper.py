@@ -257,7 +257,7 @@ class ScanModelReader:
                 sub_name = device_id.rsplit(":", 1)[-1]
                 self.reader._parse_device(sub_name, sub_meta, parent=device)
 
-        def parse_channels(self, device, meta):
+        def parse_channels(self, device: scan_model.Device, meta):
             channel_names = meta.get("channels", [])
             for channel_fullname in channel_names:
                 channel_meta = self.reader._channel_description.get(
@@ -270,6 +270,26 @@ class ScanModelReader:
                     )
                     continue
                 self.parse_channel(channel_fullname, channel_meta, parent=device)
+
+            xaxis_array = meta.get("xaxis_array", None)
+            if xaxis_array is not None:
+                # Create a virtual channel already feed with data
+                try:
+                    xaxis_array = numpy.array(xaxis_array)
+                    if len(xaxis_array.shape) != 1:
+                        raise RuntimeError("scan_info xaxis_array expect a 1D data")
+                except Exception:
+                    _logger.warning(
+                        "scan_info contains wrong xaxis_array: %s", xaxis_array
+                    )
+                    xaxis_array = numpy.array([])
+
+                channel = scan_model.Channel(device)
+                channel.setType(scan_model.ChannelType.SPECTRUM)
+                data = scan_model.Data(array=xaxis_array)
+                channel.setData(data)
+                fullname = device.name()
+                channel.setName(f"{fullname}:#:xaxis_array")
 
         def parse_channel(self, channel_fullname: str, meta, parent: scan_model.Device):
             channel = scan_model.Channel(parent)
@@ -962,19 +982,14 @@ def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
 
         xaxis_channel_name = device_info.get("xaxis_channel", None)
         xaxis_array = device_info.get("xaxis_array", None)
-        if xaxis_array is not None:
-            try:
-                xaxis_array = numpy.array(xaxis_array)
-                if len(xaxis_array.shape) != 1:
-                    raise RuntimeError("scan_info xaxis_array expect a 1D data")
-            except Exception:
-                _logger.warning("scan_info contains wrong xaxis_array: %s", xaxis_array)
-                xaxis_array = None
-
         if xaxis_channel_name is not None and xaxis_array is not None:
             _logger.warning(
                 "Both xaxis_array and xaxis_channel are defined. xaxis_array will be ignored"
             )
+            xaxis_array = None
+
+        if xaxis_array is not None:
+            xaxis_channel_name = f"{device_name}:#:xaxis_array"
             xaxis_array = None
 
         for channel_name in device_info.get("channels", []):
@@ -1011,10 +1026,6 @@ def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
                 item.setYChannel(channel)
                 xchannel = plot_model.ChannelRef(plot, xaxis_channel_name)
                 item.setXChannel(xchannel)
-            elif xaxis_array is not None:
-                item = plot_item_model.XConstCurveItem(plot)
-                item.setXArray(xaxis_array)
-                item.setYChannel(channel)
             else:
                 item = plot_item_model.XIndexCurveItem(plot)
                 item.setYChannel(channel)

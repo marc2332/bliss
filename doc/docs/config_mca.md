@@ -114,6 +114,12 @@ DEMO [13]: fx8.counters
            .NoiSe
 ```
 
+To add a roi counter in a measurement group, the *fullname* must be used.
+
+!!!tip
+    `lscnt()` command can be used to easily retrieve the full name of a roi counter.
+
+
 
 ### ROI in config
 

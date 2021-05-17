@@ -581,21 +581,18 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         if self.__scan is None:
             return
 
-        master = None
+        limaDevice = None
         for device in self.__scan.devices():
-            if device.name() != self.deviceName():
+            if device.type() != scan_model.DeviceType.LIMA:
                 continue
-            if device.master() and device.master().isMaster():
-                master = device
+            if device.name() == self.deviceName():
+                limaDevice = device
                 break
 
-        if master is None:
+        if limaDevice is None:
             return
 
-        for device in self.__scan.devices():
-            if not device.isChildOf(master):
-                continue
-
+        for device in limaDevice.devices():
             roi = device.metadata().roi
             if roi is None:
                 continue

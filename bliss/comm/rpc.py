@@ -654,7 +654,12 @@ class RpcConnection:
 
         try:
             while True:
-                msg = self._socket.recv(READ_BUFFER_SIZE)
+                try:
+                    msg = self._socket.recv(READ_BUFFER_SIZE)
+                except ConnectionResetError as cr_err:
+                    _msg = f"connection reset by peer ({self.host}:{self.port})"
+                    raise CommunicationError(_msg) from cr_err
+
                 if not msg:
                     # set socket to None, so another connect() will make a new one;
                     # do not close here since we are in another greenlet
@@ -695,7 +700,7 @@ class RpcConnection:
 
 
 class Client(proxy.Proxy):
-    def __init__(self, address, timeout=3., disconnect_callback=None):
+    def __init__(self, address, timeout=3.0, disconnect_callback=None):
         rpc_connection = RpcConnection(address, disconnect_callback, timeout)
         object.__setattr__(self, "_rpc_connection", rpc_connection)
         object.__setattr__(self, "_Client__class", None)

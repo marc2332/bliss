@@ -134,6 +134,9 @@ def init(*path):
 
 def init_handel(mca_name):
     """ Called at server startup.
+    Do:
+    - xiaInit()
+    - xiaLoadSystem()
     """
     code = handel.xiaInitHandel()
     check_error(code)
@@ -674,6 +677,8 @@ def save_system(*path):
 
 def start_system():
     """
+    Prepare hardware specified in .ini file.
+    To be called once after loading of a .ini file.
     """
     LOGGER.debug("start_system()")
 

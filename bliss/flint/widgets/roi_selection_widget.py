@@ -53,6 +53,12 @@ class _RegionOfInterestManagerWithContextMenu(RegionOfInterestManager):
             if roi.isEditable():
                 self.sigRoiContextMenuRequested.emit(roi, menu)
 
+    def getRoiByName(self, name):
+        for r in self.getRois():
+            if r.getName() == name:
+                return r
+        return None
+
 
 class RoiSelectionWidget(qt.QWidget):
 
@@ -70,7 +76,13 @@ class RoiSelectionWidget(qt.QWidget):
         self.roiManager.setColor("pink")
         self.roiManager.sigRoiAdded.connect(self.__roiAdded)
         self.roiManager.sigRoiContextMenuRequested.connect(self.roiContextMenuRequested)
+        self.roiManager.sigCurrentRoiChanged.connect(self.__currentRoiChanged)
         self.table = RegionOfInterestTableWidget()
+
+        self.table.setSelectionBehavior(qt.QAbstractItemView.SelectRows)
+        self.table.setSelectionMode(qt.QAbstractItemView.SingleSelection)
+        selectionModel = self.table.selectionModel()
+        selectionModel.currentRowChanged.connect(self.__currentRowChanged)
 
         # Hide coords
         horizontalHeader = self.table.horizontalHeader()
@@ -124,6 +136,35 @@ class RoiSelectionWidget(qt.QWidget):
 
         if firstAction is not None:
             firstAction.trigger()
+
+    def __currentRowChanged(self, current, previous):
+        model = self.table.model()
+        index = model.index(current.row(), 0)
+        name = model.data(index)
+        roi = self.roiManager.getRoiByName(name)
+        self.roiManager.setCurrentRoi(roi)
+
+    def __currentRoiChanged(self, roi):
+        selectionModel = self.table.selectionModel()
+        if roi is None:
+            selectionModel.clear()
+        else:
+            name = roi.getName()
+            model = self.table.model()
+            for row in range(model.rowCount()):
+                index = model.index(row, 0)
+                if model.data(index) == name:
+                    selectionModel.reset()
+                    mode = (
+                        qt.QItemSelectionModel.Clear
+                        | qt.QItemSelectionModel.Rows
+                        | qt.QItemSelectionModel.Current
+                        | qt.QItemSelectionModel.Select
+                    )
+                    selectionModel.select(index, mode)
+                    break
+            else:
+                selectionModel.clear()
 
     def on_apply(self):
         self.selectionFinished.emit(self.roiManager.getRois())

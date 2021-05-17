@@ -10,6 +10,9 @@ Provide a RoiSelectionWidget
 """
 
 import typing
+import logging
+import functools
+import re
 
 from silx.gui import qt
 from silx.gui.plot.tools.roi import RegionOfInterestManager
@@ -17,6 +20,9 @@ from silx.gui.plot.tools.roi import RegionOfInterestTableWidget
 from silx.gui.plot.items.roi import RectangleROI
 from silx.gui.plot.items.roi import RegionOfInterest
 from silx.gui.plot.tools.roi import RoiModeSelectorAction
+
+
+_logger = logging.getLogger(__name__)
 
 
 class _AutoHideToolBar(qt.QToolBar):
@@ -36,6 +42,18 @@ class _AutoHideToolBar(qt.QToolBar):
         self.setVisible(visible)
 
 
+class _RegionOfInterestManagerWithContextMenu(RegionOfInterestManager):
+
+    sigRoiContextMenuRequested = qt.Signal(object, qt.QMenu)
+
+    def _feedContextMenu(self, menu):
+        RegionOfInterestManager._feedContextMenu(self, menu)
+        roi = self.getCurrentRoi()
+        if roi is not None:
+            if roi.isEditable():
+                self.sigRoiContextMenuRequested.emit(roi, menu)
+
+
 class RoiSelectionWidget(qt.QWidget):
 
     selectionFinished = qt.Signal(object)
@@ -48,9 +66,10 @@ class RoiSelectionWidget(qt.QWidget):
         mode = plot.getInteractiveMode()["mode"]
         self.__previousMode = mode
 
-        self.roiManager = RegionOfInterestManager(plot)
+        self.roiManager = _RegionOfInterestManagerWithContextMenu(plot)
         self.roiManager.setColor("pink")
         self.roiManager.sigRoiAdded.connect(self.__roiAdded)
+        self.roiManager.sigRoiContextMenuRequested.connect(self.roiContextMenuRequested)
         self.table = RegionOfInterestTableWidget()
 
         # Hide coords
@@ -70,6 +89,18 @@ class RoiSelectionWidget(qt.QWidget):
             self.roiToolbar.addAction(action)
             if firstAction is None:
                 firstAction = action
+
+        cloneAction = qt.QAction(self.roiManager)
+        cloneAction.setText("Clone")
+        cloneAction.triggered.connect(self.cloneCurrentRoiRequested)
+
+        renameAction = qt.QAction(self.roiManager)
+        renameAction.setText("Rename")
+        renameAction.triggered.connect(self.renameCurrentRoiRequested)
+
+        self.roiToolbar.addSeparator()
+        self.roiToolbar.addAction(cloneAction)
+        self.roiToolbar.addAction(renameAction)
 
         applyAction = qt.QAction(self.roiManager)
         applyAction.setText("Apply")
@@ -97,6 +128,91 @@ class RoiSelectionWidget(qt.QWidget):
     def on_apply(self):
         self.selectionFinished.emit(self.roiManager.getRois())
         self.clear()
+
+    def roiContextMenuRequested(self, roi, menu: qt.QMenu):
+        menu.addSeparator()
+
+        cloneAction = qt.QAction(menu)
+        cloneAction.setText("Clone %s" % roi.getName())
+        callback = functools.partial(self.cloneRoiRequested, roi)
+        cloneAction.triggered.connect(callback)
+        menu.addAction(cloneAction)
+
+        renameAction = qt.QAction(menu)
+        renameAction.setText("Rename %s" % roi.getName())
+        callback = functools.partial(self.renameRoiRequested, roi)
+        renameAction.triggered.connect(callback)
+        menu.addAction(renameAction)
+
+    def renameRoiRequested(self, roi):
+        name = roi.getName()
+        result = qt.QInputDialog.getText(
+            self, "Rename ROI name", "ROI name", qt.QLineEdit.Normal, name
+        )
+        if result[1]:
+            newName = result[0]
+            if newName == name:
+                return
+            if self.isAlreadyUsed(newName):
+                qt.QMessageBox.warning(
+                    self, "Action cancelled", f"ROI name '{newName}' already used."
+                )
+                return
+            roi.setName(newName)
+
+    def __splitTrailingNumber(self, name):
+        m = re.search(r"^(.*?)(\d+)$", name)
+        if m is None:
+            return name, 1
+        groups = m.groups()
+        return groups[0], int(groups[1])
+
+    def cloneRoiRequested(self, roi):
+        name = roi.getName()
+        basename, number = self.__splitTrailingNumber(name)
+        for _ in range(50):
+            number = number + 1
+            name = f"{basename}{number}"
+            if not self.isAlreadyUsed(name):
+                break
+
+        result = qt.QInputDialog.getText(
+            self, "Clone ROI", "ROI name", qt.QLineEdit.Normal, name
+        )
+        if result[1]:
+            if self.isAlreadyUsed(name):
+                qt.QMessageBox.warning(
+                    self, "Action cancelled", f"ROI name '{name}' already used."
+                )
+                return
+
+            try:
+                newRoi = roi.clone()
+            except Exception:
+                _logger.error("Error while cloning ROI", exc_info=True)
+                return
+
+            newName = result[0]
+            newRoi.setName(newName)
+            self.roiManager.addRoi(newRoi)
+
+    def isAlreadyUsed(self, name):
+        for r in self.roiManager.getRois():
+            if r.getName() == name:
+                return True
+        return False
+
+    def cloneCurrentRoiRequested(self):
+        roi = self.roiManager.getCurrentRoi()
+        if roi is None:
+            return
+        self.cloneRoiRequested(roi)
+
+    def renameCurrentRoiRequested(self):
+        roi = self.roiManager.getCurrentRoi()
+        if roi is None:
+            return
+        self.renameRoiRequested(roi)
 
     def clear(self):
         self.roiManager.clear()

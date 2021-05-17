@@ -60,6 +60,7 @@ ipykernel >= 5.2  # make sure qtconsole is working
 ipython != 7.15.0
 pyopengl
 pyqt >= 5.9
+matplotlib >= 3.4.2
 scipy
 silx == 0.15.0
 sortedcontainers

@@ -9,6 +9,7 @@
 
 # Imports
 import enum
+import logging
 import socket
 
 from bliss import is_bliss_shell
@@ -19,6 +20,8 @@ from bliss.comm.exceptions import CommunicationError
 from bliss.common.greenlet_utils import Timeout as GreenletTimeoutError
 
 from bliss.comm import rpc
+from bliss import global_map
+
 from .base import (
     BaseMCA,
     Brand,
@@ -31,8 +34,6 @@ from .base import (
     MCABeaconObject,
 )
 
-from bliss import global_map
-
 if is_bliss_shell():
     from bliss.shell.cli.user_dialog import UserChoice
     from bliss.shell.cli.pt_widgets import display
@@ -40,8 +41,6 @@ if is_bliss_shell():
 
 # Logger to use at session startup.
 # To log after session startup: use log_debug(self, <msg>)
-import logging
-
 logger = logging.getLogger(__name__)
 
 GatePolarity = enum.Enum("GatePolarity", "NORMAL INVERTED")
@@ -49,10 +48,13 @@ GatePolarity = enum.Enum("GatePolarity", "NORMAL INVERTED")
 # MCABeaconObject
 class XIABeaconObject(MCABeaconObject):
 
-    # Config / Settings
+    # Config parameters
+
     url = BeaconObject.config_getter("url")
     configuration_directory = BeaconObject.config_getter("configuration_directory")
     default_configuration = BeaconObject.config_getter("default_configuration")
+
+    # Setting parameter
 
     @BeaconObject.property(priority=1)
     def current_configuration(self):
@@ -95,7 +97,8 @@ class BaseXIA(BaseMCA):
         )
         self._last_pixel_triggered = -1
 
-    # Config / Settings
+    # Config parameters
+
     @property
     def url(self):
         return self.beacon_obj.url
@@ -120,8 +123,7 @@ class BaseXIA(BaseMCA):
         self.gate_polarity = self.config.get("gate_polarity", GatePolarity.NORMAL)
 
     def initialize_hardware(self):
-        """
-        Called at session startup
+        """ Called at session startup
         """
         logger.debug("initialize_hardware()")
         try:
@@ -165,7 +167,7 @@ class BaseXIA(BaseMCA):
                 "current_configuration=%s", self.beacon_obj.current_configuration
             )
         except Exception:
-            print("Loading config failed !!")
+            user_print("Loading config failed !!")
 
     def _event(self, value, signal):
         return event.send(self, signal, value)
@@ -237,8 +239,8 @@ class BaseXIA(BaseMCA):
         The filename is relative to the configuration directory.
         """
         try:
-            # call exit to avoid crash when reloading a config.
-            self._proxy.exit()
+            # call exit_handel to avoid crash when reloading a config.
+            self._proxy.exit_handel()
             user_print(f"Loading configuration '{filename}'")
             self._proxy.init(self.beacon_obj.configuration_directory, filename)
             self._proxy.start_system()  # Takes about 5 seconds
@@ -534,11 +536,14 @@ class BaseXIA(BaseMCA):
         # Cast argument
         if mode is None:
             mode = TriggerMode.SOFTWARE
-        if type(mode) == str:
+
+        if isinstance(mode, str):
             try:
                 mode = TriggerModeNames[mode]
-            except Exception:
-                raise ValueError("{!s} trigger mode not supported".format(mode))
+            except Exception as bad_trigger:
+                raise ValueError(
+                    "{!s} trigger mode not supported".format(mode)
+                ) from bad_trigger
 
         # Check argument
         if mode not in self.supported_trigger_modes:

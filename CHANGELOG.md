@@ -40,6 +40,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flint
     - When Flint is not fast enough to reach data from Redis, NaN values
       are used in order to keep the data alignment
+- XIA mca
+    - Logger improved (can log at handel lib and BLISS levels)
+    - Run server according to config retrieved from beacon
+    - Client re-connection on server restart
+    - Improved management of current_configuration / default_configuration
 
 ### Fixed
 

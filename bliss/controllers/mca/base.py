@@ -70,12 +70,17 @@ class MCABeaconObject(BeaconObject):
     def name(self):
         return self.mca.name
 
+    # Define setting parameter 'acquisition_mode'
     @BeaconObject.property(default=AcquisitionMode.MCA)
     def acquisition_mode(self):
         pass
 
     @acquisition_mode.setter
     def acquisition_mode(self, mode):
+        """
+        Acquisition_mode can be a string or a number.
+        'MCA' 'HWSCA' or 0 1
+        """
         setmode = mode
         if type(mode) == str:
             for acq_mode in self.mca.supported_acquisition_modes:

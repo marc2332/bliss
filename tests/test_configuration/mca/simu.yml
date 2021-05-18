@@ -2,6 +2,10 @@
   module: mca
   class: SimulatedMCA
   plugin: bliss
+  url: tcp://welisa.esrf.fr:8000
+  configuration_directory: C:\\blissadm\\mercury
+  default_configuration: mercury_src.ini
+  detector_mapping: sdd3elts
 
 - name: simu2
   module: mca

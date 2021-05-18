@@ -11,6 +11,8 @@ import gevent.event
 from bliss.common import event
 from bliss.scanning.chain import AcquisitionSlave
 from bliss.controllers.mca import TriggerMode, PresetMode
+from bliss.common.logtools import log_debug, get_logger
+from bliss import global_map, global_log
 
 # MCA Acquisition Slave
 
@@ -39,6 +41,17 @@ class McaAcquisitionSlave(AcquisitionSlave):
         read_all_triggers=False,
         ctrl_params=None,
     ):
+
+        # Logging
+        global_map.register(self, parents_list=None, tag="McaAcqSlave")
+
+        # logger = get_logger("McaAcqSlave")
+        # Activate logging
+        #        logger.setLevel("DEBUG")
+        #        global_log.debugon("McaAcqSlave")
+
+        log_debug(self, "__init__()")
+
         # Checks
 
         # Trigger type
@@ -71,6 +84,9 @@ class McaAcquisitionSlave(AcquisitionSlave):
             start_once=start_once,
             ctrl_params=ctrl_params,
         )
+
+        # self.device is now known.
+        # print(self.device.name)
 
         # Internals
         self.acquisition_gen = None
@@ -134,7 +150,7 @@ class McaAcquisitionSlave(AcquisitionSlave):
         # Internally if using trigger_mode==SYNC, the mca.hardware_points is set to  mca_params["npoints"] + 1
         # in order to compensate the fact that in this mode the mca starts the acquisition on scan start()
         # and not when receiving the first hard trig when x_mot_pos == x_start.
-        # The MCA acqObj handle this internally and it discards the first measure done @ x_mot_pos == x_start if
+        # The MCA acqObj handles this internally and it discards the first measure done @ x_mot_pos == x_start
         #
         #
         # (TO BE TESTED) If using trigger_mode==GATE, the acquisition is
@@ -164,7 +180,8 @@ class McaAcquisitionSlave(AcquisitionSlave):
 
         elif self.sync_trigger_mode:
             # SYNC
-            # With this trigger mode read_all_triggers can be True or False (user choice via acq_params)
+            # With this trigger mode read_all_triggers can be True or False
+            # (user choice via acq_params)
             self.device.hardware_points = self.npoints + 1
             self.device.block_size = self.block_size
             self.expected_npoints = self.npoints + 1
@@ -183,6 +200,7 @@ class McaAcquisitionSlave(AcquisitionSlave):
 
     def start(self):
         """Start the acquisition."""
+        # log_debug(self, "start()")
         if self.soft_trigger_mode:
             return
         self.device.start_acquisition()
@@ -191,6 +209,7 @@ class McaAcquisitionSlave(AcquisitionSlave):
 
     def stop(self):
         """Stop the acquistion."""
+        # log_debug(self, "stop()")
         self.device.stop_acquisition()
         event.disconnect(self.device, "data", self._data_rx)
         self._pending_datas.put(StopIteration)
@@ -209,17 +228,21 @@ class McaAcquisitionSlave(AcquisitionSlave):
             self._trigger_event.wait()
 
     def reading(self):
-        """ spawn byt the chain """
+        """Spawn by the chain."""
         self._init_datas()
         _accum = 0
+        log_debug(self, "reading() start")
 
         for nb, values in enumerate(self._pending_datas):
             if isinstance(values, StopIteration):
+                # ???
                 return
             elif isinstance(values, Exception):
+                # ???
                 raise values
 
-            # do not publish first point if read_all_triggers is False (for SYNC mode)
+            # do not publish first point if read_all_triggers is
+            # False (for SYNC mode)
             if self.read_all_triggers is False and nb == 0:
                 continue
 
@@ -234,13 +257,13 @@ class McaAcquisitionSlave(AcquisitionSlave):
             # break when we have received the expected number of points
             # it depends on the trigger_mode and device.hardware_points
             # (see prepare)
-            if (
-                nb == self.expected_npoints - 1
-            ):  # -1 because the 'for-loop+enumerate' start at i=0
+            #             - 1 because the 'for-loop+enumerate' start at i=0
+            if nb == self.expected_npoints - 1:
                 self._publish_datas()
                 break
 
             gevent.sleep(0.)
+            log_debug(self, "reading() end")
 
     def _init_datas(self):
         self._datas = dict()
@@ -283,6 +306,8 @@ class HWScaAcquisitionSlave(AcquisitionSlave):
             ctrl_params=ctrl_params,
         )
 
+        self._time_start = 0
+        self._time_stop = 0
         self.mca = mca
         self.spectrum_size = mca.spectrum_size
         self.scas = list()

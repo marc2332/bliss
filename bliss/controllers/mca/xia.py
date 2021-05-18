@@ -125,25 +125,34 @@ class BaseXIA(BaseMCA):
         """
         logger.debug("initialize_hardware()")
         try:
-            self._proxy = rpc.Client(self.beacon_obj.url)
+            self._proxy = rpc.Client(self.url)
             event.connect(self._proxy, "data", self._event)
             event.connect(self._proxy, "current_pixel", self._current_pixel_event)
-        except CommunicationError as prox_comm_err:
-            _msg = f"XIA init error: cannot connect to {self.url}"
-            #            breakpoint()
-            if isinstance(prox_comm_err.__cause__, GreenletTimeoutError):
-                _msg += " GreenletTimeoutError (check server is running ?)"
-            elif isinstance(prox_comm_err.__cause__, socket.gaierror):
-                _msg += " socket.gaierror (check host ?)"
-            elif isinstance(prox_comm_err.__cause__, ConnectionRefusedError):
-                _msg += " ConnectionRefusedError (check host/port/FW ?)"
+        except CommunicationError as cerr:
+            _msg = "XIA init error: "
+            if isinstance(cerr.__cause__, GreenletTimeoutError):
+                # host exists in DNS but OFF.
+                _msg += f"Cannot connect to {self.url}  (check host is ON ?)"
+            elif isinstance(cerr.__cause__, socket.gaierror):
+                # host not in DNS.
+                _msg += f"Cannot connect to {self.url}  (check host exists ?)"
+            elif isinstance(cerr.__cause__, ConnectionRefusedError):
+                # host ok but server not started -> port not open.
+                _msg += f"Connection refused to {self.url}  (check server/port/FW ?)"
             else:
-                _msg += " CommError (check  ?)"
-            raise CommunicationError(_msg) from prox_comm_err
+                _msg += f"UNKNOW COM ERROR1 to {self.url} (?)"
+            raise CommunicationError(_msg) from cerr
+        except rpc.RpcConnectionError as rpc_err:
+            # host ok but port used by another server.
+            _msg = (
+                f"XIA init error: Cannot connect to {self.url}  (check port/server ?)"
+            )
+            raise CommunicationError(_msg) from rpc_err
+        except Exception as err:
+            _msg = f"XIA init error: UNKNOW COM ERROR2 to {self.url}  (?)"
+            raise CommunicationError(_msg) from err
         except BaseException as base_err:
-            # got a greenlet timeout...
-            _msg = f"XIA init error: cannot connect to {self.url}"
-            _msg += f" greenlet timeout (check server is running?)"
+            _msg = f"XIA init error: UNKNOW COM ERROR3 to {self.url}  (?)"
             raise CommunicationError(_msg) from base_err
 
         # global_map.register(self._proxy, parents_list=[self], tag="comm")

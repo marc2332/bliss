@@ -544,23 +544,31 @@ class RpcConnection:
                 self._socket.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
 
             except socket.gaierror as sock_err:
-                _msg = f"socket.gaierror connecting to {self.host}:{self.port} - ERR no {sock_err.errno} : {sock_err.strerror}"
+                # host does not exist ?
+                _msg = f"RPC - socket.gaierror connecting to {self.host}:{self.port} - ERR no {sock_err.errno} : {sock_err.strerror}"
                 raise CommunicationError(_msg) from sock_err
 
             except socket.timeout as sock_err:
-                _msg = f"socket.timeout error connecting to {self.host}:{self.port}"
+                # ?
+                _msg = (
+                    f"RPC - socket.timeout error connecting to {self.host}:{self.port}"
+                )
                 raise CommunicationError(_msg) from sock_err
 
             except GreenletTimeoutError as grt_err:
-                _msg = f"RPC GreenletTimeoutError connecting to {self.host}:{self.port}"
+                # host is in DNS but OFF ?
+                _msg = (
+                    f"RPC - GreenletTimeoutError connecting to {self.host}:{self.port}"
+                )
                 raise CommunicationError(_msg) from grt_err
 
             except ConnectionRefusedError as cnx_err:
-                _msg = f"RPC ConnectionRefusedError error connecting to {self.host}:{self.port}"
+                # port not open ?
+                _msg = f"RPC - ConnectionRefusedError '{cnx_err}' to {self.host}:{self.port}"
                 raise CommunicationError(_msg) from cnx_err
 
         else:
-            # ??? no  host
+            # why no host ?
             self._socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             self._socket.connect(self.port)
 
@@ -667,7 +675,7 @@ class RpcConnection:
                     break
                 unpacker.feed(msg)
                 for m in unpacker:
-                    call_id = m[0]
+                    call_id = m[0]  # can raise TypeError
                     if call_id < 0:  # event:
                         value, signal = m[1]
                         louie.send(signal, self._proxy, value)
@@ -676,12 +684,19 @@ class RpcConnection:
                         wq = self._queues.get(call_id)
                         if wq:
                             wq.put(return_values)
+        except TypeError as terr:
+            # Exception: "TypeError: 'int' object is not subscriptable"
+            # raised from line: " call_id = m[0] ",
+            # can mean that connection is made to a port dedicated to
+            #  another comm than RPC (ex: connection on SSH port 22).
+            # Or corrupted server ?
+            exception = terr
         except Exception as err:
             exception = err
             sys.excepthook(*sys.exc_info())
         finally:
             for _, wq in self._queues.items():
-                wq.put(RpcConnectionError("Disconnected"))
+                wq.put(RpcConnectionError(f"Disconnected from {self._address}"))
             if (exception is None or not self._queues) and callable(
                 self._disconnect_callback
             ):

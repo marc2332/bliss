@@ -111,7 +111,7 @@ The following database files:
     └── directory_1
         └── file_1.yml
 
-```YAML
+```yaml
 # file_1.yml contents:
 -
   name: object_1
@@ -123,7 +123,7 @@ The following database files:
 
 Produce the following internal representation:
 
-```py
+```python
 >>> from bliss.config.static import get_config
 >>> config = get_config()  # loads YAML tree from Beacon server,
                            # and parse it to create a 'config' object
@@ -158,12 +158,15 @@ It is possible to associate mappings to a directory itself by adding a
 This can be used to define **global items**, with a scope limited to their
 children:
 
+```
     beamline_configuration/
     └── directory_1
         └── file_1.yml
         └── __init__.yml
+```
 
-```YAML
+
+```yaml
 # __init__.yml file contents
 my_global: hello
 ```
@@ -175,12 +178,25 @@ my_global: hello
 hello
 ```
 
-## SPEC vs BLISS
 
-When restarting a SPEC session, all the config was reloaded and
-parameters taken into account automatically.
 
-For performance considerations, in BLISS:
+## root config file
+
+Root `__init__.yml` is located and can be used to setup "global" configuration info.
+
+It can be used for example to:
+
+* [configure the data policy](installation_esrf.md#enable-in-bliss).
+* define a global name like the [instrument name](installation_esrf.md#instrument-name)
+
+See here: to [read Root `__init__.yml` from a BLISS controller](dev_tipsntricks.md#beamline-root-config)
+
+## Configuration behavior
+
+
+Unlike in a SPEC session restart, where all the config was reloaded and
+parameters taken into account automatically, for performance considerations,
+in BLISS:
 
 * the config is reloaded:
     * on-demand: `config.reload()`
@@ -190,21 +206,9 @@ For performance considerations, in BLISS:
     * on demand with `obj.apply_config()`
 * it is possible to mix both reload and apply with: `obj.apply_config(reload=True)`
 
-
-## configuration behavior
-
 Changing a configuration parameter, example of the velocity of a BlissAxis.
 
 ![Changing a configuration parameter](img/apply_config.png)
 
-
-## Saving parameters
-
-Example to save the velocity of an axis into YAML configuration file:
-
-```python
-DEMO [1]: m1.config.set("velocity", 9)
-DEMO [2]: m1.config.save()
-```
 
 

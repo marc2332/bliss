@@ -66,8 +66,8 @@ controller:
 
 Usage:
 
-```
-CYRIL [1]: wa()
+```python
+DEMO [1]: wa()
 Current Positions (user, dial)
 
   calc_mot       m1
@@ -75,8 +75,8 @@ Current Positions (user, dial)
    3.14150  1.00000
    3.14150  1.00000
 
-CYRIL [2]: mv(m1,2)
-CYRIL [3]: wa()
+DEMO [2]: mv(m1,2)
+DEMO [3]: wa()
 Current Positions (user, dial)
 
   calc_mot       m1
@@ -89,5 +89,6 @@ Current Positions (user, dial)
 ![Screenshot](img/dial_user_ctrl.svg)
 
 !!! note
-    During step scans, real axes positions for calculated axes will be emitted as an additional acquisition
-    channel of the motor master -- unless "emit_real_position" is set to False in the controller configuration
+    During step scans, real axes positions for calculated axes will be emitted as an
+    additional acquisition channel of the motor master -- unless
+    "emit_real_position" is set to False in the controller configuration

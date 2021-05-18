@@ -50,9 +50,9 @@ DEMO [13]: list(flatten_gen([1, [2, 3,[4, 5], 6]]))
 Idem but return a list.
 
 ```python
-CYRIL [14]: from bliss.common.utils import flatten
-CYRIL [15]: flatten([1, [2, 3,[4, 5], 6]])
-  Out [15]: [1, 2, 3, 4, 5, 6]
+DEMO [14]: from bliss.common.utils import flatten
+DEMO [15]: flatten([1, [2, 3,[4, 5], 6]])
+ Out [15]: [1, 2, 3, 4, 5, 6]
 ```
 
 ### merge(items):

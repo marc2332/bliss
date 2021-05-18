@@ -130,8 +130,15 @@ class RoiSelectionWidget(qt.QWidget):
         applyAction.setText("Apply")
         applyAction.triggered.connect(self.on_apply)
         applyAction.setObjectName("roi-apply-selection")
-        self.roiToolbar.addSeparator()
-        self.roiToolbar.addAction(applyAction)
+        self.addAction(applyAction)
+
+        self.applyButton = qt.QPushButton(self)
+        self.applyButton.setFixedHeight(40)
+        self.applyButton.setText("Apply this ROIs")
+        icon = icons.getQIcon("flint:icons/roi-save")
+        self.applyButton.setIcon(icon)
+        self.applyButton.clicked.connect(self.on_apply)
+        self.applyButton.setIconSize(qt.QSize(24, 24))
 
         roiEditToolbar = _AutoHideToolBar(self)
         modeSelectorAction = RoiModeSelectorAction(self)
@@ -145,6 +152,7 @@ class RoiSelectionWidget(qt.QWidget):
         layout.addWidget(self.roiToolbar)
         layout.addWidget(self.roiEditToolbar)
         layout.addWidget(self.table)
+        layout.addWidget(self.applyButton)
 
         if firstAction is not None:
             firstAction.trigger()

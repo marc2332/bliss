@@ -88,7 +88,8 @@ class RoiSelectionWidget(qt.QWidget):
         # Hide coords
         horizontalHeader = self.table.horizontalHeader()
         horizontalHeader.setSectionResizeMode(0, qt.QHeaderView.Stretch)
-        horizontalHeader.hideSection(3)
+        horizontalHeader.hideSection(1)  # is editable
+        horizontalHeader.hideSection(3)  # coords
         self.table.setRegionOfInterestManager(self.roiManager)
 
         if kinds is None:

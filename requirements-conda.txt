@@ -62,7 +62,7 @@ pyopengl
 pyqt >= 5.9
 matplotlib >= 3.4.2
 scipy
-silx == 0.15.0
+silx == 0.15.1
 sortedcontainers
 hkl >= 5.0.0
 

@@ -15,6 +15,7 @@ import functools
 import re
 
 from silx.gui import qt
+from silx.gui import icons
 from silx.gui.plot.tools.roi import RegionOfInterestManager
 from silx.gui.plot.tools.roi import RegionOfInterestTableWidget
 from silx.gui.plot.items.roi import RectangleROI
@@ -94,6 +95,29 @@ class RoiSelectionWidget(qt.QWidget):
             kinds = [RectangleROI]
 
         self.roiToolbar = qt.QToolBar(self)
+
+        cloneAction = qt.QAction(self.roiManager)
+        cloneAction.setText("Duplicate")
+        cloneAction.setToolTip("Duplicate selected ROI")
+        icon = icons.getQIcon("flint:icons/roi-duplicate")
+        cloneAction.setIcon(icon)
+        cloneAction.setEnabled(False)
+        cloneAction.triggered.connect(self.cloneCurrentRoiRequested)
+        self.__cloneAction = cloneAction
+
+        renameAction = qt.QAction(self.roiManager)
+        renameAction.setText("Rename")
+        renameAction.setToolTip("Rename selected ROI")
+        icon = icons.getQIcon("flint:icons/roi-rename")
+        renameAction.setIcon(icon)
+        renameAction.setEnabled(False)
+        renameAction.triggered.connect(self.renameCurrentRoiRequested)
+        self.__renameAction = renameAction
+
+        self.roiToolbar.addAction(cloneAction)
+        self.roiToolbar.addAction(renameAction)
+        self.roiToolbar.addSeparator()
+
         firstAction = None
         for roiKind in kinds:
             action = self.roiManager.getInteractionModeAction(roiKind)
@@ -101,18 +125,6 @@ class RoiSelectionWidget(qt.QWidget):
             self.roiToolbar.addAction(action)
             if firstAction is None:
                 firstAction = action
-
-        cloneAction = qt.QAction(self.roiManager)
-        cloneAction.setText("Clone")
-        cloneAction.triggered.connect(self.cloneCurrentRoiRequested)
-
-        renameAction = qt.QAction(self.roiManager)
-        renameAction.setText("Rename")
-        renameAction.triggered.connect(self.renameCurrentRoiRequested)
-
-        self.roiToolbar.addSeparator()
-        self.roiToolbar.addAction(cloneAction)
-        self.roiToolbar.addAction(renameAction)
 
         applyAction = qt.QAction(self.roiManager)
         applyAction.setText("Apply")
@@ -148,6 +160,7 @@ class RoiSelectionWidget(qt.QWidget):
         selectionModel = self.table.selectionModel()
         if roi is None:
             selectionModel.clear()
+            enabled = False
         else:
             name = roi.getName()
             model = self.table.model()
@@ -162,9 +175,14 @@ class RoiSelectionWidget(qt.QWidget):
                         | qt.QItemSelectionModel.Select
                     )
                     selectionModel.select(index, mode)
+                    enabled = True
                     break
             else:
                 selectionModel.clear()
+                enabled = False
+
+        self.__cloneAction.setEnabled(enabled)
+        self.__renameAction.setEnabled(enabled)
 
     def on_apply(self):
         self.selectionFinished.emit(self.roiManager.getRois())
@@ -174,7 +192,7 @@ class RoiSelectionWidget(qt.QWidget):
         menu.addSeparator()
 
         cloneAction = qt.QAction(menu)
-        cloneAction.setText("Clone %s" % roi.getName())
+        cloneAction.setText("Duplicate %s" % roi.getName())
         callback = functools.partial(self.cloneRoiRequested, roi)
         cloneAction.triggered.connect(callback)
         menu.addAction(cloneAction)

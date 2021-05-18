@@ -634,6 +634,7 @@ class Lima(CounterController, HasMetadataForScan):
         if self.__roi_counters is None:
             roi_counters_proxy = self._get_proxy(self._ROI_COUNTERS)
             self.__roi_counters = RoiCounters(roi_counters_proxy, self)
+
             global_map.register(
                 self.__roi_counters,
                 parents_list=[self],
@@ -791,6 +792,21 @@ class Lima(CounterController, HasMetadataForScan):
         )
 
         return info_str
+
+    def _update_lima_rois(self):
+
+        # do not use the property to avoid recursive calls
+        if self.__roi_counters is not None:
+            self.__roi_counters._needs_update = True
+            self.__roi_counters._restore_rois_from_settings()  # remove this line to post pone the update at next scan
+
+        if self.__roi_profiles is not None:
+            self.__roi_profiles._needs_update = True
+            self.__roi_profiles._restore_rois_from_settings()  # remove this line to post pone the update at next scan
+
+        if self.__roi_collection is not None:
+            self.__roi_collection._needs_update = True
+            self.__roi_collection._restore_rois_from_settings()  # remove this line to post pone the update at next scan
 
     # Expose counters
 

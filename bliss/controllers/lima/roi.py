@@ -10,7 +10,7 @@ import itertools
 import numpy
 
 from bliss.config import settings
-from bliss.common.logtools import log_exception
+from bliss.common.logtools import log_exception, user_print
 from bliss.common.tango import DevFailed
 from bliss.common.counter import IntegratingCounter
 from bliss.controllers.counter import IntegratingCounterController
@@ -505,6 +505,11 @@ class RoiCounters(IntegratingCounterController):
         self._save_rois = settings.HashObjSetting(settings_name)
         self._roi_ids = {}
         self.__cached_counters = {}
+        self._needs_update = True  # a flag to indicates that rois must be refreshed
+
+        # create counters from keys found in redis
+        for name in self._stored_raw_coodinates.keys():
+            self._create_single_roi_counters(name)
 
         self._restore_rois_from_settings()
 
@@ -550,6 +555,9 @@ class RoiCounters(IntegratingCounterController):
         self._save_rois[roi.name] = roi
 
     def _restore_rois_from_settings(self):
+
+        user_print("updating roi counters...")
+
         img = self._master_controller.image
         for name in self._stored_raw_coodinates.keys():
             raw_coords = self._stored_raw_coodinates[name]
@@ -580,11 +588,16 @@ class RoiCounters(IntegratingCounterController):
 
             if self._check_roi_validity(roi):
                 self._save_rois[name] = roi
+                self._activate_single_roi_counters(name)
+
             else:
-                print(
-                    f"Roi {roi.name} {roi.get_coords()} has been temporarily deactivated (outside image)"
-                )
+                user_print(
+                    f"Roi {roi.name} has been temporarily deactivated (outside image)"
+                )  # {roi.get_coords()}
                 del self._save_rois[name]
+                self._deactivate_single_roi_counters(name)
+
+        self._needs_update = False
 
     def _check_roi_name_is_unique(self, name):
         if name in self._master_controller.roi_profiles._save_rois:
@@ -662,6 +675,7 @@ class RoiCounters(IntegratingCounterController):
             )
 
         self._store_roi(roi)
+        self._create_single_roi_counters(roi.name)
 
     def _remove_rois(self, names):
         # rois pushed on proxy have an entry in self._roi_ids
@@ -669,12 +683,34 @@ class RoiCounters(IntegratingCounterController):
         for name in names:
             del self._save_rois[name]
             del self._stored_raw_coodinates[name]
-            self.__cached_counters.pop(name, None)
+            self._remove_single_roi_counters(name)
             if name in self._roi_ids:
                 on_proxy.append(name)
                 del self._roi_ids[name]
         if on_proxy:
             self._proxy.removeRois(on_proxy)
+
+    def _create_single_roi_counters(self, roiname):
+        """ Create the multiple counters associated to one roi """
+        self.__cached_counters[roiname] = SingleRoiCounters(roiname, controller=self)
+
+    def _get_single_roi_counters(self, roiname):
+        """ Return the multiple counters associated to one roi as an iterator """
+        return self.__cached_counters[roiname]
+
+    def _activate_single_roi_counters(self, roiname):
+        for cnt in self.__cached_counters[roiname]:
+            self._counters[cnt.name] = cnt
+
+    def _deactivate_single_roi_counters(self, roiname):
+        keys = list(self._counters.keys())
+        for k in keys:
+            if k.startswith(roiname):
+                del self._counters[k]
+
+    def _remove_single_roi_counters(self, roiname):
+        self._deactivate_single_roi_counters(roiname)
+        del self.__cached_counters[roiname]
 
     def set(self, name, roi_values):
         """alias to: <lima obj>.roi_counters[name] = roi_values"""
@@ -705,6 +741,8 @@ class RoiCounters(IntegratingCounterController):
         )  # ??? self.name or self.fullname (see settings_name in __init__)???
 
     def upload_rois(self):
+        if self._needs_update:
+            self._restore_rois_from_settings()
 
         roi_list = [roi for roi in self.get_rois()]
         roi_id_list = self._proxy.addNames([x.name for x in roi_list])
@@ -730,29 +768,6 @@ class RoiCounters(IntegratingCounterController):
 
             if arcrois_values:
                 self._proxy.setArcRois(arcrois_values)
-
-    # Counter access
-
-    def get_single_roi_counters(self, name, rois_dict=None):
-        if rois_dict is None:
-            roi_data = self._save_rois.get(name)
-        else:
-            roi_data = rois_dict.get(name)
-        if roi_data is None:
-            raise AttributeError(
-                "Can't find a roi_counter with name: {!r}".format(name)
-            )
-        cached_roi_data, counters = self.__cached_counters.get(name, (None, None))
-        if cached_roi_data != roi_data:
-            counters = SingleRoiCounters(name, controller=self)
-            self.__cached_counters[name] = (roi_data, counters)
-
-        return counters
-
-    def iter_single_roi_counters(self):
-        rois_dict = self._save_rois.get_all()
-        for roi in (rois_dict[k] for k in sorted(rois_dict)):
-            yield self.get_single_roi_counters(roi.name, rois_dict)
 
     # dict like API
 
@@ -820,6 +835,12 @@ class RoiCounters(IntegratingCounterController):
 
         else:
             return "\n".join([header, "*** no ROIs defined ***"])
+
+    # Counter access
+
+    def iter_single_roi_counters(self):
+        for roi in self.get_rois():
+            yield self._get_single_roi_counters(roi.name)
 
     @property
     def counters(self):
@@ -917,13 +938,28 @@ class RoiProfileController(IntegratingCounterController):
             name, master_controller=acquisition_proxy, register_counters=False
         )
         self._proxy = proxy
+        self._initialize()
+
+    def _initialize(self):
         self._current_config = settings.SimpleSetting(
             self.fullname, default_value="default"
         )
         settings_name = "%s:%s" % (self.fullname, self._current_config.get())
+        settings_name_raw_coords = "%s_raw_coords:%s" % (
+            self.fullname,
+            self._current_config.get(),
+        )
         self._roi_ids = {}
         self.__cached_counters = {}
         self._save_rois = settings.HashObjSetting(settings_name)
+        self._stored_raw_coodinates = settings.HashObjSetting(settings_name_raw_coords)
+        self._needs_update = True  # a flag to indicates that rois must be refreshed
+
+        # create counters from keys found in redis
+        for name in self._stored_raw_coodinates.keys():
+            self._create_roi_profile_counter(name)
+
+        self._restore_rois_from_settings()
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
         # in case `count_time` is missing in acq_params take it from parent_acq_params
@@ -933,6 +969,61 @@ class RoiProfileController(IntegratingCounterController):
             acq_params.setdefault("npoints", parent_acq_params["acq_nb_frames"])
 
         return RoiProfileAcquisitionSlave(self, ctrl_params=ctrl_params, **acq_params)
+
+    def _store_roi(self, roi):
+        """ Transform roi coordinates to raw coordinates and store them as settings """
+
+        img = self._master_controller.image
+
+        if isinstance(roi, RoiProfile):
+            coords = roi.get_coords()
+            # take into account the offset of current image roi
+            coords[0] = coords[0] + img.roi[0]
+            coords[1] = coords[1] + img.roi[1]
+            raw_coords = current_roi_to_raw_roi(
+                coords, img.fullsize, img.flip, img.rotation, img.binning
+            )
+
+        else:
+            raise ValueError(f"Unknown roi type {type(roi)}")
+
+        raw_coords.append(roi.profile_mode)
+        self._stored_raw_coodinates[roi.name] = raw_coords
+        self._save_rois[roi.name] = roi
+
+    def _restore_rois_from_settings(self):
+
+        user_print("updating roi profiles...")
+
+        img = self._master_controller.image
+        for name in self._stored_raw_coodinates.keys():
+            raw_coords = self._stored_raw_coodinates[name]
+            profile_mode = raw_coords.pop()
+            if len(raw_coords) == 4:
+                coords = raw_roi_to_current_roi(
+                    raw_coords,
+                    img._get_detector_max_size(),
+                    img.flip,
+                    img.rotation,
+                    img.binning,
+                )
+                coords[0] = coords[0] - img.roi[0]
+                coords[1] = coords[1] - img.roi[1]
+
+                roi = RoiProfile(*coords, profile_mode, name=name)
+
+            if self._check_roi_validity(roi):
+                self._save_rois[name] = roi
+                self._activate_roi_profile_counter(name)
+
+            else:
+                user_print(
+                    f"RoiProfile {roi.name} has been temporarily deactivated (outside image)"
+                )  # {roi.get_coords()}
+                del self._save_rois[name]
+                self._deactivate_roi_profile_counter(name)
+
+        self._needs_update = False
 
     def _check_roi_name_is_unique(self, name):
         if name in self._master_controller.roi_counters._save_rois:
@@ -945,6 +1036,21 @@ class RoiProfileController(IntegratingCounterController):
                 raise ValueError(
                     f"Names conflict: '{name}' is already used in roi_collection, please use another name"
                 )
+
+    def _check_roi_validity(self, roi):
+
+        x0, y0, w0, h0 = self._master_controller.image.roi
+
+        if isinstance(roi, RoiProfile):
+            x, y, w, h = roi.get_coords()
+            if x < 0 or x >= w0 or y < 0 or y >= h0:
+                return False
+            if (x + w) > w0 or (y + h) > h0:
+                return False
+            return True
+
+        else:
+            raise NotImplementedError
 
     def _set_roi(self, name, roi_values):
 
@@ -962,19 +1068,45 @@ class RoiProfileController(IntegratingCounterController):
                 f" or (x, y, width, height, mode) values with mode in {_PMODE_ALIASES.keys()}"
             )
 
-        self._save_rois[roi.name] = roi
+        if not self._check_roi_validity(roi):
+            raise ValueError(
+                f"Roi coordinates {roi.get_coords()} are not valid (outside image)"
+            )
+
+        self._store_roi(roi)
+        self._create_roi_profile_counter(roi.name)
 
     def _remove_rois(self, names):
         # rois pushed on proxy have an entry in self._roi_ids
         on_proxy = []
         for name in names:
             del self._save_rois[name]
-            self.__cached_counters.pop(name, None)
+            del self._stored_raw_coodinates[name]
+            self._remove_roi_profile_counter(name)
             if name in self._roi_ids:
                 on_proxy.append(name)
                 del self._roi_ids[name]
         if on_proxy:
             self._proxy.removeRois(on_proxy)
+
+    def _create_roi_profile_counter(self, roiname):
+        """ Create the RoiProfileCounter associated to one roi """
+        self.__cached_counters[roiname] = RoiProfileCounter(roiname, controller=self)
+
+    def _get_roi_profile_counter(self, roiname):
+        """ Return the multiple counters associated to one roi as an iterator """
+        return self.__cached_counters[roiname]
+
+    def _activate_roi_profile_counter(self, roiname):
+        cnt = self.__cached_counters[roiname]
+        self._counters[cnt.name] = cnt
+
+    def _deactivate_roi_profile_counter(self, roiname):
+        self._counters.pop(roiname, None)
+
+    def _remove_roi_profile_counter(self, roiname):
+        self._deactivate_roi_profile_counter(roiname)
+        del self.__cached_counters[roiname]
 
     def set_roi_mode(self, mode, *names):
         """ set the mode of all rois or for a list of given roi names.
@@ -989,7 +1121,7 @@ class RoiProfileController(IntegratingCounterController):
         for name in names:
             roi = self._save_rois[name]
             roi.profile_mode = mode  # mode is checked here
-            self._save_rois[name] = roi  # to dump the new mode (settings)
+            self._store_roi(roi)
 
     def get_roi_mode(self, *names):
         """get the mode (0: horizontal, 1:vertical) of all rois or for a list of given roi names"""
@@ -1025,6 +1157,9 @@ class RoiProfileController(IntegratingCounterController):
         self._save_rois = settings.HashObjSetting("%s:%s" % (self.name, name))
 
     def upload_rois(self):
+        if self._needs_update:
+            self._restore_rois_from_settings()
+
         roi_list = [roi for roi in self.get_rois()]
         roi_id_list = self._proxy.addNames([x.name for x in roi_list])
 
@@ -1101,22 +1236,9 @@ class RoiProfileController(IntegratingCounterController):
 
     # Counter access
 
-    def get_roi_counter(self, name):
-        roi = self._save_rois.get(name)
-        if roi is None:
-            raise AttributeError(
-                "Can't find a roi_profile with name: {!r}".format(name)
-            )
-        cached_roi, counter = self.__cached_counters.get(name, (None, None))
-        if roi != cached_roi:
-            counter = RoiProfileCounter(name, controller=self)
-            self.__cached_counters[name] = (roi, counter)
-
-        return counter
-
     def iter_roi_counters(self):
         for roi in self.get_rois():
-            yield self.get_roi_counter(roi.name)
+            yield self._get_roi_profile_counter(roi.name)
 
     @property
     def counters(self):
@@ -1206,10 +1328,19 @@ class RoiCollectionController(IntegratingCounterController):
             self.fullname, default_value="default"
         )
         settings_name = "%s:%s" % (self.fullname, self._current_config.get())
+        settings_name_raw_coords = "%s_raw_coords:%s" % (
+            self.fullname,
+            self._current_config.get(),
+        )
         self._save_rois = settings.OrderedHashObjSetting(settings_name)
+        self._stored_raw_coodinates = settings.HashObjSetting(settings_name_raw_coords)
         self._roi_ids = {}
+        self._needs_update = True  # a flag to indicates that rois must be refreshed
 
+        # create the unique counter that manages the collection of rois
         self.create_counter(RoiCollectionCounter, "roi_collection_counter")
+
+        self._restore_rois_from_settings()
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
         # avoid cyclic import
@@ -1223,6 +1354,59 @@ class RoiCollectionController(IntegratingCounterController):
 
         return RoiCountersAcquisitionSlave(self, ctrl_params=ctrl_params, **acq_params)
 
+    def _store_roi(self, roi):
+        """ Transform roi coordinates to raw coordinates and store them as settings """
+
+        img = self._master_controller.image
+
+        if isinstance(roi, Roi):
+            coords = roi.get_coords()
+            # take into account the offset of current image roi
+            coords[0] = coords[0] + img.roi[0]
+            coords[1] = coords[1] + img.roi[1]
+            raw_coords = current_roi_to_raw_roi(
+                coords, img.fullsize, img.flip, img.rotation, img.binning
+            )
+
+        else:
+            raise ValueError(f"Unknown roi type {type(roi)}")
+
+        self._stored_raw_coodinates[roi.name] = raw_coords
+        self._save_rois[roi.name] = roi
+
+    def _restore_rois_from_settings(self):
+
+        user_print("updating rois collection...")
+        disabled = []
+        img = self._master_controller.image
+        for name in self._stored_raw_coodinates.keys():
+            raw_coords = self._stored_raw_coodinates[name]
+
+            if len(raw_coords) == 4:
+                coords = raw_roi_to_current_roi(
+                    raw_coords,
+                    img._get_detector_max_size(),
+                    img.flip,
+                    img.rotation,
+                    img.binning,
+                )
+                coords[0] = coords[0] - img.roi[0]
+                coords[1] = coords[1] - img.roi[1]
+
+                roi = Roi(*coords, name=name)
+
+            if self._check_roi_validity(roi):
+                self._save_rois[name] = roi
+            else:
+                disabled.append(name)
+                del self._save_rois[name]
+
+        if disabled:
+            user_print(
+                f"Some rois have been temporarily deactivated (outside image): {disabled}"
+            )
+        self._needs_update = False
+
     def _check_roi_name_is_unique(self, name):
         if name in self._master_controller.roi_profiles._save_rois:
             raise ValueError(
@@ -1233,6 +1417,21 @@ class RoiCollectionController(IntegratingCounterController):
             raise ValueError(
                 f"Names conflict: '{name}' is already used by a roi_counter, please use another name"
             )
+
+    def _check_roi_validity(self, roi):
+
+        x0, y0, w0, h0 = self._master_controller.image.roi
+
+        if isinstance(roi, Roi):
+            x, y, w, h = roi.get_coords()
+            if x < 0 or x >= w0 or y < 0 or y >= h0:
+                return False
+            if (x + w) > w0 or (y + h) > h0:
+                return False
+            return True
+
+        else:
+            raise NotImplementedError
 
     def _set_roi(self, name, roi_values):
 
@@ -1246,22 +1445,21 @@ class RoiCollectionController(IntegratingCounterController):
             roi.name = name
         elif len(roi_values) == 4:
             roi = Roi(*roi_values, name=name)
-        # elif len(roi_values) == 6:
-        #    roi = ArcRoi(*roi_values, name=name)
         else:
             raise TypeError(
-                "Lima.RoiCounters: accepts Roi or ArcRoi objects"
+                "Lima.RoiCollectionController: accepts Roi objects"
                 " or (x, y, width, height) values"
                 # " or (cx, cy, r1, r2, a1, a2) values"
             )
 
-        self._save_rois[roi.name] = roi
+        self._store_roi(roi)
 
     def _remove_rois(self, names):
         # rois pushed on proxy have an entry in self._roi_ids
         on_proxy = []
         for name in names:
             del self._save_rois[name]
+            del self._stored_raw_coodinates[name]
             if name in self._roi_ids:
                 on_proxy.append(name)
                 del self._roi_ids[name]
@@ -1296,6 +1494,9 @@ class RoiCollectionController(IntegratingCounterController):
         self._save_rois = settings.OrderedHashObjSetting(settings_name)
 
     def upload_rois(self):
+        if self._needs_update:
+            self._restore_rois_from_settings()
+
         roicoords = []
         for roi in self.get_rois():
             roicoords.extend(roi.get_coords())

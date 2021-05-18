@@ -369,7 +369,7 @@ class ImageCounter(Counter):
         )  # store the new _raw_roi in redis/settings
         self._cur_roi = roi
 
-        self._counter_controller.roi_counters._restore_rois_from_settings()
+        self._counter_controller._update_lima_rois()
 
     @property
     def subarea(self):
@@ -400,7 +400,7 @@ class ImageCounter(Counter):
         self._cur_roi = raw_roi_to_current_roi(
             self.raw_roi, detector_size, self.flip, self.rotation, self.binning
         )
-        self._counter_controller.roi_counters._restore_rois_from_settings()
+        self._counter_controller._update_lima_rois()
 
     def _calc_raw_roi(self, roi):
         """ computes the raw_roi from a given roi and current bin, flip, rot """

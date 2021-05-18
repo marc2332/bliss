@@ -259,18 +259,33 @@ class Scan(qt.QObject, _Sealable):
             raise ValueError("Already in the device list")
         self.__devices.append(device)
 
-    def getDeviceByName(self, name: str) -> Device:
-        elements = name.split(":")
-        for device in self.__devices:
-            current = device
-            for e in reversed(elements):
-                if current is None or current.name() != e:
-                    break
-                current = current.master()
-            else:
-                # The item was found
-                if current is None:
-                    return device
+    def getDeviceByName(self, name: str, fromTopMaster=False) -> Device:
+        """
+        Returns a device from an absolute path name.
+
+        Arguments:
+            fromTopMaster: If true, the path is relative to the top master
+        """
+        if fromTopMaster:
+            for topmaster in self.__devices:
+                if topmaster.master() is not None:
+                    continue
+                try:
+                    return self.getDeviceByName(topmaster.name() + ":" + name)
+                except ValueError:
+                    continue
+        else:
+            elements = name.split(":")
+            for device in self.__devices:
+                current = device
+                for e in reversed(elements):
+                    if current is None or current.name() != e:
+                        break
+                    current = current.master()
+                else:
+                    # The item was found
+                    if current is None:
+                        return device
 
         raise ValueError("Device %s not found." % name)
 
@@ -407,13 +422,31 @@ class DeviceType(enum.Enum):
     NONE = 0
     """Default type"""
 
-    VIRTUAL_ROI = 1
+    UNKNOWN = -1
+    """Unknown value specified in the scan_info"""
+
+    LIMA = 1
+    """Lima device as specified by the scan_info"""
+
+    MCA = 2
+    """MCA device as specified by the scan_info"""
+
+    VIRTUAL_ROI = 3
     """Device containing channel data from the same ROI.
     It is a GUI concept, there is no related device on the BLISS side.
     """
 
+    VIRTUAL_MCA_DETECTOR = 4
+    """Device containing channel data from a MCA detector.
+
+    A MCA device can contain many detectors.
+    """
+
 
 class DeviceMetadata(NamedTuple):
+    info: Dict
+    """raw metadata as stored by the scan_info"""
+
     roi: Optional[object]
     """Define a ROI geometry, is one"""
 
@@ -426,7 +459,7 @@ class Device(qt.QObject, _Sealable):
     and channels. This could not exactly match the Bliss API.
     """
 
-    _noneMetadata = DeviceMetadata(None)
+    _noneMetadata = DeviceMetadata({}, None)
 
     def __init__(self, parent: Scan):
         qt.QObject.__init__(self, parent=parent)

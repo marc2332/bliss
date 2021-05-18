@@ -1,8 +1,10 @@
 """Testing plot item model."""
 
+import numpy
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import plot_state_model
 from bliss.flint.model import plot_model
+from bliss.flint.model import scan_model
 
 
 def test_picklable():
@@ -41,3 +43,22 @@ def test_picklable():
     assert newItems[2].parent() is newPlot
     assert newItems[0] is newItems[1].source()
     assert newItems[1] is newItems[2].source()
+
+
+def test_XIndexCurveItem():
+    scan = scan_model.Scan()
+    device = scan_model.Device(scan)
+    channel = scan_model.Channel(device)
+    channel.setName("y")
+    channel.setType(scan_model.ChannelType.SPECTRUM)
+    scan.seal()
+
+    channel.setData(scan_model.Data(array=numpy.ones(3)))
+
+    plot = plot_item_model.OneDimDataPlot()
+    item = plot_item_model.XIndexCurveItem(plot)
+    item.setYChannel(plot_model.ChannelRef(None, "y"))
+
+    assert item.isValid()
+    numpy.testing.assert_array_equal(item.yData(scan).array(), [1, 1, 1])
+    numpy.testing.assert_array_equal(item.xData(scan).array(), [0, 1, 2])

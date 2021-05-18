@@ -520,6 +520,7 @@ class FlintClient:
         kind: typing.Optional[str] = None,
         image_detector: typing.Optional[str] = None,
         mca_detector: typing.Optional[str] = None,
+        onedim_detector: typing.Optional[str] = None,
     ):
         """Retrieve a live plot.
 
@@ -530,6 +531,7 @@ class FlintClient:
             kind: Can be one of "default-curve", "default-scatter"
             image_detector: Name of the detector displaying image.
             mca_detector: Name of the detector displaying MCA data.
+            onedim_detector: Name of the detector displaying one dim data.
         """
         if kind is not None:
             if kind == "default-curve":
@@ -555,6 +557,11 @@ class FlintClient:
         elif mca_detector is not None:
             plot_class = plots.LiveMcaPlot
             plot_id = self.get_live_plot_detector(mca_detector, plot_type="mca")
+            return plot_class(plot_id=plot_id, flint=self)
+
+        elif onedim_detector is not None:
+            plot_class = plots.LiveOneDimPlot
+            plot_id = self.get_live_plot_detector(onedim_detector, plot_type="onedim")
             return plot_class(plot_id=plot_id, flint=self)
 
         raise ValueError("No plot requested")

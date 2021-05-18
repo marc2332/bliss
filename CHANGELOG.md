@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Flint
+    - Added dedicated widget for acqobj exposing 1D data
+        - Only 1D data from this acqobj is displayed
+        - Supports metadata from controllers or acqobj to custom the X-axis
+            - `xaxis_channel`, `xaxis_array`
+    - Added data display as index for curve plots and onedim plots
+    - Group MCA channels per detectors in the curve plot property tree
     - Added histogram tool when displaying image in custom plots
     - Added a content menu option to center profile ROIs in image/scatter
     - Added curve stack as custom plot

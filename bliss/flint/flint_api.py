@@ -179,6 +179,7 @@ class FlintApi:
             "scatter": plot_item_model.ScatterPlot,
             "image": plot_item_model.ImagePlot,
             "mca": plot_item_model.McaPlot,
+            "onedim": plot_item_model.OneDimDataPlot,
             "curve": plot_item_model.CurvePlot,
         }
         return plot_classes[plot_type]

@@ -591,9 +591,15 @@ def test_update_displayed_channel_names():
 
 
 def add_item(
-    plot: plot_model.Plot, xName: typing.Optional[str], yName: typing.Optional[str]
+    plot: plot_model.Plot,
+    xName: typing.Optional[str],
+    yName: typing.Optional[str],
+    xIndex=False,
 ):
-    item = plot_item_model.CurveItem(plot)
+    if xIndex:
+        item = plot_item_model.XIndexCurveItem(plot)
+    else:
+        item = plot_item_model.CurveItem(plot)
     if xName is not None:
         channel = plot_model.ChannelRef(plot, xName)
         item.setXChannel(channel)
@@ -725,3 +731,81 @@ def test_copy_config_tree():
     assert len(items) == 4
     assert type(items[-1]) == plot_state_model.GaussianFitItem
     assert items[-1].source() is items[-2]
+
+
+def test_update_xaxis():
+    plot = plot_item_model.CurvePlot()
+    add_item(plot, "x1", "y1")
+
+    scan = scan_model.Scan()
+    topmaster = scan_model.Device(scan)
+    master1 = scan_model.Device(scan)
+    master1.setMaster(topmaster)
+    channel2 = scan_model.Channel(master1)
+    channel2.setName("y1")
+    master2 = scan_model.Device(scan)
+    master2.setMaster(topmaster)
+    channel3 = scan_model.Channel(master2)
+    channel3.setName("x1")
+    channel4 = scan_model.Channel(master2)
+    channel4.setName("y2")
+    scan.seal()
+
+    model_helper.updateXAxis(plot, scan, topmaster, "y2", xIndex=False)
+    items = plot.items()
+    assert len(items) == 1
+    assert isinstance(items[0], plot_item_model.CurveItem)
+    assert items[0].xChannel().name() == "y2"
+    assert items[0].yChannel().name() == "y1"
+
+
+def test_update_xaxis_with_index():
+    plot = plot_item_model.CurvePlot()
+    add_item(plot, "x1", "y1")
+
+    scan = scan_model.Scan()
+    topmaster = scan_model.Device(scan)
+    master1 = scan_model.Device(scan)
+    master1.setMaster(topmaster)
+    channel2 = scan_model.Channel(master1)
+    channel2.setName("y1")
+    master2 = scan_model.Device(scan)
+    master2.setMaster(topmaster)
+    channel3 = scan_model.Channel(master2)
+    channel3.setName("x1")
+    channel4 = scan_model.Channel(master2)
+    channel4.setName("y2")
+    scan.seal()
+
+    model_helper.updateXAxis(plot, scan, topmaster, xIndex=True)
+    items = plot.items()
+    assert len(items) == 1
+    assert isinstance(items[0], plot_item_model.XIndexCurveItem)
+    assert items[0].xChannel() is None
+    assert items[0].yChannel().name() == "y1"
+
+
+def test_update_xaxis_index_with_channel():
+    plot = plot_item_model.CurvePlot()
+    add_item(plot, None, "y1", xIndex=True)
+
+    scan = scan_model.Scan()
+    topmaster = scan_model.Device(scan)
+    master1 = scan_model.Device(scan)
+    master1.setMaster(topmaster)
+    channel2 = scan_model.Channel(master1)
+    channel2.setName("y1")
+    master2 = scan_model.Device(scan)
+    master2.setMaster(topmaster)
+    channel3 = scan_model.Channel(master2)
+    channel3.setName("x1")
+    channel4 = scan_model.Channel(master2)
+    channel4.setName("y2")
+    scan.seal()
+
+    model_helper.updateXAxis(plot, scan, topmaster, xIndex=True)
+    items = plot.items()
+    assert len(items) == 1
+    assert isinstance(items[0], plot_item_model.XIndexCurveItem)
+    assert items[0].xChannel() is None
+    assert items[0].yChannel().name() == "y1"

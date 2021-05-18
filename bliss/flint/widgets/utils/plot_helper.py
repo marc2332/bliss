@@ -161,6 +161,11 @@ class PlotWidget(ExtendedDockWidget):
             if refreshManager is not None:
                 rate = refreshManager.refreshMode()
                 config.refresh_mode = rate
+
+        if hasattr(self, "deviceName"):
+            deviceName = self.deviceName()
+            config.device_name = deviceName
+
         return config
 
     def setConfiguration(self, config):
@@ -170,6 +175,17 @@ class PlotWidget(ExtendedDockWidget):
             if refreshManager is not None:
                 rate = config.refresh_mode
                 refreshManager.setRefreshMode(rate)
+        if hasattr(self, "deviceName"):
+            deviceName = config.device_name
+            if deviceName is not None:
+                self.setDeviceName(deviceName)
+            else:
+                # FIXME: backward compatibility with BLISS <= 1.7
+                # This is stored in the Redis db and mostly never updated
+                # So it is not so easy to remove
+                deviceName = self.windowTitle().split(" ", 1)[0]
+            self.setDeviceName(deviceName)
+
         plot.setConfiguration(config)
 
 
@@ -197,6 +213,9 @@ class PlotConfiguration:
         self.roi_widget_displayed: bool = False
         self.histogram_widget_displayed: bool = False
 
+        # Widget displaying dedicated detectors (MCAs, images, one dim)
+        self.device_name: str = None
+
         # Curve widget
         self.spec_mode: bool = False
 
@@ -208,14 +227,14 @@ class PlotConfiguration:
         return (self.__class__, (), self.__getstate__())
 
     def __getstate__(self):
-        """Inherite the serialization to make sure the object can growup in the
+        """Inherit the serialization to make sure the object can grow up in the
         future"""
         state: Dict[str, Any] = {}
         state.update(self.__dict__)
         return state
 
     def __setstate__(self, state):
-        """Inherite the serialization to make sure the object can growup in the
+        """Inherit the serialization to make sure the object can grow up in the
         future"""
         for k in self.__dict__.keys():
             if k in state:

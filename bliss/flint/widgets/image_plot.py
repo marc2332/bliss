@@ -139,6 +139,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         self.__scan: Optional[scan_model.Scan] = None
         self.__flintModel: Optional[flint_model.FlintState] = None
         self.__plotModel: plot_model.Plot = None
+        self.__deviceName: str = None
 
         self.__items: Dict[plot_model.Item, List[_ItemDescription]] = {}
 
@@ -238,8 +239,10 @@ class ImagePlotWidget(plot_helper.PlotWidget):
                 colormapWidget.setColormap(self.__colormap)
 
     def deviceName(self):
-        # FIXME: This have to be saved in the configuration
-        return self.windowTitle().split(" ")[0]
+        return self.__deviceName
+
+    def setDeviceName(self, name):
+        self.__deviceName = name
 
     def configuration(self):
         config = super(ImagePlotWidget, self).configuration()

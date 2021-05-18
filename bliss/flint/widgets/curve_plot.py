@@ -435,9 +435,14 @@ class CurvePlotWidget(plot_helper.PlotWidget):
                     continue
                 if not item.isVisible():
                     continue
-                if isinstance(item, plot_item_model.CurveItem):
+
+                if isinstance(item, plot_item_model.XIndexCurveItem):
+                    xLabels.append("index")
+                elif isinstance(item, plot_item_model.CurveItem):
                     xAxis = item.xChannel().channel(scan)
                     xLabels.append(item.xChannel().displayName(scan))
+
+                if isinstance(item, plot_item_model.CurveItem):
                     if item.yAxis() == "left":
                         y1Labels.append(item.yChannel().displayName(scan))
                     elif item.yAxis() == "right":
@@ -747,9 +752,13 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         if isinstance(item, plot_item_model.CurveMixIn):
             if isinstance(item, plot_item_model.CurveItem):
                 x = item.xChannel()
+                if x is None:
+                    xName = "none"
+                else:
+                    xName = x.name()
                 y = item.yChannel()
                 # FIXME: remove legend, use item mapping
-                legend = x.name() + "/" + y.name() + "/" + str(scan)
+                legend = f"{xName}/{y.name()}/{str(scan)}"
             else:
                 legend = str(item) + "/" + str(scan)
             xx = item.xArray(scan)

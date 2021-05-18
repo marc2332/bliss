@@ -72,7 +72,9 @@ class ScanRowItem(StandardRowItem):
         self.setToolTip(toolTip)
 
     def setChannelLookAndFeel(self, channel: scan_model.Channel):
-        text = channel.baseName()
+        text = channel.displayName()
+        if text is None:
+            text = channel.baseName()
         if channel.type() == scan_model.ChannelType.COUNTER:
             icon = icons.getQIcon("flint:icons/channel-curve")
         elif channel.type() == scan_model.ChannelType.SPECTRUM:

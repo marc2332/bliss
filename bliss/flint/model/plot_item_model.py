@@ -218,6 +218,43 @@ class CurveItem(plot_model.Item, CurveMixIn):
         )
 
 
+class XIndexCurveItem(CurveItem):
+    """Define a curve as part of a plot.
+
+    X is fixed as an index and Y value is defined by a `ChannelRef`.
+    """
+
+    def isValid(self):
+        channel = self.yChannel()
+        return channel is not None
+
+    def xData(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
+        yData = self.yData(scan)
+        if yData is None:
+            return None
+        y = yData.array()
+        if y is None:
+            return None
+        array = numpy.arange(len(y))
+        return scan_model.Data(array=array)
+
+    def displayName(self, axisName, scan: scan_model.Scan) -> str:
+        """Helper to reach the axis display name"""
+        if axisName == "x":
+            return "index"
+        elif axisName == "y":
+            return self.yChannel().displayName(scan)
+        else:
+            assert False
+
+    def __str__(self):
+        return "<%s y=%s yaxis=%s />" % (
+            type(self).__name__,
+            self.yChannel(),
+            self.yAxis(),
+        )
+
+
 class McaPlot(plot_model.Plot):
     """Define a plot which is specific for MCAs."""
 
@@ -231,6 +268,9 @@ class McaPlot(plot_model.Plot):
     def setDeviceName(self, name: str):
         self.__deviceName = name
 
+    def plotTitle(self) -> str:
+        return self.__deviceName
+
     def hasSameTarget(self, other: plot_model.Plot) -> bool:
         if type(self) is not type(other):
             return False
@@ -239,8 +279,36 @@ class McaPlot(plot_model.Plot):
         return True
 
 
-class OneDimDataPlot(McaPlot):
-    """Hack for now to display Lima 1D ROI inside a right widget"""
+class OneDimDataPlot(plot_model.Plot):
+    """Define a plot which is specific for one dim data.
+
+    It is not the same as `CurvePlot` as the content of the channels is 1D for
+    each steps of the scan.
+    """
+
+    def __init__(self, parent=None):
+        plot_model.Plot.__init__(self, parent=parent)
+        self.__deviceName: Optional[str] = None
+        self.__plotTitle = "%s"
+
+    def setPlotTitle(self, title):
+        self.__plotTitle = title
+
+    def deviceName(self) -> Optional[str]:
+        return self.__deviceName
+
+    def plotTitle(self) -> str:
+        return self.__plotTitle
+
+    def setDeviceName(self, name: str):
+        self.__deviceName = name
+
+    def hasSameTarget(self, other: plot_model.Plot) -> bool:
+        if type(self) is not type(other):
+            return False
+        if self.__deviceName != other.deviceName():
+            return False
+        return True
 
 
 class McaItem(plot_model.Item):
@@ -285,6 +353,9 @@ class ImagePlot(plot_model.Plot):
         self.__deviceName: Optional[str] = None
 
     def deviceName(self) -> Optional[str]:
+        return self.__deviceName
+
+    def plotTitle(self) -> str:
         return self.__deviceName
 
     def setDeviceName(self, name: str):

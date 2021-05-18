@@ -439,7 +439,12 @@ class ManageMainBehaviours(qt.QObject):
             deviceName = None
 
         if issubclass(
-            compatibleModel, (plot_item_model.ImagePlot, plot_item_model.McaPlot)
+            compatibleModel,
+            (
+                plot_item_model.ImagePlot,
+                plot_item_model.McaPlot,
+                plot_item_model.OneDimDataPlot,
+            ),
         ):
             plots = [p for p in plots if p.deviceName() == deviceName]
 
@@ -643,12 +648,8 @@ class ManageMainBehaviours(qt.QObject):
 
         title = plotModel.name()
         if title is None:
-            if isinstance(plotModel, plot_item_model.OneDimDataPlot):
-                title = plotModel.deviceName() + " (1D rois)"
-            elif isinstance(
-                plotModel, (plot_item_model.ImagePlot, plot_item_model.McaPlot)
-            ):
-                title = plotModel.deviceName()
+            if hasattr(plotModel, "plotTitle"):
+                title = plotModel.plotTitle()
             else:
                 prefix = str(widgetClass.__name__).replace("PlotWidget", "")
                 title = self.__getUnusedTitle(prefix, workspace)
@@ -660,6 +661,8 @@ class ManageMainBehaviours(qt.QObject):
         name = name.lower() + "-dock"
 
         widget.setWindowTitle(title)
+        if hasattr(plotModel, "deviceName"):
+            widget.setDeviceName(plotModel.deviceName())
         widget.setObjectName(name)
         self.registerDock(widget)
         return widget

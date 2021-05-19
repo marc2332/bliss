@@ -202,7 +202,7 @@ class CalcCounterController(CounterController):
         self._input_counters = []
         self._output_counters = []
         self._counters = {}
-        self.tags = {}
+        self._tags = {}
 
         self.build_counters(config)
 
@@ -226,6 +226,18 @@ class CalcCounterController(CounterController):
     def create_chain_node(self):
         return CalcCounterChainNode(self)
 
+    @property
+    def tags(self):
+        updated_tags = {}
+        # update dictionary with aliases
+        for name, cnt_tags in self._tags.items():
+            alias = global_map.aliases.get_alias(name)
+            if alias:
+                updated_tags[alias] = cnt_tags
+            updated_tags[name] = cnt_tags
+        self._tags = updated_tags
+        return self._tags
+
     def build_counters(self, config):
         """ Build the CalcCounters from config. 
             'config' is a dict with 2 keys: 'inputs' and 'outputs'.
@@ -237,7 +249,7 @@ class CalcCounterController(CounterController):
             cnt = cnt_conf.get("counter")
             if isinstance(cnt, Counter):
                 tags = cnt_conf.get("tags", cnt.name)
-                self.tags[cnt.name] = tags
+                self._tags[cnt.name] = tags
                 self._input_counters.append(cnt)
             else:
                 raise RuntimeError(
@@ -250,7 +262,7 @@ class CalcCounterController(CounterController):
                 dim = int(cnt_conf.get("dim", 0))
                 cnt = CalcCounter(cnt_name, self, dim)
                 tags = cnt_conf.get("tags", cnt.name)
-                self.tags[cnt.name] = tags
+                self._tags[cnt.name] = tags
                 self._output_counters.append(cnt)
 
     @property

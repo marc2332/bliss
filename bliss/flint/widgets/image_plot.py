@@ -149,6 +149,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         self.__plot.setKeepDataAspectRatio(True)
         self.__plot.setDataMargins(0.05, 0.05, 0.05, 0.05)
         self.__plot.getYAxis().setInverted(True)
+        self.__plot.sigMousePressed.connect(self.__onPlotPressed)
 
         self.__roiManager = RegionOfInterestManager(self.__plot)
         self.__profileAction = None
@@ -160,8 +161,6 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         self.__colormapInitialized = False
 
         self.setFocusPolicy(qt.Qt.StrongFocus)
-        self.__plot.installEventFilter(self)
-        self.__plot.getWidgetHandle().installEventFilter(self)
         self.__view = view_helper.ViewManager(self.__plot)
         self.__view.setResetWhenScanStarts(False)
         self.__view.setResetWhenPlotCleared(False)
@@ -348,11 +347,8 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         """
         return self.__plot
 
-    def eventFilter(self, widget, event):
-        if widget is self.__plot or widget is self.__plot.getWidgetHandle():
-            if event.type() == qt.QEvent.MouseButtonPress:
-                self.widgetActivated.emit(self)
-        return widget.eventFilter(widget, event)
+    def __onPlotPressed(self):
+        self.widgetActivated.emit(self)
 
     def createPropertyWidget(self, parent: qt.QWidget):
         from . import image_plot_property

@@ -64,7 +64,17 @@ SCAN_INFO_LIMA_ROIS = {
                 "beamviewer:roi_counters:roi4_sum",
                 "beamviewer:roi_counters:roi4_avg",
                 "beamviewer:roi_counters:roi5_avg",
-            ]
+            ],
+            "roi1": {"kind": "rect", "x": 190, "y": 110, "width": 600, "height": 230},
+            "roi4": {
+                "kind": "arc",
+                "cx": 487.0,
+                "cy": 513.0,
+                "r1": 137.0,
+                "r2": 198.0,
+                "a1": -172.0,
+                "a2": -300.0,
+            },
         },
     },
     "channels": {
@@ -76,24 +86,6 @@ SCAN_INFO_LIMA_ROIS = {
         "beamviewer:roi_counters:roi4_avg": {"dim": 0},
         "beamviewer:roi_counters:roi5_avg": {"dim": 0},
         "beamviewer:image": {"dim": 2},
-    },
-    "rois": {
-        "beamviewer:roi_counters:roi1": {
-            "kind": "rect",
-            "x": 190,
-            "y": 110,
-            "width": 600,
-            "height": 230,
-        },
-        "beamviewer:roi_counters:roi4": {
-            "kind": "arc",
-            "cx": 487.0,
-            "cy": 513.0,
-            "r1": 137.0,
-            "r2": 198.0,
-            "a1": -172.0,
-            "a2": -300.0,
-        },
     },
 }
 
@@ -203,7 +195,7 @@ def test_create_scan_model_with_lima_rois():
     for device in scan.devices():
         channelCount += len(list(device.channels()))
     assert channelCount == 8
-    assert deviceCount == 7
+    assert deviceCount == 6
 
     channel = scan.getChannelByName("beamviewer:roi_counters:roi1_avg")
     device = channel.device()
@@ -452,7 +444,7 @@ def test_amesh_scan_with_image_and_mca():
 
 def test_create_plot_model_with_rois():
     scan = scan_info_helper.create_scan_model(SCAN_INFO_LIMA_ROIS)
-    plots = scan_info_helper.infer_plot_models(SCAN_INFO_LIMA_ROIS)
+    plots = scan_info_helper.infer_plot_models(scan)
     image_plots = [p for p in plots if isinstance(p, plot_item_model.ImagePlot)]
     plot = image_plots[0]
     roi_items = [i for i in plot.items() if isinstance(i, plot_item_model.RoiItem)]

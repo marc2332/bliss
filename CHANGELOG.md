@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Added a content menu option to center profile ROIs in image/scatter
     - Added curve stack as custom plot
     - Added an overlay with size of Lima rect ROIs
+    - Added tools to duplicate/rename ROIs during ROI edition
     - Better handling of timeout, and try not to have 30s
     - Better handling of stucked state
         - Added `restart_flint` command from `bliss.common.plot`
@@ -31,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
         - Added `--enable-watchdog` command line argument to log and kill Flint if
           too much memory is used
     - `scan_info["requests"]` is not anymore read (replaced by `channels`)
-    - Update to silx 0.15
+    - Update to silx 0.15.1
 - Demo
     - Added regulation mock to the demo session
 - Scan publication
@@ -58,6 +59,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Fixed slow rendering occurred on live curves and scatters with fast scans
     - The video image is now also used for Lima EXTRERNAL_TRIGGER and EXTERNAL_GATE
     - Fixed blinking of the regulation plot legend
+    - Fixed undisplayed ROIs during a scan. A tool is provided to display them
+      if not already selected.
 
 ### Removed
 

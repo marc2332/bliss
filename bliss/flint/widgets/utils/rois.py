@@ -55,12 +55,28 @@ class LimaRectRoi(silx_rois.RectangleROI):
         self.__sizeLabel.setText(f"{size[0]}x{size[1]}")
         self.__sizeLabel.setPosition(*(pos + size * 0.5))
 
+    def clone(self):
+        newRoi = type(self)()
+        newRoi.setGeometry(origin=self.getOrigin(), size=self.getSize())
+        return newRoi
+
 
 class LimaArcRoi(silx_rois.ArcROI):
     """Arc ROI used to configure Lima detector.
 
     It is used to count sum, avg, min, max
     """
+
+    def clone(self):
+        newRoi = type(self)()
+        newRoi.setGeometry(
+            center=self.getCenter(),
+            innerRadius=self.getInnerRadius(),
+            outerRadius=self.getOuterRadius(),
+            startAngle=self.getStartAngle(),
+            endAngle=self.getEndAngle(),
+        )
+        return newRoi
 
 
 class LimaProfileRoi(LimaRectRoi):
@@ -147,6 +163,12 @@ class LimaProfileRoi(LimaRectRoi):
         self.__line.setPoints(points)
         self.__symbol.setSymbol(symbol)
         self.__symbol.setPosition(*points[1])
+
+    def clone(self):
+        newRoi = type(self)()
+        newRoi.setGeometry(origin=self.getOrigin(), size=self.getSize())
+        newRoi.setLimaKind(self.getLimaKind())
+        return newRoi
 
 
 class LimaHProfileRoi(LimaProfileRoi):

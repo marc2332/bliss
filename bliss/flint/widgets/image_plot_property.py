@@ -90,6 +90,17 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         self.setDeviceLookAndFeel(device)
         self.__used.setCheckable(False)
 
+        if device.type() == scan_model.DeviceType.VIRTUAL_ROI:
+            state = qt.Qt.Unchecked
+            self.__displayed.modelUpdated = None
+            self.__displayed.setData(state, role=delegates.VisibilityRole)
+            self.__displayed.modelUpdated = weakref.WeakMethod(
+                self.__visibilityViewChanged
+            )
+            if self.__treeView.isPersistentEditorOpen(self.__displayed.index()):
+                self.__treeView.closePersistentEditor(self.__displayed.index())
+            self.__treeView.openPersistentEditor(self.__displayed.index())
+
     def device(self):
         return self.__device
 
@@ -118,17 +129,21 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         if plotItem is not None:
             isVisible = plotItem.isVisible()
             state = qt.Qt.Checked if isVisible else qt.Qt.Unchecked
+            self.__displayed.modelUpdated = None
             self.__displayed.setData(state, role=delegates.VisibilityRole)
             self.__displayed.modelUpdated = weakref.WeakMethod(
                 self.__visibilityViewChanged
             )
         else:
-            self.__displayed.setData(None, role=delegates.VisibilityRole)
             self.__displayed.modelUpdated = None
+            self.__displayed.setData(None, role=delegates.VisibilityRole)
 
         if self.__channel is None:
             self.setPlotItemLookAndFeel(plotItem)
 
+        if self.__treeView.isPersistentEditorOpen(self.__displayed.index()):
+            _logger.error("close")
+            self.__treeView.closePersistentEditor(self.__displayed.index())
         self.__treeView.openPersistentEditor(self.__displayed.index())
         if not isRoiItem:
             self.__treeView.openPersistentEditor(self.__remove.index())

@@ -420,6 +420,17 @@ class ScanInfo(dict):
                     if shape is not None:
                         meta["dim"] = len(shape)
 
+        self._feed_rois(acq_chain)
+
+    def _feed_rois(self, acq_chain):
+        """Update scan_info metadata with the set of ROIs geometry setup in each
+        used controllers.
+
+        The target key is `scan_info["rois"]`. If something else was stored here,
+        it will be lost.
+        """
+        tree = acq_chain.tree
+
         # Feed Lima ROIs into the scan_info
         rois = {}
         from bliss.controllers.lima.roi import RoiCounters

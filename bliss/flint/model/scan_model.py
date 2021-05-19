@@ -475,6 +475,12 @@ class Device(qt.QObject, _Sealable):
     def scan(self) -> Scan:
         return self.parent()
 
+    def devices(self) -> List[Device]:
+        """List sub devices from this device"""
+        for d in self.scan().devices():
+            if d.isChildOf(self):
+                yield d
+
     def seal(self):
         for channel in self.__channels:
             channel.seal()

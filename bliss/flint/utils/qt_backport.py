@@ -32,14 +32,7 @@ class QTreeView(qt.QTreeView):
             self.closePersistentEditor = self._closePersistentEditor
 
     def _uniqueId(self, index):
-        if not index.isValid():
-            return None
-        path = []
-        while index.isValid():
-            path.append(index.row())
-            path.append(index.column())
-            index = index.parent()
-        return tuple(path)
+        return qt.QPersistentModelIndex(index)
 
     def _isPersistentEditorOpen(self, index):
         unique = self._uniqueId(index)

@@ -332,6 +332,28 @@ def test_expr_calc_counter_with_ref(default_session):
     )
 
 
+def test_expr_calc_counter_with_alias(default_session):
+    simu_expr_calc_ctrl = default_session.config.get("simu_expr_calc_ctrl")
+    alias_out = default_session.env_dict["ALIASES"].add(
+        "alias_out", simu_expr_calc_ctrl.counters.out3
+    )
+    s = loopscan(1, .1, alias_out, save=False)
+    assert (
+        s.get_data()["simu1:deadtime_det0"] * 10
+        == s.get_data()["simu_expr_calc_ctrl:alias_out"]
+    )
+    simu_expr_calc = default_session.config.get("simu_expr_calc")
+    alias_expr_calc = default_session.env_dict["ALIASES"].add(
+        "alias_expr_calc", simu_expr_calc
+    )
+    s = loopscan(1, .1, alias_expr_calc, save=False)
+    assert (
+        s.get_data()["simulation_diode_sampling_controller:diode"] * 10
+        + s.get_data()["simulation_diode_sampling_controller:diode2"]
+        == s.get_data()["simu_expr_calc_ctrl:alias_expr_calc"]
+    )
+
+
 def test_if_expr_calc_are_disjunct(default_session):
     c1 = default_session.config.get("simu_expr_calc_ctrl")
 

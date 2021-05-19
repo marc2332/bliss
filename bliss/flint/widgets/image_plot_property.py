@@ -142,7 +142,6 @@ class _DataItem(_property_tree_helper.ScanRowItem):
             self.setPlotItemLookAndFeel(plotItem)
 
         if self.__treeView.isPersistentEditorOpen(self.__displayed.index()):
-            _logger.error("close")
             self.__treeView.closePersistentEditor(self.__displayed.index())
         self.__treeView.openPersistentEditor(self.__displayed.index())
         if not isRoiItem:

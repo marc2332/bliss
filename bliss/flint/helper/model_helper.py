@@ -570,20 +570,6 @@ def getFastChannel(
     return None
 
 
-def getColormapWithItemStyle(
-    item: plot_model.Item,
-    style: style_model.Style,
-    defaultColormap: Optional[colors.Colormap] = None,
-) -> colors.Colormap:
-    """Returns the provided colormap updated with the item style preferences
-    """
-    if defaultColormap is not None:
-        if style is not None:
-            defaultColormap.setName(style.colormapLut)
-
-    return defaultColormap
-
-
 def getColormapFromItem(
     item: plot_model.Item,
     style: style_model.Style,

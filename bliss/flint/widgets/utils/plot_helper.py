@@ -245,6 +245,21 @@ class PlotConfiguration:
         return self.__dict__.__str__()
 
 
+class _MousePressedListener(qt.QObject):
+    """
+    Dedicated `eventFilter` to dispatch pressevent from the plot handler.
+    """
+
+    def __init__(self, parent=None):
+        qt.QObject.__init__(self, parent=parent)
+
+    def eventFilter(self, widget, event):
+        if event.type() == qt.QEvent.MouseButtonPress:
+            parent = self.parent()
+            parent.sigMousePressed.emit()
+        return widget.eventFilter(widget, event)
+
+
 class FlintPlot(PlotWindow):
     """Helper to provide few other functionalities on top of silx.
 
@@ -257,7 +272,10 @@ class FlintPlot(PlotWindow):
 
     sigMouseLeft = qt.Signal()
 
+    sigMousePressed = qt.Signal()
+
     def __init__(self, parent=None, backend=None):
+        self._mousePressedListener = None
         super(FlintPlot, self).__init__(parent=parent, backend=backend)
         self.sigPlotSignal.connect(self.__plotEvents)
         self.__userInteraction = False
@@ -266,8 +284,21 @@ class FlintPlot(PlotWindow):
         for tb in toolbars:
             self.removeToolBar(tb)
 
+        self._mousePressedListener = _MousePressedListener(self)
+
+        self._backendUpdated()
+
+    def setBackend(self, backend):
+        super(FlintPlot, self).setBackend(backend)
+        self._backendUpdated()
+
+    def _backendUpdated(self):
         if hasattr(self, "centralWidget"):
             self.centralWidget().installEventFilter(self)
+
+        if self._mousePressedListener is not None:
+            self.installEventFilter(self._mousePressedListener)
+            self.getWidgetHandle().installEventFilter(self._mousePressedListener)
 
     def configuration(self) -> PlotConfiguration:
         """Returns a global configuration of the plot"""

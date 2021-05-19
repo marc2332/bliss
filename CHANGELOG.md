@@ -62,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Fixed blinking of the regulation plot legend
     - Fixed undisplayed ROIs during a scan. A tool is provided to display them
       if not already selected.
+    - Fix update of the property view after an update of the backend
 
 ### Removed
 

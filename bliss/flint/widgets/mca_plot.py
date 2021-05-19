@@ -47,12 +47,11 @@ class McaPlotWidget(plot_helper.PlotWidget):
 
         self.__plotWasUpdated: bool = False
         self.__plot = plot_helper.FlintPlot(parent=self)
+        self.__plot.sigMousePressed.connect(self.__onPlotPressed)
         self.__plot.setActiveCurveStyle(linewidth=2)
         self.__plot.setDataMargins(0.02, 0.02, 0.1, 0.1)
 
         self.setFocusPolicy(qt.Qt.StrongFocus)
-        self.__plot.installEventFilter(self)
-        self.__plot.getWidgetHandle().installEventFilter(self)
         self.__view = view_helper.ViewManager(self.__plot)
 
         self.__aggregator = plot_helper.PlotEventAggregator(self)
@@ -156,11 +155,8 @@ class McaPlotWidget(plot_helper.PlotWidget):
         """
         return self.__plot
 
-    def eventFilter(self, widget, event):
-        if widget is self.__plot or widget is self.__plot.getWidgetHandle():
-            if event.type() == qt.QEvent.MouseButtonPress:
-                self.widgetActivated.emit(self)
-        return widget.eventFilter(widget, event)
+    def __onPlotPressed(self):
+        self.widgetActivated.emit(self)
 
     def createPropertyWidget(self, parent: qt.QWidget):
         from . import mca_plot_property

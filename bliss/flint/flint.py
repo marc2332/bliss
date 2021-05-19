@@ -58,8 +58,10 @@ from silx.gui import qt
 from bliss.flint.model import flint_model
 
 
-ROOT_LOGGER = logging.getLogger()
+APP_LOGGER = logging.getLogger(__name__)
 """Application logger"""
+
+ROOT_LOGGER = logging.getLogger()
 
 SAVE_OPENGL_CONFIG = True
 
@@ -127,14 +129,14 @@ def create_watchdog(options):
     from bliss.flint.manager.watchdog import StackStateWatchDog
     from bliss.flint.manager.watchdog import MemoryWatchDog
 
-    ROOT_LOGGER.info(
+    APP_LOGGER.info(
         "Setup a triggerable memory watch dog (kill -USR1 %i)" % os.getpid()
     )
     memory_state = MemoryStateWatchDog()
     signal.signal(signal.SIGUSR1, memory_state.triggered)
     WATCHDOGS.append(memory_state)
 
-    ROOT_LOGGER.info(
+    APP_LOGGER.info(
         "Setup a triggerable execution watch dog (kill -USR2 %i)" % os.getpid()
     )
     stack_state = StackStateWatchDog()
@@ -142,7 +144,7 @@ def create_watchdog(options):
     WATCHDOGS.append(stack_state)
 
     if options.watchdog:
-        ROOT_LOGGER.info("Setup an automatic memory watch dog")
+        APP_LOGGER.info("Setup an automatic memory watch dog")
         memory = MemoryWatchDog()
         memory.start()
         WATCHDOGS.append(memory)
@@ -179,7 +181,7 @@ def start_flint(flintModel: flint_model.FlintState, options, splash):
             qt.QMessageBox.critical(flintWindow, "Session error", msg)
 
     # Flag that flint is started
-    ROOT_LOGGER.info("Flint started")
+    APP_LOGGER.info("Flint started")
     manager.setFlintStarted()
 
     liveWindow = flintModel.liveWindow()
@@ -210,7 +212,7 @@ def set_global_settings(settings: qt.QSettings, options):
     This function also update the local user settings from the command line
     options.
     """
-    ROOT_LOGGER.debug("Set global settings...")
+    APP_LOGGER.debug("Set global settings...")
 
     if options.clear_settings:
         # Clear all the stored keys
@@ -250,14 +252,14 @@ def set_global_settings(settings: qt.QSettings, options):
             if result:
                 silx.config.DEFAULT_PLOT_BACKEND = "opengl"
             else:
-                ROOT_LOGGER.warning("OpenGL is not available: %s", result.error)
-                ROOT_LOGGER.warning(
+                APP_LOGGER.warning("OpenGL is not available: %s", result.error)
+                APP_LOGGER.warning(
                     "Switch back to matplotlib backend for this execusion"
                 )
                 silx.config.DEFAULT_PLOT_BACKEND = "matplotlib"
         else:
             silx.config.DEFAULT_PLOT_BACKEND = "matplotlib"
-            ROOT_LOGGER.warning("Enforce matplotlib backend for this execusion")
+            APP_LOGGER.warning("Enforce matplotlib backend for this execusion")
         # This setting is only used for this execusion
         SAVE_OPENGL_CONFIG = False
     else:
@@ -272,8 +274,8 @@ def set_global_settings(settings: qt.QSettings, options):
             if result:
                 silx.config.DEFAULT_PLOT_BACKEND = "opengl"
             else:
-                ROOT_LOGGER.warning("OpenGL is not available: %s", result.error)
-                ROOT_LOGGER.warning("Switch back to matplotlib backend")
+                APP_LOGGER.warning("OpenGL is not available: %s", result.error)
+                APP_LOGGER.warning("Switch back to matplotlib backend")
                 silx.config.DEFAULT_PLOT_BACKEND = "matplotlib"
                 # This can be the case when connecting through SSH
                 # So try to not overwrite the default config
@@ -281,12 +283,12 @@ def set_global_settings(settings: qt.QSettings, options):
         else:
             silx.config.DEFAULT_PLOT_BACKEND = "matplotlib"
 
-    ROOT_LOGGER.debug("Global settings set")
+    APP_LOGGER.debug("Global settings set")
 
 
 def save_global_settings(flintModel, options):
     """Save the global settings into the config file"""
-    ROOT_LOGGER.debug("Save global settings...")
+    APP_LOGGER.debug("Save global settings...")
 
     settings = flintModel.settings()
     flintWindow = flintModel.mainWindow()
@@ -303,10 +305,10 @@ def save_global_settings(flintModel, options):
     try:
         manager.saveBeforeClosing()
     except Exception:
-        ROOT_LOGGER.error("Error while saving the workspace", exc_info=True)
+        APP_LOGGER.error("Error while saving the workspace", exc_info=True)
 
     settings.sync()
-    ROOT_LOGGER.debug("Global settings saved")
+    APP_LOGGER.debug("Global settings saved")
 
 
 def process_gevent():
@@ -314,12 +316,12 @@ def process_gevent():
     try:
         gevent.sleep(0.01)
     except Exception:
-        ROOT_LOGGER.critical("Uncaught exception from gevent", exc_info=True)
+        APP_LOGGER.critical("Uncaught exception from gevent", exc_info=True)
 
 
 def handle_exception(exc_type, exc_value, exc_traceback):
     """Catch exceptions which was uncaught."""
-    ROOT_LOGGER.critical(
+    APP_LOGGER.critical(
         "Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback)
     )
 
@@ -343,9 +345,9 @@ def initApplication(argv, options, settings: qt.QSettings):
             # This allows to reuse OpenGL context when docking/undocking windows
             # Can be disabled by command line in order to prevent segfault in
             # some environments
-            ROOT_LOGGER.debug("Setup AA_ShareOpenGLContexts")
+            APP_LOGGER.debug("Setup AA_ShareOpenGLContexts")
             qt.QCoreApplication.setAttribute(qt.Qt.AA_ShareOpenGLContexts)
-        ROOT_LOGGER.debug("Create Qt application")
+        APP_LOGGER.debug("Create Qt application")
         qapp = qt.QApplication(argv)
 
     qapp.setApplicationName(settings.applicationName())
@@ -361,7 +363,7 @@ def initApplication(argv, options, settings: qt.QSettings):
 
     # Care of the formatting for numbers (no coma)
     qt.QLocale.setDefault(qt.QLocale.c())
-    ROOT_LOGGER.debug("Qt application initialized")
+    APP_LOGGER.debug("Qt application initialized")
     return qapp
 
 
@@ -401,7 +403,7 @@ def create_spash_screen():
         if filename is not None:
             splash.setPixmap(qt.QPixmap(filename))
     except Exception:
-        ROOT_LOGGER.error("Error while loading splash screen")
+        APP_LOGGER.error("Error while loading splash screen")
     splash.show()
     splash.showMessage("Loading Flint...", qt.Qt.AlignLeft, qt.Qt.black)
     return splash
@@ -414,9 +416,10 @@ def main():
         mpl_log = logging.getLogger("matplotlib")
         mpl_log.setLevel(logging.INFO)
     else:
-        ROOT_LOGGER.setLevel(logging.INFO)
-        silx_log = logging.getLogger("silx")
-        silx_log.setLevel(logging.WARNING)
+        ROOT_LOGGER.setLevel(logging.WARNING)
+        # Only log info from the project
+        bliss_log = logging.getLogger("bliss")
+        bliss_log.setLevel(logging.INFO)
 
     config_logging(options)
 
@@ -426,8 +429,8 @@ def main():
             need_gevent_loop = False
             poll_patch.init(1)
         else:
-            ROOT_LOGGER.error("gevent_poll requested but `poll_patch` was not loaded.")
-            ROOT_LOGGER.warning("A QTimer for gevent loop will be created instead.")
+            APP_LOGGER.error("gevent_poll requested but `poll_patch` was not loaded.")
+            APP_LOGGER.warning("A QTimer for gevent loop will be created instead.")
             need_gevent_loop = True
 
     # Patch qt binding to remove few warnings
@@ -486,9 +489,9 @@ def main():
         gevent_timer = qt.QTimer()
         gevent_timer.start(10)
         gevent_timer.timeout.connect(process_gevent)
-        ROOT_LOGGER.info("gevent based on QTimer")
+        APP_LOGGER.info("gevent based on QTimer")
     else:
-        ROOT_LOGGER.info("gevent use poll patched")
+        APP_LOGGER.info("gevent use poll patched")
 
     # RPC service of the Flint API
     from bliss.flint.helper.rpc_server import FlintServer
@@ -502,7 +505,7 @@ def main():
         sys.exit(qapp.exec_())
     finally:
         server.join()
-        ROOT_LOGGER.debug("End")
+        APP_LOGGER.debug("End")
 
 
 if __name__ == "__main__":

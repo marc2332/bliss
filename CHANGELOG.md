@@ -52,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Run server according to config retrieved from beacon
     - Client re-connection on server restart
     - Improved management of current_configuration / default_configuration
+- Project: Remove `-conda` suffix from requirement files
 
 ### Fixed
 

@@ -1,6 +1,7 @@
 # Conda requirement file
 # Test requirements
 
+black == 18.6b4  # used by test_patches
 lima-core >= 1.9.6
 lima-camera-simulator >= 1.9.2
 lima-camera-simulator-tango >= 1.9.2

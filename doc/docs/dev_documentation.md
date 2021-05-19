@@ -32,7 +32,7 @@ in a conda environment.
 
 ```bash
 cd <bliss.git directory>
-conda install --file requirements-doc-conda.txt
+conda install --file requirements-doc.txt
 ```
 
 This installs `mkdocs` and all dependencies.
@@ -151,7 +151,7 @@ To easily view the result of your writing, using a local rendering:
 * Create or use a conda environment with good packages installed:
     * sphinx / graphviz / pygments / mkdocs / mkdocs-material
     * pymdown-extensions / markdown-inline-graphviz / Markdown
-* These packages are in `requirements-doc-conda.txt`
+* These packages are in `requirements-doc.txt`
 
 !!! note  "At ESRF"
     At ESRF, enter the BLISS development conda environment to install documentation requirements:
@@ -161,7 +161,7 @@ To easily view the result of your writing, using a local rendering:
 
 ```bash
 cd <bliss.git directory>
-conda install --file requirements-doc-conda.txt
+conda install --file requirements-doc.txt
 ```
 
 * launch `mkdocs` in server mode in your conda environment:

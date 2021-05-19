@@ -331,18 +331,16 @@ for ESRF, see: <http://wikiserv.esrf.fr/bliss/index.php/BLISS_Releasing>
 ├─ scripts/
 ├─ spec/
 ├─ tests/
-├─ LICENSE         LGPLv3 license description
-├─ pre-commit.sh   script to install git-hook to autoformat code with "black"
-├─ README.md       documentation entry-point
-├─ .gitignore      files to be ignored by git
-├─ .gitlab-ci.yml  configuration of the continuous integration workflow
-├─ .gitmodules     git submodules (empty now)
-├─ .pre-commit-config.yaml      config to get "black" module for git commit hook
-├─ requirements-conda.txt       modules to Conda-install to run BLISS
-├─ requirements-dev.txt         modules to Conda-install to develop BLISS
-├─ requirements-doc-conda.txt   modules to Conda-install to build documentation
-├─ requirements-test-conda.txt  modules to Conda-install to run tests
-├─ setup.cfg       options to use for test; aliases;
-└─ setup.py        BLISS configuration file
+├─ LICENSE                  LGPLv3 license description
+├─ pre-commit.sh            Script to install git-hook to autoformat code with "black"
+├─ README.md                Documentation entry-point
+├─ .gitignore               Files to be ignored by git
+├─ .gitlab-ci.yml           Configuration of the continuous integration workflow
+├─ .pre-commit-config.yaml  Config to get "black" module for git commit hook
+├─ requirements.txt         Modules to Conda-install to run BLISS
+├─ requirements-dev.txt     Modules to Conda-install to develop BLISS
+├─ requirements-doc.txt     Modules to Conda-install to build documentation
+├─ requirements-test.txt    Modules to Conda-install to run tests
+├─ setup.cfg                Options to use for test; aliases;
+└─ setup.py                 BLISS configuration file
 ```
-

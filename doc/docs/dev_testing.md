@@ -18,7 +18,7 @@
 ```
 conda create --name testenv \
   --channel esrf-bcu --channel defaults --channel tango-controls --channel conda-forge \
-  --file requirements-conda.txt  --file requirements-test-conda.txt
+  --file requirements.txt  --file requirements-test.txt
 source activate testenv
 ```
 
@@ -136,14 +136,6 @@ TEST_SESSION[1]: limaDev = config.get("lima_simulator")
 !!! note
     To run Nexus writer test, use:
     `pytest tests/nexus_writer/ --durations=30 -m writer --runwritertests`
-
-
-
-
-
-
-
-
 
 
 ## Tests and Continuous Integration

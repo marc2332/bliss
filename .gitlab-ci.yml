@@ -45,7 +45,7 @@ check_style:
   except:
     - master
   script:
-    - pip install -r requirements-dev.txt
+    - conda install --file requirements-dev.txt
     # run black
     - LC_ALL=C.UTF-8 black --check --safe $(git diff origin/$COMPARE_BRANCH_NAME... --diff-filter=ACMR --name-only | grep \\.py$)
 
@@ -57,7 +57,7 @@ check_style_master:
   tags:
     - bliss_master
   script:
-    - pip install -r requirements-dev.txt
+    - conda install --file requirements-dev.txt
     # run black
     - LC_ALL=C.UTF-8 black --check --safe $(git diff origin/$COMPARE_BRANCH_NAME... --diff-filter=ACMR --name-only | grep \\.py$)
   
@@ -65,7 +65,7 @@ check_lint:
   stage: style
   image: continuumio/miniconda3:latest
   script:
-    - pip install -r requirements-dev.txt
+    - conda install --file requirements-dev.txt
     # run flake8 on diff between current branch and last common ancestor with master
     - git diff -U0 origin/$COMPARE_BRANCH_NAME...$CI_COMMIT_SHA | flake8 --diff
   # allow failure without impacting the rest of the CI (will show an orange warning in the UI)
@@ -88,7 +88,7 @@ check_lint:
     # install Xvfb and opengl libraries (needed for test_flint)
     - apt-get update && apt-get -y install xvfb libxi6
     # create test env and install BLISS
-    - conda create --quiet --name testenv --file requirements-conda.txt --file requirements-test-conda.txt
+    - conda create --quiet --name testenv --file requirements.txt --file requirements-test.txt
     - source activate testenv
     - conda install pytest-profiling --yes
     - pip install . --no-deps
@@ -211,7 +211,7 @@ package:
     # install opengl libraries (needed to avoid problem with pyopengl dependency)
     - apt-get update && apt-get -y install libgl1-mesa-glx
     # create package env and install all requirements and conda-build, (gcc and g++ compiler required for flint)
-    - conda create --quiet --name buildenv --file requirements-conda.txt --file requirements-test-conda.txt conda-build
+    - conda create --quiet --name buildenv --file requirements.txt --file requirements-test.txt conda-build
     - source activate buildenv
     # create links to reach prefixed compilers of conda
     - ln -s /opt/conda/envs/buildenv/bin/x86_64-conda_cos6-linux-gnu-gcc /opt/conda/envs/buildenv/bin/gcc
@@ -285,7 +285,7 @@ create_reference_doc:
     # install opengl libraries (needed to avoid problem with pyopengl dependency)
     - apt-get update && apt-get -y install libgl1-mesa-glx
     # create doc env and install all requirements
-    - conda create -q --yes --name docenv --file requirements-conda.txt --file requirements-doc-conda.txt
+    - conda create -q --yes --name docenv --file requirements.txt --file requirements-doc.txt
     - source activate docenv
     # build of documentation
     - python setup.py build_sphinx
@@ -302,7 +302,7 @@ create_user_doc:
     # install opengl libraries (needed to avoid problem with pyopengl dependency)
     - apt-get update && apt-get -y install libgl1-mesa-glx
     # create doc env and install all requirements
-    - conda create -q --yes --name mkdocsenv --file requirements-conda.txt --file requirements-doc-conda.txt
+    - conda create -q --yes --name mkdocsenv --file requirements.txt --file requirements-doc.txt
     - source activate mkdocsenv
     # build of documentation (-s : strict : fail on warnings)
     - cd doc && mkdocs build -s
@@ -321,7 +321,7 @@ create_user_doc:
     - mv bliss source # to avoid import errors (we want to test the packet, not local bliss folder)
     - conda create -y --name testenv
     - source activate testenv
-    - conda install bliss==$CI_COMMIT_TAG --file requirements-test-conda.txt --channel file://${CI_PROJECT_DIR}/conda-local-channel
+    - conda install bliss==$CI_COMMIT_TAG --file requirements-test.txt --channel file://${CI_PROJECT_DIR}/conda-local-channel
     - echo ${PYTEST_ARGS}
     - pytest ${PYTEST_ARGS}
 

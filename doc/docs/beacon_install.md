@@ -82,16 +82,23 @@ beacon-server --db-path=~/local/beamline_configuration --redis-port=25001 \
 ```
 
 Custom Redis configuration file can be specified with `--redis-config` and
-`--redis-data-config` arguments.
+`--redis-data-config` arguments:
 
 ```shell
 beacon-server --db-path=~/local/beamline_configuration \
+              --redis-port=25001 \
+              --redis-data-port=25002 \
               --redis-conf=~/local/redis.conf  \
               --redis-data-conf=~/local/redis_data.conf
 ```
 
-`port`, `data-port` and `maxmemory` can be customized in local configuration file.
+Custom configuration file allow to change redis settings like `maxmemory`
+or I/O threads in a local configuration file.
 
+!!! note
+    Port numbers in redis configuration file will be ignored, always specify
+    `--redis-port` and `--redis-data-port` to customize the redis listening
+    ports.
 
 ## Web application
 

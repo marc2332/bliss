@@ -139,6 +139,7 @@ from typing import List
 
 import numpy
 import functools
+import time
 
 from bliss import current_session, is_bliss_shell, global_map
 from bliss.common.protocols import Scannable
@@ -280,6 +281,7 @@ def plotselect(*counters):
     scan_display = ScanDisplay()
     channel_names = get_channel_names(*counters)
     scan_display.displayed_channels = channel_names
+    scan_display._displayed_channels_time = time.time()
 
     if flint_proxy.check_flint():
         flint = flint_proxy.get_flint(mandatory=False)

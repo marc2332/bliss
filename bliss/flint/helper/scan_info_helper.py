@@ -586,7 +586,13 @@ def _select_default_counter(scan, plot):
 
 class DisplayExtra(NamedTuple):
     displayed_channels: Optional[List[str]]
+    """Enforced list of channels to display for this specific scan"""
+
     plotselect: Optional[List[str]]
+    """List of name selected by plot select"""
+
+    plotselect_time: Optional[int]
+    """Time from `time.time()` of the last plotselect"""
 
 
 def parse_display_extra(scan_info: Dict) -> DisplayExtra:
@@ -615,10 +621,12 @@ def parse_display_extra(scan_info: Dict) -> DisplayExtra:
         )
         raw = display_extra.get("plotselect", None)
         plotselect = parse_optional_list_of_string(raw, "_display_extra.plotselect")
+        plotselect_time = display_extra.get("plotselect_time", None)
     else:
         displayed_channels = None
         plotselect = None
-    return DisplayExtra(displayed_channels, plotselect)
+        plotselect_time = None
+    return DisplayExtra(displayed_channels, plotselect, plotselect_time)
 
 
 def removed_same_plots(plots, remove_plots) -> List[plot_model.Plot]:

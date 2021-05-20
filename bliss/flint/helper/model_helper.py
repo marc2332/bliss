@@ -648,9 +648,16 @@ def updateDisplayedChannelNames(
 
 
 def copyItemsFromChannelNames(
-    sourcePlot: plot_model.Plot, destinationPlot: plot_model.Plot
+    sourcePlot: plot_model.Plot,
+    destinationPlot: plot_model.Plot,
+    scan: scan_model.Scan = None,
 ):
-    """Copy from the source plot the item which was setup into the destination plot"""
+    """Copy from the source plot the item which was setup into the destination plot.
+
+    If the destination plot do not contain the expected items, the scan is used
+    to know if they are available, and are then created. Else source item is
+    skipped.
+    """
     if not isinstance(sourcePlot, plot_item_model.CurvePlot):
         raise TypeError("Only available for curve plot. Found %s" % type(sourcePlot))
     if not isinstance(destinationPlot, type(sourcePlot)):
@@ -674,9 +681,25 @@ def copyItemsFromChannelNames(
                 if channel is None:
                     continue
                 name = channel.name()
-                sourceItem = availableItems.get(name)
+                sourceItem = availableItems.pop(name, None)
                 if sourceItem is not None:
                     copyItemConfig(sourceItem, item)
+
+        if len(availableItems) > 0 and scan is not None:
+            # Some items could be created
+            for name, sourceItem in availableItems.items():
+                channel = scan.getChannelByName(name)
+                if channel is None:
+                    # Not part of the scan
+                    continue
+
+                item, _updated = createCurveItem(
+                    destinationPlot,
+                    channel,
+                    yAxis=sourceItem.yAxis(),
+                    allowIndexed=True,
+                )
+                copyItemConfig(sourceItem, item)
 
 
 def copyItemConfig(sourceItem: plot_model.Item, destinationItem: plot_model.Item):

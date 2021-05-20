@@ -291,6 +291,20 @@ def lima(env=None, tmpdir=None, name="simulator1"):
 
 
 @contextmanager
+def machinfo(env=None, tmpdir=None):
+    name = "machinfo"
+    script = os.path.join(
+        os.path.dirname(__file__), "..", "tests", "machinfo_tg_server.py"
+    )
+    assert os.path.isfile(script)
+    cliargs = [sys.executable, "-u", script, name]
+    with runcontext(cliargs, tmpdir=tmpdir, prefix=name, env=env):
+        device_fqdn = "id00/tango/" + name
+        wait_tango_device(device_fqdn=device_fqdn)
+        yield
+
+
+@contextmanager
 def metaexperiment(env=None, tmpdir=None, name="test"):
     """Start ICAT proposal/sample manager
 
@@ -443,6 +457,9 @@ if __name__ == "__main__":
         stack.enter_context(ctx)
 
         ctx = lima(env=env, tmpdir=tmpdir, name="simulator2")
+        stack.enter_context(ctx)
+
+        ctx = machinfo(env=env, tmpdir=tmpdir)
         stack.enter_context(ctx)
 
         if args.writer == "TANGO":

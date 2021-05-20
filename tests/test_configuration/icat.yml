@@ -1,15 +1,24 @@
-name: icat
-plugin: bliss
-class: ICATmeta
+- name: icat
+  plugin: bliss
+  class: ICATmeta
 
-objects:
-  primary_slit: $primary_slit
-  attenuator01: $att1
+  objects:
+    primary_slit: $primary_slit
+    attenuator01: $att1
 
-positioners:
-  sample: $roby
-  insertion_device_gap: [$roby,$robz]
+  positioners:
+    sample: $roby
+    insertion_device_gap: [$roby,$robz]
 
-mapping:
-  InstrumentVariables_name: [ $roby.name, $robz.name ]
-  InstrumentVariables_value: [ $roby.position, $robz.position ]
+  mapping:
+    InstrumentVariables_name: [ $roby.name, $robz.name ]
+    InstrumentVariables_value: [ $roby.position, $robz.position ]
+
+- name: icat_nexus_writer_sessions
+  plugin: bliss
+  class: ICATmeta
+
+  objects:
+    primary_slit: $primary_slit
+    attenuator01: $att1
+    source: $machinfo

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Flint
+    - Added a tool to reset a curve plot to the used plotselect
     - Added dedicated widget for acqobj exposing 1D data
         - Only 1D data from this acqobj is displayed
         - Supports metadata from controllers or acqobj to custom the X-axis
@@ -47,6 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flint
     - When Flint is not fast enough to reach data from Redis, NaN values
       are used in order to keep the data alignment
+    - Improve initial curve plot selection to care about plotselect or user selection
+      The earlier one have the priority
 - XIA mca
     - Logger improved (can log at handel lib and BLISS levels)
     - Run server according to config retrieved from beacon
@@ -57,10 +60,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Flint
+    - Fix initial curve plot selection in order to properly reuse user selection
     - Fixed slow rendering occurred on live curves and scatters with fast scans
     - The video image is now also used for Lima EXTRERNAL_TRIGGER and EXTERNAL_GATE
     - Fixed blinking of the regulation plot legend
-    - Fixed undisplayed ROIs during a scan. A tool is provided to display them
+    - Fixed hidden ROIs during a scan. A tool is provided to display them
       if not already selected.
     - Fixed update of the property view after an update of the backend
     - Fixed colormap LUT of the scatter plot when it is set with the style dialog

@@ -191,9 +191,11 @@ class RemovePlotItemButton(qt.QToolButton):
 
     def __requestRemoveItem(self):
         plotItem = self.__plotItem
-        plot = plotItem.plot()
-        if plot is not None:
-            model_helper.removeItemAndKeepAxes(plot, plotItem)
+        plotModel = plotItem.plot()
+        if plotModel is not None:
+            model_helper.removeItemAndKeepAxes(plotModel, plotItem)
+            # FIXME: It would be better to make it part of the model
+            plotModel.tagUserEditTime()
 
     def setPlotItem(self, plotItem: plot_model.Item):
         self.__plotItem = plotItem

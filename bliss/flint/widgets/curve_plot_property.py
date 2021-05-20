@@ -149,6 +149,9 @@ class YAxesEditor(qt.QWidget):
             assert False
         if self.__plotItem is not None:
             self.__plotItem.setYAxis(axis)
+            plotModel = self.__plotItem.plot()
+            # FIXME: It would be better to make it part of the model
+            plotModel.tagUserEditTime()
         self.valueChanged.emit()
 
     def __plotItemChanged(self, eventType):
@@ -331,11 +334,13 @@ class _AddItemAction(qt.QWidgetAction):
     def __createChildItem(self, itemClass):
         parentItem = self.parent().selectedPlotItem()
         if parentItem is not None:
-            plot = parentItem.plot()
-            newItem = itemClass(plot)
+            plotModel = parentItem.plot()
+            newItem = itemClass(plotModel)
             newItem.setSource(parentItem)
-            with plot.transaction():
-                plot.addItem(newItem)
+            with plotModel.transaction():
+                plotModel.addItem(newItem)
+            # FIXME: It would be better to make it part of the model
+            plotModel.tagUserEditTime()
 
     def __createNormalized(self):
         parentItem = self.parent().selectedPlotItem()
@@ -350,13 +355,15 @@ class _AddItemAction(qt.QWidgetAction):
             monitorName = dialog.selectedChannelName()
             if monitorName is None:
                 return
-            plot = parentItem.plot()
-            newItem = plot_state_model.NormalizedCurveItem(plot)
-            channel = plot_model.ChannelRef(plot, monitorName)
+            plotModel = parentItem.plot()
+            newItem = plot_state_model.NormalizedCurveItem(plotModel)
+            channel = plot_model.ChannelRef(plotModel, monitorName)
             newItem.setMonitorChannel(channel)
             newItem.setSource(parentItem)
-            with plot.transaction():
-                plot.addItem(newItem)
+            with plotModel.transaction():
+                plotModel.addItem(newItem)
+            # FIXME: It would be better to make it part of the model
+            plotModel.tagUserEditTime()
 
 
 class _DataItem(_property_tree_helper.ScanRowItem):
@@ -440,18 +447,23 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         else:
             assert self.__channel is not None
             assert self.__plotModel is not None
-            plot = self.__plotModel
+            plotModel = self.__plotModel
             yAxis = item.data(role=YAxesPropertyItemDelegate.YAxesRole)
             assert yAxis in ["left", "right"]
 
             _curve, _wasUpdated = model_helper.createCurveItem(
-                plot, self.__channel, yAxis, allowIndexed=True
+                plotModel, self.__channel, yAxis, allowIndexed=True
             )
+            # FIXME: It would be better to make it part of the model
+            plotModel.tagUserEditTime()
 
     def __visibilityViewChanged(self, item: qt.QStandardItem):
         if self.__plotItem is not None:
             state = item.data(delegates.VisibilityRole)
             self.__plotItem.setVisible(state == qt.Qt.Checked)
+            plotModel = self.__plotItem.plot()
+            # FIXME: It would be better to make it part of the model
+            plotModel.tagUserEditTime()
 
     def setSelectedXAxis(self):
         if self.__xAxisSelected:
@@ -485,6 +497,8 @@ class _DataItem(_property_tree_helper.ScanRowItem):
             model_helper.updateXAxis(plotModel, scan, topMaster, xIndex=True)
         else:
             assert False
+        # FIXME: It would be better to make it part of the model
+        plotModel.tagUserEditTime()
 
     def setDevice(self, device: scan_model.Device):
         self.setDeviceLookAndFeel(device)
@@ -676,14 +690,17 @@ class CurvePlotPropertyWidget(qt.QWidget):
     def __removeAllItems(self):
         if self.__plotModel is None:
             return
-        with self.__plotModel.transaction():
-            items = list(self.__plotModel.items())
+        plotModel = self.__plotModel
+        with plotModel.transaction():
+            items = list(plotModel.items())
             for item in items:
                 try:
-                    self.__plotModel.removeItem(item)
+                    plotModel.removeItem(item)
                 except IndexError:
                     # Item was maybe already removed
                     pass
+        # FIXME: It would be better to make it part of the model
+        plotModel.tagUserEditTime()
 
     def __createToolBar(self):
         toolBar = qt.QToolBar(self)

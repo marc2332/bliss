@@ -237,7 +237,13 @@ class FlintClient:
         scan_saving = current_session.scan_saving
         if scan_saving is not None:
             if scan_saving.data_policy == "ESRF":
-                metadata_manager = scan_saving.icat_proxy.metadata_manager
+                try:
+                    metadata_manager = scan_saving.icat_proxy.metadata_manager
+                except Exception:
+                    FLINT_LOGGER.error(
+                        "Error while reaching Metadata manager", exc_info=True
+                    )
+                    metadata_manager = None
                 if metadata_manager is not None:
                     proxy.set_tango_metadata_name(metadata_manager.proxy.name())
                 else:

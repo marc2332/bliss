@@ -152,6 +152,10 @@ API
 import typing
 import typeguard
 import numbers
+import logging
+
+
+_logger = logging.getLogger(__name__)
 
 
 class ScanInfo(dict):
@@ -256,6 +260,17 @@ class ScanInfo(dict):
             meta["group"] = group
         if axis_points_hint is not None:
             meta["axis-points-hint"] = axis_points_hint
+
+        if axis_kind is not None:
+            # If a kind is set the orientation of the scan have to be known
+            if start is None:
+                _logger.warning(
+                    "A 'start' position for the channel '%s' should be set", name
+                )
+            if stop is None:
+                _logger.warning(
+                    "A 'stop' position for the channel '%s' should be set", name
+                )
 
     @typeguard.typechecked
     def add_scatter_plot(

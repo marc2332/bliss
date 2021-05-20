@@ -8,22 +8,29 @@ import contextlib
 import numpy
 
 from bliss.controllers.motor import Controller
-from bliss.common.utils import object_method
 from bliss.common.utils import object_attribute_get, object_attribute_set, object_method
 from bliss.common.axis import AxisState
 from bliss.common import axis as axis_module
-from bliss.common.logtools import log_debug, log_debug_data, log_info, log_warning
+from bliss.common.logtools import log_debug, log_info
 
 from . import pi_gcs
-from bliss.comm.util import TCP
 import gevent.lock
 
-import sys
-import time
 
 """
 Bliss controller for ethernet PI E753 piezo controller.
 Model PI E754 should be compatible.. to be tested.
+"""
+
+"""
+Special commands, e.g. fast polling commands, consist only of one
+character. The 24th ASCII character e.g. is called #24. Note that
+these commands are not followed by a termination character (but the
+responses to them are).
+
+* #5: Request Motion Status
+* #9: Get Wave Generator Status
+* #24: Stop All Motion
 """
 
 
@@ -109,7 +116,7 @@ class PI_E753(pi_gcs.Communication, pi_gcs.Recorder, Controller):
     """ STATE """
 
     def state(self, axis):
-        # check if WAV motion is active
+        # check if WAV motion is active  #9
         if self.sock.write_readline(chr(9).encode()) != b"0":
             return AxisState("MOVING")
 
@@ -149,10 +156,10 @@ class PI_E753(pi_gcs.Communication, pi_gcs.Recorder, Controller):
 
     def stop(self, axis):
         """
-        * HLT -> stop smoothly
         * STP -> stop asap
         * 24    -> stop asap
         * to check : copy of current position into target position ???
+        * NB: 'HLT' command does not exist for pi e-753
         """
         if self._get_closed_loop_status(axis):
             self.command("STP")
@@ -164,7 +171,7 @@ class PI_E753(pi_gcs.Communication, pi_gcs.Recorder, Controller):
     @object_method(types_info=("None", "float"))
     def get_voltage(self, axis):
         """ Return voltage read from controller."""
-        return float(self.command(axis, "SVA? 1"))
+        return float(self.command("SVA? 1"))
 
     @object_method(types_info=("None", "float"))
     def get_output_voltage(self, axis):
@@ -183,10 +190,12 @@ class PI_E753(pi_gcs.Communication, pi_gcs.Recorder, Controller):
 
     def _get_pos(self):
         """
-        - no axis parameter as _get_pos is used by encoder.... can be a problem???
-        - Return a 'float': real position read by capacitive sensor.
+        - no axis parameter as _get_pos() is also used by encoder object.
+
+        Returns : float'
+            Real position of axis read by capacitive sensor.
         """
-        return float(self.command("POS?"))
+        return float(self.command("POS? 1"))
 
     def _get_target_pos(self, axis):
         """
@@ -309,13 +318,12 @@ class PI_E753(pi_gcs.Communication, pi_gcs.Recorder, Controller):
 
     def get_hw_info(self):
         """
-        Return a set of usefull information about controller.
-        Helpful to tune the device.
+        Helpful parameter to tune the device.
 
         Args:
             None
-        Return:
-            None
+        Return: str
+            information about controller.
 
         IDN? for e753:
              Physik Instrumente, E-753.1CD, 111166712, 08.00.02.00
@@ -324,29 +332,26 @@ class PI_E753(pi_gcs.Communication, pi_gcs.Recorder, Controller):
              (c)2016 Physik Instrumente (PI) GmbH & Co. KG, E-754.1CD, 117045756, 1.01
 
         0xffff000* parameters are not valid for 754
-
         """
 
         _infos = [
             ("Identifier                 ", "*IDN?"),
             ("Com level                  ", "CCL?"),
-            ("Real Position              ", "POS?"),
-            ("Setpoint Position          ", "MOV?"),
-            ("Position low limit         ", "SPA? 1 0x07000000"),
-            ("Position High limit        ", "SPA? 1 0x07000001"),
-            ("Velocity                   ", "VEL?"),
-            ("On target                  ", "ONT?"),
-            ("On target window           ", "SPA? 1 0x07000900"),
+            ("Real Position              ", "POS? 1"),
+            ("Setpoint Position          ", "MOV? 1"),
+            ("Position low limit         ", "SPA? 1 0X07000000"),
+            ("Position High limit        ", "SPA? 1 0X07000001"),
+            ("Velocity                   ", "VEL? 1"),
+            ("On target                  ", "ONT? 1"),
             ("Target tolerance           ", "SPA? 1 0X07000900"),
             ("Settling time              ", "SPA? 1 0X07000901"),
-            ("Sensor Offset              ", "SPA? 1 0x02000200"),
-            ("Sensor Gain                ", "SPA? 1 0x02000300"),
-            ("Motion status              ", "#5"),
-            ("Closed loop status         ", "SVO?"),
-            ("Auto Zero Calibration ?    ", "ATZ?"),
-            ("Analog input setpoint      ", "AOS?"),
-            ("Low  Voltage Limit         ", "SPA? 1 0x07000A00"),
-            ("High Voltage Limit         ", "SPA? 1 0x07000A01"),
+            ("Sensor Offset              ", "SPA? 1 0X02000200"),
+            ("Sensor Gain                ", "SPA? 1 0X02000300"),
+            ("Closed loop status         ", "SVO? 1"),
+            ("Auto Zero Calibration ?    ", "ATZ? 1"),
+            ("Analog input setpoint      ", "AOS? 1"),
+            ("Voltage Low Limit          ", "SPA? 1 0X07000A00"),
+            ("Voltage High Limit         ", "SPA? 1 0X07000A01"),
         ]
 
         if self.model == "E-753":
@@ -361,7 +366,7 @@ class PI_E753(pi_gcs.Communication, pi_gcs.Recorder, Controller):
 
         # Reads pre-defined infos (1-line answers only)
         for i in _infos:
-            _ans = self.sock.write_readline(f"{i[1]}\n".encode()).decode()
+            _ans = self.command(i[1])
             _txt += f"        {i[0]} {_ans} \n"
 
         # Reads multi-lines infos.
@@ -408,6 +413,7 @@ class PI_E753(pi_gcs.Communication, pi_gcs.Recorder, Controller):
         Start a simple wav trajectory,
         -- wavetype can be LIN for a Linear  or
            SIN for a sinusoidal.
+        -- offset: 
         -- amplitude motor displacement
         -- nb_cycles the number of time the motion is repeated.
         -- wavelen the time in second that should last the motion

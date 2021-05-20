@@ -6,10 +6,13 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 # Distributed under the GNU LGPLv3. See LICENSE.txt for more info.
 
-# PI GCS
-import numpy
+"""
+This module is a common base for PI controllers:
+* for communication
+* fro Wave generator
+"""
 
-from warnings import warn
+import numpy
 
 from bliss.comm.util import get_comm, get_comm_type, TCP
 from bliss.common.event import connect, disconnect
@@ -428,6 +431,8 @@ class Communication:
     def com_initialize(self):
         self.sock = get_pi_comm(self.config, TCP)
         global_map.register(self, children_list=[self.sock])
+
+        # ???
         connect(self.sock, "connect", self._clear_error)
 
     def finalize(self):
@@ -457,8 +462,26 @@ class Communication:
 
         Read answer if needed (ie. `cmd` contains a `?`).
 
-        - Encode `cmd` string.
-        - Add `\\n` terminator.
+        Parameters:
+            <cmd>: str
+                Command. Not encoded; Without terminator character.
+
+            [<nb_line>]: int
+                Number of lines expected in answer.
+                For multi-lines commands (ex: IFC?) or multiple commands.
+
+        Returns: str  ;  list of str  ; tuple of str
+
+        Usage:
+            * id = self.command("*IDN?")
+            * ont = self.command("ONT? 1")
+            * ans = self.command("SPA? 1 0x07000A00")
+            * com_pars_list = self.command("IFC?", 5)
+            * pos, vel = self.command("POS? 1\nVEL? 1", 2)
+
+        Note:
+            Does not work for single char commands (#5 #9 #24 etc.)
+
         """
 
         with self.sock.lock:
@@ -474,35 +497,53 @@ class Communication:
                 if not reply:  # it's an error
                     errors = [self.name] + list(self.get_error())
                     raise RuntimeError(
-                        "Device {0} error nb {1} => ({2})".format(*errors)
+                        "PI Device {0} error nb {1} => ({2})".format(*errors)
                     )
 
                 if nb_line > 1:
+                    # Multi-lines answer or multiple commands
                     parsed_reply = list()
                     commands = cmd.split(b"\n")
-                    if len(commands) == nb_line:  # one reply per command
+                    if len(commands) == nb_line:
+                        # Many queries, one reply per query
+                        # Return a tuple of str
                         for cmd, rep in zip(commands, reply):
                             space_pos = cmd.find(b" ")
                             if space_pos > -1:
                                 args = cmd[space_pos + 1 :]
-                                parsed_reply.append(self._parse_reply(rep, args))
+                                parsed_reply.append(self._parse_reply(rep, args, cmd))
                             else:
+                                # No space in cmd => no param to parse. ex: "*IDN?" "CCL?"
                                 parsed_reply.append(rep)
-                    else:  # a command with several replies
+                    else:
+                        # One command with reply in several lines
+                        # Return a list of str
                         space_pos = cmd.find(b" ")
                         if space_pos > -1:
                             args = cmd[space_pos + 1 :]
                             for arg, rep in zip(args.split(), reply):
-                                parsed_reply.append(self._parse_reply(rep, arg))
+                                parsed_reply.append(self._parse_reply(rep, arg, cmd))
+                        else:
+                            # TSP? TAD? IFC? etc.
+                            for ans in reply:
+                                parsed_reply.append(ans.decode())
                     reply = parsed_reply
                 else:
+                    # Single line answer.
+
+                    # Example: cmd = "VEL? 1"
                     space_pos = cmd.find(b" ")
+                    # print(f"cmd={cmd}   space_pos={space_pos}  reply={reply} ")
                     if space_pos > -1:
-                        reply = self._parse_reply(reply, cmd[space_pos + 1 :])
+                        axes_arg = cmd[
+                            space_pos + 1 :
+                        ]  # 2nd part of the command -> axes id.
+                        reply = self._parse_reply(reply, axes_arg, cmd)
                     else:
                         reply = reply.decode()
                 return reply
             else:
+                # no reply expected.
                 self.sock.write(cmd + b"\n")
                 errno, error_message = self.get_error()
                 if errno:
@@ -519,13 +560,31 @@ class Communication:
         com = com.encode()
         return self.sock.write_readline(b"%s\n" % com)
 
-    def _parse_reply(self, reply, args):
+    def _parse_reply(self, reply, args, cmd):
+        """
+        Extract pertinent value in controller's answer.
+        <reply>: answer of the controller.
+        <args>: arguments of the command (axes numbers)
+                example: "1"    # can be "1 2" "A B" ??
+
+        Examples of commands / answers:
+        * VEL? 1              ->  1=11.0000
+        * SVO? 1              ->  1=1
+        * SPA? 1 0X07000000   ->  1 0x07000000=-3.00000000e+1  # NB: PI replies with '0x' in lower case.
+        * SPA? 1 0X07000A00   ->  1 0x07000A00=0.00000000e+0
+        """
+        u_reply = reply.upper()
+        u_args = args.upper()
         args_pos = reply.find(b"=")
-        if reply[:args_pos] != args:  # weird
-            print("Weird thing happens with connection of %s" % self.name)
-            return reply.decode()
+        if u_reply[:args_pos] != u_args:  # weird
+            print("@ ---------------------------------------------------------")
+            print("@ Weird thing happens with connection of %s" % self.name)
+            print(f"@ command={cmd}")
+            print(f"@   reply={reply} args={args} reply[:args_pos]={reply[:args_pos]}")
+            print("@ ---------------------------------------------------------")
+            return u_reply.decode()
         else:
-            return reply[args_pos + 1 :].decode()
+            return u_reply[args_pos + 1 :].decode()
 
 
 class Recorder:

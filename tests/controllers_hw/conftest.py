@@ -13,13 +13,18 @@ from bliss.config.conductor import client
 
 @pytest.fixture
 def beacon_beamline():
-    static.CONFIG = None
+    """
+    Fixture to retreive configuration objects from beamline beacon
+    and not from test beacon.
+    """
+
+    static.Config.instance = None
     client._default_connection = None
     config = static.get_config()
     yield config
     config.close()
+    client._default_connection.close()
     client._default_connection = None
-    static.CONFIG = None
 
 
 def pytest_collection_modifyitems(config, items):

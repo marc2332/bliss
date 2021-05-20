@@ -6,7 +6,6 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import time
-import re
 import numpy
 import weakref
 import gevent
@@ -17,7 +16,7 @@ from bliss.common.utils import add_property
 from bliss.common.axis import AxisState, Motion, CyclicTrajectory
 from bliss.config.channels import Cache
 from bliss.common.switch import Switch as BaseSwitch
-from bliss.common.logtools import *
+from bliss.common.logtools import log_info, log_debug, log_error
 
 from . import pi_gcs
 

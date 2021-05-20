@@ -28,6 +28,21 @@ from bliss.common import event
 from . import pi_gcs
 
 
+"""
+Special commands, e.g. fast polling commands, consist only of one
+character. The 24th ASCII character e.g. is called #24. Note that
+these commands are not followed by a termination character (but the
+responses to them are).
+
+* #5: Request Motion Status
+* #6: Query If Position Has Changed Since Last POS? Command
+* #7: Request Controller Ready Status
+* #8: Query If Macro Is Running
+* #9: Get Wave Generator Status
+* #24: Stop All Motion
+"""
+
+
 class PI_E51X(Controller):
     """ Base class for E517 and E518
     """

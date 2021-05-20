@@ -57,6 +57,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Improved management of current_configuration / default_configuration
 - Project: Remove `-conda` suffix from requirement files
 
+- PI E712 E753
+    - uniformization of communication and recorder.
+    - "wave" motion generator.
+
 ### Fixed
 
 - Flint

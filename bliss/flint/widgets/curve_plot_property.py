@@ -708,12 +708,24 @@ class CurvePlotPropertyWidget(qt.QWidget):
         action = _AddItemAction(self)
         toolBar.addAction(action)
 
+        toolBar.addSeparator()
+
+        action = qt.QAction(self)
+        icon = icons.getQIcon("flint:icons/reset-to-plotselect")
+        action.setIcon(icon)
+        action.setText("Reset with plotselect")
+        action.setToolTip("Reset the plot to the original plotselect used")
+        action.triggered.connect(self.__resetPlotWithOriginalPlot)
+        toolBar.addAction(action)
+
         action = qt.QAction(self)
         icon = icons.getQIcon("flint:icons/remove-all-items")
         action.setIcon(icon)
         action.setToolTip("Remove all the items from the plot")
         action.triggered.connect(self.__removeAllItems)
         toolBar.addAction(action)
+
+        toolBar.addSeparator()
 
         action = qt.QAction(self)
         icon = icons.getQIcon("flint:icons/scan-history")
@@ -725,6 +737,30 @@ class CurvePlotPropertyWidget(qt.QWidget):
         toolBar.addAction(action)
 
         return toolBar
+
+    def __resetPlotWithOriginalPlot(self):
+        widget = self.__focusWidget
+        scan = widget.scan()
+        plots = scan_info_helper.create_plot_model(scan.scanInfo(), scan)
+        plots = [p for p in plots if isinstance(p, plot_item_model.CurvePlot)]
+        if len(plots) == 0:
+            _logger.warning("No curve plot to display")
+            qt.QMessageBox.warning(
+                None, "Warning", "There was no curve plot in this scan"
+            )
+            return
+        plotModel = plots[0]
+        previousPlotModel = self.__plotModel
+
+        # Reuse only available values
+        if isinstance(previousPlotModel, plot_item_model.CurvePlot):
+            model_helper.removeNotAvailableChannels(previousPlotModel, plotModel, scan)
+            model_helper.copyItemsFromChannelNames(
+                previousPlotModel, plotModel, scan=None
+            )
+        if plotModel.styleStrategy() is None:
+            plotModel.setStyleStrategy(DefaultStyleStrategy(self.__flintModel))
+        widget.setPlotModel(plotModel)
 
     def __requestLoadScanFromHistory(self):
         from bliss.flint.widgets.scan_history_dialog import ScanHistoryDialog

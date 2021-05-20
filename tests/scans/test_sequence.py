@@ -398,3 +398,20 @@ def test_sequence_missing_events(session):
             # ScanSequenceError is raised upon exiting the context
             seq_context.sequence.group_acq_master.scan_queue.put(StopIteration)
             # Do not add scans so no sequence events are expected
+
+
+def test_sequence_issue_2752(session, scan_meta):
+    seq = Sequence()
+
+    scan_meta.clear()
+    scan_meta.add_categories(["mycat"])
+
+    def f(scan):
+        raise RuntimeError("BLA")
+
+    scan_meta.mycat.set("my_func", f)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        with seq.sequence_context() as ctx:
+            pass
+    assert "Failed to prepare scan sequence" in str(excinfo)

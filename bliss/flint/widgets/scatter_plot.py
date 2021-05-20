@@ -947,7 +947,7 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
 
         legend = valueChannel.name()
         style = item.getStyle(scan)
-        colormap = model_helper.getColormapWithItemStyle(item, style, self.__colormap)
+        colormap = model_helper.getColormapFromItem(item, style, self.__colormap)
 
         scatter = None
         curve = None

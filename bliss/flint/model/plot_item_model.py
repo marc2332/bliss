@@ -25,6 +25,7 @@ import numpy
 
 from . import scan_model
 from . import plot_model
+from . import style_model
 
 
 class ScalarPlot(plot_model.Plot):
@@ -403,6 +404,14 @@ class ImageItem(plot_model.Item):
         self.__image = channel
         self._emitValueChanged(plot_model.ChangeEventType.IMAGE_CHANNEL)
 
+    def setCustomStyle(self, style: style_model.Style):
+        result = super(ImageItem, self).setCustomStyle(style)
+        if self.__colormap is not None:
+            # Make sure the cache is updated
+            if style.colormapLut is not None:
+                self.__colormap.setName(style.colormapLut)
+        return result
+
     def colormap(self):
         return self.__colormap
 
@@ -573,6 +582,14 @@ class ScatterItem(plot_model.Item):
             return None
         array = channel.array(scan)
         return array
+
+    def setCustomStyle(self, style: style_model.Style):
+        result = super(ScatterItem, self).setCustomStyle(style)
+        if self.__colormap is not None:
+            # Make sure the cache is updated
+            if style.colormapLut is not None:
+                self.__colormap.setName(style.colormapLut)
+        return result
 
     def colormap(self):
         return self.__colormap

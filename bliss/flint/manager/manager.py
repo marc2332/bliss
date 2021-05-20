@@ -535,20 +535,7 @@ class ManageMainBehaviours(qt.QObject):
             self.__updateFocus(defaultWidget, usedWidgets)
 
     def updateWidgetWithPlot(self, widget, scan, plotModel, useDefaultPlot):
-        previousWidgetPlot = widget.plotModel()
-        if previousWidgetPlot is not None:
-            if widget.scan() is None:
-                previousScanInfo = {}
-            else:
-                previousScanInfo = widget.scan().scanInfo()
-            equivalentPlots = scan_info_helper.is_same(
-                scan.scanInfo(), previousScanInfo
-            )
-            if not equivalentPlots:
-                previousWidgetPlot = None
-
-        # Try to reuse the previous plot
-        if not useDefaultPlot and previousWidgetPlot is not None:
+        def reusePreviousPlotItems(previousWidgetPlot, plotModel, scan):
             with previousWidgetPlot.transaction():
                 # Clean up temporary items
                 for item in list(previousWidgetPlot.items()):
@@ -562,13 +549,64 @@ class ManageMainBehaviours(qt.QObject):
                 # FIXME: Make it work first for curves, that's the main use case
                 if isinstance(previousWidgetPlot, plot_item_model.CurvePlot):
                     model_helper.copyItemsFromChannelNames(
-                        previousWidgetPlot, plotModel
+                        previousWidgetPlot, plotModel, scan
                     )
 
-        if useDefaultPlot or previousWidgetPlot is None or previousWidgetPlot.isEmpty():
+        # FIXME: This if-else branches should be the same, but for now
+        # make it safe for BLISS 1.8
+        if isinstance(plotModel, plot_item_model.CurvePlot):
+            # For BLISS 1.8
+            previousPlotModel = widget.plotModel()
+
+            if previousPlotModel is None:
+                pass
+            else:
+                userEditTime = previousPlotModel.userEditTime()
+                # FIXME: It would be good to hide this parsing
+                scanPlotselectTime = (
+                    scan.scanInfo()
+                    .get("_display_extra", {})
+                    .get("plotselect_time", None)
+                )
+                if userEditTime is not None:
+                    if scanPlotselectTime is None or userEditTime > scanPlotselectTime:
+                        for item in plotModel.items():
+                            model_helper.removeItemAndKeepAxes(plotModel, item)
+                        reusePreviousPlotItems(previousPlotModel, plotModel, scan)
+                        plotModel.setUserEditTime(previousPlotModel.userEditTime())
+                    else:
+                        pass
+                else:
+                    pass
+
             if plotModel.styleStrategy() is None:
                 plotModel.setStyleStrategy(DefaultStyleStrategy(self.__flintModel))
             widget.setPlotModel(plotModel)
+        else:
+            previousWidgetPlot = widget.plotModel()
+            if previousWidgetPlot is not None:
+                if widget.scan() is None:
+                    previousScanInfo = {}
+                else:
+                    previousScanInfo = widget.scan().scanInfo()
+                equivalentPlots = scan_info_helper.is_same(
+                    scan.scanInfo(), previousScanInfo
+                )
+                if not equivalentPlots:
+                    previousWidgetPlot = None
+
+            # Try to reuse the previous plot
+            if not useDefaultPlot and previousWidgetPlot is not None:
+                reusePreviousPlotItems(previousWidgetPlot, plotModel, scan=None)
+
+            if (
+                useDefaultPlot
+                or previousWidgetPlot is None
+                or previousWidgetPlot.isEmpty()
+            ):
+                if plotModel.styleStrategy() is None:
+                    plotModel.setStyleStrategy(DefaultStyleStrategy(self.__flintModel))
+                widget.setPlotModel(plotModel)
 
         previousScan = widget.scan()
         self.__clearPreviousScan(previousScan)

@@ -488,13 +488,8 @@ class TransfocatorMockup(Transfocator):
 
     def __init__(self, name, config_tree):
         """This will emulate a transfocator"""
-
-        temp_transf = Transfocator(name, config_tree)
-        lens = temp_transf.nb_lens
-        pinhole = temp_transf.nb_pinhole
-
-        self.__mockup_state = randint(0, 2 ** (lens + pinhole))
         super().__init__(name, config_tree)
+        self.__mockup_state = randint(0, 2 ** (self.nb_lens + self.nb_pinhole))
 
     def connect(self):
         pass

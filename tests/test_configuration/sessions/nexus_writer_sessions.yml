@@ -38,6 +38,9 @@
   - lima_simulator2
   - att1
   - beamstop
+  - primary_slit
+  - transfocator_simulator
+  - machinfo
   aliases:
   - original_name: m1
     alias_name: robx

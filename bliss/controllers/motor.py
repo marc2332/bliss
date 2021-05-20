@@ -508,7 +508,7 @@ class Controller:
 
 class CalcController(Controller):
     def __init__(self, *args, **kwargs):
-        Controller.__init__(self, *args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.axis_settings.config_setting["velocity"] = False
         self.axis_settings.config_setting["acceleration"] = False

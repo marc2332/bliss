@@ -113,7 +113,7 @@ class BaseMCA(CounterController, HasMetadataForScan):
         self.initialize_attributes()
         self.initialize_hardware()
 
-    def metadata_when_prepared(self) -> dict:
+    def scan_metadata(self) -> dict:
         return {"type": "mca"}
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):

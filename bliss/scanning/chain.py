@@ -473,7 +473,7 @@ class AcquisitionObject:
         """
         device = self.device
         if isinstance(device, HasMetadataForScan):
-            return device.metadata_when_prepared()
+            return device.scan_metadata()
         return None
 
     def fill_meta_at_scan_end(self, scan_meta):

@@ -6,7 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 from bliss.icat.definitions import Definitions
 from os.path import commonprefix
-from bliss.common.protocols import IcatPublisher
+from bliss.common.protocols import HasMetadataForDataset
 from collections.abc import MutableSequence
 
 
@@ -19,9 +19,9 @@ class ICATmeta:
         self.definitions = Definitions()
 
         for key, obj in self.objects.items():
-            if not isinstance(obj, IcatPublisher):
+            if not isinstance(obj, HasMetadataForDataset):
                 raise RuntimeError(
-                    f"{obj.name} ({key}) is not a valid metadata publisher!"
+                    f"{obj.name} ({key}) does not implement the 'HasMetadataForDataset' protocol"
                 )
 
     def get_metadata(self):
@@ -37,13 +37,12 @@ class ICATmeta:
         instrumentation = self.definitions.instrumentation._asdict()
         for key, device in self.objects.items():
             assert key in instrumentation, f"{key} is not a known icat field group"
-            assert hasattr(
-                device, "metadata"
-            ), f"{device.name} has no metadata function"
             prefix = commonprefix(list(instrumentation[key].fields)).strip("_")
             # have to deal with cases where there is no tailing `_` in the prefix
             # e.g. attenuator positions
-            obj_meta = device.metadata()
+            obj_meta = device.dataset_metadata()
+            if not obj_meta:
+                continue
             for icat_key in instrumentation[key].fields:
                 obj_key = icat_key.split(prefix)[-1].strip("_")
                 if obj_key in obj_meta:

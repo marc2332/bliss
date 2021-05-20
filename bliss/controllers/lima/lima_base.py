@@ -156,7 +156,7 @@ class Lima(CounterController, HasMetadataForScan):
             self, parents_list=["lima", "controllers"], children_list=[self._proxy]
         )
 
-    def metadata_when_prepared(self) -> dict:
+    def scan_metadata(self) -> dict:
         return {"type": "lima"}
 
     @property

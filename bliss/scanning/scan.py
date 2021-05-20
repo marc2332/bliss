@@ -1421,11 +1421,14 @@ class Scan:
         """Fill metadata from devices using specified method
 
             Method name can be either 'fill_meta_as_scan_start' or 'fill_meta_at_scan_end'
-            """
+        """
         for acq_obj in self.acq_chain.nodes_list:
             with KillMask(masked_kill_nb=1):
                 fill_meta = getattr(acq_obj, method_name)
                 metadata = fill_meta(self.user_scan_meta)
+            # There is a difference between None and an empty dict.
+            # An empty dict shows up as a group in the Nexus file
+            # while None does not.
             if metadata is not None:
                 node = self.nodes.get(acq_obj)
                 if node is not None:

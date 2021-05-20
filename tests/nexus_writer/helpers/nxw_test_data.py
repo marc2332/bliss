@@ -442,12 +442,33 @@ def validate_instrument(
     expected |= expected_posg
     expected |= expected_dets
     expected |= set(pos_instrument.keys())
-    expected |= {"att1", "beamstop"}
+    expected |= {
+        "att1",
+        "beamstop",
+        "primary_slit",
+        "machine",
+        "transfocator_simulator",
+    }
     assert_set_equal(set(instrument.keys()), expected)
     # Validate content of positioner NXcollections
     for name in expected_posg:
         assert instrument[name].attrs["NX_class"] == "NXcollection", name
-        expected = {"robx", "roby", "robz", "bsy", "bsz", "att1z"}
+        expected = {
+            "robx",
+            "roby",
+            "robz",
+            "bsy",
+            "bsz",
+            "att1z",
+            "s1b",
+            "s1d",
+            "s1f",
+            "s1hg",
+            "s1ho",
+            "s1u",
+            "s1vg",
+            "s1vo",
+        }
         if name == "positioners":
             expected |= set(pos_positioners)
         assert_set_equal(set(instrument[name].keys()), expected)
@@ -477,14 +498,51 @@ def validate_instrument(
     # Validate content of other groups
     content = dictdump.nxtodict(instrument["beamstop"], asarray=False)
     assert content == {"@NX_class": "NXbeam_stop", "status": "in"}
+
     content = dictdump.nxtodict(instrument["att1"], asarray=False)
+    assert content == {"@NX_class": "NXattenuator", "status": "in", "type": "Al"}
+
+    content = dictdump.nxtodict(instrument["primary_slit"], asarray=False)
     assert content == {
-        "Positioners_name": "att1z",
-        "Positioners_value": 0.5,
-        "status": "in",
-        "type": "Al",
-        "@NX_class": "NXattenuator",
+        "@NX_class": "NXslit",
+        "horizontal_gap": 0.0,
+        "horizontal_offset": 0.0,
+        "vertical_gap": 0.0,
+        "vertical_offset": 0.0,
     }
+
+    content = dictdump.nxtodict(instrument["transfocator_simulator"], asarray=False)
+    assert content == {
+        "@NX_class": "NXcollection",
+        "L1": content["L1"],
+        "L2": content["L2"],
+        "L3": content["L3"],
+        "L4": content["L4"],
+        "L5": content["L5"],
+        "L6": content["L6"],
+        "L7": content["L7"],
+        "L8": content["L8"],
+        "P0": content["P0"],
+    }
+
+    content = dictdump.nxtodict(instrument["machine"], asarray=False)
+    expected = {
+        "@NX_class": "NXsource",
+        "automatic_mode": content["automatic_mode"],
+        "current": content["current"],
+        "current@units": "mA",
+        "filling_mode": "7/8 multibunch",
+        "front_end": "",
+        "message": "You are in Simulated Machine",
+        "mode": content["mode"],
+        "name": "ESRF",
+        "refill_countdown": content["refill_countdown"],
+        "refill_countdown@units": "s",
+        "type": "Synchrotron",
+    }
+
+    for k in expected:
+        assert content[k] == expected[k], (k, content[k], expected[k])
 
 
 def validate_plots(

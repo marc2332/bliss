@@ -7,8 +7,8 @@
 
 from bliss.controllers.motor import CalcController
 from bliss.common.logtools import user_warning, log_debug
-from bliss.scanning.scan_meta import get_user_scan_meta
-from bliss.common.protocols import IcatPublisher
+from bliss.scanning.scan_meta import NonScannableHasMetadataForScan
+from bliss.common.protocols import HasMetadataForDataset
 
 """
 example for single VERTICAL slits:
@@ -86,27 +86,15 @@ example for single HORIZONTAL slits:
 """
 
 
-class Slits(CalcController, IcatPublisher):
+class Slits(CalcController, NonScannableHasMetadataForScan, HasMetadataForDataset):
     def __init__(self, *args, **kwargs):
-        CalcController.__init__(self, *args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.slit_type = self.config.get("slit_type", default="both")
 
-        self._init_meta_data_publishing()
+    def __close__(self):
+        super().close()
 
-    def _init_meta_data_publishing(self):
-        """this is about metadata publishing to the h5 file"""
-        if not self.name:
-            user_warning(
-                "to publish metadata the slit controller needs a name in config"
-            )
-            return
-        scan_meta_obj = get_user_scan_meta()
-        scan_meta_obj.instrument.set(self, lambda _: {self.name: self.metadata()})
-
-    def metadata(self):
-        """ 
-        this is about metadata publishing to the h5 file AND ICAT
-        """
+    def dataset_metadata(self):
         cur_pos = self._do_calc_from_real()
         meta_dict = dict()
 
@@ -122,13 +110,19 @@ class Slits(CalcController, IcatPublisher):
             meta_dict.update(
                 {"vertical_gap": cur_pos["vgap"], "vertical_offset": cur_pos["voffset"]}
             )
+        return meta_dict
 
+    @property
+    def scan_metadata_name(self):
+        return self.name
+
+    def scan_metadata(self):
+        meta_dict = self.dataset_metadata()
         meta_dict["@NX_class"] = "NXslit"
-
         return meta_dict
 
     def initialize_axis(self, axis):
-        CalcController.initialize_axis(self, axis)
+        super().initialize_axis(axis)
         axis.no_offset = True
 
     def calc_from_real(self, positions_dict):

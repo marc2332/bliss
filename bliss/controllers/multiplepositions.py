@@ -75,7 +75,7 @@ import functools
 
 from tabulate import tabulate
 from gevent import Timeout
-from bliss.common.protocols import IcatPublisher
+from bliss.common.protocols import HasMetadataForDataset
 from bliss.common.motor_group import Group
 from bliss.common.axis import AxisState
 from bliss.config.channels import Channel
@@ -83,10 +83,10 @@ from bliss.common import event
 from bliss.common.utils import flatten
 from bliss.common.logtools import log_warning, log_error
 from bliss import global_map, is_bliss_shell
-from bliss.scanning.scan_meta import get_user_scan_meta
+from bliss.scanning.scan_meta import NonScannableHasMetadataForScan
 
 
-class MultiplePositions(IcatPublisher):
+class MultiplePositions(HasMetadataForDataset, NonScannableHasMetadataForScan):
     """ Handle multiple positions.
     """
 
@@ -115,23 +115,21 @@ class MultiplePositions(IcatPublisher):
 
         global_map.register(self, tag=name)
 
-        self._init_meta_data_publishing()
+    def dataset_metadata(self):
+        return self._get_position_config().get("dataset_metadata", dict())
 
-    def _init_meta_data_publishing(self):
-        """Publish position in meta data """
-        scan_meta_obj = get_user_scan_meta()
-        scan_meta_obj.instrument.set(self, lambda _: {self.name: self.metadata()})
+    def scan_metadata(self):
+        return self._get_position_config().get("scan_metadata", dict())
 
-    def metadata(self):
-        if self.position != "unknown":
-            cur_pos_config = [
-                x.to_dict()
-                for x in self._config["positions"]
-                if x["label"] == self.position
-            ][0]
-            if "metadata" in cur_pos_config:
-                return cur_pos_config["metadata"]
-        # no metadata or in unknown position -> return empty dict
+    @property
+    def scan_metadata_name(self):
+        return self.name
+
+    def _get_position_config(self):
+        position = self.position
+        for x in self._config["positions"]:
+            if x["label"] == position:
+                return x
         return dict()
 
     def add_label_move_method(self, pos_label):

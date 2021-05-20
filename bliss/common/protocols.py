@@ -12,6 +12,7 @@ from abc import ABC
 from collections import namedtuple
 from types import SimpleNamespace
 from typing import Mapping
+from typing import Union
 
 
 class IterableNamespace(SimpleNamespace):
@@ -104,28 +105,37 @@ class Scannable(ABC):
         raise NotImplementedError
 
 
-class IcatPublisher(ABC):
+class HasMetadataForDataset(ABC):
     """
-    Any controller that has this interface can be used
-    for metadata collection based on the `icat-mapping`
-    tag in the session configuration
+    Any controller which provides metadata intended to be saved
+    during a dataset life cycle.
+
+    The `dataset_metadata` is called by the Bliss session's icat_mapping
+    object when the session has such a mapping configured.
     """
 
-    def metadata(self) -> dict:
+    def dataset_metadata(self) -> Union[dict, None]:
         """
-        Return a dict containing metadata
+        Returning an empty dictionary means the controller has metadata
+        but no values. `None` means the controller has no metadata.
         """
         raise NotImplementedError
 
 
 class HasMetadataForScan(ABC):
     """
-    Any controller which provides metadata during a scan life cycle.
+    Any controller which provides metadata intended to be saved
+    during a scan life cycle.
+
+    The `scan_metadata` method is called by the acquisition chain
+    objects `AcquisitionObject` (directly or indirectly).
+    Controllers not involved in the acquisition chain should use
+    the `NonScannableHasMetadataForScan` protocol.
     """
 
-    def metadata_when_prepared(self) -> dict:
+    def scan_metadata(self) -> Union[dict, None]:
         """
-        Return a dict containing metadata when the device was prepared by the
-        scan.
+        Returning an empty dictionary means the controller has metadata
+        but no values. `None` means the controller has no metadata.
         """
         raise NotImplementedError

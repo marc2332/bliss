@@ -9,8 +9,11 @@ positions:
   - axis: $att1z
     destination: 0.5
     tolerance: 0.01
-  metadata:
+  scan_metadata:
     "@NX_class": NXattenuator
+    type: Al
+    status: in
+  dataset_metadata:
     type: Al
     status: in
     Positioners_name: $att1z.name
@@ -23,11 +26,15 @@ positions:
   - axis: $att1z
     destination: 1.5
     tolerance: 0.01
-  metadata:
+  scan_metadata:
     "@NX_class": NXattenuator
     type: Al
     thickness: 40
     thickness@unit: um
+    status: in
+  dataset_metadata:
+    type: Al
+    thickness: 40
     status: in
     Positioners_name: $att1z.name
     Positioners_value: $att1z.position
@@ -39,14 +46,15 @@ positions:
   - axis: $att1z
     destination: 2.5
     tolerance: 0.01
-  metadata:
+  scan_metadata:
     "@NX_class": NXattenuator
     type: Al
     thickness: 200
     thickness@unit: um
     status: in
+  dataset_metadata:
+    type: Al
+    thickness: 200
+    status: in
     Positioners_name: $att1z.name
     Positioners_value: $att1z.position
-
-
-

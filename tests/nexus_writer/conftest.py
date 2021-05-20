@@ -21,7 +21,9 @@ from tests.nexus_writer.helpers import nxw_test_utils
 
 
 @pytest.fixture
-def nexus_writer_session(beacon, lima_simulator, lima_simulator2):
+def nexus_writer_session(
+    beacon, lima_simulator, lima_simulator2, machinfo_tango_server
+):
     """Writer sessions with lots of different detectors and scan types
     """
     session = beacon.get("nexus_writer_session")

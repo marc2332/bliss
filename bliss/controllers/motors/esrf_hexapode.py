@@ -51,13 +51,13 @@ import time
 import math
 import gevent
 
-from bliss.scanning.scan_meta import get_user_scan_meta
+from bliss.scanning.scan_meta import NonScannableHasMetadataForScan
 from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState
 from bliss.common.tango import DevState, DeviceProxy
 
 from bliss import global_map
-from bliss.common.logtools import *
+from bliss.common.logtools import log_error, user_print
 
 from bliss.shell.cli.user_dialog import (
     UserMsg,
@@ -72,7 +72,7 @@ from bliss.shell.cli.pt_widgets import display, BlissDialog
 __author__ = "Jens Meyer / Gilles Berruyer - ESRF ISDD SOFTGROUP BLISS - June 2019"
 
 
-class esrf_hexapode(Controller):
+class esrf_hexapode(Controller, NonScannableHasMetadataForScan):
     """ Class to implement BLISS motor controller of esrf hexapode controlled
     via tango device server
     """
@@ -95,30 +95,16 @@ class esrf_hexapode(Controller):
             log_error(self, _err_msg)
             raise RuntimeError(_err_msg)
 
-        self._init_meta_data_publishing()
+    @property
+    def scan_metadata_name(self):
+        return self.name
 
-    def _init_meta_data_publishing(self):
-        """this is about metadata publishing to the h5 file"""
-        if not self.name:
-            user_warning(
-                "to publish metadata the hexapode controller needs a name in config"
-            )
-            return
-        scan_meta_obj = get_user_scan_meta()
-        scan_meta_obj.instrument.set(self, lambda _: {self.name: self.metadata()})
+    def scan_metadata(self):
+        meta_dict = {"@NX_class": "NXhexapode"}
 
-    def metadata(self):
-        """ 
-        this is about metadata publishing to the h5 file AND ICAT
-        """
-
-        meta_dict = dict()
         leg_length = self.device.read_attribute("LegLength").value
-
         for i, value in enumerate(leg_length):
             meta_dict.update({f"leglength{i+1}": value})
-
-        meta_dict["@NX_class"] = "NXhexapode"
 
         return meta_dict
 

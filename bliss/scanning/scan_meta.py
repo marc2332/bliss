@@ -15,8 +15,11 @@ __all__ = ["get_user_scan_meta"]
 import copy as copy_module
 import enum
 import pprint
+import weakref
 
 from bliss import global_map
+from bliss.common.protocols import HasMetadataForScan
+from bliss.common.logtools import user_warning
 
 
 class META_TIMING(enum.Flag):
@@ -73,27 +76,50 @@ class ScanMetaCategory:
     def timing(self, timing):
         self._timing[self.category] = timing
 
-    def set(self, name_or_device, values):
+    def _parse_metadata_name(self, name_or_device):
         """
-        :param str name_or_device: is the access name must be unique or a device
-                                   with a name property
-        :param callable or dict values: callable needs to return a dictionary
+        :param name_or_device: string or an object with a name property
+        :returns str or None:
         """
         if isinstance(name_or_device, str):
-            name = name_or_device
+            if not name_or_device:
+                user_warning("A name is required to publish scan metadata")
+                return None
+            return name_or_device
         else:
-            name = name_or_device.name
-        self.metadata[name] = values
+            try:
+                name = name_or_device.name
+                if name:
+                    return name
+            except AttributeError:
+                pass
+            user_warning(
+                repr(name_or_device) + " needs a name to publish scan metadata"
+            )
+            return None
+
+    def set(self, name_or_device, values):
+        """
+        :param name_or_device: string or an object with a name property
+        :param callable or dict values: callable needs to return a dictionary
+        """
+        name = self._parse_metadata_name(name_or_device)
+        if name:
+            self.metadata[name] = values
+
+    def is_set(self, name_or_device) -> bool:
+        """
+        :param name_or_device: string or an object with a name property
+        :returns bool:
+        """
+        name = self._parse_metadata_name(name_or_device)
+        return name in self.metadata
 
     def remove(self, name_or_device):
         """
-        :param str name_or_device: is the access name must be unique or a device
-                                   with a name property
+        :param name_or_device: string or an object with a name property
         """
-        if isinstance(name_or_device, str):
-            name = name_or_device
-        else:
-            name = name_or_device.name
+        name = self._parse_metadata_name(name_or_device)
         metadata = self.metadata
         metadata.pop(name, None)
         if not metadata:
@@ -250,3 +276,53 @@ def fill_positioners(scan):
         rd["positioners_units"] = units
 
     return rd
+
+
+class NonScannableHasMetadataForScan(HasMetadataForScan):
+    """Any controller which provides metadata intended to be saved
+    during a scan life cycle.
+
+    This protocol needs to be used for controllers not involved
+    in the acquisition chain. `enable_scan_metadata` is called by
+    the session for all objects with this protocol.
+    """
+
+    def _metadata_generator(self):
+        """
+        Metadata generator registred with the instrument category
+        of user scan metadata.
+        """
+        metadata_name = self.scan_metadata_name
+        if metadata_name:
+            return {metadata_name: self.scan_metadata()}
+        else:
+            user_warning(str(self) + "needs a name to publish scan metadata")
+            return dict()
+
+    def enable_scan_metadata(self):
+        scan_meta_obj = get_user_scan_meta()
+
+        # We do not want to keep a reference to self
+        # in the scan_meta_obj
+        prx = weakref.proxy(self)
+
+        def metadata_generator(_):
+            try:
+                return prx._metadata_generator()
+            except ReferenceError:
+                return dict()
+
+        scan_meta_obj.instrument.set(self, metadata_generator)
+
+    def disable_scan_metadata(self):
+        scan_meta_obj = get_user_scan_meta()
+        scan_meta_obj.instrument.remove(self)
+
+    @property
+    def scan_metadata_enabled(self):
+        scan_meta_obj = get_user_scan_meta()
+        return scan_meta_obj.is_set(self)
+
+    @property
+    def scan_metadata_name(self):
+        raise NotImplementedError

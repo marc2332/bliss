@@ -178,12 +178,6 @@ Some commands/attributes (like `automatic`/`manual`) are only implemented in the
 front end device server, set by the `_frontend` variable.
 
 
-### FrontEnd mode
-
-If a `TangoShutter` is a FrontEnd, a special attribute `mode` is usable.
-
-It can be : `MANUAL` `AUTOMATIC` or `UNKNOWN`
-
 ### Usage examples
 
 Example with a safety shutter:
@@ -215,7 +209,50 @@ DEMO [12]: rv9.open()
 WARNING 2020-03-19 00:13:23,937 global.controllers.rv9: rv9 already open, command ignored
 ```
 
-Example with a FrontEnd shutter:
+
+### Configuration examples
+
+Safety shutter and FrontEnd:
+```yaml
+- name: safshut
+  class: TangoShutter
+  shutter_type: SafetyShutter
+  uri: id42/bsh/1
+
+- name: frontend
+  class: TangoShutter
+  shutter_type: FrontEnd
+  uri: acs.esrf.fr:10000/fe/master/id42
+
+```
+
+Remote valves:
+```yaml
+- name: rv0
+  class: TangoShutter
+  shutter_type: Valve
+  uri: id42/v-rv/0
+
+- name: rv1
+  class: TangoShutter
+  shutter_type: Valve
+  uri: id42/v-rv/1
+
+- name: rv2
+  class: TangoShutter
+  shutter_type: Valve
+  uri: id42/v-rv/2
+```
+
+
+### FrontEnd mode
+
+If a `TangoShutter` is a FrontEnd, a special attribute `mode` is usable to
+activate or deactivate the automatic openning mode.
+
+It can be : `MANUAL` `AUTOMATIC` or `UNKNOWN`
+
+Example:
 ```python
 DEMO [3]: fe
  Out [3]: State     : Fault on Front End
@@ -234,44 +271,12 @@ DEMO [3]: fe
 
 To change the opening mode of a `FrontEnd` shutter:
 ```python
-DEMO [3]: fe.mode = fe.MANUAL
+DEMO [3]: fe.mode = "MANUAL"
 fe mode was AUTOMATIC and is now MANUAL
 ```
 
 Example (during a shutdown):
 ```python
-DEMO [7]: fe.mode = fe.AUTOMATIC
+DEMO [7]: fe.mode = "AUTOMATIC"
 !!! === RuntimeError: Cannot set AUTOMATIC opening === !!!
-```
-
-
-### Configuration examples
-
-```yaml
--
-  name: safshut
-  class: TangoShutter
-  uri: id42/bsh/1
-
--
-  # front end shutter
-  class: TangoShutter
-  name: frontend
-  uri: acs.esrf.fr:10000/fe/master/id42
-
-```
-
-```yaml
--
-  name: rv0
-  class: TangoShutter
-  uri: id42/v-rv/0
--
-  name: rv1
-  class: TangoShutter
-  uri: id42/v-rv/1
--
-  name: rv2
-  class: TangoShutter
-  uri: id42/v-rv/2
 ```

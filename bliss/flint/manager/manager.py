@@ -575,9 +575,11 @@ class ManageMainBehaviours(qt.QObject):
                         reusePreviousPlotItems(previousPlotModel, plotModel, scan)
                         plotModel.setUserEditTime(previousPlotModel.userEditTime())
                     else:
-                        pass
+                        # Only update the config (dont create new curve items)
+                        reusePreviousPlotItems(previousPlotModel, plotModel, scan=None)
                 else:
-                    pass
+                    # Only update the config (dont create new curve items)
+                    reusePreviousPlotItems(previousPlotModel, plotModel, scan=None)
 
             if plotModel.styleStrategy() is None:
                 plotModel.setStyleStrategy(DefaultStyleStrategy(self.__flintModel))

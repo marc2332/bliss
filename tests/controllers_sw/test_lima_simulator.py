@@ -1153,8 +1153,8 @@ def test_roi_collection(default_session, lima_simulator, tmp_path):
         # === check saved image files ======
         for idx in range(frames):
             fpath = os.path.join(imgdir, f"test_rois_{idx:04d}.edf")
-            mode, size, img = file_to_array(fpath)
-            print("img info", mode, size, img.dtype)
+            img = file_to_array(fpath)
+            print("img info", img.shape, img.dtype)
             # img.dtype = defdtype
             plt.imshow(img)
             plt.show()

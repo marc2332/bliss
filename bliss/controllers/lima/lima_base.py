@@ -797,16 +797,13 @@ class Lima(CounterController, HasMetadataForScan):
 
         # do not use the property to avoid recursive calls
         if self.__roi_counters is not None:
-            self.__roi_counters._needs_update = True
-            self.__roi_counters._restore_rois_from_settings()  # remove this line to post pone the update at next scan
+            self.__roi_counters._check_rois_counters()  # remove this line to post pone the update at next scan
 
         if self.__roi_profiles is not None:
-            self.__roi_profiles._needs_update = True
-            self.__roi_profiles._restore_rois_from_settings()  # remove this line to post pone the update at next scan
+            self.__roi_profiles._check_rois_counters()  # remove this line to post pone the update at next scan
 
         if self.__roi_collection is not None:
-            self.__roi_collection._needs_update = True
-            self.__roi_collection._restore_rois_from_settings()  # remove this line to post pone the update at next scan
+            self.__roi_collection._check_rois_counters()  # remove this line to post pone the update at next scan
 
     # Expose counters
 

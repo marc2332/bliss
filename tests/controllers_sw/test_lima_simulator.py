@@ -212,7 +212,7 @@ def test_arc_rois(beacon, default_session, lima_simulator, images_directory):
     cam.roi_counters["a1"] = 316, 443, 50, 88, -120, -180
     cam.roi_counters["a2"] = 130, 320, 0, radius, 0, 360
 
-    s = ct(cam)
+    s = ct(0.1, cam)
 
     assert s.get_data("a1_sum")[0] == 0.0
 
@@ -274,7 +274,7 @@ def test_lima_roi_counters_api(beacon, default_session, lima_simulator):
 
     # perform a scan to push rois to TangoDevice (roi_ids are retrieved at that time)
     assert len(cam.roi_counters._roi_ids) == 0
-    ct(cam)
+    ct(0.1, cam)
     assert len(cam.roi_counters._roi_ids) == 5
 
     # del one roi
@@ -317,6 +317,11 @@ def test_lima_roi_counters_measurements(
     arry = draw_arc(arry, cx, cy, r1, r2, a1 + 180, a2 + 180, fill_value=0)
     arry = draw_arc(arry, cx, cy, r1, r2, a1 + 270, a2 + 270, fill_value=0)
 
+    arry = draw_arc(arry, cx, cy, r2 + 10, r2 + 20, 10, 100, fill_value=0)
+    arry = draw_arc(arry, cx, cy, r2 + 30, r2 + 40, 10, 190, fill_value=0)
+    arry = draw_arc(arry, cx, cy, r2 + 50, r2 + 60, 10, 260, fill_value=0)
+    arry = draw_arc(arry, cx, cy, r2 + 70, r2 + 80, 10, 350, fill_value=0)
+
     # rect roi
     w0, h0 = 60, 30
     arry = draw_rect(arry, cx, cy, w0, h0, fill_value=0)
@@ -325,7 +330,7 @@ def test_lima_roi_counters_measurements(
 
     # load simulator with test image
     load_simulator_frames(cam, 1, img_path)
-    ox, oy, ow, oh = 100, 50, 500, 650
+    ox, oy, ow, oh = 10, 50, 500, 650
     reset_cam(cam, roi=[ox, oy, ow, oh])
     cx, cy = cx - ox, cy - oy  # take into account the image roi offset
 
@@ -340,18 +345,16 @@ def test_lima_roi_counters_measurements(
 
         pf = flint()
 
-    tr1, tr2 = (
-        r1 + 3,
-        r2 - 3,
-    )  # reduce roi region to take into account measurement in binned image
-    ta1, ta2 = (
-        a1 + 2,
-        a2 - 2,
-    )  # reduce roi region to take into account measurement in binned image
-    cam.roi_counters["a1"] = cx, cy, tr1, tr2, ta1, ta2
-    cam.roi_counters["a2"] = cx, cy, tr1, tr2, ta1 + 90, ta2 + 90
-    cam.roi_counters["a3"] = cx, cy, tr1, tr2, ta1 + 180, ta2 + 180
-    cam.roi_counters["a4"] = cx, cy, tr1, tr2, ta1 + 270, ta2 + 270
+    cam.roi_counters["a1"] = cx, cy, r1, r2, a1, a2
+    cam.roi_counters["a2"] = cx, cy, r1, r2, a1 + 90, a2 + 90
+    cam.roi_counters["a3"] = cx, cy, r1, r2, a1 + 180, a2 + 180
+    cam.roi_counters["a4"] = cx, cy, r1, r2, a1 + 270, a2 + 270
+
+    cam.roi_counters["a5"] = cx, cy, r2 + 10, r2 + 20, 10, 100
+    cam.roi_counters["a6"] = cx, cy, r2 + 30, r2 + 40, 10, 190
+    cam.roi_counters["a7"] = cx, cy, r2 + 50, r2 + 60, 10, 260
+    cam.roi_counters["a8"] = cx, cy, r2 + 70, r2 + 80, 10, 350
+
     cam.roi_counters["r1"] = cx, cy, w0, h0
 
     s = ct(0.01, cam)
@@ -360,33 +363,11 @@ def test_lima_roi_counters_measurements(
     assert s.get_data("a2_sum")[0] == 0.0
     assert s.get_data("a3_sum")[0] == 0.0
     assert s.get_data("a4_sum")[0] == 0.0
+    assert s.get_data("r1_sum")[0] == 0.0
 
-    flipvals = [[False, False], [True, False], [True, True], [False, True]]
-    binvals = [
-        [1, 1],
-        [2, 2],
-    ]  # lima fails with bin 3,3 for rect roi at rot 90  but not for bin 4,4 !
-    rotvals = [0, 90, 180, 270]
-
-    for binning in binvals:
-        for flip in flipvals:
-            for rotation in rotvals:
-                cam.image.binning = binning
-                cam.image.flip = flip
-                cam.image.rotation = rotation
-
-                s = ct(0.01, cam)
-
-                print("=== ", binning, flip, rotation)
-                assert s.get_data("a1_sum")[0] == 0.0
-                assert s.get_data("a2_sum")[0] == 0.0
-                assert s.get_data("a3_sum")[0] == 0.0
-                assert s.get_data("a4_sum")[0] == 0.0
-                assert s.get_data("r1_sum")[0] == 0.0
-
-                if debug:
-                    pf.wait_end_of_scans()
-                    time.sleep(1)
+    if debug:
+        pf.wait_end_of_scans()
+        time.sleep(1)
 
 
 def test_lima_roi_validity(beacon, default_session, lima_simulator, images_directory):
@@ -415,7 +396,7 @@ def test_lima_roi_validity(beacon, default_session, lima_simulator, images_direc
     arry = draw_rect(arry, cx, cy, w0, h0, fill_value=0)
 
     # roi profile
-    x1, y1, w1, h1 = 100, 400, 60, 30
+    x1, y1, w1, h1 = 500, 400, 60, 30
     arry = draw_rect(arry, x1, y1, w1, h1, fill_value=0)
 
     # roi collection
@@ -424,8 +405,8 @@ def test_lima_roi_validity(beacon, default_session, lima_simulator, images_direc
     nx, ny = 3, 3
     for j in range(ny):
         for i in range(nx):
-            x = i * 2 * w2
-            y = j * 2 * h2
+            x = i * 2 * w2 + 500
+            y = j * 2 * h2 + 100
             arry = draw_rect(arry, x, y, w2, h2, fill_value=0)
             collec[f"c{nx*j+i}"] = [x, y, w2, h2]
 
@@ -458,9 +439,16 @@ def test_lima_roi_validity(beacon, default_session, lima_simulator, images_direc
     assert len(list(cam.roi_counters.counters)) == 5 * 5  # because 5 counters per roi
     assert len(list(cam.roi_profiles.counters)) == 1
     assert len(list(cam.roi_collection.counters)) == 1  # one for the collection of rois
+
     # applying this roi should discard 2 rois
-    cam.image.roi = 240, 0, 800, 600
-    assert len(list(cam.roi_counters.counters)) == 3 * 5
+    cam.image.roi = 0, 0, 240, 500
+
+    if debug:
+        s = ct(0.01, cam)
+        pf.wait_end_of_scans()
+        time.sleep(1)
+
+    assert len(list(cam.roi_counters.counters)) == 2 * 5
     assert len(list(cam.roi_profiles.counters)) == 0
     assert (
         len(list(cam.roi_collection.counters)) == 0
@@ -468,6 +456,11 @@ def test_lima_roi_validity(beacon, default_session, lima_simulator, images_direc
 
     # back to full frame should re-activate the 2 rois discarde previously
     cam.image.roi = 0, 0, 0, 0
+    if debug:
+        s = ct(0.01, cam)
+        pf.wait_end_of_scans()
+        time.sleep(1)
+
     assert len(list(cam.roi_counters.counters)) == 5 * 5
     assert len(list(cam.roi_profiles.counters)) == 1
     assert len(list(cam.roi_collection.counters)) == 1
@@ -537,7 +530,7 @@ def test_lima_roi_profiles_api(beacon, default_session, lima_simulator):
 
     # perform a scan to push rois to TangoDevice (roi_ids are retrieved at that time)
     assert len(cam.roi_profiles._roi_ids) == 0
-    ct(cam)
+    ct(0.1, cam)
     assert len(cam.roi_profiles._roi_ids) == 5
 
     # check get_roi_mode/set_roi_mode
@@ -611,10 +604,23 @@ def test_lima_roi_profile_measurements(
     #  H  H  H  H  H
     #  H  H  H  H  H
 
+    # breakpoint()
+
     cam = beacon.get("lima_simulator")
     img_path = os.path.join(str(images_directory), "chart_3.edf")
     load_simulator_frames(cam, 1, img_path)
     reset_cam(cam, roi=[0, 0, 0, 0])
+
+    debug = 0
+    if debug:
+        import matplotlib.pyplot as plt
+
+        plt.imshow(file_to_array(img_path))
+        plt.show()
+
+        from bliss.shell.standard import flint
+
+        pf = flint()
 
     cam.roi_profiles.clear()
     cam.roi_profiles["sp1"] = [20, 20, 18, 20]
@@ -629,7 +635,11 @@ def test_lima_roi_profile_measurements(
     # (mode=0, pixels are summed along the vertical axis and the spectrum is along horizontal axis)
     cam.roi_profiles.set_roi_mode("horizontal", "sp1", "sp2")
 
-    s = ct(cam)
+    s = ct(0.1, cam)
+    if debug:
+        pf.wait_end_of_scans()
+        time.sleep(1)
+
     d1 = s.get_data("sp1")[0]
     d2 = s.get_data("sp2")[0]
 
@@ -647,7 +657,12 @@ def test_lima_roi_profile_measurements(
     cam.roi_profiles.set_roi_mode("vertical", "sp1")
     cam.roi_profiles.set_roi_mode("vertical", "sp2")
 
-    s = ct(cam)
+    s = ct(0.1, cam)
+
+    if debug:
+        pf.wait_end_of_scans()
+        time.sleep(1)
+
     d1 = s.get_data("sp1")[0]
     d2 = s.get_data("sp2")[0]
 
@@ -665,7 +680,10 @@ def test_lima_roi_profile_measurements(
     cam.roi_profiles.set_roi_mode("vertical", "sp1")
     cam.roi_profiles.set_roi_mode("horizontal", "sp2")
 
-    s = ct(cam)
+    s = ct(0.1, cam)
+    if debug:
+        pf.wait_end_of_scans()
+        time.sleep(1)
     d1 = s.get_data("sp1")[0]
     d2 = s.get_data("sp2")[0]
 
@@ -1316,7 +1334,6 @@ def test_roi_collection(default_session, lima_simulator, tmp_path):
 
     # load rois collection
     collec.clear()
-    # print("===Collec rois:", list(collec._save_rois.keys()))
     for name, roi in rois.items():
         # print(f"Load roi {name} {roi.get_coords}")
         collec[name] = roi

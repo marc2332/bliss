@@ -1385,6 +1385,10 @@ class Scan:
         if displayed_channels is not None:
             # Contextual display request
             display_extra["plotselect"] = displayed_channels
+            if self.__scan_display._displayed_channels_time is not None:
+                display_extra[
+                    "plotselect_time"
+                ] = self.__scan_display._displayed_channels_time
         displayed_channels = self.__scan_display._pop_next_scan_displayed_channels()
         if displayed_channels is not None:
             # Structural display request specified for this scan

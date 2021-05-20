@@ -201,17 +201,22 @@ class ScanMeta:
         """
         self._metadata.clear()
 
+    def _metadata_copy(self):
+        mdcopy = dict()
+        for category, metadata in list(self._metadata.items()):
+            mdcat = mdcopy[category] = dict()
+            for name, values in metadata.items():
+                # A deep copy of an object method appears to copy
+                # the object itself
+                if not callable(values):
+                    values = copy_module.deepcopy(values)
+                mdcat[name] = values
+        return mdcopy
+
     def copy(self):
         return self.__class__(
-            metadata=copy_module.deepcopy(self._metadata),
-            timing=copy_module.copy(self._timing),
+            metadata=self._metadata_copy(), timing=copy_module.copy(self._timing)
         )
-        # TODO: does this really need to be a deepcopy?
-        # there is a pretty weird thing e.g. in mulitposition
-        # when one replaces
-        # scan_meta_obj.instrument.set(self, lambda _:self.metadata_dict())
-        # with
-        # scan_meta_obj.instrument.set(self, self.metadata_dict)
 
     def used_categories_names(self):
         return [n.name.lower() for n in self._metadata.keys()]

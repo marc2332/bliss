@@ -31,6 +31,7 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 
+import time
 import numpy
 import enum
 import logging
@@ -101,6 +102,7 @@ class Plot(qt.QObject):
         self.__styleStrategy: Optional[StyleStrategy] = None
         self.__inTransaction: int = 0
         self.__name = None
+        self.__userEditTime = None
 
     def __reduce__(self):
         return (self.__class__, (), self.__getstate__())
@@ -128,6 +130,18 @@ class Plot(qt.QObject):
     def name(self) -> Optional[str]:
         """Returns the name of the plot, if defined."""
         return self.__name
+
+    def tagUserEditTime(self):
+        """Tag the model as edited by the user now"""
+        self.__userEditTime = time.time()
+
+    def setUserEditTime(self, userEditTime: float):
+        """Set a specific user edit time"""
+        self.__userEditTime = userEditTime
+
+    def userEditTime(self) -> Optional[float]:
+        """Returns the last time the model was edited by the user"""
+        return self.__userEditTime
 
     def isInTransaction(self) -> bool:
         """True if the plot is in a transaction.

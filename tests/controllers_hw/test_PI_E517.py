@@ -12,29 +12,39 @@ Run with:
     $ pytest --axis-name <axis-name> ..../test_PI_E517.py
 
 """
-import pytest
 import time
-import gevent
-import os
+import pytest
 
 
 @pytest.fixture
 def axis(request, beacon_beamline):
+    """
+    Function to access axis given as parameter in test command line.
+    """
     axis_name = request.config.getoption("--axis-name")
-    axis = beacon_beamline.get(axis_name)
+    test_axis = beacon_beamline.get(axis_name)
     try:
-        yield axis
+        yield test_axis
     finally:
-        axis.close()
+        test_axis.close()
 
 
 def test_hw_axis_init(axis):
+    """
+    Hardware initialization
+    Device must be present.
+    Use axis fixture.
+    """
     axis.sync_hard()
     axis.controller._initialize_axis(axis)
 
 
 def test_hw_read_position(axis):
+    """
+    Read position (cache ?)
+    """
     pos = axis.position
+    assert pos
 
 
 # called at end of each test

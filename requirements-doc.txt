@@ -1,6 +1,6 @@
 # Conda requirement file 
 # Documentation requirements
-sphinx<4.0.0  # sphinx release is not yet stable
+sphinx>=4.0.2
 graphviz
 pygments
 markdown-inline-graphviz

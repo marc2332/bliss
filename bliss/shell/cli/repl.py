@@ -365,11 +365,16 @@ class BlissRepl(NoThreadPythonRepl, metaclass=Singleton):
     # NB: next methods are overloaded
     ##
     def show_result(self, result):
-        if hasattr(result, "__info__"):
-            result = Info(result)
-        logging.getLogger("user_input").info(result)
-        elogbook.command(result)
-        return super().show_result(result)
+        try:
+            if hasattr(result, "__info__"):
+                result = Info(result)
+            logging.getLogger("user_input").info(result)
+            elogbook.command(result)
+        except BaseException:
+            # display exception, but do not propagate and make shell to die
+            sys.excepthook(*sys.exc_info())
+        else:
+            return super().show_result(result)
 
     def _handle_keyboard_interrupt(self, e: KeyboardInterrupt) -> None:
         sys.excepthook(*sys.exc_info())

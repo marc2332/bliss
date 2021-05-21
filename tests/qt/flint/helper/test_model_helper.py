@@ -843,6 +843,16 @@ def test_update_xaxis_with_index():
     assert items[0].yChannel().name() == "y1"
 
 
+def test_copy_config__with_xaxis_item():
+    """Check that we can copy config between 2 different kinds of CurveItem"""
+    plot = plot_item_model.CurvePlot()
+    i1 = add_item(plot, "x1", "y1")
+    i1.setYAxis("right")
+    i2 = add_item(plot, None, "y2", xIndex=True)
+    model_helper.copyItemConfig(i1, i2)
+    assert i2.yAxis() == "right"
+
+
 def test_update_xaxis_index_with_channel():
     plot = plot_item_model.CurvePlot()
     add_item(plot, None, "y1", xIndex=True)

@@ -732,11 +732,9 @@ def copyItemsFromRoiNames(
 def copyItemConfig(sourceItem: plot_model.Item, destinationItem: plot_model.Item):
     """Copy the configuration and the item tree from a source item to a
     destination item"""
-    if not isinstance(destinationItem, type(sourceItem)):
-        raise TypeError(
-            "Both items must have the same type. Found %s" % type(destinationItem)
-        )
-    if isinstance(sourceItem, plot_item_model.CurveItem):
+    if isinstance(sourceItem, plot_item_model.CurveItem) and isinstance(
+        destinationItem, plot_item_model.CurveItem
+    ):
         destinationItem.setVisible(sourceItem.isVisible())
         destinationItem.setYAxis(sourceItem.yAxis())
 
@@ -752,10 +750,16 @@ def copyItemConfig(sourceItem: plot_model.Item, destinationItem: plot_model.Item
                 newItem.setSource(destinationSource)
                 destinationPlot.addItem(newItem)
                 sourceToDest[item] = newItem
-    elif isinstance(sourceItem, plot_item_model.RoiItem):
+
+    elif isinstance(sourceItem, plot_item_model.RoiItem) and isinstance(
+        destinationItem, plot_item_model.RoiItem
+    ):
         destinationItem.setVisible(sourceItem.isVisible())
     else:
-        raise TypeError("Only available for curve item. Found %s" % type(sourceItem))
+        raise TypeError(
+            "No copy available from item type %s to %s"
+            % (type(sourceItem), type(destinationItem))
+        )
 
 
 def updateXAxis(

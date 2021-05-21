@@ -702,6 +702,33 @@ def copyItemsFromChannelNames(
                 copyItemConfig(sourceItem, item)
 
 
+def copyItemsFromRoiNames(
+    sourcePlot: plot_model.Plot, destinationPlot: plot_model.Plot
+):
+    """Copy from the source plot the item which was setup into the destination plot.
+
+    ROIs already contained in the destination plot will be setup the same way it is
+    done for the source plot.
+    """
+    availableItems = {}
+    for item in sourcePlot.items():
+        if isinstance(item, plot_item_model.RoiItem):
+            name = item.roiName()
+            if name is None:
+                continue
+            availableItems[name] = item
+
+    with destinationPlot.transaction():
+        for item in destinationPlot.items():
+            if isinstance(item, plot_item_model.RoiItem):
+                name = item.roiName()
+                if name is None:
+                    continue
+                sourceItem = availableItems.pop(name, None)
+                if sourceItem is not None:
+                    copyItemConfig(sourceItem, item)
+
+
 def copyItemConfig(sourceItem: plot_model.Item, destinationItem: plot_model.Item):
     """Copy the configuration and the item tree from a source item to a
     destination item"""

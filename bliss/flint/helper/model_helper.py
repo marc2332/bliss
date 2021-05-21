@@ -702,30 +702,60 @@ def copyItemsFromChannelNames(
                 copyItemConfig(sourceItem, item)
 
 
+def copyItemsFromRoiNames(
+    sourcePlot: plot_model.Plot, destinationPlot: plot_model.Plot
+):
+    """Copy from the source plot the item which was setup into the destination plot.
+
+    ROIs already contained in the destination plot will be setup the same way it is
+    done for the source plot.
+    """
+    availableItems = {}
+    for item in sourcePlot.items():
+        if isinstance(item, plot_item_model.RoiItem):
+            name = item.roiName()
+            if name is None:
+                continue
+            availableItems[name] = item
+
+    with destinationPlot.transaction():
+        for item in destinationPlot.items():
+            if isinstance(item, plot_item_model.RoiItem):
+                name = item.roiName()
+                if name is None:
+                    continue
+                sourceItem = availableItems.pop(name, None)
+                if sourceItem is not None:
+                    copyItemConfig(sourceItem, item)
+
+
 def copyItemConfig(sourceItem: plot_model.Item, destinationItem: plot_model.Item):
     """Copy the configuration and the item tree from a source item to a
     destination item"""
-    if not isinstance(sourceItem, plot_item_model.CurveItem):
-        raise TypeError("Only available for curve item. Found %s" % type(sourceItem))
     if not isinstance(destinationItem, type(sourceItem)):
         raise TypeError(
             "Both items must have the same type. Found %s" % type(destinationItem)
         )
+    if isinstance(sourceItem, plot_item_model.CurveItem):
+        destinationItem.setVisible(sourceItem.isVisible())
+        destinationItem.setYAxis(sourceItem.yAxis())
 
-    destinationItem.setYAxis(sourceItem.yAxis())
+        sourceToDest = {}
+        sourceToDest[sourceItem] = destinationItem
 
-    sourceToDest = {}
-    sourceToDest[sourceItem] = destinationItem
-
-    destinationPlot = destinationItem.plot()
-    for item in sourceItem.plot().items():
-        if item.isChildOf(sourceItem):
-            newItem = item.copy(destinationPlot)
-            newItem.setParent(destinationPlot)
-            destinationSource = sourceToDest[item.source()]
-            newItem.setSource(destinationSource)
-            destinationPlot.addItem(newItem)
-            sourceToDest[item] = newItem
+        destinationPlot = destinationItem.plot()
+        for item in sourceItem.plot().items():
+            if item.isChildOf(sourceItem):
+                newItem = item.copy(destinationPlot)
+                newItem.setParent(destinationPlot)
+                destinationSource = sourceToDest[item.source()]
+                newItem.setSource(destinationSource)
+                destinationPlot.addItem(newItem)
+                sourceToDest[item] = newItem
+    elif isinstance(sourceItem, plot_item_model.RoiItem):
+        destinationItem.setVisible(sourceItem.isVisible())
+    else:
+        raise TypeError("Only available for curve item. Found %s" % type(sourceItem))
 
 
 def updateXAxis(

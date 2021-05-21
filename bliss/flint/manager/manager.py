@@ -535,6 +535,7 @@ class ManageMainBehaviours(qt.QObject):
             self.__updateFocus(defaultWidget, usedWidgets)
 
     def updateWidgetWithPlot(self, widget, scan, plotModel, useDefaultPlot):
+        # FIXME: useDefaultPlot is probably not much useful
         def reusePreviousPlotItems(previousWidgetPlot, plotModel, scan):
             with previousWidgetPlot.transaction():
                 # Clean up temporary items
@@ -552,10 +553,10 @@ class ManageMainBehaviours(qt.QObject):
                         previousWidgetPlot, plotModel, scan
                     )
 
-        # FIXME: This if-else branches should be the same, but for now
-        # make it safe for BLISS 1.8
+        # FIXME: This looks to became business model
+        # This have to be refactored in order to answer to each cases the way
+        # people expect to retrieve the selection
         if isinstance(plotModel, plot_item_model.CurvePlot):
-            # For BLISS 1.8
             previousPlotModel = widget.plotModel()
 
             if previousPlotModel is None:
@@ -581,6 +582,13 @@ class ManageMainBehaviours(qt.QObject):
                     # Only update the config (dont create new curve items)
                     reusePreviousPlotItems(previousPlotModel, plotModel, scan=None)
 
+            if plotModel.styleStrategy() is None:
+                plotModel.setStyleStrategy(DefaultStyleStrategy(self.__flintModel))
+            widget.setPlotModel(plotModel)
+        elif isinstance(plotModel, plot_item_model.ImagePlot):
+            previousPlotModel = widget.plotModel()
+            if previousPlotModel is not None:
+                model_helper.copyItemsFromRoiNames(previousPlotModel, plotModel)
             if plotModel.styleStrategy() is None:
                 plotModel.setStyleStrategy(DefaultStyleStrategy(self.__flintModel))
             widget.setPlotModel(plotModel)

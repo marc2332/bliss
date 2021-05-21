@@ -72,6 +72,7 @@ Example YAML_ configuration:
         tolerance: 0.2
 """
 import functools
+import warnings
 
 from tabulate import tabulate
 from gevent import Timeout
@@ -119,7 +120,15 @@ class MultiplePositions(HasMetadataForDataset, NonScannableHasMetadataForScan):
         return self._get_position_config().get("dataset_metadata", dict())
 
     def scan_metadata(self):
-        return self._get_position_config().get("scan_metadata", dict())
+        cfg = self._get_position_config()
+        mdata = cfg.get("metadata", None)
+        if mdata:
+            warnings.warn(
+                "The MultiplePositions configuration tag 'metadata' is deprecated and needs to be split in 'scan_metadata' and 'dataset_metadata'.",
+                FutureWarning,
+            )
+            return mdata
+        return cfg.get("scan_metadata", dict())
 
     @property
     def scan_metadata_name(self):

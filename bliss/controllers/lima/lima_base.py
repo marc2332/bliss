@@ -442,11 +442,10 @@ class Lima(CounterController, HasMetadataForScan):
         # ------- send the params to tango-lima ---------------------------------------------
 
         # Lima rules and order of image transformations:
-        # 0) set back binning to 1,1 before any flip or rot modif (else lima crashes if a roi/subarea is already defined with lima-core < 1.9.6rc3))
-        # 1) flip [Left-Right, Up-Down]  (in bin 1,1 only else lima crashes if a roi/subarea is already defined)
-        # 2) rotation (clockwise and negative angles not possible) (in bin 1,1 only for same reason)
-        # 3) binning
-        # 4) roi (expressed in the current state f(flip, rot, bin))
+        # 1) binning
+        # 2) flip [Left-Right, Up-Down]
+        # 3) rotation (clockwise!)
+        # 4) roi (expressed in the current state f(bin, flip, rot))
 
         # --- Extract special params from ctrl_params and sort them -----------
         special_params = {}
@@ -635,6 +634,7 @@ class Lima(CounterController, HasMetadataForScan):
         if self.__roi_counters is None:
             roi_counters_proxy = self._get_proxy(self._ROI_COUNTERS)
             self.__roi_counters = RoiCounters(roi_counters_proxy, self)
+
             global_map.register(
                 self.__roi_counters,
                 parents_list=[self],
@@ -792,6 +792,18 @@ class Lima(CounterController, HasMetadataForScan):
         )
 
         return info_str
+
+    def _update_lima_rois(self):
+
+        # do not use the property to avoid recursive calls
+        if self.__roi_counters is not None:
+            self.__roi_counters._check_rois_counters()  # remove this line to post pone the update at next scan
+
+        if self.__roi_profiles is not None:
+            self.__roi_profiles._check_rois_counters()  # remove this line to post pone the update at next scan
+
+        if self.__roi_collection is not None:
+            self.__roi_collection._check_rois_counters()  # remove this line to post pone the update at next scan
 
     # Expose counters
 

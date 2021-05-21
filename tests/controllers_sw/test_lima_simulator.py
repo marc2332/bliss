@@ -13,10 +13,12 @@ import gevent
 import logging
 import numpy
 from unittest import mock
+from math import pi as _PI_
 
 from bliss.common.utils import all_equal
+from bliss.common.image_tools import draw_arc, draw_rect, array_to_file, file_to_array
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
-from bliss.common.tango import DeviceProxy, DevFailed
+from bliss.common.tango import DevFailed
 from bliss.common.counter import Counter
 from bliss.controllers.lima.roi import (
     Roi,
@@ -28,11 +30,9 @@ from bliss.controllers.lima.roi import (
 from bliss.controllers.lima.roi import RoiProfileCounter, RoiStatCounter
 from bliss.common.scans import loopscan, timescan, sct, ct, DEFAULT_CHAIN
 from bliss.controllers.lima.limatools import load_simulator_frames, reset_cam
-from math import pi as _PI_
+
 from ..conftest import lima_simulator_context
 from bliss.config.channels import Cache
-
-import time
 
 
 def test_lima_simulator(beacon, lima_simulator):
@@ -212,7 +212,7 @@ def test_arc_rois(beacon, default_session, lima_simulator, images_directory):
     cam.roi_counters["a1"] = 316, 443, 50, 88, -120, -180
     cam.roi_counters["a2"] = 130, 320, 0, radius, 0, 360
 
-    s = ct(cam)
+    s = ct(0.1, cam)
 
     assert s.get_data("a1_sum")[0] == 0.0
 
@@ -274,7 +274,7 @@ def test_lima_roi_counters_api(beacon, default_session, lima_simulator):
 
     # perform a scan to push rois to TangoDevice (roi_ids are retrieved at that time)
     assert len(cam.roi_counters._roi_ids) == 0
-    ct(cam)
+    ct(0.1, cam)
     assert len(cam.roi_counters._roi_ids) == 5
 
     # del one roi
@@ -296,6 +296,188 @@ def test_lima_roi_counters_api(beacon, default_session, lima_simulator):
     assert len(cam.roi_counters) == 0
     assert len(cam.roi_counters._roi_ids) == 0
     assert len(cam.roi_counters.counters) == 0
+
+
+def test_lima_roi_counters_measurements(
+    beacon, default_session, lima_simulator, images_directory
+):
+
+    cam = beacon.get("lima_simulator")
+    cam.roi_counters.clear()
+    img_path = os.path.join(str(images_directory), "arc.edf")
+
+    # generate test image and save as file
+    # arc rois
+    cx, cy = 250, 350
+    r1, r2 = 80, 100
+    a1, a2 = 10, 45
+    arry = numpy.ones((800, 600))
+    arry = draw_arc(arry, cx, cy, r1, r2, a1, a2, fill_value=0)
+    arry = draw_arc(arry, cx, cy, r1, r2, a1 + 90, a2 + 90, fill_value=0)
+    arry = draw_arc(arry, cx, cy, r1, r2, a1 + 180, a2 + 180, fill_value=0)
+    arry = draw_arc(arry, cx, cy, r1, r2, a1 + 270, a2 + 270, fill_value=0)
+
+    arry = draw_arc(arry, cx, cy, r2 + 10, r2 + 20, 10, 100, fill_value=0)
+    arry = draw_arc(arry, cx, cy, r2 + 30, r2 + 40, 10, 190, fill_value=0)
+    arry = draw_arc(arry, cx, cy, r2 + 50, r2 + 60, 10, 260, fill_value=0)
+    arry = draw_arc(arry, cx, cy, r2 + 70, r2 + 80, 10, 350, fill_value=0)
+
+    # rect roi
+    w0, h0 = 60, 30
+    arry = draw_rect(arry, cx, cy, w0, h0, fill_value=0)
+
+    array_to_file(arry.astype("uint32"), img_path)
+
+    # load simulator with test image
+    load_simulator_frames(cam, 1, img_path)
+    ox, oy, ow, oh = 10, 50, 500, 650
+    reset_cam(cam, roi=[ox, oy, ow, oh])
+    cx, cy = cx - ox, cy - oy  # take into account the image roi offset
+
+    debug = 0
+    if debug:
+        import matplotlib.pyplot as plt
+
+        plt.imshow(file_to_array(img_path))
+        plt.show()
+
+        from bliss.shell.standard import flint
+
+        pf = flint()
+
+    cam.roi_counters["a1"] = cx, cy, r1, r2, a1, a2
+    cam.roi_counters["a2"] = cx, cy, r1, r2, a1 + 90, a2 + 90
+    cam.roi_counters["a3"] = cx, cy, r1, r2, a1 + 180, a2 + 180
+    cam.roi_counters["a4"] = cx, cy, r1, r2, a1 + 270, a2 + 270
+
+    cam.roi_counters["a5"] = cx, cy, r2 + 10, r2 + 20, 10, 100
+    cam.roi_counters["a6"] = cx, cy, r2 + 30, r2 + 40, 10, 190
+    cam.roi_counters["a7"] = cx, cy, r2 + 50, r2 + 60, 10, 260
+    cam.roi_counters["a8"] = cx, cy, r2 + 70, r2 + 80, 10, 350
+
+    cam.roi_counters["r1"] = cx, cy, w0, h0
+
+    s = ct(0.01, cam)
+
+    assert s.get_data("a1_sum")[0] == 0.0
+    assert s.get_data("a2_sum")[0] == 0.0
+    assert s.get_data("a3_sum")[0] == 0.0
+    assert s.get_data("a4_sum")[0] == 0.0
+    assert s.get_data("r1_sum")[0] == 0.0
+
+    if debug:
+        pf.wait_end_of_scans()
+        time.sleep(1)
+
+
+def test_lima_roi_validity(beacon, default_session, lima_simulator, images_directory):
+
+    cam = beacon.get("lima_simulator")
+
+    cam.roi_counters.clear()
+    cam.roi_profiles.clear()
+    cam.roi_collection.clear()
+
+    img_path = os.path.join(str(images_directory), "arc.edf")
+
+    # generate test image and save as file
+    # arc rois
+    cx, cy = 250, 350
+    r1, r2 = 80, 100
+    a1, a2 = 10, 45
+    arry = numpy.ones((800, 600))
+    arry = draw_arc(arry, cx, cy, r1, r2, a1, a2, fill_value=0)
+    arry = draw_arc(arry, cx, cy, r1, r2, a1 + 90, a2 + 90, fill_value=0)
+    arry = draw_arc(arry, cx, cy, r1, r2, a1 + 180, a2 + 180, fill_value=0)
+    arry = draw_arc(arry, cx, cy, r1, r2, a1 + 270, a2 + 270, fill_value=0)
+
+    # rect roi
+    w0, h0 = 60, 30
+    arry = draw_rect(arry, cx, cy, w0, h0, fill_value=0)
+
+    # roi profile
+    x1, y1, w1, h1 = 500, 400, 60, 30
+    arry = draw_rect(arry, x1, y1, w1, h1, fill_value=0)
+
+    # roi collection
+    w2, h2 = 6, 4
+    collec = {}
+    nx, ny = 3, 3
+    for j in range(ny):
+        for i in range(nx):
+            x = i * 2 * w2 + 500
+            y = j * 2 * h2 + 100
+            arry = draw_rect(arry, x, y, w2, h2, fill_value=0)
+            collec[f"c{nx*j+i}"] = [x, y, w2, h2]
+
+    array_to_file(arry.astype("uint32"), img_path)
+
+    debug = 0
+    if debug:
+        import matplotlib.pyplot as plt
+
+        plt.imshow(file_to_array(img_path))
+        plt.show()
+
+        from bliss.shell.standard import flint
+
+        pf = flint()
+
+    # load simulator with test image
+    load_simulator_frames(cam, 1, img_path)
+    reset_cam(cam, roi=[0, 0, 0, 0])
+
+    cam.roi_counters["a1"] = cx, cy, r1, r2, a1, a2
+    cam.roi_counters["a2"] = cx, cy, r1, r2, a1 + 90, a2 + 90
+    cam.roi_counters["a3"] = cx, cy, r1, r2, a1 + 180, a2 + 180
+    cam.roi_counters["a4"] = cx, cy, r1, r2, a1 + 270, a2 + 270
+    cam.roi_counters["r1"] = cx, cy, w0, h0
+    cam.roi_profiles["p1"] = x1, y1, w1, h1
+    for k, v in collec.items():
+        cam.roi_collection[k] = v
+
+    assert len(list(cam.roi_counters.counters)) == 5 * 5  # because 5 counters per roi
+    assert len(list(cam.roi_profiles.counters)) == 1
+    assert len(list(cam.roi_collection.counters)) == 1  # one for the collection of rois
+
+    # applying this roi should discard 2 rois
+    cam.image.roi = 0, 0, 240, 500
+
+    if debug:
+        s = ct(0.01, cam)
+        pf.wait_end_of_scans()
+        time.sleep(1)
+
+    assert len(list(cam.roi_counters.counters)) == 2 * 5
+    assert len(list(cam.roi_profiles.counters)) == 0
+    assert (
+        len(list(cam.roi_collection.counters)) == 0
+    )  # if no rois in collection then no counter
+
+    # back to full frame should re-activate the 2 rois discarde previously
+    cam.image.roi = 0, 0, 0, 0
+    if debug:
+        s = ct(0.01, cam)
+        pf.wait_end_of_scans()
+        time.sleep(1)
+
+    assert len(list(cam.roi_counters.counters)) == 5 * 5
+    assert len(list(cam.roi_profiles.counters)) == 1
+    assert len(list(cam.roi_collection.counters)) == 1
+
+    assert len(cam.roi_collection.get_rois()) == nx * ny
+
+    cam.roi_collection.clear()
+    assert len(cam.roi_collection.get_rois()) == 0
+    assert len(list(cam.roi_collection.counters)) == 0
+
+    cam.roi_profiles.clear()
+    assert len(cam.roi_profiles.get_rois()) == 0
+    assert len(list(cam.roi_profiles.counters)) == 0
+
+    cam.roi_counters.clear()
+    assert len(cam.roi_counters.get_rois()) == 0
+    assert len(list(cam.roi_counters.counters)) == 0
 
 
 def test_lima_roi_profiles_api(beacon, default_session, lima_simulator):
@@ -348,7 +530,7 @@ def test_lima_roi_profiles_api(beacon, default_session, lima_simulator):
 
     # perform a scan to push rois to TangoDevice (roi_ids are retrieved at that time)
     assert len(cam.roi_profiles._roi_ids) == 0
-    ct(cam)
+    ct(0.1, cam)
     assert len(cam.roi_profiles._roi_ids) == 5
 
     # check get_roi_mode/set_roi_mode
@@ -422,10 +604,23 @@ def test_lima_roi_profile_measurements(
     #  H  H  H  H  H
     #  H  H  H  H  H
 
+    # breakpoint()
+
     cam = beacon.get("lima_simulator")
     img_path = os.path.join(str(images_directory), "chart_3.edf")
     load_simulator_frames(cam, 1, img_path)
     reset_cam(cam, roi=[0, 0, 0, 0])
+
+    debug = 0
+    if debug:
+        import matplotlib.pyplot as plt
+
+        plt.imshow(file_to_array(img_path))
+        plt.show()
+
+        from bliss.shell.standard import flint
+
+        pf = flint()
 
     cam.roi_profiles.clear()
     cam.roi_profiles["sp1"] = [20, 20, 18, 20]
@@ -440,7 +635,11 @@ def test_lima_roi_profile_measurements(
     # (mode=0, pixels are summed along the vertical axis and the spectrum is along horizontal axis)
     cam.roi_profiles.set_roi_mode("horizontal", "sp1", "sp2")
 
-    s = ct(cam)
+    s = ct(0.1, cam)
+    if debug:
+        pf.wait_end_of_scans()
+        time.sleep(1)
+
     d1 = s.get_data("sp1")[0]
     d2 = s.get_data("sp2")[0]
 
@@ -458,7 +657,12 @@ def test_lima_roi_profile_measurements(
     cam.roi_profiles.set_roi_mode("vertical", "sp1")
     cam.roi_profiles.set_roi_mode("vertical", "sp2")
 
-    s = ct(cam)
+    s = ct(0.1, cam)
+
+    if debug:
+        pf.wait_end_of_scans()
+        time.sleep(1)
+
     d1 = s.get_data("sp1")[0]
     d2 = s.get_data("sp2")[0]
 
@@ -476,7 +680,10 @@ def test_lima_roi_profile_measurements(
     cam.roi_profiles.set_roi_mode("vertical", "sp1")
     cam.roi_profiles.set_roi_mode("horizontal", "sp2")
 
-    s = ct(cam)
+    s = ct(0.1, cam)
+    if debug:
+        pf.wait_end_of_scans()
+        time.sleep(1)
     d1 = s.get_data("sp1")[0]
     d2 = s.get_data("sp2")[0]
 
@@ -1070,7 +1277,6 @@ def test_roi_profile_devfailed(default_session, lima_simulator, caplog):
 
 def test_roi_collection(default_session, lima_simulator, tmp_path):
 
-    from shutil import rmtree
     from bliss.common.image_tools import array_to_file, file_to_array
 
     defdtype = numpy.int32  # uint8  # int32
@@ -1128,7 +1334,6 @@ def test_roi_collection(default_session, lima_simulator, tmp_path):
 
     # load rois collection
     collec.clear()
-    # print("===Collec rois:", list(collec._save_rois.keys()))
     for name, roi in rois.items():
         # print(f"Load roi {name} {roi.get_coords}")
         collec[name] = roi

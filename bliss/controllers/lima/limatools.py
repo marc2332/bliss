@@ -1,3 +1,4 @@
+import os
 import datetime
 import time
 import tabulate
@@ -13,6 +14,7 @@ from bliss.common.utils import BOLD, RED
 from bliss.common.utils import shorten_signature, typeguardTypeError_to_hint
 from bliss.data.lima_image import read_video_last_image
 from bliss.common.tango import DevFailed
+from bliss.common.image_tools import array_to_file
 
 
 _log = logging.getLogger("bliss.scans")
@@ -281,6 +283,20 @@ def load_simulator_frames(simulator, nframes, files_pattern):
     # update the camera max_size after loading new images
     simulator.image.update_max_size()
     reset_cam(simulator, roi=[0, 0, 0, 0])
+
+
+def load_simulator_with_image_data(simulator, arry):
+    """ Load an image (array) into a Lima simulator.
+
+        args:
+            - simulator: a Lima object of the type simulator
+            - arry: the data array
+    """
+
+    img_path = "bliss/tests/images/test_img.edf"
+    array_to_file(arry.astype("uint32"), img_path)
+    load_simulator_frames(simulator, 1, img_path)
+    # os.remove(img_path)
 
 
 def reset_cam(cam, roi=None):

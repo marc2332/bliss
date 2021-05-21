@@ -7,27 +7,151 @@
 
 from typing import Iterable
 import typeguard
-from bliss.common.counter import Counter
-from bliss.controllers.lima.roi import raw_roi_to_current_roi, current_roi_to_raw_roi
+import numpy
 
+from bliss.common.counter import Counter
 from bliss.config.beacon_object import BeaconObject
 from bliss.common.logtools import log_debug
 
 # ========== RULES of Tango-Lima ==================
 
-# order of image transformation:
-# 0) set back binning to 1,1 before any flip or rot modif (else lima crashes if a roi/subarea is already defined))
-# 1) flip [Left-Right, Up-Down]  (in bin 1,1 only else lima crashes if a roi/subarea is already defined)
-# 2) rotation (clockwise and negative angles not possible) (in bin 1,1 only for same reasons)
-# 3) binning
-# 4) roi (expressed in the current state => roi = f(flip, rot, bin))
+# Lima rules and order of image transformations:
 
-# note:
-# rot 180 = flip LR + UD
-# rot 270 = LR + UD + rot90
+# 1) binning
+# 2) flip
+# 3) rotation
+# 4) roi (expressed in the current state f(bin, flip, rot))
 
 #  roi is defined in the current image referential (i.e roi = f(rot, flip, bin))
 #  raw_roi is defined in the raw image referential (i.e with bin=1,1  flip=False,False, rot=0)
+#  flip =  [Left-Right, Up-Down]
+
+# ----------------- helpers for ROI coordinates (x,y,w,h) transformations (flip, rotation, binning) --------------
+
+_DEG2RAD = numpy.pi / 180.0
+
+
+def current_coords_to_raw_coords(coords_list, img_size, flip, rotation, binning):
+
+    if not isinstance(coords_list, numpy.ndarray):
+        pts = numpy.array(coords_list)
+    else:
+        pts = coords_list.copy()
+
+    w0, h0 = img_size
+
+    # inverse rotation
+    if rotation != 0:
+        pts = calc_pts_rotation(pts, -rotation, (w0, h0))
+        if rotation in [90, 270]:
+            w0, h0 = img_size[1], img_size[0]
+
+    # unflipped roi
+    if flip[0]:
+        pts[:, 0] = w0 - pts[:, 0]
+
+    if flip[1]:
+        pts[:, 1] = h0 - pts[:, 1]
+
+    # unbinned roi
+    xbin, ybin = binning
+    if xbin != 1 or ybin != 1:
+        pts[:, 0] = pts[:, 0] * xbin
+        pts[:, 1] = pts[:, 1] * ybin
+
+    return pts
+
+
+def raw_coords_to_current_coords(
+    raw_coords_list, raw_img_size, flip, rotation, binning
+):
+
+    if not isinstance(raw_coords_list, numpy.ndarray):
+        pts = numpy.array(raw_coords_list)
+    else:
+        pts = raw_coords_list.copy()
+
+    w0, h0 = raw_img_size
+
+    # bin roi
+    xbin, ybin = binning
+    if xbin != 1 or ybin != 1:
+        pts[:, 0] = pts[:, 0] / xbin
+        pts[:, 1] = pts[:, 1] / ybin
+        w0 = w0 / xbin
+        h0 = h0 / ybin
+
+    # flip roi
+    if flip[0]:
+        pts[:, 0] = w0 - pts[:, 0]
+
+    if flip[1]:
+        pts[:, 1] = h0 - pts[:, 1]
+
+    # rotate roi
+    if rotation != 0:
+        pts = calc_pts_rotation(pts, rotation, (w0, h0))
+
+    return pts
+
+
+def raw_roi_to_current_roi(raw_roi, raw_img_size, flip, rotation, binning):
+    x, y, w, h = raw_roi
+    pts = [[x, y], [x + w, y + h]]
+    pts = raw_coords_to_current_coords(pts, raw_img_size, flip, rotation, binning)
+    x1, y1 = pts[0]
+    x2, y2 = pts[1]
+    x = min(x1, x2)
+    y = min(y1, y2)
+    w = abs(x2 - x1)
+    h = abs(y2 - y1)
+
+    return [round(x), round(y), round(w), round(h)]
+
+
+def current_roi_to_raw_roi(current_roi, img_size, flip, rotation, binning):
+    x, y, w, h = current_roi
+    pts = [[x, y], [x + w, y + h]]
+    pts = current_coords_to_raw_coords(pts, img_size, flip, rotation, binning)
+    x1, y1 = pts[0]
+    x2, y2 = pts[1]
+    x = min(x1, x2)
+    y = min(y1, y2)
+    w = abs(x2 - x1)
+    h = abs(y2 - y1)
+    return [x, y, w, h]
+
+
+def calc_pts_rotation(pts, angle, img_size):
+
+    if not isinstance(pts, numpy.ndarray):
+        pts = numpy.array(pts)
+
+    # define the camera fullframe
+    w0, h0 = img_size
+    frame = numpy.array([[0, 0], [w0, h0]])
+
+    # define the rotation matrix
+    theta = _DEG2RAD * angle * -1  # Lima rotation is clockwise !
+    R = numpy.array(
+        [[numpy.cos(theta), -numpy.sin(theta)], [numpy.sin(theta), numpy.cos(theta)]]
+    )
+
+    new_frame = numpy.dot(frame, R)
+    new_pts = numpy.dot(pts, R)
+
+    # find new origin
+    ox = numpy.amin(new_frame[:, 0])
+    oy = numpy.amin(new_frame[:, 1])
+
+    # apply new origin
+    new_pts[:, 0] = new_pts[:, 0] - ox
+    new_pts[:, 1] = new_pts[:, 1] - oy
+
+    return new_pts
+
+
+# -------------------------------------------------------------------------------------------
 
 
 def _to_list(setting, value):
@@ -232,10 +356,7 @@ class ImageCounter(Counter):
 
         # handle lazy init
         if self._cur_roi is None:
-            detector_size = self._get_detector_max_size()
-            self._cur_roi = raw_roi_to_current_roi(
-                self.raw_roi, detector_size, self.flip, self.rotation, self.binning
-            )
+            self._update_roi()
 
         return self._cur_roi
 
@@ -247,6 +368,8 @@ class ImageCounter(Counter):
             self._raw_roi
         )  # store the new _raw_roi in redis/settings
         self._cur_roi = roi
+
+        self._counter_controller._update_lima_rois()
 
     @property
     def subarea(self):
@@ -277,6 +400,7 @@ class ImageCounter(Counter):
         self._cur_roi = raw_roi_to_current_roi(
             self.raw_roi, detector_size, self.flip, self.rotation, self.binning
         )
+        self._counter_controller._update_lima_rois()
 
     def _calc_raw_roi(self, roi):
         """ computes the raw_roi from a given roi and current bin, flip, rot """

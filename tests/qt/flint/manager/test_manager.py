@@ -49,6 +49,37 @@ SCAN_INFO_LIMA_ROIS = {
 }
 
 
+def _create_loopscan_scan_info(extra_name=None):
+    result = {
+        "type": "ascan",
+        "acquisition_chain": {"main": {"devices": ["master", "slave"]}},
+        "devices": {
+            "master": {
+                "channels": ["timer:elapsed_time", "timer:epoch"],
+                "triggered_devices": ["slave"],
+            },
+            "slave": {
+                "channels": [
+                    "timer:elapsed_time",
+                    "timer:epoch",
+                    "simulation_diode_sampling_controller:diode1",
+                    "simulation_diode_sampling_controller:diode2",
+                ]
+            },
+        },
+        "channels": {
+            "timer:elapsed_time": {"dim": 0},
+            "timer:epoch": {"dim": 0},
+            "simulation_diode_sampling_controller:diode1": {"dim": 0},
+            "simulation_diode_sampling_controller:diode2": {"dim": 0},
+        },
+    }
+    if extra_name is not None:
+        result["devices"]["slave"]["channels"].append(extra_name)
+        result["channels"][extra_name] = {"dim": 0}
+    return result
+
+
 def _create_ascan_scan_info(master_name, extra_name=None):
     result = {
         "type": "ascan",
@@ -104,22 +135,7 @@ def test_consecutive_scans__loopscan_ascan(local_flint):
     manager = ManageMainBehaviours()
     manager.setFlintModel(flint)
 
-    loopscan_info = {
-        "type": "loopscan",
-        "acquisition_chain": {"main": {"devices": ["master", "slave"]}},
-        "devices": {
-            "master": {
-                "channels": ["timer:elapsed_time", "timer:epoch"],
-                "triggered_devices": ["slave"],
-            },
-            "slave": {"channels": ["simulation_diode_sampling_controller:diode1"]},
-        },
-        "channels": {
-            "timer:elapsed_time": {"dim": 0},
-            "timer:epoch": {"dim": 0},
-            "simulation_diode_sampling_controller:diode1": {"dim": 0},
-        },
-    }
+    loopscan_info = _create_loopscan_scan_info()
     scan = scan_info_helper.create_scan_model(loopscan_info)
     plots = scan_info_helper.create_plot_model(loopscan_info, scan)
     manager.updateScanAndPlots(scan, plots)

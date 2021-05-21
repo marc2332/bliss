@@ -6,6 +6,7 @@ from bliss.flint.model import flint_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.widgets.curve_plot import CurvePlotWidget
 from bliss.flint.helper import scan_info_helper
+from bliss.flint.helper import model_helper
 
 
 SCAN_INFO_LIMA_ROIS = {
@@ -148,6 +149,50 @@ def test_consecutive_scans__loopscan_ascan(local_flint):
     model = widget.plotModel()
     item = model.items()[0]
     assert item.xChannel().name() == "axis:sx"
+
+
+def test_consecutive_scans__user_selection(local_flint):
+    """
+    Test plot state with consecutive scans and a user selection in between
+
+    We expect the user selection to be restored
+    """
+    flint = flint_model.FlintState()
+    workspace = flint_model.Workspace()
+    flint.setWorkspace(workspace)
+    widget = CurvePlotWidget()
+    workspace.addWidget(widget)
+
+    manager = ManageMainBehaviours()
+    manager.setFlintModel(flint)
+
+    loopscan_info = _create_loopscan_scan_info()
+    scan = scan_info_helper.create_scan_model(loopscan_info)
+    plots = scan_info_helper.create_plot_model(loopscan_info, scan)
+    plot = [p for p in plots if isinstance(p, plot_item_model.CurvePlot)][0]
+    manager.updateWidgetWithPlot(widget, scan, plot, useDefaultPlot=True)
+    model = widget.plotModel()
+    assert len(model.items()) == 1
+
+    # user selection
+    model_helper.updateDisplayedChannelNames(
+        plot,
+        scan,
+        [
+            "simulation_diode_sampling_controller:diode1",
+            "simulation_diode_sampling_controller:diode2",
+        ],
+    )
+    plot.tagUserEditTime()
+
+    ascan_info = _create_ascan_scan_info("axis:sx")
+    scan = scan_info_helper.create_scan_model(ascan_info)
+    plots = scan_info_helper.create_plot_model(ascan_info, scan)
+    plot = [p for p in plots if isinstance(p, plot_item_model.CurvePlot)][0]
+    manager.updateWidgetWithPlot(widget, scan, plot, useDefaultPlot=True)
+
+    model = widget.plotModel()
+    assert len(model.items()) == 2
 
 
 def test_consecutive_scans__ascan_ascan(local_flint):

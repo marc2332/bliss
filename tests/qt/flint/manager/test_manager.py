@@ -120,7 +120,7 @@ def _create_lima_scan_info(include_roi2):
     return result
 
 
-def test_consecutive_scans__loopscan_ascan(local_flint):
+def test_curve_plot__from_loopscan_to_ascan(local_flint):
     """
     Test plot state with consecutive scans
 
@@ -151,7 +151,7 @@ def test_consecutive_scans__loopscan_ascan(local_flint):
     assert item.xChannel().name() == "axis:sx"
 
 
-def test_consecutive_scans__user_selection(local_flint):
+def test_curve_plot__user_selection(local_flint):
     """
     Test plot state with consecutive scans and a user selection in between
 
@@ -195,7 +195,7 @@ def test_consecutive_scans__user_selection(local_flint):
     assert len(model.items()) == 2
 
 
-def test_consecutive_scans__ascan_ascan(local_flint):
+def test_curve_plot__ascan_axis_updated(local_flint):
     """
     Test plot state with consecutive scans
 
@@ -271,7 +271,7 @@ def test_curve_plot__enforced_channel_from_scan_info(local_flint):
     assert item.yChannel().name() == enforced_channel
 
 
-def test_plot_with_new_roi(local_flint):
+def test_image_plot_with_new_roi(local_flint):
     """Test the resulted image plot when a new ROI is part of the scan.
 
     We expect:

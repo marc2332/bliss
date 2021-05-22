@@ -727,6 +727,9 @@ class IcatIngesterProxy(object):
         :param str msg_type: "comment" by default
         :param dict comm_state:
         """
+        msg = msg.encode(
+            "latin-1", errors="replace"
+        )  # this is to circumvent pytango issue #72
         if self.get_state(comm_state=comm_state) == DevState.FAULT:
             return
         comm_state["error_msg"] = "Failed to send the e-logbook message"

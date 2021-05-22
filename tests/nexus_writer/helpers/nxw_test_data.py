@@ -512,18 +512,11 @@ def validate_instrument(
     }
 
     content = dictdump.nxtodict(instrument["transfocator_simulator"], asarray=False)
-    assert content == {
-        "@NX_class": "NXcollection",
-        "L1": content["L1"],
-        "L2": content["L2"],
-        "L3": content["L3"],
-        "L4": content["L4"],
-        "L5": content["L5"],
-        "L6": content["L6"],
-        "L7": content["L7"],
-        "L8": content["L8"],
-        "P0": content["P0"],
-    }
+    assert content["@NX_class"] == "NXcollection"
+    # The value of the L and P datasets is `True`, `False` or `None`.
+    # A dataset value of `Ǹone` which is skipped by dicttonx;
+    maxkeys = {"@NX_class", "L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "P0"}
+    assert not (set(content.keys()) - maxkeys)
 
     content = dictdump.nxtodict(instrument["machine"], asarray=False)
     expected = {

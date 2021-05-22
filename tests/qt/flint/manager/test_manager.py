@@ -170,7 +170,7 @@ def test_consecutive_scans__user_selection(local_flint):
     scan = scan_info_helper.create_scan_model(loopscan_info)
     plots = scan_info_helper.create_plot_model(loopscan_info, scan)
     plot = [p for p in plots if isinstance(p, plot_item_model.CurvePlot)][0]
-    manager.updateWidgetWithPlot(widget, scan, plot, useDefaultPlot=True)
+    manager.updateWidgetWithPlot(widget, scan, plot, useDefaultPlot=False)
     model = widget.plotModel()
     assert len(model.items()) == 1
 
@@ -189,7 +189,7 @@ def test_consecutive_scans__user_selection(local_flint):
     scan = scan_info_helper.create_scan_model(ascan_info)
     plots = scan_info_helper.create_plot_model(ascan_info, scan)
     plot = [p for p in plots if isinstance(p, plot_item_model.CurvePlot)][0]
-    manager.updateWidgetWithPlot(widget, scan, plot, useDefaultPlot=True)
+    manager.updateWidgetWithPlot(widget, scan, plot, useDefaultPlot=False)
 
     model = widget.plotModel()
     assert len(model.items()) == 2
@@ -228,6 +228,47 @@ def test_consecutive_scans__ascan_ascan(local_flint):
     model = widget.plotModel()
     item = model.items()[0]
     assert item.xChannel().name() == "axis:sy"
+
+
+def test_curve_plot__enforced_channel_from_scan_info(local_flint):
+    """
+    Test a new plot with enforced channel (plotinit)
+
+    We expect the channel from the scan_info to be used,
+    anyway the user selection was done on the previous plot
+    """
+    flint = flint_model.FlintState()
+    workspace = flint_model.Workspace()
+    flint.setWorkspace(workspace)
+    widget = CurvePlotWidget()
+    workspace.addWidget(widget)
+
+    manager = ManageMainBehaviours()
+    manager.setFlintModel(flint)
+
+    ascan_info = _create_ascan_scan_info("axis:sx", "axis:sy")
+    scan = scan_info_helper.create_scan_model(ascan_info)
+    plots = scan_info_helper.create_plot_model(ascan_info, scan)
+    manager.updateScanAndPlots(scan, plots)
+
+    enforced_channel = "axis:sy"
+
+    # Enforce a user selection
+    plotModel = widget.plotModel()
+    plotModel.tagUserEditTime()
+    item = plotModel.items()[0]
+    # Make sure the following test have meaning
+    assert item.yChannel().name() != enforced_channel
+
+    ascan_info = _create_ascan_scan_info("axis:sy", "axis:sx")
+    ascan_info["_display_extra"] = {"displayed_channels": [enforced_channel]}
+    scan = scan_info_helper.create_scan_model(ascan_info)
+    plots = scan_info_helper.create_plot_model(ascan_info, scan)
+    manager.updateScanAndPlots(scan, plots)
+
+    plotModel = widget.plotModel()
+    item = plotModel.items()[0]
+    assert item.yChannel().name() == enforced_channel
 
 
 def test_plot_with_new_roi(local_flint):

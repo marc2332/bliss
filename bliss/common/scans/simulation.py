@@ -37,6 +37,8 @@ from bliss.common.image_tools import (
     test_image,
 )
 
+from bliss.common.protocols import HasMetadataForScan
+
 
 # CHAIN OBJECT NOTES:
 #
@@ -397,9 +399,14 @@ class FakeAcquisitionSlave(AcquisitionSlave):
         # self.channels.update({self.chname: self.positions})
 
     def fill_meta_at_scan_start(self, scan_meta):
-        tmp_dict = {}
+        tmp_dict = super().fill_meta_at_scan_start(scan_meta)
         for cnt in self._counters:
-            deep_update(tmp_dict, cnt.get_metadata())
+            if isinstance(cnt, HasMetadataForScan):
+                mdata = cnt.scan_metadata()
+                if mdata is not None:
+                    if tmp_dict is None:
+                        tmp_dict = dict()
+                    deep_update(tmp_dict, mdata)
         return tmp_dict
 
     def prepare(self):

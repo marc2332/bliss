@@ -15,6 +15,7 @@ import inspect
 import numpy
 
 from bliss.common.utils import autocomplete_property
+from bliss.common.protocols import HasMetadataForScan
 
 
 def add_conversion_function(obj, method_name, function):
@@ -58,7 +59,7 @@ def _identity(val):
     return val
 
 
-class Counter:
+class Counter(HasMetadataForScan):
     """ Counter class """
 
     def __init__(self, name, controller, conversion_function=None, unit=None):
@@ -122,8 +123,8 @@ class Counter:
         assert callable(func)
         self._conversion_function = func
 
-    def get_metadata(self):
-        return {}
+    def scan_metadata(self):
+        return None
 
     def __info__(self, counter_type=None):
         info_str = f"'{self.name}` counter info:\n"

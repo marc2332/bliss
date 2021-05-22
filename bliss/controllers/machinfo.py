@@ -18,10 +18,10 @@ from bliss.common.logtools import user_print
 from bliss.common import timedisplay
 from bliss.controllers.counter import counter_namespace
 
-from bliss.scanning.scan_meta import NonScannableHasMetadataForScan
 from bliss.scanning.chain import ChainPreset, ChainIterationPreset
 from bliss.common import tango
 from bliss.common.protocols import HasMetadataForDataset
+from bliss.scanning.scan_meta import NonScannableHasMetadataForScan
 from bliss.controllers.tango_attr_as_counter import (
     TangoCounterController,
     TangoAttrCounter,

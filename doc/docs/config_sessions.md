@@ -222,7 +222,7 @@ A skeleton of BLISS session can be created automatically with the `-c` option:
 example for a session named `demo_session`
 ```
 (bliss) pcsht:~ % bliss -c demo_session
-Creating 'demo_session' BLISS session
+Creating 'demo_session' BLISS session on BEACON_HOST=epilobe:25000
 Creating sessions/demo_session.yml
 Creating sessions/demo_session_setup.py
 Creating sessions/scripts/demo_session.py

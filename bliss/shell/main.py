@@ -126,7 +126,11 @@ def create_session(session_name):
     This method is valid even if config directory is located on
     a remote computer.
     """
-    print(("Creating '%s' BLISS session" % session_name))
+    beacon = client.get_default_connection()
+    print(
+        f"Creating '{session_name}' BLISS session on"
+        f"BEACON_HOST={beacon._host}:{beacon._port_number}"
+    )
 
     config = static.get_config()
     config.set_config_db_file("sessions/__init__.yml", "plugin: session\n")
@@ -179,26 +183,26 @@ def main():
     # Display session names and trees
     if arguments["--show-sessions"]:
         print_sessions_and_trees(get_sessions_list())
-        exit(0)
+        sys.exit(0)
 
     # Display session names only
     if arguments["--show-sessions-only"]:
         print_sessions_list(get_sessions_list())
-        exit(0)
+        sys.exit(0)
 
     # Create session
     if arguments["--create"]:
         session_name = arguments["--create"]
         if session_name in get_sessions_list():
             print(("Session '%s' cannot be created: it already exists." % session_name))
-            exit(0)
+            sys.exit(0)
         elif session_name[0].isdigit():
             print(f"Invalid session name ({session_name}). Must start with [a-zA-Z_]")
-            exit(0)
+            sys.exit(0)
         else:
             create_session(session_name)
             # exit ( or launch new session ? )
-            exit(0)
+            sys.exit(0)
 
     # Delete session
     if arguments["--delete"]:
@@ -206,7 +210,7 @@ def main():
         if session_name in get_sessions_list():
             if yes_or_no("Do you want to delete '%s' session?" % session_name):
                 delete_session(session_name)
-            exit(0)
+            sys.exit(0)
         else:
             print(
                 (
@@ -214,7 +218,7 @@ def main():
                     % session_name
                 )
             )
-            exit(0)
+            sys.exit(0)
 
     # check beacon connection
     static.get_config()
@@ -225,7 +229,7 @@ def main():
         if session_name not in get_sessions_list():
             print(("'%s' does not seem to be a valid session, exiting." % session_name))
             print_sessions_list(get_sessions_list())
-            exit(0)
+            sys.exit(0)
     else:
         session_name = None
 

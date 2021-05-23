@@ -186,20 +186,6 @@ class MachInfo(BeaconObject, HasMetadataForScan, HasMetadataForDataset):
         meta_dict["message"] = attributes["SR_Operator_Mesg"]
         return meta_dict
 
-    @BeaconObject.property(default=True)
-    def metadata(self):
-        """
-        Insert machine info metadata's for any scans
-        """
-        return self.scan_metadata_enabled
-
-    @metadata.setter
-    def metadata(self, flag):
-        if flag:
-            self.enable_scan_metadata()
-        else:
-            self.disable_scan_metadata()
-
     def iter_wait_for_refill(self, checktime, waittime=0., polling_time=1.):
         """
         Helper for waiting the machine refill.

@@ -133,7 +133,12 @@ def test_scan_meta_master_and_device(session, scan_meta):
 
     s = Scan(chain, name="my_simple", save=False)
     s.run()
-    assert s.scan_info["instrument"] == {**master_dict, **device_dict}
+    # check scan info 'instrument' contains the scan metadata
+    # (it also contains controllers metadata but we do not check here)
+    for k, v in master_dict.items():
+        assert s.scan_info["instrument"][k] == v
+    for k, v in device_dict.items():
+        assert s.scan_info["instrument"][k] == v
 
 
 def test_positioners_in_scan_info(alias_session):

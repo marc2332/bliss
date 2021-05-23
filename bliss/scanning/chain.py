@@ -461,7 +461,7 @@ class AcquisitionObject:
 
     def fill_meta_at_scan_start(self, scan_meta):
         """
-        In this method, acquisition device should collect and meta data
+        In this method, acquisition device should collect any meta data
         related to this device and prepare it for publishing. it is called 
         during the scan initialization. 
 

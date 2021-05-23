@@ -585,10 +585,8 @@ def test_scan_end_timing(
             first_index=first_index, include_filter="scan"
         ):
             if event_type == event_type.END_SCAN:
-                assert node.info.get("instrument") == {
-                    "DummyDevice": "slow",
-                    "some": "text",
-                }
+                assert node.info.get("instrument")["DummyDevice"] == "slow"
+                assert node.info.get("instrument")["some"] == "text"
                 return
 
     # force existance of scan node before starting the scan

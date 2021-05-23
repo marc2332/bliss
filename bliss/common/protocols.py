@@ -8,6 +8,8 @@
 """
 This file groups all protocols managed by bliss
 """
+import weakref
+
 from abc import ABC
 from collections import namedtuple
 from types import SimpleNamespace
@@ -131,18 +133,20 @@ class HasMetadataForScan(ABC):
     objects `AcquisitionObject` (directly or indirectly).
     """
 
+    disabled_controllers = weakref.WeakKeyDictionary()
+
     def disable_scan_metadata(self):
-        self.__disabled_scan_metadata = True
+        HasMetadataForScan.disabled_controllers[self] = True
 
     @property
     def scan_metadata_enabled(self):
-        try:
-            return not self.__disabled_scan_metadata
-        except AttributeError:
-            return True
+        return not HasMetadataForScan.disabled_controllers.get(self)
 
     def enable_scan_metadata(self):
-        self.__disabled_scan_metadata = False
+        try:
+            HasMetadataForScan.disabled_controllers.pop(self)
+        except KeyError:
+            pass
 
     def scan_metadata(self) -> Union[dict, None]:
         """
@@ -161,10 +165,3 @@ class HasMetadataForScan(ABC):
             return self.name
         except AttributeError:
             return None
-
-    @property
-    def strict_scan_metadata(self):
-        """
-        Return whether metadata has to be reported only if the controller is involved in the scan
-        """
-        return False

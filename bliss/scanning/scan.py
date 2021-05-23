@@ -30,7 +30,11 @@ from bliss.common.cleanup import error_cleanup, axis as cleanup_axis, capture_ex
 from bliss.common.greenlet_utils import KillMask
 from bliss.common import plot as plot_mdl
 from bliss.common.utils import periodic_exec, deep_update
-from bliss.scanning.scan_meta import get_user_scan_meta, META_TIMING
+from bliss.scanning.scan_meta import (
+    META_TIMING,
+    get_user_scan_meta,
+    get_controllers_scan_meta,
+)
 from bliss.common.motor_group import is_motor_group
 from bliss.common.utils import Null, update_node_info, round
 from bliss.controllers.motor import Controller, get_real_axes
@@ -604,6 +608,9 @@ class Scan:
         """
         self.__name = name
         self.__scan_number = None
+        self.__user_scan_meta = None
+        self.__controllers_scan_meta = None
+        self.__scan_meta = None
         self._scan_info = ScanInfo()
 
         self.root_node = None
@@ -810,7 +817,7 @@ class Scan:
         self._scan_info["scan_nb"] = self.__scan_number
 
         # this has to be done when the writer is ready
-        self._prepare_scan_meta()
+        self._scan_info["filename"] = self.writer.filename
 
         start_timestamp = time.time()
         start_time = datetime.datetime.fromtimestamp(start_timestamp)
@@ -1277,7 +1284,8 @@ class Scan:
     def prepare(self, scan_info, devices_tree):
         self._prepare_devices(devices_tree)
         self.writer.prepare(self)
-        self._fill_meta("fill_meta_at_scan_start")
+
+        self._prepare_scan_meta()
 
         # The scan info was updated with device metadata
         self.node.prepared(self._scan_info)
@@ -1363,22 +1371,48 @@ class Scan:
             else:
                 event.connect(dev, "new_data", self._channel_event)
 
-    def _update_scan_info_with_user_scan_meta(self, meta_timing):
-        # be aware: this is patched in ct!
+    @property
+    def user_scan_meta(self):
+        if self.__user_scan_meta is None:
+            self.__user_scan_meta = get_user_scan_meta().copy()
+        return self.__user_scan_meta
+
+    @property
+    def _controllers_scan_meta(self):
+        if self.__controllers_scan_meta is None:
+            filtered_controller_names = []
+            for acq_obj in self.acq_chain.nodes_list:
+                # we do not want to collect controller metadata for controllers
+                # which are involved in the scan, since they will report their
+                # metadata via 'fill_meta' methods. So, we make a list of
+                # controller names to filter out.
+                # Nb: the acquisition object name == underlying device name normally
+                # /!\ this may be different from 'scan_metadata_name' in controllers metadata,
+                # so if someone tries hard it is possible to break the logic here
+                filtered_controller_names.append(acq_obj.name)
+            self.__controllers_scan_meta = get_controllers_scan_meta(
+                filtered_names=filtered_controller_names
+            )
+        return self.__controllers_scan_meta
+
+    def _update_scan_info_with_scan_meta(self, meta_timing):
         with KillMask(masked_kill_nb=1):
+            deep_update(
+                self._scan_info,
+                self._controllers_scan_meta.to_dict(self, timing=meta_timing),
+            )
             deep_update(
                 self._scan_info, self.user_scan_meta.to_dict(self, timing=meta_timing)
             )
         original = set(self._scan_info.get("scan_meta_categories", []))
-        extra = set(self.user_scan_meta.used_categories_names())
-        self._scan_info["scan_meta_categories"] = list(original | extra)
+        extra1 = set(self._controllers_scan_meta.used_categories_names())
+        extra2 = set(self.user_scan_meta.used_categories_names())
+        self._scan_info["scan_meta_categories"] = list(original | extra1 | extra2)
+
+        # update scan info in redis
+        update_node_info(self.node, dict(self._scan_info))
 
     def _prepare_scan_meta(self):
-        self._scan_info["filename"] = self.writer.filename
-        # User metadata
-        self.user_scan_meta = get_user_scan_meta().copy()
-        self._update_scan_info_with_user_scan_meta(META_TIMING.START)
-
         # Plot metadata
         display_extra = {}
         displayed_channels = self.__scan_display.displayed_channels
@@ -1395,6 +1429,12 @@ class Scan:
             display_extra["displayed_channels"] = displayed_channels
         if len(display_extra) > 0:
             self._scan_info["_display_extra"] = display_extra
+
+        # Collect exclusive scan metadata
+        self._fill_meta("fill_meta_at_scan_start")
+
+        # Update with controllers metadata and user metadata, and push to redis
+        self._update_scan_info_with_scan_meta(META_TIMING.START)
 
     def disconnect_all(self):
         for dev in self._devices:
@@ -1433,6 +1473,7 @@ class Scan:
                 node = self.nodes.get(acq_obj)
                 if node is not None:
                     update_node_info(node, metadata)
+                self._controllers_scan_meta.instrument.set(acq_obj.name, metadata)
                 if method_name == "fill_meta_at_scan_start":
                     self._scan_info._set_device_meta(acq_obj, metadata)
 
@@ -1573,11 +1614,7 @@ class Scan:
                 self._fill_meta("fill_meta_at_scan_end")
 
             with capture():
-                self._update_scan_info_with_user_scan_meta(META_TIMING.END)
-
-                with KillMask(masked_kill_nb=1):
-                    # update scan_info in redis
-                    self.node._info.update(self.scan_info)
+                self._update_scan_info_with_scan_meta(META_TIMING.END)
 
             # wait the end of publishing
             # (should be already finished)

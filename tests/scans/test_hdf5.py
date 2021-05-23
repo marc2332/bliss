@@ -238,8 +238,6 @@ def test_scan_info_cleaning(alias_session):
 def test_fill_meta_mechanisms(alias_session, lima_simulator):
     lima_sim = alias_session.config.get("lima_simulator")
     transf = alias_session.config.get("transfocator_simulator")
-    # Register manually because it is not part of the session:
-    transf.enable_scan_metadata()
 
     s = scans.loopscan(3, .1, lima_sim)
     with h5py.File(s.writer.filename, mode="r") as f:

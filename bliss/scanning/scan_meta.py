@@ -34,8 +34,6 @@ def get_user_scan_meta():
     global USER_SCAN_META
     if USER_SCAN_META is None:
         USER_SCAN_META = ScanMeta()
-        USER_SCAN_META.positioners.set("positioners", fill_positioners)
-        USER_SCAN_META.positioners.timing = META_TIMING.START | META_TIMING.END
         USER_SCAN_META.instrument.set("@NX_class", {"@NX_class": "NXinstrument"})
         USER_SCAN_META.instrument.timing = META_TIMING.END
         USER_SCAN_META.technique.set("@NX_class", {"@NX_class": "NXcollection"})
@@ -132,6 +130,36 @@ class ScanMetaCategory:
     def __info__(self):
         s = pprint.pformat(self.metadata, indent=2)
         return f"{self.__class__.__name__}{self.name}: \n " + s
+
+
+def get_controllers_scan_meta(filtered_names=None):
+    scan_meta = ScanMeta()
+    scan_meta.instrument.set("@NX_class", {"@NX_class": "NXinstrument"})
+    scan_meta.positioners.set("positioners", fill_positioners)
+    scan_meta.positioners.timing = META_TIMING.START | META_TIMING.END
+
+    for obj in global_map.instance_iter("controllers"):
+        if isinstance(obj, HasMetadataForScan):
+            if not obj.scan_metadata_enabled:
+                continue
+            if filtered_names and obj.scan_metadata_name in filtered_names:
+                # this object is filtered out
+                continue
+
+            def metadata_generator(scan, obj=obj):
+                """
+                Metadata generator registred with the instrument category
+                of user scan metadata.
+                """
+                metadata_name = obj.scan_metadata_name
+                if not metadata_name:
+                    user_warning(f"{repr(obj)} needs a name to publish scan metadata")
+                    return {}
+                else:
+                    return {metadata_name: obj.scan_metadata()}
+
+            scan_meta.instrument.set(obj, metadata_generator)
+    return scan_meta
 
 
 class ScanMeta:

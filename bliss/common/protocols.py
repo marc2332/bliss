@@ -131,9 +131,40 @@ class HasMetadataForScan(ABC):
     objects `AcquisitionObject` (directly or indirectly).
     """
 
+    def disable_scan_metadata(self):
+        self.__disabled_scan_metadata = True
+
+    @property
+    def scan_metadata_enabled(self):
+        try:
+            return not self.__disabled_scan_metadata
+        except AttributeError:
+            return True
+
+    def enable_scan_metadata(self):
+        self.__disabled_scan_metadata = False
+
     def scan_metadata(self) -> Union[dict, None]:
         """
         Returning an empty dictionary means the controller has metadata
         but no values. `None` means the controller has no metadata.
         """
         raise NotImplementedError
+
+    @property
+    def scan_metadata_name(self) -> Union[str, None]:
+        """
+        Default implementation returns self.name, can be overwritten in derived classes
+        Returns None when there is no name
+        """
+        try:
+            return self.name
+        except AttributeError:
+            return None
+
+    @property
+    def strict_scan_metadata(self):
+        """
+        Return whether metadata has to be reported only if the controller is involved in the scan
+        """
+        return False

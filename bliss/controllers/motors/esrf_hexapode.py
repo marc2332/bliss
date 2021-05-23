@@ -51,7 +51,7 @@ import time
 import math
 import gevent
 
-from bliss.scanning.scan_meta import NonScannableHasMetadataForScan
+from bliss.common.protocols import HasMetadataForScan
 from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState
 from bliss.common.tango import DevState, DeviceProxy
@@ -72,7 +72,7 @@ from bliss.shell.cli.pt_widgets import display, BlissDialog
 __author__ = "Jens Meyer / Gilles Berruyer - ESRF ISDD SOFTGROUP BLISS - June 2019"
 
 
-class esrf_hexapode(Controller, NonScannableHasMetadataForScan):
+class esrf_hexapode(Controller, HasMetadataForScan):
     """ Class to implement BLISS motor controller of esrf hexapode controlled
     via tango device server
     """

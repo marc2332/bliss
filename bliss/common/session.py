@@ -30,7 +30,6 @@ from bliss.common.utils import UserNamespace
 from bliss.common import constants
 from bliss.scanning import scan_saving
 from bliss.scanning import scan_display
-from bliss.scanning.scan_meta import NonScannableHasMetadataForScan
 
 
 _SESSION_IMPORTERS = set()
@@ -751,8 +750,6 @@ class Session:
         setup_ret = self._setup(env_dict)
         ret = ret and setup_ret
 
-        self.register_metadata_generators(env_dict)
-
         return ret
 
     def setup(
@@ -841,7 +838,6 @@ class Session:
 
     def close(self):
         setup_globals.__dict__.clear()
-        self.unregister_metadata_generators(self.env_dict)
         for obj_name, obj in self.env_dict.items():
             if obj is self or obj is self.config:
                 continue
@@ -974,18 +970,6 @@ class Session:
         self.init(self.config.get_config(self.name))
 
         self.setup(self.env_dict, verbose)
-
-    @staticmethod
-    def register_metadata_generators(env_dict):
-        for o in env_dict.values():
-            if isinstance(o, NonScannableHasMetadataForScan):
-                o.enable_scan_metadata()
-
-    @staticmethod
-    def unregister_metadata_generators(env_dict):
-        for o in env_dict.values():
-            if isinstance(o, NonScannableHasMetadataForScan):
-                o.disable_scan_metadata()
 
 
 class DefaultSession(Session):

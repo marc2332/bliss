@@ -79,7 +79,7 @@ from bliss.common.utils import grouped
 from bliss.controllers.wago.wago import WagoController, ModulesConfig, get_wago_comm
 from bliss.config import channels
 from bliss.common.event import dispatcher
-from bliss.scanning.scan_meta import NonScannableHasMetadataForScan
+from bliss.common.protocols import HasMetadataForScan
 
 
 class TfWagoMapping:
@@ -158,7 +158,7 @@ def _encode(status):
     raise ValueError("Invalid position {!r}".format(status))
 
 
-class Transfocator(NonScannableHasMetadataForScan):
+class Transfocator(HasMetadataForScan):
     """
     The lenses are controlled pneumatically via WAGO output modules.
     The position is red from WAGO input modules.

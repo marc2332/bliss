@@ -76,7 +76,7 @@ import warnings
 
 from tabulate import tabulate
 from gevent import Timeout
-from bliss.common.protocols import HasMetadataForDataset
+from bliss.common.protocols import HasMetadataForScan, HasMetadataForDataset
 from bliss.common.motor_group import Group
 from bliss.common.axis import AxisState
 from bliss.config.channels import Channel
@@ -84,10 +84,9 @@ from bliss.common import event
 from bliss.common.utils import flatten
 from bliss.common.logtools import log_warning, log_error
 from bliss import global_map, is_bliss_shell
-from bliss.scanning.scan_meta import NonScannableHasMetadataForScan
 
 
-class MultiplePositions(HasMetadataForDataset, NonScannableHasMetadataForScan):
+class MultiplePositions(HasMetadataForDataset, HasMetadataForScan):
     """ Handle multiple positions.
     """
 

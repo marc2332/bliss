@@ -7,8 +7,7 @@
 
 from bliss.controllers.motor import CalcController
 from bliss.common.logtools import user_warning, log_debug
-from bliss.scanning.scan_meta import NonScannableHasMetadataForScan
-from bliss.common.protocols import HasMetadataForDataset
+from bliss.common.protocols import HasMetadataForScan, HasMetadataForDataset
 
 """
 example for single VERTICAL slits:
@@ -86,7 +85,7 @@ example for single HORIZONTAL slits:
 """
 
 
-class Slits(CalcController, NonScannableHasMetadataForScan, HasMetadataForDataset):
+class Slits(CalcController, HasMetadataForScan, HasMetadataForDataset):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.slit_type = self.config.get("slit_type", default="both")

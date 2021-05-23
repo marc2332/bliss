@@ -129,8 +129,6 @@ class HasMetadataForScan(ABC):
 
     The `scan_metadata` method is called by the acquisition chain
     objects `AcquisitionObject` (directly or indirectly).
-    Controllers not involved in the acquisition chain should use
-    the `NonScannableHasMetadataForScan` protocol.
     """
 
     def scan_metadata(self) -> Union[dict, None]:

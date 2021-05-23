@@ -19,6 +19,7 @@ import tabulate
 
 import gevent
 
+from bliss import global_map
 from bliss.controllers.mca.roi import RoiConfig
 from bliss.common.logtools import log_debug
 from bliss.common.protocols import HasMetadataForScan
@@ -103,6 +104,8 @@ class BaseMCA(CounterController, HasMetadataForScan):
     # Life cycle
 
     def __init__(self, name, config, beacon_obj_class=MCABeaconObject):
+        global_map.register(self)  # register as controller
+
         CounterController.__init__(self, name)
 
         self.beacon_obj = beacon_obj_class(self, config)

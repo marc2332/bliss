@@ -584,6 +584,9 @@ class Lima(CounterController, HasMetadataForScan):
     def image(self):
         if self._image is None:
             self._image = ImageCounter(self)
+            global_map.register(
+                self._image, parents_list=[self], children_list=[self._proxy]
+            )
         return self._image
 
     @autocomplete_property

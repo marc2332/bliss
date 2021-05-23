@@ -188,6 +188,8 @@ class Transfocator(HasMetadataForScan):
         )
         if self.wago:
             global_map.register(self, children_list=[self.wago])
+        else:
+            global_map.register(self)
 
         if "lenses" in config:
             self.nb_lens = int(config["lenses"])

@@ -80,8 +80,6 @@ class esrf_hexapode(Controller, HasMetadataForScan):
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
 
-        global_map.register(self)
-
         self.device = None
         self.roles = {}
         self.last_read = None

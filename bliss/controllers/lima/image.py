@@ -9,6 +9,7 @@ from typing import Iterable
 import typeguard
 import numpy
 
+from bliss import global_map
 from bliss.common.counter import Counter
 from bliss.config.beacon_object import BeaconObject
 from bliss.common.logtools import log_debug
@@ -159,8 +160,12 @@ def _to_list(setting, value):
 
 
 class LimaImageParameters(BeaconObject):
-    def __init__(self, config, name):
+    def __init__(self, controller, name):
+        config = controller._config_node
         super().__init__(config, name=name, share_hardware=False, path=["image"])
+        # properly put in map, to have "parameters" under the corresponding Lima controller node
+        # (and not in "controllers")
+        global_map.register(self, parents_list=[controller], tag="image_parameters")
 
     binning = BeaconObject.property_setting(
         "binning", default=[1, 1], set_marshalling=_to_list, set_unmarshalling=_to_list
@@ -231,7 +236,7 @@ class ImageCounter(Counter):
         super().__init__("image", controller)
 
         self._image_params = LimaImageParameters(
-            controller._config_node, f"{controller._name_prefix}:image"
+            controller, f"{controller._name_prefix}:image"
         )
 
     def __info__(self):

@@ -176,6 +176,9 @@ class Connection:
         # Beacon connection
         self._host = host
         self._port = port
+        # self._port_number is here to keep trace of port number
+        # as self._port can be replaced by unix socket name.
+        self._port_number = port
         self._socket = None
         self._connect_lock = gevent.lock.Semaphore()
         self._connected = gevent.event.Event()

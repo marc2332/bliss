@@ -281,9 +281,9 @@ class ScanMeta:
 
 
 def fill_positioners(scan):
-    stuffix = "_start"
+    suffix = "_start"
     if scan.state == 3:
-        stuffix = "_end"
+        suffix = "_end"
     positioners = dict()
     positioners_dial = dict()
     units = dict()
@@ -296,8 +296,8 @@ def fill_positioners(scan):
             units[axis_name] = unit
 
     rd = {
-        "positioners" + stuffix: positioners,
-        "positioners_dial" + stuffix: positioners_dial,
+        "positioners" + suffix: positioners,
+        "positioners_dial" + suffix: positioners_dial,
     }
 
     if scan.state != 3:

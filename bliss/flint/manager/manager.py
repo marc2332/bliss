@@ -559,7 +559,7 @@ class ManageMainBehaviours(qt.QObject):
         if isinstance(plotModel, plot_item_model.CurvePlot):
             previousPlotModel = widget.plotModel()
 
-            if previousPlotModel is None:
+            if useDefaultPlot or previousPlotModel is None:
                 pass
             else:
                 userEditTime = previousPlotModel.userEditTime()

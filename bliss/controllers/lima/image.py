@@ -28,8 +28,6 @@ from bliss.common.logtools import log_debug
 
 # ----------------- helpers for ROI coordinates (x,y,w,h) transformations (flip, rotation, binning) --------------
 
-_DEG2RAD = numpy.pi / 180.0
-
 
 def current_coords_to_raw_coords(coords_list, img_size, flip, rotation, binning):
 
@@ -132,7 +130,7 @@ def calc_pts_rotation(pts, angle, img_size):
     frame = numpy.array([[0, 0], [w0, h0]])
 
     # define the rotation matrix
-    theta = _DEG2RAD * angle * -1  # Lima rotation is clockwise !
+    theta = numpy.deg2rad(angle) * -1  # Lima rotation is clockwise !
     R = numpy.array(
         [[numpy.cos(theta), -numpy.sin(theta)], [numpy.sin(theta), numpy.cos(theta)]]
     )

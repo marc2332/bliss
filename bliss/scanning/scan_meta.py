@@ -18,7 +18,7 @@ import pprint
 import weakref
 
 from bliss import global_map
-from bliss.common.protocols import HasMetadataForScan
+from bliss.common.protocols import HasMetadataForScan, HasMetadataForScanExclusive
 from bliss.common.logtools import user_warning
 
 
@@ -140,6 +140,9 @@ def get_controllers_scan_meta(filtered_names=None):
 
     for obj in global_map.instance_iter("controllers"):
         if isinstance(obj, HasMetadataForScan):
+            if isinstance(obj, HasMetadataForScanExclusive):
+                # metadata for this controller has to be gathered by acq. chain
+                continue
             if not obj.scan_metadata_enabled:
                 continue
             if filtered_names and obj.scan_metadata_name in filtered_names:

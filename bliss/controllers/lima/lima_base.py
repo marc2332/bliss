@@ -15,7 +15,7 @@ from bliss.common.tango import DeviceProxy, DevFailed, Database, DevState
 from bliss.config import settings
 from bliss.config.beacon_object import BeaconObject
 from bliss.common.logtools import log_debug
-from bliss.common.protocols import HasMetadataForScan
+from bliss.common.protocols import HasMetadataForScanExclusive
 
 from bliss.controllers.counter import CounterController, counter_namespace
 from bliss import current_session
@@ -81,7 +81,7 @@ class ChangeTangoTimeout(object):
         self.__device.set_timeout_millis(self.__back_timeout)
 
 
-class Lima(CounterController, HasMetadataForScan):
+class Lima(CounterController, HasMetadataForScanExclusive):
     """
     Lima controller.
     Basic configuration:

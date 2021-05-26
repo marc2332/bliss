@@ -22,7 +22,7 @@ import gevent
 from bliss import global_map
 from bliss.controllers.mca.roi import RoiConfig
 from bliss.common.logtools import log_debug
-from bliss.common.protocols import HasMetadataForScan
+from bliss.common.protocols import HasMetadataForScanExclusive
 from bliss.common.utils import autocomplete_property
 from bliss.config.beacon_object import BeaconObject
 from bliss.controllers.counter import CounterController
@@ -98,7 +98,7 @@ class MCABeaconObject(BeaconObject):
 
 
 # Base class
-class BaseMCA(CounterController, HasMetadataForScan):
+class BaseMCA(CounterController, HasMetadataForScanExclusive):
     """Generic MCA controller."""
 
     # Life cycle

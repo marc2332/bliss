@@ -165,3 +165,7 @@ class HasMetadataForScan(ABC):
             return self.name
         except AttributeError:
             return None
+
+
+class HasMetadataForScanExclusive(HasMetadataForScan):
+    pass

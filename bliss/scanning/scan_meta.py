@@ -15,7 +15,6 @@ __all__ = ["get_user_scan_meta"]
 import copy as copy_module
 import enum
 import pprint
-import weakref
 
 from bliss import global_map
 from bliss.common.protocols import HasMetadataForScan, HasMetadataForScanExclusive
@@ -25,19 +24,10 @@ from bliss.common.logtools import user_warning
 class META_TIMING(enum.Flag):
     START = enum.auto()
     END = enum.auto()
+    PREPARED = enum.auto()
 
 
 USER_SCAN_META = None
-
-
-def get_user_scan_meta():
-    global USER_SCAN_META
-    if USER_SCAN_META is None:
-        USER_SCAN_META = ScanMeta()
-        USER_SCAN_META.instrument.set("@NX_class", {"@NX_class": "NXinstrument"})
-        USER_SCAN_META.instrument.timing = META_TIMING.END
-        USER_SCAN_META.technique.set("@NX_class", {"@NX_class": "NXcollection"})
-    return USER_SCAN_META
 
 
 class ScanMetaCategory:
@@ -130,39 +120,6 @@ class ScanMetaCategory:
     def __info__(self):
         s = pprint.pformat(self.metadata, indent=2)
         return f"{self.__class__.__name__}{self.name}: \n " + s
-
-
-def get_controllers_scan_meta(filtered_names=None):
-    scan_meta = ScanMeta()
-    scan_meta.instrument.set("@NX_class", {"@NX_class": "NXinstrument"})
-    scan_meta.positioners.set("positioners", fill_positioners)
-    scan_meta.positioners.timing = META_TIMING.START | META_TIMING.END
-
-    for obj in global_map.instance_iter("controllers"):
-        if isinstance(obj, HasMetadataForScan):
-            if isinstance(obj, HasMetadataForScanExclusive):
-                # metadata for this controller has to be gathered by acq. chain
-                continue
-            if not obj.scan_metadata_enabled:
-                continue
-            if filtered_names and obj.scan_metadata_name in filtered_names:
-                # this object is filtered out
-                continue
-
-            def metadata_generator(scan, obj=obj):
-                """
-                Metadata generator registred with the instrument category
-                of user scan metadata.
-                """
-                metadata_name = obj.scan_metadata_name
-                if not metadata_name:
-                    user_warning(f"{repr(obj)} needs a name to publish scan metadata")
-                    return {}
-                else:
-                    return {metadata_name: obj.scan_metadata()}
-
-            scan_meta.instrument.set(obj, metadata_generator)
-    return scan_meta
 
 
 class ScanMeta:
@@ -307,3 +264,52 @@ def fill_positioners(scan):
         rd["positioners_units"] = units
 
     return rd
+
+
+def get_user_scan_meta():
+    """A single instance is used for the lifetime of the process.
+    """
+    global USER_SCAN_META
+    if USER_SCAN_META is None:
+        USER_SCAN_META = ScanMeta()
+        USER_SCAN_META.instrument.set("@NX_class", {"@NX_class": "NXinstrument"})
+        USER_SCAN_META.instrument.timing = META_TIMING.END
+        USER_SCAN_META.technique.set("@NX_class", {"@NX_class": "NXcollection"})
+    return USER_SCAN_META
+
+
+def get_controllers_scan_meta(filtered_controller_names=None):
+    """A new instance is created for every scan.
+    """
+    scan_meta = ScanMeta()
+    scan_meta.instrument.set("@NX_class", {"@NX_class": "NXinstrument"})
+    scan_meta.positioners.set("positioners", fill_positioners)
+    scan_meta.positioners.timing = META_TIMING.START | META_TIMING.END
+
+    for obj in global_map.instance_iter("controllers"):
+        if isinstance(obj, HasMetadataForScan):
+            if isinstance(obj, HasMetadataForScanExclusive):
+                # metadata for this controller has to be gathered by acq. chain
+                continue
+            if not obj.scan_metadata_enabled:
+                continue
+            if filtered_controller_names and obj.name in filtered_controller_names:
+                # Controllers from which we need metadata, whether it is part of
+                # a scan or not, derive from HasMetadataForScan. When part of the
+                # scan the name will be in filtered_controller_names.
+                continue
+
+            def metadata_generator(scan, obj=obj):
+                """
+                Metadata generator registred with the instrument category
+                of user scan metadata.
+                """
+                metadata_name = obj.scan_metadata_name
+                if not metadata_name:
+                    user_warning(f"{repr(obj)} needs a name to publish scan metadata")
+                    return {}
+                else:
+                    return {metadata_name: obj.scan_metadata()}
+
+            scan_meta.instrument.set(obj, metadata_generator)
+    return scan_meta

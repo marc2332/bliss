@@ -462,7 +462,17 @@ class AcquisitionObject:
     def fill_meta_at_scan_start(self):
         """
         In this method, acquisition device should collect any meta data
-        related to this device. It is called during the scan initialization.
+        related to this device. It is called after scan start.
+
+        The return value of this function is used to fill the meta data of the
+        node attached to this AcqObj
+        """
+        return None
+
+    def fill_meta_at_scan_prepared(self):
+        """
+        In this method, acquisition device should collect any meta data
+        related to this device. It is called after all devices are prepared.
 
         The return value of this function is used to fill the meta data of the
         node attached to this AcqObj

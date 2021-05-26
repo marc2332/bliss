@@ -125,6 +125,9 @@ class _Base:
     def fill_meta_at_scan_start(self):
         return self.device.fill_meta_at_scan_start()
 
+    def fill_meta_at_scan_prepared(self):
+        return self.device.fill_meta_at_scan_prepared()
+
     def fill_meta_at_scan_end(self):
         return self.device.fill_meta_at_scan_end()
 

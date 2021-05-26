@@ -18,6 +18,7 @@ from bliss.data.events import (
     PreparedScanEvent,
 )
 from bliss.config import settings
+from bliss.common.utils import update_node_info
 
 
 class ScanNode(DataNodeContainer):
@@ -51,10 +52,10 @@ class ScanNode(DataNodeContainer):
         # TODO: what does the comment above mean?
         with settings.pipeline(self._prepared_stream, self._info):
             event = PreparedScanEvent()
-            self._info.update(scan_info)
+            update_node_info(self, scan_info)
             self._prepared_stream.add_event(event)
 
-    def end(self, exception=None):
+    def end(self, scan_info, exception=None):
         """Publish END event in Redis
         """
         if not self.new_node:
@@ -63,12 +64,10 @@ class ScanNode(DataNodeContainer):
         # TODO: what does the comment above mean?
         with settings.pipeline(self._end_stream, self._info):
             event = EndScanEvent()
-            add_info = {
-                "end_time": event.time,
-                "end_time_str": event.strftime,
-                "end_timestamp": event.timestamp,
-            }
-            self._info.update(add_info)
+            scan_info["end_time"] = event.time
+            scan_info["end_time_str"] = event.strftime
+            scan_info["end_timestamp"] = event.timestamp
+            update_node_info(self, scan_info)
             self._end_stream.add_event(event)
 
     def decode_raw_events(self, events):

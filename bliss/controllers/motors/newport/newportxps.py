@@ -75,7 +75,7 @@ class NewportXPS(Controller):
         log_debug(self, "initialize_axis() called")
         axis.channel = axis.config.get("address")
         axis.group = axis.config.get("group")
-        axis.autoHome = axis.config.get("autoHome")
+        axis.autoHome = axis.config.get("autoHome", bool, False)
         axis.minJerkTime = axis.config.get("minJerkTime")
         axis.maxJerkTime = axis.config.get("maxJerkTime")
         axis.gpioConn = axis.config.get("gpio_conn")

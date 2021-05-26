@@ -15,10 +15,12 @@ import types
 import itertools
 import functools
 import numpy
-import collections.abc
 import importlib.util
 import distutils.util
-from collections.abc import MutableMapping, MutableSequence
+from collections.abc import Iterable
+from collections.abc import Mapping
+from collections.abc import MutableMapping
+from collections.abc import MutableSequence
 import socket
 import fnmatch
 import contextlib
@@ -106,7 +108,7 @@ def grouped_with_tail(iterable, n):
 def flatten_gen(items):
     """Yield items from any nested iterable; see Reference."""
     for x in items:
-        if isinstance(x, collections.abc.Iterable) and not isinstance(x, (str, bytes)):
+        if isinstance(x, Iterable) and not isinstance(x, (str, bytes)):
             for sub_x in flatten(x):
                 yield sub_x
         else:
@@ -610,7 +612,7 @@ def deep_update(d, u):
     while stack:
         d, u = stack.pop(0)
         for k, v in u.items():
-            if not isinstance(v, collections.abc.Mapping):
+            if not isinstance(v, Mapping):
                 # u[k] is not a dict, nothing to merge, so just set it,
                 # regardless if d[k] *was* a dict
                 d[k] = v
@@ -621,7 +623,7 @@ def deep_update(d, u):
                 # exist
                 dv = d.setdefault(k, {})
 
-                if not isinstance(dv, collections.abc.Mapping):
+                if not isinstance(dv, Mapping):
                     # d[k] is not a dict, so just set it to u[k],
                     # overriding whatever it was
                     d[k] = v
@@ -720,10 +722,10 @@ def prudent_update(d, u):
 def update_node_info(node, d):
     """updates the BaseHashSetting of a DataNode and does a deep update if needed. 
     parameters: node: DataNode or DataNodeContainer; d: dict"""
-    assert type(d) == dict
+    assert isinstance(d, Mapping)
     for key, value in d.items():
         tmp = node.info.get(key)
-        if tmp and type(value) == dict and type(tmp) == dict:
+        if tmp and isinstance(value, Mapping) and isinstance(tmp, Mapping):
             deep_update(tmp, value)
             node.info[key] = tmp
         else:

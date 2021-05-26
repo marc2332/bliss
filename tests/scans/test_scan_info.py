@@ -195,6 +195,27 @@ def test_scan_info_object_vs_node(session):
     deep_compare(s1.scan_info, s1.node.info.get_all())
 
 
+def test_enable_disable_metadata(session):
+    transf = session.config.get("transfocator_simulator")
+    diode = session.env_dict["diode"]
+
+    s1 = scans.loopscan(1, 0, diode, save=False)
+
+    assert s1.scan_info["instrument"][transf.name]
+
+    transf.disable_scan_metadata()
+
+    s2 = scans.loopscan(1, 0, diode, save=False)
+
+    assert not s2.scan_info["instrument"].get(transf.name)
+
+    transf.enable_scan_metadata()
+
+    s3 = scans.loopscan(1, 0, diode, save=False)
+
+    assert s3.scan_info["instrument"][transf.name]
+
+
 def test_scan_comment_feature(default_session):
     diode = default_session.config.get("diode")
 

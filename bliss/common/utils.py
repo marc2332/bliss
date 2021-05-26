@@ -16,7 +16,6 @@ import itertools
 import functools
 import numpy
 import importlib.util
-import distutils.util
 from collections.abc import Iterable
 from collections.abc import Mapping
 from collections.abc import MutableMapping

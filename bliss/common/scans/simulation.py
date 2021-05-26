@@ -398,8 +398,8 @@ class FakeAcquisitionSlave(AcquisitionSlave):
         # self.channels.update_from_array(data)
         # self.channels.update({self.chname: self.positions})
 
-    def fill_meta_at_scan_start(self, scan_meta):
-        tmp_dict = super().fill_meta_at_scan_start(scan_meta)
+    def fill_meta_at_scan_start(self):
+        tmp_dict = super().fill_meta_at_scan_start()
         for cnt in self._counters:
             if isinstance(cnt, HasMetadataForScan):
                 mdata = cnt.scan_metadata()

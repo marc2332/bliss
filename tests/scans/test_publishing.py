@@ -544,9 +544,7 @@ def test_children_timing(beacon, session):
     g.kill()
 
 
-def test_scan_end_timing(
-    session, scan_meta, dummy_acq_master, dummy_acq_device
-):  # , clean_gevent):
+def test_scan_end_timing(session, scan_meta, dummy_acq_master, dummy_acq_device):
     scan_meta.clear()
 
     # Get controllers
@@ -554,14 +552,11 @@ def test_scan_end_timing(
     master = dummy_acq_master.get(None, name="master", npoints=1)
     device = dummy_acq_device.get(None, name="device", npoints=1)
 
-    def a_slow_func():
+    def fill_meta_at_scan_end():
         # this sleep is the point of the test...
         # delay the filling of scan_info
         gevent.sleep(.2)
         return {"DummyDevice": "slow"}
-
-    def fill_meta_at_scan_end(scan_meta):
-        scan_meta.instrument.set("bla", a_slow_func())
 
     device.fill_meta_at_scan_end = fill_meta_at_scan_end
     chain.add(master, device)
@@ -589,7 +584,7 @@ def test_scan_end_timing(
                 assert node.info.get("instrument")["some"] == "text"
                 return
 
-    # force existance of scan node before starting the scan
+    # force existence of scan node before starting the scan
     scan._prepare_node()
 
     gg = gevent.spawn(g, scan.node.db_name)

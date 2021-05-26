@@ -1465,7 +1465,7 @@ class Scan:
         for acq_obj in self.acq_chain.nodes_list:
             with KillMask(masked_kill_nb=1):
                 fill_meta = getattr(acq_obj, method_name)
-                metadata = fill_meta(self.user_scan_meta)
+                metadata = fill_meta()
             # There is a difference between None and an empty dict.
             # An empty dict shows up as a group in the Nexus file
             # while None does not.

@@ -459,35 +459,26 @@ class AcquisitionObject:
         if isinstance(self.device, CounterController):
             self.device.apply_parameters(self._ctrl_params)
 
-    def fill_meta_at_scan_start(self, scan_meta):
+    def fill_meta_at_scan_start(self):
         """
         In this method, acquisition device should collect any meta data
-        related to this device and prepare it for publishing. it is called 
-        during the scan initialization. 
+        related to this device. It is called during the scan initialization.
 
-        This can be used in two ways:
-        1) attaching meta data to the scan_meta object and publishing it in scan_info
-           i.e: scan_meta.instrument.set(self,{"timing mode":"fast"})
-        2) the return value of this function is used to fill the meta data of the
-           node attached to this AcqObj
+        The return value of this function is used to fill the meta data of the
+        node attached to this AcqObj
         """
         device = self.device
         if isinstance(device, HasMetadataForScan):
             return device.scan_metadata()
         return None
 
-    def fill_meta_at_scan_end(self, scan_meta):
+    def fill_meta_at_scan_end(self):
         """
         In this method, acquisition device should collect and meta data
-        related to this device and prepare it for publishing. it is called 
-        at the end of the scan. 
+        related to this device. It is called at the end of the scan.
 
-        This can be used in two ways:
-
-        1) attaching meta data to the scan_meta object and publishing it in scan_info
-           i.e: :code:`scan_meta.instrument.set(self,{"timing mode":"fast"})`
-        2) the return value of this function is used to fill the meta data of the
-           node attached to this AcqObj
+        The return value of this function is used to fill the meta data of the
+        node attached to this AcqObj
         """
         return None
 

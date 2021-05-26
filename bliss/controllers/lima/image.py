@@ -393,12 +393,13 @@ class ImageCounter(Counter):
         h = y1 - y0
         self.roi = [x0, y0, w, h]
 
-    def _update_roi(self):
+    def _update_roi(self, update_dependencies=True):
         detector_size = self._get_detector_max_size()
         self._cur_roi = raw_roi_to_current_roi(
             self.raw_roi, detector_size, self.flip, self.rotation, self.binning
         )
-        self._counter_controller._update_lima_rois()
+        if update_dependencies:
+            self._counter_controller._update_lima_rois()
 
     def _calc_raw_roi(self, roi):
         """ computes the raw_roi from a given roi and current bin, flip, rot """
@@ -477,6 +478,17 @@ class ImageCounter(Counter):
             "rotation": self.rotation,
             "roi": self.roi,
         }
+
+    def set_geometry(self, binning, flip, rotation, roi=None):
+
+        self._image_params.binning = binning
+        self._image_params.flip = flip
+        self._image_params.rotation = rotation
+        if roi is None:
+            self._update_roi()
+        else:
+            self._update_roi(update_dependencies=False)
+            self.roi = roi
 
     def update_max_size(self):
         """ Update the image maximum size (reading the device proxy) 

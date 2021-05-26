@@ -1,7 +1,6 @@
 import os
 import pytest
 import numpy
-import time
 import gevent
 from bliss.common.scans import ct
 from bliss.controllers.lima.limatools import (
@@ -12,18 +11,7 @@ from bliss.controllers.lima.limatools import (
 
 from bliss.data.lima_image import image_from_server
 from bliss.shell.formatters.table import IncrementalTable
-from bliss.common.image_tools import (
-    get_image_display,
-    draw_arc,
-    draw_rect,
-    array_to_file,
-    file_to_array,
-)
-from bliss.controllers.lima.image import (
-    current_coords_to_raw_coords,
-    raw_coords_to_current_coords,
-)
-from bliss.controllers.lima.roi import ArcRoi
+from bliss.common.image_tools import get_image_display
 
 
 # --- Notes about rect vs roi ------------
@@ -784,108 +772,3 @@ def test_lima_proxy_1(beacon, default_session, lima_simulator, images_directory)
 
     # if "FAILED" in [str(x).strip() for x in tab.get_column(6)]:
     #    assert False
-
-
-def test_lima_arc_rois(beacon, default_session, lima_simulator, images_directory):
-
-    cam = beacon.get("lima_simulator")
-    img = cam.image
-    img_path = os.path.join(str(images_directory), "testimg.edf")
-
-    cx, cy = 620, 720
-    arc_params = [
-        (cx, cy, 120, 140, 10, 45),  # a0
-        (cx, cy, 160, 180, 10, 90),  # a1
-        (cx, cy, 200, 220, 10, 180),  # a2   !
-        (cx, cy, 240, 260, 10, 350),  # a3   !
-        (cx, cy, 280, 300, 10, 182),  # a4   !
-        (cx, cy, 320, 340, 100, 200),  # a5
-        (cx, cy, 360, 380, 190, 280),  # a6
-        (cx, cy, 400, 420, 200, 350),  # a7
-    ]
-
-    arry = numpy.ones((1400, 1200))
-    arry = draw_rect(arry, cx, cy, 40, 20, fill_value=0)
-    for cx, cy, r1, r2, a1, a2 in arc_params:
-        arry = draw_arc(arry, cx, cy, r1 - 4, r2 + 4, a1 - 4, a2 + 4)
-
-    array_to_file(arry.astype("uint32"), img_path)
-    load_simulator_frames(cam, 1, img_path)
-
-    debug = 1
-    if debug:
-        # import matplotlib.pyplot as plt
-        # plt.imshow(file_to_array(img_path))
-        # plt.show()
-
-        from bliss.shell.standard import flint
-
-        pf = flint()
-
-    # ==== measure in raw state ======
-    img.roi = 0, 0, 0, 0
-    img.binning = [1, 1]
-    img.flip = [False, False]
-    img.rotation = 0
-
-    cam.roi_counters.clear()
-    raw_rois = {}
-    raw_coords = {}
-
-    cam.roi_profiles["p1"] = cx, cy, 40, 20
-
-    for idx, (cx, cy, r1, r2, a1, a2) in enumerate(arc_params):
-        roi = ArcRoi(cx, cy, r1, r2, a1, a2, name=f"a{idx}")
-        cam.roi_counters[roi.name] = roi
-        raw_rois[roi.name] = roi
-
-        pts = roi.get_points()
-        pts = numpy.array([pts[0], pts[1], pts[3]])
-        # take into account the offset of current image roi
-        pts[:, 0] = pts[:, 0] + img.roi[0]
-        pts[:, 1] = pts[:, 1] + img.roi[1]
-
-        raw_coords[roi.name] = current_coords_to_raw_coords(
-            pts, img.fullsize, img.flip, img.rotation, img.binning
-        )
-
-        assert numpy.all(pts == raw_coords[roi.name])
-
-    s = ct(0.001, cam)
-
-    if debug:
-        pf.wait_end_of_scans()
-        time.sleep(1)
-
-    for cnt in cam.roi_counters.counters:
-        assert s.get_data(cnt.name)[0] == 0.0
-
-    print("=== raw rois ==========")
-    print(cam.roi_counters.__info__())
-
-    # ==== test recalc on geometry changes ======
-
-    flipvals = [[False, False], [True, False], [True, True], [False, True]]
-    binvals = [
-        [1, 1],
-        [2, 2],
-    ]  # lima fails with bin 3,3 for rect roi at rot 90  but not for bin 4,4 !
-    rotvals = [0, 90, 180, 270]
-
-    for binning in binvals:
-        for flip in flipvals:
-            for rotation in rotvals:
-                img.binning = binning
-                img.flip = flip
-                img.rotation = rotation
-
-                s = ct(0.01, cam)
-
-                print("=== ", binning, flip, rotation)
-                print(cam.roi_counters.__info__())
-                for cnt in cam.roi_counters.counters:
-                    assert s.get_data(cnt.name)[0] == 0.0
-
-                if debug:
-                    pf.wait_end_of_scans()
-                    time.sleep(1)

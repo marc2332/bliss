@@ -128,9 +128,6 @@ class HasMetadataForScan(ABC):
     """
     Any controller which provides metadata intended to be saved
     during a scan life cycle.
-
-    The `scan_metadata` method is called by the acquisition chain
-    objects `AcquisitionObject` (directly or indirectly).
     """
 
     disabled_controllers = weakref.WeakKeyDictionary()
@@ -168,4 +165,9 @@ class HasMetadataForScan(ABC):
 
 
 class HasMetadataForScanExclusive(HasMetadataForScan):
+    """
+    Any controller which provides metadata intended to be saved
+    during a scan life cycle when used in the acquisition chain.
+    """
+
     pass

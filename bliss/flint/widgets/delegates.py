@@ -38,6 +38,7 @@ VisibilityRole = qt.Qt.UserRole + 101
 RadioRole = qt.Qt.UserRole + 102
 CheckRole = qt.Qt.UserRole + 103
 FlintModelRole = qt.Qt.UserRole + 104
+ObjectRole = qt.Qt.UserRole + 105
 
 
 _colormapPixmap: Dict[str, qt.QPixmap] = {}

@@ -1049,6 +1049,8 @@ def expected_detectors(
             expected |= {"elapsed_time", "epoch"}
         if positioners and any("robx" in axes for axes in positioners):
             expected.add("robxenc")
+        if detectors and "machinfo.counters.current" in detectors:
+            expected.add("current")
     else:
         # Each data channel is a detector
         expected = set()
@@ -1145,7 +1147,7 @@ def expected_detector_content(name, config=True, save_images=True):
                 datasets |= {"samples"}
             elif name == "diode7":
                 datasets |= {"N", "max", "min", "p2v", "std", "var"}
-        elif name in ("thermo_sample", "robxenc"):
+        elif name in ("thermo_sample", "robxenc", "current"):
             datasets = {"data", "mode", "type"}
         elif name.startswith("simu"):
             datasets = {"type", "roi1", "roi2", "roi3"}
@@ -1398,6 +1400,8 @@ def expected_channels(
         datasets[0] |= {"elapsed_time", "epoch"}
     if positioners and any("robx" in axes for axes in positioners):
         datasets[0].add("robxenc")
+    if detectors and "machinfo.counters.current" in detectors:
+        datasets[0].add("current")
     return datasets
 
 

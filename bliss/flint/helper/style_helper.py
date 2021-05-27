@@ -15,11 +15,15 @@ from typing import List
 from typing import Dict
 from typing import Tuple
 
+import logging
 from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import plot_state_model
+
+
+_logger = logging.getLogger(__name__)
 
 
 class DefaultStyleStrategy(plot_model.StyleStrategy):
@@ -30,9 +34,15 @@ class DefaultStyleStrategy(plot_model.StyleStrategy):
             Tuple[plot_model.Item, Optional[scan_model.Scan]], plot_model.Style
         ] = {}
         self.__cacheInvalidated = True
+        self.__scans = []
 
     def setFlintModel(self, flintModel: flint_model.FlintState):
         self.__flintModel = flintModel
+
+    def setScans(self, scans):
+        self.__scans.clear()
+        self.__scans.extend(scans)
+        self.invalidateStyles()
 
     def __getstate__(self):
         return {}
@@ -214,11 +224,14 @@ class DefaultStyleStrategy(plot_model.StyleStrategy):
             self.computeItemStyleFromImagePlot(plot)
         else:
             scans: List[Optional[scan_model.Scan]] = []
-            for item in plot.items():
-                if isinstance(item, plot_item_model.ScanItem):
-                    scans.append(item.scan())
-            if scans == []:
-                scans.append(None)
+            if len(self.__scans) > 0:
+                scans = self.__scans
+            else:
+                for item in plot.items():
+                    if isinstance(item, plot_item_model.ScanItem):
+                        scans.append(item.scan())
+                if scans == []:
+                    scans.append(None)
 
             self.computeItemStyleFromCurvePlot(plot, scans)
 

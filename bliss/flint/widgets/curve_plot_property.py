@@ -902,8 +902,8 @@ class CurvePlotPropertyWidget(qt.QWidget):
         else:
             plotModel = None
             scanModel = None
-        self.__plotModelUpdated(plotModel)
         self.__currentScanChanged(scanModel)
+        self.__plotModelUpdated(plotModel)
 
     def __plotModelUpdated(self, plotModel):
         self.setPlotModel(plotModel)
@@ -1074,6 +1074,10 @@ class CurvePlotPropertyWidget(qt.QWidget):
 
         model = self.__tree.model()
         model.clear()
+        if self.__plotModel is None:
+            return
+        if self.__scan is None:
+            return
 
         if self.__plotModel is None:
             model.setHorizontalHeaderLabels([""])

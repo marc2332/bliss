@@ -449,7 +449,6 @@ class StylePropertyWidget(qt.QWidget):
                     self.__legend.setLineStyle(lineStyle)
                     self.__legend.setLineWidth(1.5)
             except Exception:
-                _logger.error("Error while reaching style", exc_info=True)
                 self.__legend.setLineColor("grey")
                 self.__legend.setLineStyle(":")
                 self.__legend.setLineWidth(1.5)

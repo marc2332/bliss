@@ -54,6 +54,16 @@ def _clear_cmd():
     return property(exec_cmd, doc="Delete the current program")
 
 
+def _reset_cmd():
+    def exec_cmd(self):
+        try:
+            return self.putget("RESET")
+        finally:
+            self._musst__last_md5.value = None
+
+    return property(exec_cmd, doc="Musst reset")
+
+
 def lazy_init(func):
     @functools.wraps(func)
     def f(self, *args, **kwargs):
@@ -263,7 +273,7 @@ class musst(CounterContainer):
 
     ABORT = _simple_cmd("ABORT", "Program abort")
     STOP = _simple_cmd("STOP", "Program stop")
-    RESET = _simple_cmd("RESET", "Musst reset")
+    RESET = _reset_cmd()
     CONT = _simple_cmd(
         "CONT", "Continue the program when stopped in STOP or BREAK states"
     )

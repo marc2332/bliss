@@ -10,6 +10,7 @@ from typing import Union
 from typing import List
 from typing import Dict
 from typing import Optional
+from typing import NamedTuple
 
 import logging
 import functools
@@ -29,6 +30,7 @@ from bliss.flint.helper.style_helper import DefaultStyleStrategy
 from bliss.flint.utils import qmodelutils
 from bliss.flint.widgets.select_channel_dialog import SelectChannelDialog
 from . import delegates
+from . import data_views
 from . import _property_tree_helper
 
 
@@ -637,6 +639,60 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         self.updateError()
 
 
+class ScanItem(NamedTuple):
+    scan: scan_model.Scan
+    plotModel: plot_model.Plot
+    curveWidget: qt.QWidget
+
+
+class ScanTableView(data_views.VDataTableView):
+    ScanNbColumn = 0
+    ScanTitleColumn = 1
+    ScanStartTimeColumn = 2
+    ScanStyleColumn = 3
+    ScanRemoveColumn = 4
+
+    def initLayout(self):
+        """Called after the model was set"""
+        self.setColumn(
+            self.ScanNbColumn,
+            title="Nb",
+            delegate=delegates.ScanNumberDelegate,
+            resizeMode=qt.QHeaderView.ResizeToContents,
+        )
+        self.setColumn(
+            self.ScanTitleColumn,
+            title="Title",
+            delegate=delegates.ScanTitleDelegate,
+            resizeMode=qt.QHeaderView.Stretch,
+        )
+        self.setColumn(
+            self.ScanStartTimeColumn,
+            title="Time",
+            delegate=delegates.ScanStartTimeDelegate,
+            resizeMode=qt.QHeaderView.ResizeToContents,
+        )
+        self.setColumn(
+            self.ScanStyleColumn,
+            title="Style",
+            delegate=delegates.StyleScanDelegate,
+            resizeMode=qt.QHeaderView.ResizeToContents,
+        )
+        self.setColumn(
+            self.ScanRemoveColumn,
+            title="Remove",
+            delegate=delegates.RemoveScanDelegate,
+            resizeMode=qt.QHeaderView.ResizeToContents,
+        )
+
+        self.setShowGrid(False)
+        self.verticalHeader().setVisible(False)
+
+        vheader = self.verticalHeader()
+        vheader.setDefaultSectionSize(30)
+        vheader.sectionResizeMode(qt.QHeaderView.Fixed)
+
+
 class CurvePlotPropertyWidget(qt.QWidget):
 
     NameColumn = 0
@@ -680,12 +736,18 @@ class CurvePlotPropertyWidget(qt.QWidget):
         line.setFrameShape(qt.QFrame.HLine)
         line.setFrameShadow(qt.QFrame.Sunken)
 
+        self.__scanListView = ScanTableView(self)
+        self.__scanListModel = data_views.ObjectListModel(self)
+        self.__scanListView.setModel(self.__scanListModel)
+        self.__scanListView.initLayout()
+
         layout = qt.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         layout.addWidget(toolBar)
         layout.addWidget(line)
         layout.addWidget(self.__tree)
+        layout.addWidget(self.__scanListView)
 
     def __removeAllItems(self):
         if self.__plotModel is None:
@@ -892,21 +954,26 @@ class CurvePlotPropertyWidget(qt.QWidget):
             widget.plotModelUpdated.disconnect(self.__plotModelUpdated)
             widget.plotItemSelected.disconnect(self.__selectionChangedFromPlot)
             widget.scanModelUpdated.disconnect(self.__currentScanChanged)
+            widget.scanListUpdated.disconnect(self.__currentScanListChanged)
         self.__focusWidget = widget
         if self.__focusWidget is not None:
             widget.plotModelUpdated.connect(self.__plotModelUpdated)
             widget.plotItemSelected.connect(self.__selectionChangedFromPlot)
             widget.scanModelUpdated.connect(self.__currentScanChanged)
+            widget.scanListUpdated.connect(self.__currentScanListChanged)
             plotModel = widget.plotModel()
             scanModel = widget.scan()
         else:
             plotModel = None
             scanModel = None
         self.__currentScanChanged(scanModel)
+        self.__currentScanListChanged(widget.scanList())
         self.__plotModelUpdated(plotModel)
+        self.__syncScanModel()
 
     def __plotModelUpdated(self, plotModel):
         self.setPlotModel(plotModel)
+        self.__syncScanModel()
 
     def setPlotModel(self, plotModel: plot_model.Plot):
         if self.__plotModel is not None:
@@ -922,6 +989,20 @@ class CurvePlotPropertyWidget(qt.QWidget):
 
     def __currentScanChanged(self, scanModel):
         self.__setScan(scanModel)
+
+    def __currentScanListChanged(self, scanList):
+        self.__syncScanModel()
+
+    def __syncScanModel(self):
+        widget = self.__focusWidget
+        if widget is None:
+            return
+        plotModel = self.__plotModel
+        if plotModel is None:
+            return
+        scans = widget.scanList()
+        scanList = [ScanItem(s, plotModel, widget) for s in scans]
+        self.__scanListModel.setObjectList(scanList)
 
     def __structureChanged(self):
         if self.__plotModel.isInTransaction():

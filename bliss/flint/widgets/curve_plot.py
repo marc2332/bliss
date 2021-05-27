@@ -119,9 +119,13 @@ class CurvePlotWidget(plot_helper.PlotWidget):
     plotItemSelected = qt.Signal(object)
     """Emitted when a flint plot item was selected by the plot"""
 
+    scanListUpdated = qt.Signal(object)
+    """Emitted when the list of scans is changed"""
+
     def __init__(self, parent=None):
         super(CurvePlotWidget, self).__init__(parent=parent)
-        self.__scan: Optional[scan_model.Scan] = None
+        self.__scans: List[scan_model.Scan] = []
+        self.__maxScans = 3
         self.__flintModel: Optional[flint_model.FlintState] = None
         self.__plotModel: plot_model.Plot = None
 
@@ -369,6 +373,7 @@ class CurvePlotWidget(plot_helper.PlotWidget):
                 self.__aggregator.callbackTo(self.__transactionFinished)
             )
         self.__plotModel = plotModel
+        self.__syncStyleStrategy()
         if self.__plotModel is not None:
             self.__plotModel.structureChanged.connect(
                 self.__aggregator.callbackTo(self.__structureChanged)
@@ -535,6 +540,27 @@ class CurvePlotWidget(plot_helper.PlotWidget):
             self.__boundingY2.setRange(xMin, xMax)
             self.__boundingY2.setVisible(True)
 
+    def scanList(self):
+        return self.__scans
+
+    def removeScan(self, scan):
+        if scan is None:
+            return
+        if scan is self.__scan:
+            _logger.warning("Removing the current scan is not available")
+            return
+        self.__scans.remove(scan)
+        self.__syncStyleStrategy()
+        self.scanListUpdated.emit(self.__scans)
+        self.__redrawAllScans()
+
+    @property
+    def __scan(self):
+        if len(self.__scans) == 0:
+            return None
+        else:
+            return self.__scans[0]
+
     def scan(self) -> Optional[scan_model.Scan]:
         return self.__scan
 
@@ -551,7 +577,12 @@ class CurvePlotWidget(plot_helper.PlotWidget):
             self.__scan.scanFinished.disconnect(
                 self.__aggregator.callbackTo(self.__scanFinished)
             )
-        self.__scan = scan
+        if scan is not None:
+            self.__scans.insert(0, scan)
+        while len(self.__scans) > self.__maxScans:
+            del self.__scans[-1]
+        self.__syncStyleStrategy()
+        self.scanListUpdated.emit(self.__scans)
         if self.__scan is not None:
             self.__scan.scanDataUpdated[object].connect(
                 self.__aggregator.callbackTo(self.__scanDataUpdated)
@@ -568,6 +599,12 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         self.__updateTitle(scan)
         self.__redrawAllScans()
         self.__syncAxisTitle.trigger()
+
+    def __syncStyleStrategy(self):
+        if self.__plotModel is not None:
+            styleStrategy = self.__plotModel.styleStrategy()
+            if styleStrategy is not None:
+                styleStrategy.setScans(self.__scans)
 
     def __cleanScanIfNeeded(self, scan):
         plotModel = self.__plotModel
@@ -648,9 +685,10 @@ class CurvePlotWidget(plot_helper.PlotWidget):
                 for scan in scanItems:
                     self.__redrawScan(scan.scan())
             else:
-                currentScan = self.__scan
-                if currentScan is not None:
-                    self.__redrawScan(currentScan)
+                for s in self.__scans:
+                    if s is None:
+                        continue
+                    self.__redrawScan(s)
 
     def __cleanScan(self, scan: scan_model.Scan):
         items = self.__items.pop(scan, {})
@@ -714,10 +752,10 @@ class CurvePlotWidget(plot_helper.PlotWidget):
                 for scan in scanItems:
                     self.__updatePlotItem(item, scan.scan())
             else:
-                currentScan = self.__scan
-                if currentScan is None:
-                    return
-                self.__updatePlotItem(item, currentScan)
+                for s in self.__scans:
+                    if s is None:
+                        continue
+                    self.__updatePlotItem(item, s)
 
             if reselect is not None:
                 self.selectPlotItem(reselect)

@@ -181,27 +181,6 @@ class StyleItemDelegate(qt.QStyledItemDelegate):
         editor.move(pos)
 
 
-class RemovePlotItemButton(qt.QToolButton):
-    def __init__(self, parent: qt.QWidget = None):
-        super(RemovePlotItemButton, self).__init__(parent=parent)
-        self.__plotItem: Optional[plot_model.Item] = None
-        self.clicked.connect(self.__requestRemoveItem)
-        icon = icons.getQIcon("flint:icons/remove-item")
-        self.setIcon(icon)
-        self.setAutoRaise(True)
-
-    def __requestRemoveItem(self):
-        plotItem = self.__plotItem
-        plotModel = plotItem.plot()
-        if plotModel is not None:
-            model_helper.removeItemAndKeepAxes(plotModel, plotItem)
-            # FIXME: It would be better to make it part of the model
-            plotModel.tagUserEditTime()
-
-    def setPlotItem(self, plotItem: plot_model.Item):
-        self.__plotItem = plotItem
-
-
 class RemovePropertyItemDelegate(qt.QStyledItemDelegate):
     def __init__(self, parent):
         qt.QStyledItemDelegate.__init__(self, parent=parent)
@@ -226,6 +205,189 @@ class RemovePropertyItemDelegate(qt.QStyledItemDelegate):
         plotItem = self.getPlotItem(index)
         editor.setVisible(plotItem is not None)
         editor.setPlotItem(plotItem)
+
+    def setModelData(self, editor, model, index):
+        pass
+
+
+class StyleScanDelegate(qt.QStyledItemDelegate):
+    """Style delegate to display scan style.
+    """
+
+    def __init__(self, parent=None, editable=False):
+        qt.QStyledItemDelegate.__init__(self, parent=parent)
+        self.__editable = editable
+
+    def createEditor(self, parent, option, index):
+        if not index.isValid():
+            return super(StyleScanDelegate, self).createEditor(parent, option, index)
+
+        editor = StylePropertyWidget(parent)
+        editor.setEditable(self.__editable)
+        editor.setMinimumSize(editor.sizeHint())
+        self.__updateEditor(editor, index)
+        return editor
+
+    def __getFirstItem(self, plotModel: plot_model.Plot):
+        if plotModel is None:
+            return None
+        for item in plotModel.items():
+            if isinstance(item, plot_item_model.ScanItem):
+                pass
+            elif isinstance(item, plot_model.ComputableMixIn):
+                pass
+            else:
+                return item
+        return None
+
+    def __updateEditor(self, editor: qt.QWidget, index: qt.QModelIndex):
+        scanItem = index.data(ObjectRole)
+        plotItem = self.__getFirstItem(scanItem.plotModel)
+        editor.setScan(scanItem.scan)
+        editor.setPlotItem(plotItem)
+
+    def setEditorData(self, editor, index):
+        self.__updateEditor(editor, index)
+
+    def setModelData(self, editor, model, index):
+        pass
+
+    def updateEditorGeometry(self, editor, option, index):
+        # Center the widget to the cell
+        size = editor.sizeHint()
+        half = size / 2
+        halfPoint = qt.QPoint(half.width(), half.height() - 1)
+        pos = option.rect.center() - halfPoint
+        editor.move(pos)
+
+
+class RemovePlotItemButton(qt.QToolButton):
+    def __init__(self, parent: qt.QWidget = None):
+        super(RemovePlotItemButton, self).__init__(parent=parent)
+        self.__plotItem: Optional[plot_model.Item] = None
+        self.clicked.connect(self.__requestRemoveItem)
+        icon = icons.getQIcon("flint:icons/remove-item")
+        self.setIcon(icon)
+        self.setAutoRaise(True)
+
+    def __requestRemoveItem(self):
+        plotItem = self.__plotItem
+        plotModel = plotItem.plot()
+        if plotModel is not None:
+            model_helper.removeItemAndKeepAxes(plotModel, plotItem)
+            # FIXME: It would be better to make it part of the model
+            plotModel.tagUserEditTime()
+
+    def setPlotItem(self, plotItem: plot_model.Item):
+        self.__plotItem = plotItem
+
+
+class RemoveScanButton(qt.QToolButton):
+    def __init__(self, parent: qt.QWidget = None):
+        super(RemoveScanButton, self).__init__(parent=parent)
+        self.__scan: Optional[scan_model.Scan] = None
+        self.__plotWidget: Optional[qt.QWidget] = None
+        self.clicked.connect(self.__requestRemoveScan)
+        icon = icons.getQIcon("flint:icons/remove-item")
+        self.setIcon(icon)
+        self.setAutoRaise(True)
+
+    def __requestRemoveScan(self):
+        widget = self.__plotWidget
+        widget.removeScan(self.__scan)
+
+    def setScan(self, scan: scan_model.Scan):
+        self.__scan = scan
+
+    def setPlotWidget(self, plotWidget: qt.QWidget):
+        self.__plotWidget = plotWidget
+
+
+class RemoveScanDelegate(qt.QStyledItemDelegate):
+    def createEditor(self, parent, option, index):
+        if not index.isValid():
+            return super(RemoveScanDelegate, self).createEditor(parent, option, index)
+        editor = RemoveScanButton(parent=parent)
+        self.setEditorData(editor, index)
+        return editor
+
+    def setEditorData(self, editor, index):
+        scanItem = index.data(ObjectRole)
+        editor.setScan(scanItem.scan)
+        editor.setPlotWidget(scanItem.curveWidget)
+        isRemovable = True
+        if scanItem.scan is None or scanItem.curveWidget is None:
+            isRemovable = False
+        else:
+            if scanItem.scan is scanItem.curveWidget.scan():
+                isRemovable = False
+                editor.setToolTip("The active scan can't be removed")
+        editor.setEnabled(isRemovable)
+
+    def setModelData(self, editor, model, index):
+        pass
+
+
+class ScanNumberDelegate(qt.QStyledItemDelegate):
+    def createEditor(self, parent, option, index):
+        if not index.isValid():
+            return super().createEditor(parent, option, index)
+        editor = qt.QLabel(parent=parent)
+        return editor
+
+    def setEditorData(self, editor, index):
+        scanItem = index.data(ObjectRole)
+        scanInfo = scanItem.scan.scanInfo()
+        scanNb = scanInfo.get("scan_nb", None)
+        if scanNb is None:
+            scanNb = ""
+        else:
+            scanNb = f"#{scanNb}"
+        editor.setText(scanNb)
+
+    def setModelData(self, editor, model, index):
+        pass
+
+
+class ScanTitleDelegate(qt.QStyledItemDelegate):
+    def createEditor(self, parent, option, index):
+        if not index.isValid():
+            return super().createEditor(parent, option, index)
+        editor = qt.QLabel(parent=parent)
+        return editor
+
+    def setEditorData(self, editor, index):
+        scanItem = index.data(ObjectRole)
+        scanInfo = scanItem.scan.scanInfo()
+        scanTitle = scanInfo.get("title", None)
+        if scanTitle is None:
+            scanTitle = scanInfo.get("type", None)
+        if scanTitle is None:
+            scanTitle = ""
+        editor.setText(scanTitle)
+
+    def setModelData(self, editor, model, index):
+        pass
+
+
+class ScanStartTimeDelegate(qt.QStyledItemDelegate):
+    def createEditor(self, parent, option, index):
+        if not index.isValid():
+            return super().createEditor(parent, option, index)
+        editor = qt.QLabel(parent=parent)
+        return editor
+
+    def __toStartTimeText(self, scan: scan_model.Scan) -> str:
+        scanInfo = scan.scanInfo()
+        value = scanInfo.get("start_time", None)
+        if value is None:
+            return ""
+        return value.strftime("%H:%M")
+
+    def setEditorData(self, editor, index):
+        scanItem = index.data(ObjectRole)
+        text = self.__toStartTimeText(scanItem.scan)
+        editor.setText(text)
 
     def setModelData(self, editor, model, index):
         pass
@@ -364,6 +526,10 @@ class StylePropertyWidget(qt.QWidget):
 
     def __currentScanChanged(self):
         self.__setScan(self.__flintModel.currentScan())
+
+    def setScan(self, scan: Union[None, scan_model.Scan]):
+        self.__scan = scan
+        self.__update()
 
     def __setScan(self, scan: Union[None, scan_model.Scan]):
         self.__scan = scan

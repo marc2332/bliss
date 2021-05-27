@@ -451,7 +451,7 @@ def test_lima_devproxy_logger(default_session, lima_simulator, capsys, caplog):
     # now activate debug and check 7 active loggers
     debugon(lima)
     captured = capsys.readouterr().out
-    assert len(captured.strip().split("\n")) == 7
+    assert len(captured.strip().split("\n")) == 9
 
     # check some log messages for attribute get/set
     val = lima.proxy.acq_expo_time

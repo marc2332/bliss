@@ -421,7 +421,7 @@ class RoiStatCounter(IntegratingCounter):
         name = f"{self.roi_name}_{stat.name.lower()}"
         super().__init__(name, kwargs.pop("controller"), **kwargs)
 
-    def get_metadata(self):
+    def scan_metadata(self):
         return {self.roi_name: self._counter_controller.get(self.roi_name).to_dict()}
 
     def __int__(self):
@@ -480,7 +480,7 @@ class RoiProfileCounter(IntegratingCounter):
         self.roi_name = roi_name
         super().__init__(roi_name, controller, conversion_function, unit)
 
-    def get_metadata(self):
+    def scan_metadata(self):
         return {self.roi_name: self._counter_controller.get(self.roi_name).to_dict()}
 
     @property
@@ -508,7 +508,7 @@ class RoiCollectionCounter(IntegratingCounter):
     def __init__(self, name, controller):
         super().__init__(name, controller)
 
-    def get_metadata(self):
+    def scan_metadata(self):
         params = [roi.get_params() for roi in self._counter_controller.get_rois()]
         xs, ys, ws, hs = zip(*params)
         meta = {"kind": "collection", "x": xs, "y": ys, "width": ws, "height": hs}

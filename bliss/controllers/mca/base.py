@@ -19,9 +19,10 @@ import tabulate
 
 import gevent
 
+from bliss import global_map
 from bliss.controllers.mca.roi import RoiConfig
 from bliss.common.logtools import log_debug
-from bliss.common.protocols import HasMetadataForScan
+from bliss.common.protocols import HasMetadataForScanExclusive
 from bliss.common.utils import autocomplete_property
 from bliss.config.beacon_object import BeaconObject
 from bliss.controllers.counter import CounterController
@@ -97,12 +98,14 @@ class MCABeaconObject(BeaconObject):
 
 
 # Base class
-class BaseMCA(CounterController, HasMetadataForScan):
+class BaseMCA(CounterController, HasMetadataForScanExclusive):
     """Generic MCA controller."""
 
     # Life cycle
 
     def __init__(self, name, config, beacon_obj_class=MCABeaconObject):
+        global_map.register(self)  # register as controller
+
         CounterController.__init__(self, name)
 
         self.beacon_obj = beacon_obj_class(self, config)
@@ -113,7 +116,7 @@ class BaseMCA(CounterController, HasMetadataForScan):
         self.initialize_attributes()
         self.initialize_hardware()
 
-    def metadata_when_prepared(self) -> dict:
+    def scan_metadata(self) -> dict:
         return {"type": "mca"}
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):

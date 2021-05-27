@@ -318,8 +318,13 @@ def test_scan_observer(
     chain.add(master, acquisition_device_1)
     scan = Scan(chain, "test", save=False)
 
-    meta = {"kind": "foo"}
-    acquisition_device_1.fill_meta_at_scan_start = mocker.Mock(return_value=meta)
+    def side_effect(timing):
+        if timing == acquisition_device_1.META_TIMING.PREPARED:
+            return {"kind": "foo"}
+        else:
+            return None
+
+    acquisition_device_1.get_acquisition_metadata = mocker.Mock(side_effect=side_effect)
 
     with watching(session, test_observer):
         scan.run()

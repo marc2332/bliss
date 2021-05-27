@@ -51,13 +51,13 @@ import time
 import math
 import gevent
 
-from bliss.scanning.scan_meta import get_user_scan_meta
+from bliss.common.protocols import HasMetadataForScan
 from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState
 from bliss.common.tango import DevState, DeviceProxy
 
 from bliss import global_map
-from bliss.common.logtools import *
+from bliss.common.logtools import log_error, user_print
 
 from bliss.shell.cli.user_dialog import (
     UserMsg,
@@ -72,15 +72,13 @@ from bliss.shell.cli.pt_widgets import display, BlissDialog
 __author__ = "Jens Meyer / Gilles Berruyer - ESRF ISDD SOFTGROUP BLISS - June 2019"
 
 
-class esrf_hexapode(Controller):
+class esrf_hexapode(Controller, HasMetadataForScan):
     """ Class to implement BLISS motor controller of esrf hexapode controlled
     via tango device server
     """
 
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
-
-        global_map.register(self)
 
         self.device = None
         self.roles = {}
@@ -95,30 +93,16 @@ class esrf_hexapode(Controller):
             log_error(self, _err_msg)
             raise RuntimeError(_err_msg)
 
-        self._init_meta_data_publishing()
+    @property
+    def scan_metadata_name(self):
+        return self.name
 
-    def _init_meta_data_publishing(self):
-        """this is about metadata publishing to the h5 file"""
-        if not self.name:
-            user_warning(
-                "to publish metadata the hexapode controller needs a name in config"
-            )
-            return
-        scan_meta_obj = get_user_scan_meta()
-        scan_meta_obj.instrument.set(self, lambda _: {self.name: self.metadata()})
+    def scan_metadata(self):
+        meta_dict = {"@NX_class": "NXhexapode"}
 
-    def metadata(self):
-        """ 
-        this is about metadata publishing to the h5 file AND ICAT
-        """
-
-        meta_dict = dict()
         leg_length = self.device.read_attribute("LegLength").value
-
         for i, value in enumerate(leg_length):
             meta_dict.update({f"leglength{i+1}": value})
-
-        meta_dict["@NX_class"] = "NXhexapode"
 
         return meta_dict
 
@@ -182,9 +166,9 @@ class esrf_hexapode(Controller):
 
     def move_tz(self, pos):
         hexa_pos = self.device.read_attribute("Position").value
-        print(f"Moving from\n{hexa_pos}\n", end="")
+        user_print(f"Moving from\n{hexa_pos}\n", end="")
         hexa_pos[2] = hexa_pos[2] + pos
-        print(f"To\n{hexa_pos}")
+        user_print(f"To\n{hexa_pos}")
         self.device.Move(hexa_pos)
 
     """
@@ -258,10 +242,6 @@ class esrf_hexapode(Controller):
     """
     Hexapode Usefull Functions
     """
-
-    def hexa_home_search(self):
-        with hexapode_cleanup(self, "hexa_home_search"):
-            self.SearchHome()
 
     def hexa_soft_reset(self):
         self.device.Reset(1)
@@ -366,10 +346,10 @@ class esrf_hexapode(Controller):
             msg_title = f"{self.name}: {self.device}"
             display(msg_widget, title=msg_title)
         else:
-            print("")
-            print(f"    Name        : {self.name}")
-            print(f"    Device      : {self.device}")
-            print(f"{info_str}\n")
+            user_print("")
+            user_print(f"    Name        : {self.name}")
+            user_print(f"    Device      : {self.device}")
+            user_print(f"{info_str}\n")
 
     def hexa_set_ref_pos(self):
         """User level interactive method to ???
@@ -471,7 +451,7 @@ class esrf_hexapode(Controller):
 
             if rep:
                 # TODO: Jens to tell me how to change Tango DS properties dynamically
-                print("Changing Hexapode Tango DS Properties !!!")
+                user_print("Changing Hexapode Tango DS Properties !!!")
 
     def hexa_move_legs(self):
         """User level interactive method to ???
@@ -528,14 +508,14 @@ class esrf_hexapode(Controller):
                 ]
                 self.device.MoveActuators(new_leg_length)
 
-                print(f"\n   Moving {self.name} Hexapode Legs\n")
-                print(
+                user_print(f"\n   Moving {self.name} Hexapode Legs\n")
+                user_print(
                     "       Leg1   |   Leg2   |   Leg3   |   Leg4   |   Leg5   |   Leg6"
                 )
-                print(
+                user_print(
                     "     ---------------------------------------------------------------"
                 )
-                print(
+                user_print(
                     "     %8.4f | %8.4f | %8.4f | %8.4f | %8.4f | %8.4f "
                     % (
                         new_leg_length[0],
@@ -553,7 +533,7 @@ class esrf_hexapode(Controller):
                 while self.device.State() == DevState.MOVING:
 
                     curr_leg_length = self.device.read_attribute("LegLength").value
-                    print(
+                    user_print(
                         "     %8.4f | %8.4f | %8.4f | %8.4f | %8.4f | %8.4f"
                         % (
                             curr_leg_length[0],
@@ -567,7 +547,7 @@ class esrf_hexapode(Controller):
                     )
                     gevent.sleep(0.01)
 
-                print("\n")
+                user_print("\n")
 
     def hexa_move(self):
         """User level interactive method to ???
@@ -637,14 +617,14 @@ class esrf_hexapode(Controller):
 
                 self.device.Move(new_pos)
 
-                print(f"\nMoving {self.name} Hexapode Legs\n")
-                print(
+                user_print(f"\nMoving {self.name} Hexapode Legs\n")
+                user_print(
                     "        Tx    |    Ty    |    Tz    |    Rx    |    Ry    |    Rz"
                 )
-                print(
+                user_print(
                     "     --------------------------------------------------------------"
                 )
-                print(
+                user_print(
                     "     %8.4f | %8.4f | %8.4f | %8.4f | %8.4f | %8.4f "
                     % (
                         new_pos[0],
@@ -662,7 +642,7 @@ class esrf_hexapode(Controller):
                 while self.device.State() == DevState.MOVING:
 
                     curr_pos = self.device.read_attribute("Position").value
-                    print(
+                    user_print(
                         "     %8.4f | %8.4f | %8.4f | %8.4f | %8.4f | %8.4f"
                         % (
                             curr_pos[0],
@@ -676,7 +656,7 @@ class esrf_hexapode(Controller):
                     )
                     gevent.sleep(0.01)
 
-                print("\n")
+                user_print("\n")
 
     def hexa_switch_mode(self):
         old_mode = self.device.read_attribute("Mode").value
@@ -745,11 +725,11 @@ class esrf_hexapode(Controller):
 
             self.device.SearchHome()
 
-            print(f"\n   {self.name}: Home Search\n")
-            print(
+            user_print(f"\n   {self.name}: Home Search\n")
+            user_print(
                 "     Leg1          | Leg2          | Leg3          | Leg4          | Leg5          | Leg6          "
             )
-            print(
+            user_print(
                 "    -----------------------------------------------------------------------------------------------"
             )
 
@@ -759,7 +739,7 @@ class esrf_hexapode(Controller):
             while self.device.State() == DevState.MOVING:
 
                 hexa_state = self.hexa_get_actuators_status()
-                print(
+                user_print(
                     "    %-14s |%-14s |%-14s |%-14s |%-14s |%-14s"
                     % (
                         hexa_state[0],
@@ -773,7 +753,7 @@ class esrf_hexapode(Controller):
                 )
                 gevent.sleep(0.01)
 
-            print(f"\n\n {self.name} Home Search Done\n")
+            user_print(f"\n\n {self.name} Home Search Done\n")
 
     def hexa_hard_reset(self):
 
@@ -781,11 +761,11 @@ class esrf_hexapode(Controller):
 
             self.device.Reset(0)
 
-            print(f"\n   {self.name}: Hard Reset\n")
-            print(
+            user_print(f"\n   {self.name}: Hard Reset\n")
+            user_print(
                 "     Leg1          | Leg2          | Leg3          | Leg4          | Leg5          | Leg6          "
             )
-            print(
+            user_print(
                 "    -----------------------------------------------------------------------------------------------"
             )
 
@@ -795,7 +775,7 @@ class esrf_hexapode(Controller):
             while self.device.State() == DevState.MOVING:
 
                 hexa_state = self.hexa_get_actuators_status()
-                print(
+                user_print(
                     "    %-14s |%-14s |%-14s |%-14s |%-14s |%-14s"
                     % (
                         hexa_state[0],
@@ -809,7 +789,7 @@ class esrf_hexapode(Controller):
                 )
                 gevent.sleep(0.1)
 
-            print(f"\n\n {self.name} Hard Reset Done\n")
+            user_print(f"\n\n {self.name} Hard Reset Done\n")
 
     def hexa_calc(self):
         """User level interactive method to ???
@@ -873,7 +853,7 @@ class esrf_hexapode(Controller):
                 ok_text="Calculate",
             ).show()
 
-            print(rep)
+            user_print(rep)
             if rep == False:
                 fin = True
             else:
@@ -953,7 +933,7 @@ class hexapode_cleanup:
     def __exit__(self, exep_type, exep_value, exep_tb):
 
         if exep_type is not None:
-            print(f"\n\nCommand {self.cmd_name} end by {exep_type.__name__}")
+            user_print(f"\n\nCommand {self.cmd_name} end by {exep_type.__name__}")
             self.hexapode.device.Stop()
 
         return False

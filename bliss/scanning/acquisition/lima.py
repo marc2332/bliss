@@ -459,8 +459,14 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             return True
         return self._reading_task.get()
 
-    def fill_meta_at_scan_end(self, scan_meta):
-        return {"acq_parameters": self.acq_params, "ctrl_parameters": self.ctrl_params}
+    def get_acquisition_metadata(self, timing=None):
+        tmp_dict = super().get_acquisition_metadata(timing=timing)
+        if timing == self.META_TIMING.END:
+            if tmp_dict is None:
+                tmp_dict = dict()
+            tmp_dict["acq_parameters"] = self.acq_params
+            tmp_dict["ctrl_parameters"] = self.ctrl_params
+        return tmp_dict
 
 
 class RoiCountersAcquisitionSlave(IntegratingCounterAcquisitionSlave):

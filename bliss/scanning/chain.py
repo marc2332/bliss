@@ -23,6 +23,7 @@ from bliss.common.greenlet_utils import KillMask
 from bliss.scanning.channel import AcquisitionChannelList, AcquisitionChannel
 from bliss.scanning.channel import duplicate_channel, attach_channels
 from bliss.common.validator import BlissValidator
+from bliss.scanning.scan_meta import META_TIMING
 
 
 TRIGGER_MODE_ENUM = enum.IntEnum("TriggerMode", "HARDWARE SOFTWARE")
@@ -459,36 +460,17 @@ class AcquisitionObject:
         if isinstance(self.device, CounterController):
             self.device.apply_parameters(self._ctrl_params)
 
-    def fill_meta_at_scan_start(self, scan_meta):
-        """
-        In this method, acquisition device should collect and meta data
-        related to this device and prepare it for publishing. it is called 
-        during the scan initialization. 
+    META_TIMING = META_TIMING
 
-        This can be used in two ways:
-        1) attaching meta data to the scan_meta object and publishing it in scan_info
-           i.e: scan_meta.instrument.set(self,{"timing mode":"fast"})
-        2) the return value of this function is used to fill the meta data of the
-           node attached to this AcqObj
+    def get_acquisition_metadata(self, timing=None):
         """
-        device = self.device
-        if isinstance(device, HasMetadataForScan):
-            return device.metadata_when_prepared()
-        return None
-
-    def fill_meta_at_scan_end(self, scan_meta):
+        In this method, acquisition device should collect time-dependent
+        any meta data related to this device.
         """
-        In this method, acquisition device should collect and meta data
-        related to this device and prepare it for publishing. it is called 
-        at the end of the scan. 
-
-        This can be used in two ways:
-
-        1) attaching meta data to the scan_meta object and publishing it in scan_info
-           i.e: :code:`scan_meta.instrument.set(self,{"timing mode":"fast"})`
-        2) the return value of this function is used to fill the meta data of the
-           node attached to this AcqObj
-        """
+        if timing == META_TIMING.PREPARED:
+            device = self.device
+            if isinstance(device, HasMetadataForScan):
+                return device.scan_metadata()
         return None
 
     # --------------------------- OVERLOAD METHODS  ---------------------------------------------

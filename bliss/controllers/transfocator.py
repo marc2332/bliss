@@ -79,7 +79,7 @@ from bliss.common.utils import grouped
 from bliss.controllers.wago.wago import WagoController, ModulesConfig, get_wago_comm
 from bliss.config import channels
 from bliss.common.event import dispatcher
-from bliss.scanning.scan_meta import get_user_scan_meta
+from bliss.common.protocols import HasMetadataForScan
 
 
 class TfWagoMapping:
@@ -158,7 +158,7 @@ def _encode(status):
     raise ValueError("Invalid position {!r}".format(status))
 
 
-class Transfocator:
+class Transfocator(HasMetadataForScan):
     """
     The lenses are controlled pneumatically via WAGO output modules.
     The position is red from WAGO input modules.
@@ -188,6 +188,8 @@ class Transfocator:
         )
         if self.wago:
             global_map.register(self, children_list=[self.wago])
+        else:
+            global_map.register(self)
 
         if "lenses" in config:
             self.nb_lens = int(config["lenses"])
@@ -216,20 +218,16 @@ class Transfocator:
             self.nb_pinhole = len(self.pinhole)
             if self.nb_pinhole > 2:
                 raise ValueError(f"{name}: layout can only have 2 pinholes maximum")
+        super().__init__()
 
-        self._init_meta_data_publishing()
+    @property
+    def scan_metadata_name(self):
+        return self.name
 
-    def __del__(self):
-        # remove meta
-        scan_meta_obj = get_user_scan_meta()
-        scan_meta_obj.instrument.remove(self)
-
-    def _init_meta_data_publishing(self):
-        scan_meta_obj = get_user_scan_meta()
-        scan_meta_obj.instrument.set(
-            self,
-            lambda _: {self.name: {**self.status_dict(), "@NX_class": "NXcollection"}},
-        )
+    def scan_metadata(self):
+        metadata = self.status_dict()
+        metadata["@NX_class"] = "NXcollection"
+        return metadata
 
     def connect(self):
         """ Connect to the WAGO module, if not already done """
@@ -488,13 +486,8 @@ class TransfocatorMockup(Transfocator):
 
     def __init__(self, name, config_tree):
         """This will emulate a transfocator"""
-
-        temp_transf = Transfocator(name, config_tree)
-        lens = temp_transf.nb_lens
-        pinhole = temp_transf.nb_pinhole
-
-        self.__mockup_state = randint(0, 2 ** (lens + pinhole))
         super().__init__(name, config_tree)
+        self.__mockup_state = randint(0, 2 ** (self.nb_lens + self.nb_pinhole))
 
     def connect(self):
         pass

@@ -1,6 +1,7 @@
 - class: Session
   name: nexus_writer_session
   setup-file: ./nexus_writer_session_setup.py
+  icat-mapping: icat_nexus_writer_sessions
   scan_saving:
     class: ESRFScanSaving
     beamline: id00
@@ -38,6 +39,9 @@
   - lima_simulator2
   - att1
   - beamstop
+  - primary_slit
+  - transfocator_simulator
+  - machinfo
   aliases:
   - original_name: m1
     alias_name: robx

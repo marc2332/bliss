@@ -8,6 +8,7 @@ import enum
 import gevent
 import functools
 from tabulate import tabulate
+import warnings
 
 from bliss import global_map
 from bliss.config.beacon_object import BeaconObject
@@ -18,17 +19,17 @@ from bliss.common.logtools import user_print
 from bliss.common import timedisplay
 from bliss.controllers.counter import counter_namespace
 
-from bliss.scanning.scan_meta import get_user_scan_meta
 from bliss.scanning.chain import ChainPreset, ChainIterationPreset
 from bliss.common import tango
-from bliss.common.protocols import IcatPublisher
+from bliss.common.protocols import HasMetadataForDataset
+from bliss.scanning.scan_meta import HasMetadataForScan
 from bliss.controllers.tango_attr_as_counter import (
     TangoCounterController,
     TangoAttrCounter,
 )
 
 
-class MachInfo(BeaconObject, IcatPublisher):
+class MachInfo(BeaconObject, HasMetadataForScan, HasMetadataForDataset):
     """ Access to accelerator information.
     - SR_Current
     - SR_Lifetime
@@ -135,7 +136,58 @@ class MachInfo(BeaconObject, IcatPublisher):
             self.__check = False
             user_print("Removing Wait For Refill on scans")
 
-    @BeaconObject.property(default=True)
+    def dataset_metadata(self):
+        attributes = ["SR_Mode", "SR_Current"]
+        attributes = {
+            attr_name: value
+            for attr_name, value in zip(attributes, self._read_attributes(attributes))
+        }
+        return {
+            "mode": self.SRMODE(attributes["SR_Mode"]).name,
+            "current": attributes["SR_Current"],
+        }
+
+    @property
+    def scan_metadata_name(self):
+        return "machine"
+
+    def scan_metadata(self):
+        attributes = [
+            "SR_Mode",
+            "SR_Filling_Mode",
+            "SR_Single_Bunch_Current",
+            "SR_Current",
+            "Automatic_Mode",
+            "FE_State",
+            "SR_Refill_Countdown",
+            "SR_Operator_Mesg",
+        ]
+        attributes = {
+            attr_name: value
+            for attr_name, value in zip(attributes, self._read_attributes(attributes))
+        }
+        # Standard:
+        meta_dict = {
+            "@NX_class": "NXsource",
+            "name": "ESRF",
+            "type": "Synchrotron",
+            "mode": self.SRMODE(attributes["SR_Mode"]).name,
+            "current": attributes["SR_Current"],
+            "current@units": "mA",
+        }
+        # Non-standard:
+        if attributes["SR_Filling_Mode"] == "1 bunch":
+            meta_dict["single_bunch_current"] = attributes["SR_Single_Bunch_Current"]
+            meta_dict["single_bunch_current@units"] = "mA"
+        meta_dict["filling_mode"] = attributes["SR_Filling_Mode"]
+        meta_dict["automatic_mode"] = attributes["Automatic_Mode"]
+        meta_dict["front_end"] = attributes["FE_State"]
+        meta_dict["refill_countdown"] = attributes["SR_Refill_Countdown"]
+        meta_dict["refill_countdown@units"] = "s"
+        meta_dict["message"] = attributes["SR_Operator_Mesg"]
+        return meta_dict
+
+    @BeaconObject.property()
     def metadata(self):
         """
         Insert machine info metadata's for any scans
@@ -144,50 +196,12 @@ class MachInfo(BeaconObject, IcatPublisher):
 
     @metadata.setter
     def metadata(self, flag):
-        def get_meta(scan):
-            attributes = [
-                "SR_Mode",
-                "SR_Filling_Mode",
-                "SR_Single_Bunch_Current",
-                "SR_Current",
-                "Automatic_Mode",
-                "FE_State",
-                "SR_Refill_Countdown",
-                "SR_Operator_Mesg",
-            ]
-            attributes = {
-                attr_name: value
-                for attr_name, value in zip(
-                    attributes, self._read_attributes(attributes)
-                )
-            }
-            # Standard:
-            meta_dict = {
-                "@NX_class": "NXsource",
-                "name": "ESRF",
-                "type": "Synchrotron",
-                "mode": self.SRMODE(attributes["SR_Mode"]).name,
-                "current": attributes["SR_Current"],
-                "current@units": "mA",
-            }
-            # Non-standard:
-            if attributes["SR_Filling_Mode"] == "1 bunch":
-                meta_dict["single_bunch_current"] = attributes[
-                    "SR_Single_Bunch_Current"
-                ]
-                meta_dict["single_bunch_current@units"] = "mA"
-            meta_dict["filling_mode"] = attributes["SR_Filling_Mode"]
-            meta_dict["automatic_mode"] = attributes["Automatic_Mode"]
-            meta_dict["front_end"] = attributes["FE_State"]
-            meta_dict["refill_countdown"] = attributes["SR_Refill_Countdown"]
-            meta_dict["refill_countdown@units"] = "s"
-            meta_dict["message"] = attributes["SR_Operator_Mesg"]
-            return {"machine": meta_dict}
-
         if flag:
-            get_user_scan_meta().instrument.set(self.KEY_NAME, get_meta)
+            warnings.warn("Use 'MachInfo.enable_scan_metadata' instead", FutureWarning)
+            self.enable_scan_metadata()
         else:
-            get_user_scan_meta().instrument.remove(self.KEY_NAME)
+            warnings.warn("Use 'MachInfo.disable_scan_metadata' instead", FutureWarning)
+            self.disable_scan_metadata()
 
     def iter_wait_for_refill(self, checktime, waittime=0., polling_time=1.):
         """

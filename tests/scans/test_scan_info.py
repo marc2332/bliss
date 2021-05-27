@@ -5,6 +5,7 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+from bliss.data.node import get_node
 import pytest
 import gevent
 from bliss import setup_globals
@@ -86,8 +87,9 @@ def test_scan_meta_master_and_device(session, scan_meta):
         def __init__(self):
             super().__init__(name="my_master")
 
-        def fill_meta_at_scan_start(self, scan_meta):
-            scan_meta.instrument.set(self, master_dict)
+        def get_acquisition_metadata(self, timing=None):
+            if timing == self.META_TIMING.PREPARED:
+                return master_dict
 
         def prepare(self):
             pass
@@ -114,8 +116,9 @@ def test_scan_meta_master_and_device(session, scan_meta):
         def __init__(self):
             super().__init__(name=device_name)
 
-        def fill_meta_at_scan_start(self, scan_meta):
-            scan_meta.instrument.set(self, device_dict)
+        def get_acquisition_metadata(self, timing=None):
+            if timing == self.META_TIMING.PREPARED:
+                return device_dict
 
         def prepare(self):
             pass
@@ -133,7 +136,15 @@ def test_scan_meta_master_and_device(session, scan_meta):
 
     s = Scan(chain, name="my_simple", save=False)
     s.run()
-    assert s.scan_info["instrument"] == {**master_dict, **device_dict}
+    # check scan info 'instrument' contains the scan metadata
+    # (it also contains controllers metadata but we do not check here)
+    root = s.node.db_name + ""
+    node = get_node(root + ":my_master")
+    for k, v in master_dict.items():
+        assert node.info.get(k) == v
+    node = get_node(root + ":my_master:my_slave")
+    for k, v in device_dict.items():
+        assert node.info.get(k) == v
 
 
 def test_positioners_in_scan_info(alias_session):
@@ -186,8 +197,30 @@ def test_scan_info_object_vs_node(session):
     diode = session.env_dict["diode"]
 
     s1 = scans.ascan(roby, 0, 1, 3, .1, diode, save=False)
+    local_scan_info = {k: v for k, v in s1.scan_info.items() if v is not None}
 
-    deep_compare(s1.scan_info, s1.node.info.get_all())
+    deep_compare(local_scan_info, s1.node.info.get_all())
+
+
+def test_enable_disable_metadata(session):
+    transf = session.config.get("transfocator_simulator")
+    diode = session.env_dict["diode"]
+
+    s1 = scans.loopscan(1, 0, diode, save=False)
+
+    assert s1.scan_info["instrument"][transf.name]
+
+    transf.disable_scan_metadata()
+
+    s2 = scans.loopscan(1, 0, diode, save=False)
+
+    assert not s2.scan_info["instrument"].get(transf.name)
+
+    transf.enable_scan_metadata()
+
+    s3 = scans.loopscan(1, 0, diode, save=False)
+
+    assert s3.scan_info["instrument"][transf.name]
 
 
 def test_scan_comment_feature(default_session):

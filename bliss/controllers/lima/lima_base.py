@@ -15,7 +15,7 @@ from bliss.common.tango import DeviceProxy, DevFailed, Database, DevState
 from bliss.config import settings
 from bliss.config.beacon_object import BeaconObject
 from bliss.common.logtools import log_debug
-from bliss.common.protocols import HasMetadataForScan
+from bliss.common.protocols import HasMetadataForScanExclusive
 
 from bliss.controllers.counter import CounterController, counter_namespace
 from bliss import current_session
@@ -81,7 +81,7 @@ class ChangeTangoTimeout(object):
         self.__device.set_timeout_millis(self.__back_timeout)
 
 
-class Lima(CounterController, HasMetadataForScan):
+class Lima(CounterController, HasMetadataForScanExclusive):
     """
     Lima controller.
     Basic configuration:
@@ -156,7 +156,7 @@ class Lima(CounterController, HasMetadataForScan):
             self, parents_list=["lima", "controllers"], children_list=[self._proxy]
         )
 
-    def metadata_when_prepared(self) -> dict:
+    def scan_metadata(self) -> dict:
         return {"type": "lima"}
 
     @property
@@ -580,6 +580,9 @@ class Lima(CounterController, HasMetadataForScan):
     def image(self):
         if self._image is None:
             self._image = ImageCounter(self)
+            global_map.register(
+                self._image, parents_list=[self], children_list=[self._proxy]
+            )
         return self._image
 
     @autocomplete_property

@@ -8,10 +8,13 @@
 """
 This file groups all protocols managed by bliss
 """
+import weakref
+
 from abc import ABC
 from collections import namedtuple
 from types import SimpleNamespace
 from typing import Mapping
+from typing import Union
 
 
 class IterableNamespace(SimpleNamespace):
@@ -104,28 +107,67 @@ class Scannable(ABC):
         raise NotImplementedError
 
 
-class IcatPublisher(ABC):
+class HasMetadataForDataset(ABC):
     """
-    Any controller that has this interface can be used
-    for metadata collection based on the `icat-mapping`
-    tag in the session configuration
+    Any controller which provides metadata intended to be saved
+    during a dataset life cycle.
+
+    The `dataset_metadata` is called by the Bliss session's icat_mapping
+    object when the session has such a mapping configured.
     """
 
-    def metadata(self) -> dict:
+    def dataset_metadata(self) -> Union[dict, None]:
         """
-        Return a dict containing metadata
+        Returning an empty dictionary means the controller has metadata
+        but no values. `None` means the controller has no metadata.
         """
         raise NotImplementedError
 
 
 class HasMetadataForScan(ABC):
     """
-    Any controller which provides metadata during a scan life cycle.
+    Any controller which provides metadata intended to be saved
+    during a scan life cycle.
     """
 
-    def metadata_when_prepared(self) -> dict:
+    disabled_controllers = weakref.WeakKeyDictionary()
+
+    def disable_scan_metadata(self):
+        HasMetadataForScan.disabled_controllers[self] = True
+
+    @property
+    def scan_metadata_enabled(self):
+        return not HasMetadataForScan.disabled_controllers.get(self)
+
+    def enable_scan_metadata(self):
+        try:
+            HasMetadataForScan.disabled_controllers.pop(self)
+        except KeyError:
+            pass
+
+    def scan_metadata(self) -> Union[dict, None]:
         """
-        Return a dict containing metadata when the device was prepared by the
-        scan.
+        Returning an empty dictionary means the controller has metadata
+        but no values. `None` means the controller has no metadata.
         """
         raise NotImplementedError
+
+    @property
+    def scan_metadata_name(self) -> Union[str, None]:
+        """
+        Default implementation returns self.name, can be overwritten in derived classes
+        Returns None when there is no name
+        """
+        try:
+            return self.name
+        except AttributeError:
+            return None
+
+
+class HasMetadataForScanExclusive(HasMetadataForScan):
+    """
+    Any controller which provides metadata intended to be saved
+    during a scan life cycle when used in the acquisition chain.
+    """
+
+    pass

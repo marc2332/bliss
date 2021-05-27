@@ -12,7 +12,7 @@ positions:
   - axis: $bsz
     destination: 1.0
     tolerance: 0.2
-  metadata:
+  scan_metadata:
     "@NX_class": NXbeam_stop
     status: in
 - label: OUT
@@ -24,3 +24,6 @@ positions:
   - axis: $bsz
     destination: 2.0
     tolerance: 0.2
+  scan_metadata:
+    "@NX_class": NXbeam_stop
+    status: out

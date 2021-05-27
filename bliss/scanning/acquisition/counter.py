@@ -17,6 +17,7 @@ from bliss.common.utils import all_equal, deep_update
 from bliss.scanning.chain import AcquisitionSlave, AcquisitionObject
 from bliss.scanning.channel import AcquisitionChannel
 from bliss.common.counter import SamplingMode
+from bliss.common.protocols import HasMetadataForScan
 
 
 class BaseCounterAcquisitionSlave(AcquisitionSlave):
@@ -67,16 +68,17 @@ class BaseCounterAcquisitionSlave(AcquisitionSlave):
     def _emit_new_data(self, data):
         self.channels.update_from_iterable(data)
 
-    def fill_meta_at_scan_start(self, scan_meta):
-        tmp_dict = super(BaseCounterAcquisitionSlave, self).fill_meta_at_scan_start(
-            scan_meta
-        )
-        if tmp_dict is None:
-            tmp_dict = {}
-
+    def get_acquisition_metadata(self, timing=None):
+        tmp_dict = super().get_acquisition_metadata(timing=timing)
+        if timing != self.META_TIMING.PREPARED:
+            return tmp_dict
         for cnt in self._counters:
-            deep_update(tmp_dict, cnt.get_metadata())
-
+            if isinstance(cnt, HasMetadataForScan):
+                mdata = cnt.scan_metadata()
+                if mdata is not None:
+                    if tmp_dict is None:
+                        tmp_dict = dict()
+                    deep_update(tmp_dict, mdata)
         return tmp_dict
 
     def prepare_device(self):

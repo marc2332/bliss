@@ -801,34 +801,24 @@ def log_context():
 def deep_compare(d, u):
     """using logic of deep update used here to compare two dicts 
     """
-    try:
-        stack = [(d, u)]
-        while stack:
-            d, u = stack.pop(0)
-            assert len(d) == len(u)
-
-            for k, v in u.items():
-                assert k in d
-                if not isinstance(v, collections.abc.Mapping):
-                    if isinstance(v, numpy.ndarray) and v.size > 1:
-                        assert d[k].shape == v.shape
-                        d[k].dtype == v.dtype
-                        if d[k].dtype != object:
-                            assert all(
-                                numpy.isnan(d[k].flatten()) == numpy.isnan(v.flatten())
-                            )
-                            mask = numpy.logical_not(numpy.isnan(v.flatten()))
-                            assert all((d[k].flatten() == v.flatten())[mask])
-                        else:
-                            assert all(d[k].flatten() == v.flatten())
-                    else:
-                        assert d[k] == v
+    stack = [(d, u)]
+    while stack:
+        d, u = stack.pop(0)
+        assert set(d.keys()) == set(u.keys())
+        for k, v in u.items():
+            if isinstance(v, collections.abc.Mapping):
+                stack.append((d[k], v))
+            elif isinstance(v, numpy.ndarray) and v.size > 1:
+                assert d[k].shape == v.shape
+                d[k].dtype == v.dtype
+                if d[k].dtype != object:
+                    assert all(numpy.isnan(d[k].flatten()) == numpy.isnan(v.flatten()))
+                    mask = numpy.logical_not(numpy.isnan(v.flatten()))
+                    assert all((d[k].flatten() == v.flatten())[mask])
                 else:
-                    stack.append((d[k], v))
-    except AssertionError:
-        pprint(d)
-        pprint(u)
-        raise
+                    assert all(d[k].flatten() == v.flatten())
+            else:
+                assert d[k] == v
 
 
 @pytest.fixture

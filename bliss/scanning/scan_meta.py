@@ -17,26 +17,18 @@ import enum
 import pprint
 
 from bliss import global_map
+from bliss.common.protocols import HasMetadataForScan, HasMetadataForScanExclusive
+from bliss.common.logtools import user_warning
+from bliss.common.utils import deep_update
 
 
 class META_TIMING(enum.Flag):
     START = enum.auto()
     END = enum.auto()
+    PREPARED = enum.auto()
 
 
 USER_SCAN_META = None
-
-
-def get_user_scan_meta():
-    global USER_SCAN_META
-    if USER_SCAN_META is None:
-        USER_SCAN_META = ScanMeta()
-        USER_SCAN_META.positioners.set("positioners", fill_positioners)
-        USER_SCAN_META.positioners.timing = META_TIMING.START | META_TIMING.END
-        USER_SCAN_META.instrument.set("@NX_class", {"@NX_class": "NXinstrument"})
-        USER_SCAN_META.instrument.timing = META_TIMING.END
-        USER_SCAN_META.technique.set("@NX_class", {"@NX_class": "NXcollection"})
-    return USER_SCAN_META
 
 
 class ScanMetaCategory:
@@ -73,27 +65,50 @@ class ScanMetaCategory:
     def timing(self, timing):
         self._timing[self.category] = timing
 
-    def set(self, name_or_device, values):
+    def _parse_metadata_name(self, name_or_device):
         """
-        :param str name_or_device: is the access name must be unique or a device
-                                   with a name property
-        :param callable or dict values: callable needs to return a dictionary
+        :param name_or_device: string or an object with a name property
+        :returns str or None:
         """
         if isinstance(name_or_device, str):
-            name = name_or_device
+            if not name_or_device:
+                user_warning("A name is required to publish scan metadata")
+                return None
+            return name_or_device
         else:
-            name = name_or_device.name
-        self.metadata[name] = values
+            try:
+                name = name_or_device.name
+                if name:
+                    return name
+            except AttributeError:
+                pass
+            user_warning(
+                repr(name_or_device) + " needs a name to publish scan metadata"
+            )
+            return None
+
+    def set(self, name_or_device, values):
+        """
+        :param name_or_device: string or an object with a name property
+        :param callable or dict values: callable needs to return a dictionary
+        """
+        name = self._parse_metadata_name(name_or_device)
+        if name:
+            self.metadata[name] = values
+
+    def is_set(self, name_or_device) -> bool:
+        """
+        :param name_or_device: string or an object with a name property
+        :returns bool:
+        """
+        name = self._parse_metadata_name(name_or_device)
+        return name in self.metadata
 
     def remove(self, name_or_device):
         """
-        :param str name_or_device: is the access name must be unique or a device
-                                   with a name property
+        :param name_or_device: string or an object with a name property
         """
-        if isinstance(name_or_device, str):
-            name = name_or_device
-        else:
-            name = name_or_device.name
+        name = self._parse_metadata_name(name_or_device)
         metadata = self.metadata
         metadata.pop(name, None)
         if not metadata:
@@ -193,7 +208,7 @@ class ScanMeta:
                     if values is None:
                         continue
                 cat_dict = result.setdefault(catname, dict())
-                cat_dict.update(values)
+                deep_update(cat_dict, values)
         return result
 
     def clear(self):
@@ -201,17 +216,22 @@ class ScanMeta:
         """
         self._metadata.clear()
 
+    def _metadata_copy(self):
+        mdcopy = dict()
+        for category, metadata in list(self._metadata.items()):
+            mdcat = mdcopy[category] = dict()
+            for name, values in metadata.items():
+                # A deep copy of an object method appears to copy
+                # the object itself
+                if not callable(values):
+                    values = copy_module.deepcopy(values)
+                mdcat[name] = values
+        return mdcopy
+
     def copy(self):
         return self.__class__(
-            metadata=copy_module.deepcopy(self._metadata),
-            timing=copy_module.copy(self._timing),
+            metadata=self._metadata_copy(), timing=copy_module.copy(self._timing)
         )
-        # TODO: does this really need to be a deepcopy?
-        # there is a pretty weird thing e.g. in mulitposition
-        # when one replaces
-        # scan_meta_obj.instrument.set(self, lambda _:self.metadata_dict())
-        # with
-        # scan_meta_obj.instrument.set(self, self.metadata_dict)
 
     def used_categories_names(self):
         return [n.name.lower() for n in self._metadata.keys()]
@@ -222,9 +242,9 @@ class ScanMeta:
 
 
 def fill_positioners(scan):
-    stuffix = "_start"
+    suffix = "_start"
     if scan.state == 3:
-        stuffix = "_end"
+        suffix = "_end"
     positioners = dict()
     positioners_dial = dict()
     units = dict()
@@ -237,11 +257,55 @@ def fill_positioners(scan):
             units[axis_name] = unit
 
     rd = {
-        "positioners" + stuffix: positioners,
-        "positioners_dial" + stuffix: positioners_dial,
+        "positioners" + suffix: positioners,
+        "positioners_dial" + suffix: positioners_dial,
     }
 
     if scan.state != 3:
         rd["positioners_units"] = units
 
     return rd
+
+
+def get_user_scan_meta():
+    """A single instance is used for the lifetime of the process.
+    """
+    global USER_SCAN_META
+    if USER_SCAN_META is None:
+        USER_SCAN_META = ScanMeta()
+        USER_SCAN_META.instrument.set("@NX_class", {"@NX_class": "NXinstrument"})
+        USER_SCAN_META.instrument.timing = META_TIMING.END
+        USER_SCAN_META.technique.set("@NX_class", {"@NX_class": "NXcollection"})
+    return USER_SCAN_META
+
+
+def get_controllers_scan_meta():
+    """A new instance is created for every scan.
+    """
+    scan_meta = ScanMeta()
+    scan_meta.instrument.set("@NX_class", {"@NX_class": "NXinstrument"})
+    scan_meta.positioners.set("positioners", fill_positioners)
+    scan_meta.positioners.timing = META_TIMING.START | META_TIMING.END
+
+    for obj in global_map.instance_iter("controllers"):
+        if isinstance(obj, HasMetadataForScan):
+            if isinstance(obj, HasMetadataForScanExclusive):
+                # metadata for this controller has to be gathered by acq. chain
+                continue
+            if not obj.scan_metadata_enabled:
+                continue
+
+            def metadata_generator(scan, obj=obj):
+                """
+                Metadata generator registred with the instrument category
+                of user scan metadata.
+                """
+                metadata_name = obj.scan_metadata_name
+                if not metadata_name:
+                    user_warning(f"{repr(obj)} needs a name to publish scan metadata")
+                    return {}
+                else:
+                    return {metadata_name: obj.scan_metadata()}
+
+            scan_meta.instrument.set(obj, metadata_generator)
+    return scan_meta

@@ -14,6 +14,14 @@ def test_nxw_parallel(nexus_writer_config):
     _test_nxw_parallel(**nexus_writer_config)
 
 
+def get_detector(session, name):
+    parts = name.split(".")
+    det = session.env_dict[parts[0]]
+    for attr in parts[1:]:
+        det = getattr(det, attr)
+    return det
+
+
 @nxw_test_utils.writer_stdout_on_exception
 def _test_nxw_parallel(session=None, tmpdir=None, writer=None, **kwargs):
     detectors = (
@@ -29,9 +37,10 @@ def _test_nxw_parallel(session=None, tmpdir=None, writer=None, **kwargs):
         "sim_ct_gauss_noise",
         "sim_ct_linear",
         "thermo_sample",
+        "machinfo.counters.current",
     )
     lst = [
-        scans.loopscan(npoints, 0.1, session.env_dict[name], run=False)
+        scans.loopscan(npoints, 0.1, get_detector(session, name), run=False)
         for npoints, name in enumerate(detectors, 10)
     ]
     greenlets = [nxw_test_utils.run_scan(scan, runasync=True) for scan in lst]

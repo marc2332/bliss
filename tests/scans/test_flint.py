@@ -489,7 +489,11 @@ def test_sequence(test_session_with_flint, lima_simulator):
 
 def create_1d_controller(device_name, fixed_xarray=False, fixed_xchannel=False):
     class OneDimAcquisitionSlave(SamplingCounterAcquisitionSlave):
-        def fill_meta_at_scan_start(self, scan_meta):
+        def get_acquisition_metadata(self, timing=None):
+            tmp_dict = super().get_acquisition_metadata(timing=timing)
+            if timing != self.META_TIMING.PREPARED:
+                return tmp_dict
+
             def get_channel_by_counter_name(name):
                 for counter, channels in self._counters.items():
                     if counter.name == name:

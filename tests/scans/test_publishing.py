@@ -545,8 +545,8 @@ def test_children_timing(beacon, session):
 
 
 def test_scan_end_timing(
-    session, scan_meta, dummy_acq_master, dummy_acq_device
-):  # , clean_gevent):
+    session, scan_meta, dummy_acq_master, dummy_acq_device, mocker
+):
     scan_meta.clear()
 
     # Get controllers
@@ -554,16 +554,17 @@ def test_scan_end_timing(
     master = dummy_acq_master.get(None, name="master", npoints=1)
     device = dummy_acq_device.get(None, name="device", npoints=1)
 
-    def a_slow_func():
-        # this sleep is the point of the test...
-        # delay the filling of scan_info
-        gevent.sleep(.2)
-        return {"DummyDevice": "slow"}
+    def side_effect(timing):
+        if timing == device.META_TIMING.END:
+            # this sleep is the point of the test...
+            # delay the filling of scan_info
+            gevent.sleep(.2)
+            return {"state": "slow"}
+        else:
+            return None
 
-    def fill_meta_at_scan_end(scan_meta):
-        scan_meta.instrument.set("bla", a_slow_func())
+    device.get_acquisition_metadata = mocker.Mock(side_effect=side_effect)
 
-    device.fill_meta_at_scan_end = fill_meta_at_scan_end
     chain.add(master, device)
 
     scan = Scan(chain, "test", save=False, scan_info={"instrument": {"some": "text"}})
@@ -581,17 +582,18 @@ def test_scan_end_timing(
         # we will use **walk_event** with current time passed 100ms
         # which is equivalent to **walk_on_new_events** if we have started it
         # 100ms before.
-        for event_type, node, event_data in parent.walk_events(
-            first_index=first_index, include_filter="scan"
-        ):
+        dummy_node = None
+        for event_type, node, event_data in parent.walk_events(first_index=first_index):
             if event_type == event_type.END_SCAN:
-                assert node.info.get("instrument") == {
-                    "DummyDevice": "slow",
-                    "some": "text",
-                }
-                return
+                assert dummy_node.info.get("state") == "slow"
+                assert node.info.get("instrument")["some"] == "text"
+                break
+            elif event_type == event_type.NEW_NODE:
+                if node.name == "device":
+                    dummy_node = node
+                    assert dummy_node.info.get("state") is None
 
-    # force existance of scan node before starting the scan
+    # force existence of scan node before starting the scan
     scan._prepare_node()
 
     gg = gevent.spawn(g, scan.node.db_name)

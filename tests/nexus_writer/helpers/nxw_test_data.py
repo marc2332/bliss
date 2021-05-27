@@ -442,12 +442,33 @@ def validate_instrument(
     expected |= expected_posg
     expected |= expected_dets
     expected |= set(pos_instrument.keys())
-    expected |= {"att1", "beamstop"}
+    expected |= {
+        "att1",
+        "beamstop",
+        "primary_slit",
+        "machine",
+        "transfocator_simulator",
+    }
     assert_set_equal(set(instrument.keys()), expected)
     # Validate content of positioner NXcollections
     for name in expected_posg:
         assert instrument[name].attrs["NX_class"] == "NXcollection", name
-        expected = {"robx", "roby", "robz", "bsy", "bsz", "att1z"}
+        expected = {
+            "robx",
+            "roby",
+            "robz",
+            "bsy",
+            "bsz",
+            "att1z",
+            "s1b",
+            "s1d",
+            "s1f",
+            "s1hg",
+            "s1ho",
+            "s1u",
+            "s1vg",
+            "s1vo",
+        }
         if name == "positioners":
             expected |= set(pos_positioners)
         assert_set_equal(set(instrument[name].keys()), expected)
@@ -477,14 +498,44 @@ def validate_instrument(
     # Validate content of other groups
     content = dictdump.nxtodict(instrument["beamstop"], asarray=False)
     assert content == {"@NX_class": "NXbeam_stop", "status": "in"}
+
     content = dictdump.nxtodict(instrument["att1"], asarray=False)
+    assert content == {"@NX_class": "NXattenuator", "status": "in", "type": "Al"}
+
+    content = dictdump.nxtodict(instrument["primary_slit"], asarray=False)
     assert content == {
-        "Positioners_name": "att1z",
-        "Positioners_value": 0.5,
-        "status": "in",
-        "type": "Al",
-        "@NX_class": "NXattenuator",
+        "@NX_class": "NXslit",
+        "horizontal_gap": 0.0,
+        "horizontal_offset": 0.0,
+        "vertical_gap": 0.0,
+        "vertical_offset": 0.0,
     }
+
+    content = dictdump.nxtodict(instrument["transfocator_simulator"], asarray=False)
+    assert content["@NX_class"] == "NXcollection"
+    # The value of the L and P datasets is `True`, `False` or `None`.
+    # A dataset value of `Ǹone` which is skipped by dicttonx;
+    maxkeys = {"@NX_class", "L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "P0"}
+    assert not (set(content.keys()) - maxkeys)
+
+    content = dictdump.nxtodict(instrument["machine"], asarray=False)
+    expected = {
+        "@NX_class": "NXsource",
+        "automatic_mode": content["automatic_mode"],
+        "current": content["current"],
+        "current@units": "mA",
+        "filling_mode": "7/8 multibunch",
+        "front_end": "",
+        "message": "You are in Simulated Machine",
+        "mode": content["mode"],
+        "name": "ESRF",
+        "refill_countdown": content["refill_countdown"],
+        "refill_countdown@units": "s",
+        "type": "Synchrotron",
+    }
+
+    for k in expected:
+        assert content[k] == expected[k], (k, content[k], expected[k])
 
 
 def validate_plots(
@@ -998,6 +1049,8 @@ def expected_detectors(
             expected |= {"elapsed_time", "epoch"}
         if positioners and any("robx" in axes for axes in positioners):
             expected.add("robxenc")
+        if detectors and "machinfo.counters.current" in detectors:
+            expected.add("current")
     else:
         # Each data channel is a detector
         expected = set()
@@ -1094,7 +1147,7 @@ def expected_detector_content(name, config=True, save_images=True):
                 datasets |= {"samples"}
             elif name == "diode7":
                 datasets |= {"N", "max", "min", "p2v", "std", "var"}
-        elif name in ("thermo_sample", "robxenc"):
+        elif name in ("thermo_sample", "robxenc", "current"):
             datasets = {"data", "mode", "type"}
         elif name.startswith("simu"):
             datasets = {"type", "roi1", "roi2", "roi3"}
@@ -1347,6 +1400,8 @@ def expected_channels(
         datasets[0] |= {"elapsed_time", "epoch"}
     if positioners and any("robx" in axes for axes in positioners):
         datasets[0].add("robxenc")
+    if detectors and "machinfo.counters.current" in detectors:
+        datasets[0].add("current")
     return datasets
 
 

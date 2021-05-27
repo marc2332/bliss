@@ -1435,15 +1435,15 @@ class Scan:
         if len(display_extra) > 0:
             self._scan_info["_display_extra"] = display_extra
 
-    def _metadata_of_user(self, meta_timing):
+    def _metadata_of_user(self, timing):
         """Update scan_info with user scan metadata. The metadata will be
         stored in the user metadata categories.
         """
         if not self._enable_scanmeta:
             return
-        self._evaluate_scan_meta(self._user_scan_meta, meta_timing)
+        self._evaluate_scan_meta(self._user_scan_meta, timing)
 
-    def _metadata_of_nonacq_controllers(self, meta_timing):
+    def _metadata_of_nonacq_controllers(self, timing):
         """Update scan_info with controller scan metadata. The metadata
         will be stored in the "instrument" metadata category under the
         "scan_metadata_name" which is the controller name by default
@@ -1451,9 +1451,9 @@ class Scan:
         """
         if not self._enable_scanmeta:
             return
-        self._evaluate_scan_meta(self._controllers_scan_meta, meta_timing)
+        self._evaluate_scan_meta(self._controllers_scan_meta, timing)
 
-    def _metadata_of_acq_controllers(self, meta_timing):
+    def _metadata_of_acq_controllers(self, timing):
         """Update the controller Redis nodes with metadata. Update
         the "devices" section of scan_info. Note that the "instrument"
         metadata category or any other metadata category is not modified.
@@ -1462,14 +1462,6 @@ class Scan:
         #       metadata of the acquistion controllers.
         # not self._enable_scanmeta:
         #    return
-        if meta_timing == META_TIMING.START:
-            method_name = "fill_meta_at_scan_start"
-        elif meta_timing == META_TIMING.PREPARED:
-            method_name = "fill_meta_at_scan_prepared"
-        elif meta_timing == META_TIMING.END:
-            method_name = "fill_meta_at_scan_end"
-        else:
-            return
 
         if self._controllers_scan_meta:
             instrument = self._controllers_scan_meta.instrument
@@ -1488,8 +1480,7 @@ class Scan:
             # An empty dict shows up as a group in the Nexus file
             # while None does not.
             with KillMask(masked_kill_nb=1):
-                fill_meta = getattr(acq_obj, method_name)
-                metadata = fill_meta()
+                metadata = acq_obj.get_acquisition_metadata(timing=timing)
             if metadata is None:
                 continue
 
@@ -1500,16 +1491,16 @@ class Scan:
 
             # Add to the local scan_info, but in a different
             # place than where _controllers_scan_meta would put it
-            if meta_timing in (META_TIMING.START, META_TIMING.PREPARED):
+            if timing in (META_TIMING.START, META_TIMING.PREPARED):
                 self._scan_info._set_device_meta(acq_obj, metadata)
 
-    def _evaluate_scan_meta(self, scan_meta, meta_timing):
+    def _evaluate_scan_meta(self, scan_meta, timing):
         """Evaluate the metadata generators of a ScanMeta instance
         and update scan_info.
         """
         assert isinstance(scan_meta, ScanMeta)
         with KillMask(masked_kill_nb=1):
-            metadata = scan_meta.to_dict(self, timing=meta_timing)
+            metadata = scan_meta.to_dict(self, timing=timing)
             if not metadata:
                 return
             deep_update(self._scan_info, metadata)

@@ -544,7 +544,9 @@ def test_children_timing(beacon, session):
     g.kill()
 
 
-def test_scan_end_timing(session, scan_meta, dummy_acq_master, dummy_acq_device):
+def test_scan_end_timing(
+    session, scan_meta, dummy_acq_master, dummy_acq_device, mocker
+):
     scan_meta.clear()
 
     # Get controllers
@@ -552,13 +554,17 @@ def test_scan_end_timing(session, scan_meta, dummy_acq_master, dummy_acq_device)
     master = dummy_acq_master.get(None, name="master", npoints=1)
     device = dummy_acq_device.get(None, name="device", npoints=1)
 
-    def fill_meta_at_scan_end():
-        # this sleep is the point of the test...
-        # delay the filling of scan_info
-        gevent.sleep(.2)
-        return {"state": "slow"}
+    def side_effect(timing):
+        if timing == device.META_TIMING.END:
+            # this sleep is the point of the test...
+            # delay the filling of scan_info
+            gevent.sleep(.2)
+            return {"state": "slow"}
+        else:
+            return None
 
-    device.fill_meta_at_scan_end = fill_meta_at_scan_end
+    device.get_acquisition_metadata = mocker.Mock(side_effect=side_effect)
+
     chain.add(master, device)
 
     scan = Scan(chain, "test", save=False, scan_info={"instrument": {"some": "text"}})

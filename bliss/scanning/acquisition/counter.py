@@ -68,8 +68,10 @@ class BaseCounterAcquisitionSlave(AcquisitionSlave):
     def _emit_new_data(self, data):
         self.channels.update_from_iterable(data)
 
-    def fill_meta_at_scan_prepared(self):
-        tmp_dict = super().fill_meta_at_scan_prepared()
+    def get_acquisition_metadata(self, timing=None):
+        tmp_dict = super().get_acquisition_metadata(timing=timing)
+        if timing != self.META_TIMING.PREPARED:
+            return tmp_dict
         for cnt in self._counters:
             if isinstance(cnt, HasMetadataForScan):
                 mdata = cnt.scan_metadata()

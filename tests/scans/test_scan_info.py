@@ -87,8 +87,9 @@ def test_scan_meta_master_and_device(session, scan_meta):
         def __init__(self):
             super().__init__(name="my_master")
 
-        def fill_meta_at_scan_prepared(self):
-            return master_dict
+        def get_acquisition_metadata(self, timing=None):
+            if timing == self.META_TIMING.PREPARED:
+                return master_dict
 
         def prepare(self):
             pass
@@ -115,8 +116,9 @@ def test_scan_meta_master_and_device(session, scan_meta):
         def __init__(self):
             super().__init__(name=device_name)
 
-        def fill_meta_at_scan_prepared(self):
-            return device_dict
+        def get_acquisition_metadata(self, timing=None):
+            if timing == self.META_TIMING.PREPARED:
+                return device_dict
 
         def prepare(self):
             pass

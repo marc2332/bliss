@@ -23,6 +23,7 @@ from bliss.common.greenlet_utils import KillMask
 from bliss.scanning.channel import AcquisitionChannelList, AcquisitionChannel
 from bliss.scanning.channel import duplicate_channel, attach_channels
 from bliss.common.validator import BlissValidator
+from bliss.scanning.scan_meta import META_TIMING
 
 
 TRIGGER_MODE_ENUM = enum.IntEnum("TriggerMode", "HARDWARE SOFTWARE")
@@ -459,37 +460,17 @@ class AcquisitionObject:
         if isinstance(self.device, CounterController):
             self.device.apply_parameters(self._ctrl_params)
 
-    def fill_meta_at_scan_start(self):
-        """
-        In this method, acquisition device should collect any meta data
-        related to this device. It is called after scan start.
+    META_TIMING = META_TIMING
 
-        The return value of this function is used to fill the meta data of the
-        node attached to this AcqObj
+    def get_acquisition_metadata(self, timing=None):
         """
-        return None
-
-    def fill_meta_at_scan_prepared(self):
+        In this method, acquisition device should collect time-dependent
+        any meta data related to this device.
         """
-        In this method, acquisition device should collect any meta data
-        related to this device. It is called after all devices are prepared.
-
-        The return value of this function is used to fill the meta data of the
-        node attached to this AcqObj
-        """
-        device = self.device
-        if isinstance(device, HasMetadataForScan):
-            return device.scan_metadata()
-        return None
-
-    def fill_meta_at_scan_end(self):
-        """
-        In this method, acquisition device should collect and meta data
-        related to this device. It is called at the end of the scan.
-
-        The return value of this function is used to fill the meta data of the
-        node attached to this AcqObj
-        """
+        if timing == META_TIMING.PREPARED:
+            device = self.device
+            if isinstance(device, HasMetadataForScan):
+                return device.scan_metadata()
         return None
 
     # --------------------------- OVERLOAD METHODS  ---------------------------------------------

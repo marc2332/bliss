@@ -122,14 +122,8 @@ class _Base:
     def wait_ready(self):
         return self.device.wait_ready()
 
-    def fill_meta_at_scan_start(self):
-        return self.device.fill_meta_at_scan_start()
-
-    def fill_meta_at_scan_prepared(self):
-        return self.device.fill_meta_at_scan_prepared()
-
-    def fill_meta_at_scan_end(self):
-        return self.device.fill_meta_at_scan_end()
+    def get_acquisition_metadata(self, *args, **kw):
+        return self.device.get_acquisition_metadata(*args, **kw)
 
     def _all_point_rx(self):
         """

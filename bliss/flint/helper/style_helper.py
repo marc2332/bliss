@@ -119,29 +119,38 @@ class DefaultStyleStrategy(plot_model.StyleStrategy):
             self.cacheStyle(scatter, None, style)
 
     def computeItemStyleFromCurvePlot(self, plot, scans):
-        i = 0
         countBase = 0
 
-        if len(scans) == 1:
-            countBase = 0
-            for item in plot.items():
-                if not isinstance(item, plot_model.ComputableMixIn):
-                    countBase += 1
+        for item in plot.items():
+            if isinstance(item, plot_item_model.ScanItem):
+                pass
+            elif isinstance(item, plot_model.ComputableMixIn):
+                pass
+            else:
+                # That's a main item
+                countBase += 1
 
+        if len(scans) <= 1:
+            if countBase <= 1:
+                self.computeItemStyleFromCurvePlot_eachItemsColored(plot, scans)
+            else:
+                self.computeItemStyleFromCurvePlot_firstScanColored(plot, scans)
+        else:
+            if countBase > 1:
+                self.computeItemStyleFromCurvePlot_firstScanColored(plot, scans)
+            else:
+                self.computeItemStyleFromCurvePlot_eachScanColored(plot, scans)
+
+    def computeItemStyleFromCurvePlot_eachItemsColored(self, plot, scans):
+        i = 0
         for scan in scans:
             for item in plot.items():
                 if isinstance(item, plot_item_model.ScanItem):
                     continue
                 if isinstance(item, plot_model.ComputableMixIn):
-                    if countBase == 1:
-                        # Allocate a new color for everything
-                        color = self.pickColor(i)
-                        i += 1
-                    else:
-                        # Reuse the color
-                        source = item.source()
-                        baseStyle = self.getStyleFromItem(source, scan)
-                        color = baseStyle.lineColor
+                    # Allocate a new color for everything
+                    color = self.pickColor(i)
+                    i += 1
                     if isinstance(item, plot_state_model.CurveStatisticItem):
                         style = plot_model.Style(lineStyle=":", lineColor=color)
                     else:
@@ -150,6 +159,50 @@ class DefaultStyleStrategy(plot_model.StyleStrategy):
                     color = self.pickColor(i)
                     style = plot_model.Style(lineStyle="-", lineColor=color)
                     i += 1
+                self.cacheStyle(item, scan, style)
+
+    def computeItemStyleFromCurvePlot_firstScanColored(self, plot, scans):
+        i = 0
+        for scanId, scan in enumerate(scans):
+            for item in plot.items():
+                if isinstance(item, plot_item_model.ScanItem):
+                    continue
+                if isinstance(item, plot_model.ComputableMixIn):
+                    # Reuse the parent color
+                    source = item.source()
+                    baseStyle = self.getStyleFromItem(source, scan)
+                    color = baseStyle.lineColor
+                    if isinstance(item, plot_state_model.CurveStatisticItem):
+                        style = plot_model.Style(lineStyle=":", lineColor=color)
+                    else:
+                        style = plot_model.Style(lineStyle="-.", lineColor=color)
+                else:
+                    if scanId == 0:
+                        color = self.pickColor(i)
+                        i += 1
+                    else:
+                        # Grayed
+                        color = (0x80, 0x80, 0x80)
+                    style = plot_model.Style(lineStyle="-", lineColor=color)
+                self.cacheStyle(item, scan, style)
+
+    def computeItemStyleFromCurvePlot_eachScanColored(self, plot, scans):
+        for scanId, scan in enumerate(scans):
+            for item in plot.items():
+                if isinstance(item, plot_item_model.ScanItem):
+                    continue
+                if isinstance(item, plot_model.ComputableMixIn):
+                    # Reuse the parent color
+                    source = item.source()
+                    baseStyle = self.getStyleFromItem(source, scan)
+                    color = baseStyle.lineColor
+                    if isinstance(item, plot_state_model.CurveStatisticItem):
+                        style = plot_model.Style(lineStyle=":", lineColor=color)
+                    else:
+                        style = plot_model.Style(lineStyle="-.", lineColor=color)
+                else:
+                    color = self.pickColor(scanId)
+                    style = plot_model.Style(lineStyle="-", lineColor=color)
                 self.cacheStyle(item, scan, style)
 
     def computeItemStyleFromPlot(self):

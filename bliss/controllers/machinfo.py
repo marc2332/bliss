@@ -8,6 +8,7 @@ import enum
 import gevent
 import functools
 from tabulate import tabulate
+import warnings
 
 from bliss import global_map
 from bliss.config.beacon_object import BeaconObject
@@ -185,6 +186,22 @@ class MachInfo(BeaconObject, HasMetadataForScan, HasMetadataForDataset):
         meta_dict["refill_countdown@units"] = "s"
         meta_dict["message"] = attributes["SR_Operator_Mesg"]
         return meta_dict
+
+    @BeaconObject.property()
+    def metadata(self):
+        """
+        Insert machine info metadata's for any scans
+        """
+        pass
+
+    @metadata.setter
+    def metadata(self, flag):
+        if flag:
+            warnings.warn("Use 'MachInfo.enable_scan_metadata' instead", FutureWarning)
+            self.enable_scan_metadata()
+        else:
+            warnings.warn("Use 'MachInfo.disable_scan_metadata' instead", FutureWarning)
+            self.disable_scan_metadata()
 
     def iter_wait_for_refill(self, checktime, waittime=0., polling_time=1.):
         """

@@ -1436,21 +1436,27 @@ class Scan:
             self._scan_info["_display_extra"] = display_extra
 
     def _metadata_of_user(self, meta_timing):
-        """Update scan_info with user scan metadata.
+        """Update scan_info with user scan metadata. The metadata will be
+        stored in the user metadata categories.
         """
         if not self._enable_scanmeta:
             return
         self._evaluate_scan_meta(self._user_scan_meta, meta_timing)
 
     def _metadata_of_nonacq_controllers(self, meta_timing):
-        """Update scan_info with controller scan metadata.
+        """Update scan_info with controller scan metadata. The metadata
+        will be stored in the "instrument" metadata category under the
+        "scan_metadata_name" which is the controller name by default
+        (see HasMetadataForScan).
         """
         if not self._enable_scanmeta:
             return
         self._evaluate_scan_meta(self._controllers_scan_meta, meta_timing)
 
     def _metadata_of_acq_controllers(self, meta_timing):
-        """Update the controller Redis nodes with metadata.
+        """Update the controller Redis nodes with metadata. Update
+        the "devices" section of scan_info. Note that the "instrument"
+        metadata category or any other metadata category is not modified.
         """
         # Note: not sure why we disable the others but keep the
         #       metadata of the acquistion controllers.

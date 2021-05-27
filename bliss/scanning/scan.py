@@ -650,13 +650,15 @@ class Scan:
         self.__node = None
         self.__comments = list()  # user comments
 
-        # Scan initialization:
+        # Independent scan initialization (order not important):
         self._init_acq_chain(chain)
         self._init_scan_saving(scan_saving)
         self._init_scan_display()
+
+        # Dependent scan initialization (order is important):
+        self._metadata_at_scan_instantiation(scan_info=scan_info, save=save)
         self._init_writer(save=save, save_images=save_images)
         self._init_flint()
-        self._metadata_at_scan_instantiation(scan_info=scan_info, save=save)
 
     def _init_scan_saving(self, scan_saving):
         if scan_saving is None:

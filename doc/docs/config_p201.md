@@ -497,7 +497,7 @@ Counter or Macro Counter/Timer on the previous screen).
 If you add a CT2 timer, the *Chan* must be **0**. The CT2 timer is capable of
 working in 6 different frequencies: 1.25 KHz, 10 KHz, 125 KHz, 1 MHz, 12.5 MHz
 and 100 MHz. The spec *Scale Factor* selects this frequency. The standard
-working frequency is 1 MHz which correspondes to a *Scale Factor* of 1E6.
+working frequency is 1 MHz which corresponds to a *Scale Factor* of 1E6.
 Example:
 
     Scaler (Counter) Configuration
@@ -505,6 +505,33 @@ Example:
     Number        Name  Mnemonic  <>Device  Unit  Chan   <>Use As  Scale Factor
          0     Seconds       sec   MAC_CNT     0     0   timebase       1000000
          1      p201_3    p201_3   MAC_CNT     0     3    counter             1
+
+
+#### Multiple P201 boards
+
+Multiple P201 boards can be configured in Spec; each board requires an independent
+entry in the SCALERS controller list. By default a board is configured as master and
+started independently. CT2 masters are started sequentially (from last to first in the
+config) so there is an intrinsic (accumulative) delay in their synchronization. A
+better synchronization is obtained, as explained before, by connecting the output
+channel of a master to the trigger input of the slave(s). The relation master/slave
+must be explicitly indicated in the config of each slave controller through the *master*
+parameter. To access the controller parameters go the *Motor and Counter Device
+Configuration (Not CAMAC)*, move the cursor on top of the SCALER slave controller and
+type 'p'. Then add the *master* parameter and set it to the Tango device name
+(controller ADDR) of the master device:
+
+    Custom Parameters for "Macro Counter/Timer" Unit 1               1/1 configured
+    
+    NAME                      VALUE
+    master                    id00/ct2/p201_lid001_0
+
+The definition of the timer of each P201 board (channel 0) is optional. It is
+recommended to set the main (first) *timebase* counter as a CT2 timer. This
+configuration will allow that all the CT2 masters count for the specified time. Even if
+the main timer can be a *Software Timer* and different CT2 boards can be configured
+as independent masters, each CT2 board will be stopped as soon as the *Software Timer*
+finishes, resulting in shorting and non-deterministic counting intervals.
 
 
 ## Supported acquisition types

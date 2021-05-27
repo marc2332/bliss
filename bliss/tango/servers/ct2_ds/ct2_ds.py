@@ -177,6 +177,28 @@ class CT2(Device):
         self.device.acq_channels = acq_channels
 
     @attribute(
+        dtype=("int16",),
+        max_dim_x=12,
+        label="Active channel indexes in data point",
+        doc="List of indexes in data point (first is 0)",
+    )
+    def acq_channels_data_indexes(self):
+        return tuple(self.device.acq_channels_data_indexes)
+
+    @attribute(
+        dtype=("int16",),
+        max_dim_x=12,
+        label="Integrator channels",
+        doc="List indicating if corresponding acq_channel is integrator",
+    )
+    def integrator_channels(self):
+        return tuple(self.device.integrator_channels)
+
+    @integrator_channels.setter
+    def integrator_channels(self, integrator_channels):
+        self.device.integrator_channels = integrator_channels
+
+    @attribute(
         dtype="float64",
         label="Timer clock freq.",
         unit="Hz",

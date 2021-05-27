@@ -26,6 +26,7 @@ import logging
 import time
 import numpy
 import gevent
+import math
 from gevent import select
 from louie import dispatcher
 
@@ -151,6 +152,7 @@ class CT2(object):
         self.__acq_point_period = None
         self.__acq_nb_points = 1
         self.__acq_channels = ()
+        self.__integrator_channels = None
         self.__timer_freq = 12.5E6
         self.__event_loop = None
         self.__trigger_on_start = True
@@ -523,7 +525,7 @@ class CT2(object):
         channels = tuple(self.acq_channels)
         all_channels = channels + (timer_ct, point_nb_ct)
 
-        integrator = dict([(ct, False) for ct in channels])
+        integrator = dict(zip(channels, self.integrator_channels))
         # change the start and stop sources for the active channels
         for ch_nb in channels:
             ct_config = card_o.get_counter_config(ch_nb)
@@ -599,9 +601,9 @@ class CT2(object):
 
         timer_cmp, out_cmp = None, None
         if self.__has_int_exp():
-            timer_cmp = int(point_period)
+            timer_cmp = math.ceil(point_period)
             if self.output_counter:
-                out_cmp = int(expo_time)
+                out_cmp = math.ceil(expo_time)
 
         return timer_cmp, out_cmp
 
@@ -648,6 +650,8 @@ class CT2(object):
             raise ValueError("Acq. point period only allowed in %s" % mode_str)
         if self.__has_ext_sync() and not self.input_channel:
             raise ValueError("Must provide in_config in ext-trig modes")
+        if len(self.acq_channels) != len(self.integrator_channels):
+            raise ValueError("acq_channels / integrator_channels size mismatch")
 
         self.stop_acq()
         if self.acq_mode not in self.StdModes:
@@ -790,6 +794,27 @@ class CT2(object):
     @acq_channels.setter
     def acq_channels(self, acq_channels):
         self.__acq_channels = acq_channels
+
+    @property
+    def acq_channels_data_indexes(self):
+        sorted_channels = sorted(self.acq_channels)
+        return [sorted_channels.index(x) for x in self.acq_channels]
+
+    def __default_integrator_channels(self):
+        return [False for ct in self.acq_channels]
+
+    @property
+    def integrator_channels(self):
+        if self.__integrator_channels is not None:
+            return self.__integrator_channels
+        return self.__default_integrator_channels()
+
+    @integrator_channels.setter
+    def integrator_channels(self, integrator_channels):
+        integrator_channels = list(map(bool, integrator_channels))
+        if integrator_channels == self.__default_integrator_channels():
+            integrator_channels = None
+        self.__integrator_channels = integrator_channels
 
     @property
     def timer_freq(self):

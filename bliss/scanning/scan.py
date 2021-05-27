@@ -1462,7 +1462,7 @@ class Scan:
             node = self.nodes.get(acq_obj)
             if node is not None:
                 update_node_info(node, metadata)
-            if meta_timing == META_TIMING.START:
+            if meta_timing in (META_TIMING.START, META_TIMING.PREPARED):
                 self._scan_info._set_device_meta(acq_obj, metadata)
 
     def _evaluate_scan_meta(self, scan_meta, meta_timing):

@@ -1,7 +1,6 @@
 import os
 import pytest
 import numpy
-import time
 import gevent
 from bliss.common.scans import ct
 from bliss.controllers.lima.limatools import (

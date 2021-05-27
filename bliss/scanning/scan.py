@@ -617,7 +617,12 @@ class Scan:
         self.root_node = None
         self._scan_connection = None
         self._shadow_scan_number = not save
-        self._add_to_scans_queue = not (name == "ct" and self._shadow_scan_number)
+
+        nonsaved_ct = False
+        if scan_info:
+            nonsaved_ct = scan_info.get("type", None) == "ct" and not save
+        self._add_to_scans_queue = not nonsaved_ct
+        self._enable_scanmeta = not nonsaved_ct
 
         # Double buffer pipeline for streams store
         if self._USE_PIPELINE_MGR:
@@ -1431,16 +1436,24 @@ class Scan:
     def _metadata_of_user(self, meta_timing):
         """Update scan_info with user scan metadata.
         """
+        if not self._enable_scanmeta:
+            return
         self._evaluate_scan_meta(self._user_scan_meta, meta_timing)
 
     def _metadata_of_nonacq_controllers(self, meta_timing):
         """Update scan_info with controller scan metadata.
         """
+        if not self._enable_scanmeta:
+            return
         self._evaluate_scan_meta(self._controllers_scan_meta, meta_timing)
 
     def _metadata_of_acq_controllers(self, meta_timing):
         """Update the controller Redis nodes with metadata.
         """
+        # Note: not sure why we disable the others but keep the
+        #       metadata of the acquistion controllers.
+        # not self._enable_scanmeta:
+        #    return
         if meta_timing == META_TIMING.START:
             method_name = "fill_meta_at_scan_start"
         elif meta_timing == META_TIMING.PREPARED:

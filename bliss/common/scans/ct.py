@@ -92,8 +92,6 @@ def ct(
         scan_info=scan_info,
     )
 
-    s._update_scan_info_with_scan_meta = lambda _: None
-
     if run:
         s.run()
 

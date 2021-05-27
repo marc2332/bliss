@@ -19,6 +19,7 @@ import pprint
 from bliss import global_map
 from bliss.common.protocols import HasMetadataForScan, HasMetadataForScanExclusive
 from bliss.common.logtools import user_warning
+from bliss.common.utils import deep_update
 
 
 class META_TIMING(enum.Flag):
@@ -207,7 +208,7 @@ class ScanMeta:
                     if values is None:
                         continue
                 cat_dict = result.setdefault(catname, dict())
-                cat_dict.update(values)
+                deep_update(cat_dict, values)
         return result
 
     def clear(self):

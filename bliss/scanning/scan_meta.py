@@ -278,7 +278,7 @@ def get_user_scan_meta():
     return USER_SCAN_META
 
 
-def get_controllers_scan_meta(filtered_controller_names=None):
+def get_controllers_scan_meta():
     """A new instance is created for every scan.
     """
     scan_meta = ScanMeta()
@@ -292,11 +292,6 @@ def get_controllers_scan_meta(filtered_controller_names=None):
                 # metadata for this controller has to be gathered by acq. chain
                 continue
             if not obj.scan_metadata_enabled:
-                continue
-            if filtered_controller_names and obj.name in filtered_controller_names:
-                # Controllers from which we need metadata, whether it is part of
-                # a scan or not, derive from HasMetadataForScan. When part of the
-                # scan the name will be in filtered_controller_names.
                 continue
 
             def metadata_generator(scan, obj=obj):

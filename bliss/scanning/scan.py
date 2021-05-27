@@ -1471,18 +1471,35 @@ class Scan:
         else:
             return
 
+        if self._controllers_scan_meta:
+            instrument = self._controllers_scan_meta.instrument
+        else:
+            instrument = None
+
         for acq_obj in self.acq_chain.nodes_list:
-            with KillMask(masked_kill_nb=1):
-                fill_meta = getattr(acq_obj, method_name)
-                metadata = fill_meta()
+            # Controllers with the HasScanMetadata interface, as
+            # opposed to HasScanMetadataExclusive, will have their
+            # metadata already in scan_info.
+            if instrument:
+                if instrument.is_set(acq_obj):
+                    continue
+
             # There is a difference between None and an empty dict.
             # An empty dict shows up as a group in the Nexus file
             # while None does not.
+            with KillMask(masked_kill_nb=1):
+                fill_meta = getattr(acq_obj, method_name)
+                metadata = fill_meta()
             if metadata is None:
                 continue
+
+            # Publish to the Redis node of the controller
             node = self.nodes.get(acq_obj)
             if node is not None:
                 update_node_info(node, metadata)
+
+            # Add to the local scan_info, but in a different
+            # place than where _controllers_scan_meta would put it
             if meta_timing in (META_TIMING.START, META_TIMING.PREPARED):
                 self._scan_info._set_device_meta(acq_obj, metadata)
 
@@ -1502,23 +1519,14 @@ class Scan:
 
     @property
     def _user_scan_meta(self):
-        if self.__user_scan_meta is None:
+        if self.__user_scan_meta is None and self._enable_scanmeta:
             self.__user_scan_meta = get_user_scan_meta().copy()
         return self.__user_scan_meta
 
     @property
     def _controllers_scan_meta(self):
-        if self.__controllers_scan_meta is None:
-            # The metadata of controllers involved in the scan is collected
-            # directly by `_metadata_of_acq_controllers`
-            scan_controller_names = []
-            for acq_obj in self.acq_chain.nodes_list:
-                scan_controller_names.append(acq_obj.name)
-            # Register metadata generators for controllers not involved
-            # in the scan (filter out the scan_controller_names).
-            self.__controllers_scan_meta = get_controllers_scan_meta(
-                filtered_controller_names=scan_controller_names
-            )
+        if self.__controllers_scan_meta is None and self._enable_scanmeta:
+            self.__controllers_scan_meta = get_controllers_scan_meta()
         return self.__controllers_scan_meta
 
     def _update_scan_info_in_redis(self):

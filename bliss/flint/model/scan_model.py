@@ -394,6 +394,10 @@ class Scan(qt.QObject, _Sealable):
             raise KeyError("Version do not match")
         return result[1]
 
+    def startTime(self):
+        scanInfo = self.scanInfo()
+        return scanInfo.get("start_time", None)
+
 
 class ScanGroup(Scan):
     """Scan group object.

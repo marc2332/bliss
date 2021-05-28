@@ -890,27 +890,32 @@ class CurvePlotPropertyWidget(qt.QWidget):
         scan = scan_history.create_scan(nodeName)
         widget = self.__focusWidget
         if widget is not None:
-            plots = scan_info_helper.create_plot_model(scan.scanInfo(), scan)
-            plots = [p for p in plots if isinstance(p, plot_item_model.CurvePlot)]
-            if len(plots) == 0:
-                _logger.warning("No curve plot to display")
-                qt.QMessageBox.warning(
-                    None, "Warning", "There was no curve plot in the selected scan"
-                )
-                return
-            plotModel = plots[0]
-            previousWidgetPlot = self.__plotModel
+            if widget.isPreviousScanStored():
+                widget.insertScan(scan)
+            else:
+                plots = scan_info_helper.create_plot_model(scan.scanInfo(), scan)
+                plots = [p for p in plots if isinstance(p, plot_item_model.CurvePlot)]
+                if len(plots) == 0:
+                    _logger.warning("No curve plot to display")
+                    qt.QMessageBox.warning(
+                        None, "Warning", "There was no curve plot in the selected scan"
+                    )
+                    return
+                plotModel = plots[0]
+                previousWidgetPlot = self.__plotModel
 
-            # Reuse only available values
-            if isinstance(previousWidgetPlot, plot_item_model.CurvePlot):
-                model_helper.removeNotAvailableChannels(
-                    previousWidgetPlot, plotModel, scan
-                )
-                widget.setScan(scan)
-            if previousWidgetPlot is None or previousWidgetPlot.isEmpty():
-                if plotModel.styleStrategy() is None:
-                    plotModel.setStyleStrategy(DefaultStyleStrategy(self.__flintModel))
-                widget.setPlotModel(plotModel)
+                # Reuse only available values
+                if isinstance(previousWidgetPlot, plot_item_model.CurvePlot):
+                    model_helper.removeNotAvailableChannels(
+                        previousWidgetPlot, plotModel, scan
+                    )
+                    widget.setScan(scan)
+                if previousWidgetPlot is None or previousWidgetPlot.isEmpty():
+                    if plotModel.styleStrategy() is None:
+                        plotModel.setStyleStrategy(
+                            DefaultStyleStrategy(self.__flintModel)
+                        )
+                    widget.setPlotModel(plotModel)
 
     def __findItemFromPlotItem(
         self, requestedItem: plot_model.Item

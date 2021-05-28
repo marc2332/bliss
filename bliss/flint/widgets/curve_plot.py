@@ -555,6 +555,18 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         self.scanListUpdated.emit(self.__scans)
         self.__redrawAllScans()
 
+    def insertScan(self, scan):
+        if scan is None:
+            return
+        if scan is self.__scan:
+            _logger.warning("Removing the current scan is not available")
+            return
+        self.__scans.append(scan)
+        self.__scans = list(reversed(sorted(self.__scans, key=lambda s: s.startTime())))
+        self.__syncStyleStrategy()
+        self.scanListUpdated.emit(self.__scans)
+        self.__redrawAllScans()
+
     def setMaxStoredScans(self, maxScans: int):
         # FIXME: Must emit event
         self.__maxStoredScans = maxScans

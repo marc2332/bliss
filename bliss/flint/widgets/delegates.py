@@ -378,8 +378,7 @@ class ScanStartTimeDelegate(qt.QStyledItemDelegate):
         return editor
 
     def __toStartTimeText(self, scan: scan_model.Scan) -> str:
-        scanInfo = scan.scanInfo()
-        value = scanInfo.get("start_time", None)
+        value = scan.startTime()
         if value is None:
             return ""
         return value.strftime("%H:%M")

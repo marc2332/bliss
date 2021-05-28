@@ -798,6 +798,15 @@ class CurvePlotPropertyWidget(qt.QWidget):
         toolBar.addAction(action)
         self.__storeScanAction = action
 
+        action = qt.QWidgetAction(self)
+        self.__nbStoredScans = qt.QSpinBox(self)
+        self.__nbStoredScans.setRange(1, 20)
+        self.__nbStoredScans.setToolTip("Max number of displayed scans")
+        self.__nbStoredScans.valueChanged.connect(self.__nbStoredScansChanged)
+        action.setDefaultWidget(self.__nbStoredScans)
+        toolBar.addAction(action)
+        self.__storeScanNumberAction = action
+
         action = qt.QAction(self)
         icon = icons.getQIcon("flint:icons/scan-history")
         action.setIcon(icon)
@@ -811,8 +820,17 @@ class CurvePlotPropertyWidget(qt.QWidget):
 
     def __toggeledShowScans(self, checked):
         self.__scanListView.setVisible(checked)
-        if self.__focusWidget is not None:
-            self.__focusWidget.setPreviousScanStored(checked)
+        curveWidget = self.__focusWidget
+        if curveWidget is not None:
+            curveWidget.setPreviousScanStored(checked)
+            self.__storeScanNumberAction.setVisible(checked)
+
+    def __nbStoredScansChanged(self):
+        value = self.__nbStoredScans.value()
+        curveWidget = self.__focusWidget
+        if curveWidget is not None:
+            if value != curveWidget.maxStoredScans():
+                curveWidget.setMaxStoredScans(value)
 
     def __resetPlotWithOriginalPlot(self):
         widget = self.__focusWidget
@@ -985,6 +1003,8 @@ class CurvePlotPropertyWidget(qt.QWidget):
             scansVisible = widget.isPreviousScanStored()
             self.__scanListView.setVisible(scansVisible)
             self.__storeScanAction.setChecked(scansVisible)
+            self.__nbStoredScans.setValue(widget.maxStoredScans())
+            self.__storeScanNumberAction.setVisible(scansVisible)
 
         self.__currentScanChanged(scanModel)
         self.__currentScanListChanged(widget.scanList())

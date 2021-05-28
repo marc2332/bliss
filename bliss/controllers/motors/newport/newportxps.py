@@ -54,10 +54,6 @@ class NewportXPS(Controller):
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
 
-    def move_done_event_received(self, state, axis=None):
-        if state is True:
-            gevent.sleep(2)
-
     def initialize(self):
         log_debug(self, "initialize() called")
 
@@ -92,7 +88,6 @@ class NewportXPS(Controller):
             self.home_search(axis, False)
         self.read_velocity(axis)
 
-        event.connect(axis, "move_done", self.move_done_event_received)
         log_debug(self, "initialize_axis() complete")
 
     def finalize_axis(self):

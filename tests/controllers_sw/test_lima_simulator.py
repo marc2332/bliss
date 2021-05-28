@@ -416,8 +416,6 @@ def test_roi_profiles_measurements(
     #  H  H  H  H  H
     #  H  H  H  H  H
 
-    # breakpoint()
-
     cam = beacon.get("lima_simulator")
     img_path = os.path.join(str(images_directory), "chart_3.edf")
     load_simulator_frames(cam, 1, img_path)
@@ -606,12 +604,12 @@ def test_lima_geometry_and_rois_measurements(
     arc_params = [
         (cx, cy, 120, 140, 10, 45),  # a0
         (cx, cy, 160, 180, 10, 90),  # a1
-        (cx, cy, 200, 220, 10, 180),  # a2   !
-        (cx, cy, 240, 260, 10, 350),  # a3   !
-        (cx, cy, 280, 300, 10, 182),  # a4   !
+        (cx, cy, 200, 220, 10, 180),  # a2
+        (cx, cy, 240, 260, 10, 350),  # a3
+        (cx, cy, 280, 300, -20, 20),  # a4
         (cx, cy, 320, 340, 100, 200),  # a5
         (cx, cy, 360, 380, 190, 280),  # a6
-        (cx, cy, 400, 420, 200, 350),  # a7
+        (cx, cy, 400, 420, 170, 380),  # a7
     ]
     arc_rois = {}
     for idx, (cx, cy, r1, r2, a1, a2) in enumerate(arc_params):
@@ -717,6 +715,132 @@ def test_lima_geometry_and_rois_measurements(
     cam.roi_counters.clear()
     cam.roi_profiles.clear()
     cam.roi_collection.clear()
+
+
+def test_lima_geometry_and_arc_roi_bounding_box(
+    beacon, default_session, lima_simulator, images_directory
+):
+
+    cam = beacon.get("lima_simulator")
+    cam.roi_counters.clear()
+    cam.roi_profiles.clear()
+    cam.roi_collection.clear()
+    reset_cam(cam, roi=[0, 0, 0, 0])
+
+    img = cam.image
+    img_path = os.path.join(str(images_directory), "testimg.edf")
+
+    arry = numpy.ones((1400, 1200))
+    cx, cy = 600, 300
+
+    # --- arc regions
+    arc_params = [
+        # head
+        (cx, cy, 180, 200, 170, 370),  # a0
+        (cx, cy, 140, 160, -10, 190),  # a1
+        # tits
+        (cx - 100, cy + 300, 60, 80, 4, 355),  # a2
+        (cx + 100, cy + 300, 60, 80, -176, 175),  # a3
+        # eyes
+        (cx - 70, cy - 20, 40, 50, 180, 359),  # a4
+        (cx + 70, cy - 20, 40, 50, 180, 359),  # a5
+        # mouth
+        (cx, cy + 30, 40, 50, 20, 160),  # a6
+        # shoulders
+        (cx - 200, cy + 200, 60, 80, 135, 270),  # a7
+        (cx + 200, cy + 200, 60, 80, 270, 405),  # a8
+        # belly
+        (cx + 260, cy + 545, 190, 210, 135, 225),  # a9
+        (cx - 260, cy + 545, 190, 210, 315, 405),  # a10
+        # bottom
+        (cx - 130, cy + 780, 80, 100, 110, 270),  # a11
+        (cx + 130, cy + 780, 80, 100, 270, 430),  # a12
+    ]
+    arc_rois = {}
+    delta = 4
+    for idx, (cx, cy, r1, r2, a1, a2) in enumerate(arc_params):
+        arry = draw_arc(arry, cx, cy, r1 - delta, r2 + delta, a1 - delta, a2 + delta)
+        arc_rois[f"a{idx}"] = cx, cy, r1, r2, a1, a2
+
+    array_to_file(arry.astype("uint32"), img_path)
+    load_simulator_frames(cam, 1, img_path)
+
+    debug = 0
+    if debug:
+        import matplotlib.pyplot as plt
+
+        plt.imshow(file_to_array(img_path))
+        plt.show()
+
+        from bliss.shell.standard import flint
+
+        pf = flint()
+
+    # ==== measure in raw state ======
+
+    # --- arc rois
+    for name, roi in arc_rois.items():
+        cam.roi_counters[name] = roi
+        [[x1, y1], [x2, y2]] = cam.roi_counters[name].bounding_box()
+        cam.roi_counters["bb" + name] = x1, y1, x2 - x1, y2 - y1
+
+    s = ct(0.001, cam)
+
+    if debug:
+        pf.wait_end_of_scans()
+        time.sleep(1)
+
+    for name in arc_rois.keys():
+        assert s.get_data(name + "_sum")[0] == 0
+
+    print("=== raw rois ==========")
+    print(cam.roi_counters.__info__())
+
+    img.roi = 375, 110, 463, 1090
+
+    s = ct(0.001, cam)
+
+    if debug:
+        pf.wait_end_of_scans()
+        time.sleep(1)
+
+    assert "a0" not in cam.roi_counters.keys()
+    assert "a7" not in cam.roi_counters.keys()
+    assert "a8" not in cam.roi_counters.keys()
+    assert "a11" not in cam.roi_counters.keys()
+
+    img.roi = 0, 0, 0, 0
+
+    assert "a0" in cam.roi_counters.keys()
+    assert "a7" in cam.roi_counters.keys()
+    assert "a8" in cam.roi_counters.keys()
+    assert "a11" in cam.roi_counters.keys()
+
+    # ==== test recalc on geometry changes ======
+
+    flipvals = [[False, False], [True, False], [True, True], [False, True]]
+    binvals = [
+        [1, 1],
+        [2, 2],
+    ]  # lima fails with bin 3,3 for rect roi at rot 90  but not for bin 4,4 !
+    rotvals = [0, 90, 180, 270]
+
+    for binning in binvals:
+        for flip in flipvals:
+            for rotation in rotvals:
+
+                img.set_geometry(binning, flip, rotation)
+                s = ct(0.01, cam)
+
+                print("=== ", binning, flip, rotation)
+                print(cam.roi_counters.__info__())
+
+                for name in arc_rois.keys():
+                    assert s.get_data(name + "_sum")[0] == 0
+
+                if debug:
+                    pf.wait_end_of_scans()
+                    time.sleep(1)
 
 
 def test_directories_mapping(beacon, lima_simulator):

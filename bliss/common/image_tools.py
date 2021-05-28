@@ -201,6 +201,13 @@ def gauss2d(w, h, A=100, sx=10, sy=10, cx=None, cy=None):
 
 
 def arcmask(w, h, cx, cy, r1, r2, a1, a2):
+    if a2 <= a1:
+        raise ValueError(f"a2 must be greater than a1")
+
+    # force angles in range [0, 360]
+    p1 = a1 % 360
+    p2 = a2 % 360
+
     x = np.linspace(0, w - 1, w)
     y = np.linspace(0, h - 1, h)
     x, y = np.meshgrid(x, y)
@@ -208,8 +215,11 @@ def arcmask(w, h, cx, cy, r1, r2, a1, a2):
     radius = (x - cx) ** 2 + (y - cy) ** 2
     c1 = (radius >= r1 ** 2) * (radius <= r2 ** 2)
 
-    angles = (np.arctan2((y - cy), (x - cx)) / DEG2RAD) % 360
-    c2 = (angles >= a1) * (angles <= a2)
+    angles = np.rad2deg(np.arctan2((y - cy), (x - cx))) % 360
+    if p2 < p1:  # add the domains
+        c2 = (angles >= p1) + (angles <= p2)
+    else:  # domains intersection
+        c2 = (angles >= p1) * (angles <= p2)
 
     return c1 * c2
 

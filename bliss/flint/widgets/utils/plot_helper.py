@@ -481,6 +481,8 @@ class FlintItemMixIn:
     def _getColoredSymbol(self, flintModel, scan: scan_model.Scan):
         """Returns a colored HTML char according to the expected plot item style
         """
+        if scan is None:
+            scan = self.__scan
         plotItem = self.customItem()
         if plotItem is not None:
             style = plotItem.getStyle(scan)
@@ -560,7 +562,7 @@ class FlintCurve(Curve, FlintItemMixIn):
             xName = "X"
             yName = "Y"
 
-        char = self._getColoredSymbol(flintModel, scan)
+        char = self._getColoredSymbol(flintModel, None)
 
         text = f"""
         <li style="white-space:pre">{char} <b>{yName}:</b> {yValue} (index {index})</li>

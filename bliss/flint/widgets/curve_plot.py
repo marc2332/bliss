@@ -825,6 +825,7 @@ class CurvePlotWidget(plot_helper.PlotWidget):
             style = item.getStyle(scan)
             curveItem = plot_helper.FlintCurve()
             curveItem.setCustomItem(item)
+            curveItem.setScan(scan)
             curveItem.setData(x=xx, y=yy, copy=False)
             curveItem.setName(legend)
             curveItem.setLineStyle(style.lineStyle)

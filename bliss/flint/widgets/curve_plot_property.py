@@ -790,6 +790,15 @@ class CurvePlotPropertyWidget(qt.QWidget):
         toolBar.addSeparator()
 
         action = qt.QAction(self)
+        icon = icons.getQIcon("flint:icons/scan-many")
+        action.setCheckable(True)
+        action.setIcon(icon)
+        action.setToolTip("Enable displaying many scans and show the list")
+        action.toggled.connect(self.__toggeledShowScans)
+        toolBar.addAction(action)
+        self.__storeScanAction = action
+
+        action = qt.QAction(self)
         icon = icons.getQIcon("flint:icons/scan-history")
         action.setIcon(icon)
         action.setToolTip(
@@ -799,6 +808,11 @@ class CurvePlotPropertyWidget(qt.QWidget):
         toolBar.addAction(action)
 
         return toolBar
+
+    def __toggeledShowScans(self, checked):
+        self.__scanListView.setVisible(checked)
+        if self.__focusWidget is not None:
+            self.__focusWidget.setPreviousScanStored(checked)
 
     def __resetPlotWithOriginalPlot(self):
         widget = self.__focusWidget
@@ -966,6 +980,12 @@ class CurvePlotPropertyWidget(qt.QWidget):
         else:
             plotModel = None
             scanModel = None
+
+        if widget is not None:
+            scansVisible = widget.isPreviousScanStored()
+            self.__scanListView.setVisible(scansVisible)
+            self.__storeScanAction.setChecked(scansVisible)
+
         self.__currentScanChanged(scanModel)
         self.__currentScanListChanged(widget.scanList())
         self.__plotModelUpdated(plotModel)

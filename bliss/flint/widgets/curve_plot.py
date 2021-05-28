@@ -125,7 +125,8 @@ class CurvePlotWidget(plot_helper.PlotWidget):
     def __init__(self, parent=None):
         super(CurvePlotWidget, self).__init__(parent=parent)
         self.__scans: List[scan_model.Scan] = []
-        self.__maxScans = 3
+        self.__maxStoredScans = 3
+        self.__storePreviousScans = False
         self.__flintModel: Optional[flint_model.FlintState] = None
         self.__plotModel: plot_model.Plot = None
 
@@ -554,6 +555,20 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         self.scanListUpdated.emit(self.__scans)
         self.__redrawAllScans()
 
+    def setMaxStoredScans(self, maxScans: int):
+        # FIXME: Must emit event
+        self.__maxStoredScans = maxScans
+
+    def maxStoredScans(self) -> int:
+        return self.__maxStoredScans
+
+    def setPreviousScanStored(self, storeScans: bool):
+        # FIXME: Must emit event
+        self.__storePreviousScans = storeScans
+
+    def isPreviousScanStored(self) -> bool:
+        return self.__storePreviousScans
+
     @property
     def __scan(self):
         if len(self.__scans) == 0:
@@ -577,10 +592,15 @@ class CurvePlotWidget(plot_helper.PlotWidget):
             self.__scan.scanFinished.disconnect(
                 self.__aggregator.callbackTo(self.__scanFinished)
             )
-        if scan is not None:
-            self.__scans.insert(0, scan)
-        while len(self.__scans) > self.__maxScans:
-            del self.__scans[-1]
+        if self.__storePreviousScans:
+            if scan is not None:
+                self.__scans.insert(0, scan)
+            while len(self.__scans) > self.__maxStoredScans:
+                del self.__scans[-1]
+        else:
+            if scan is not None:
+                self.__scans.clear()
+                self.__scans.append(scan)
         self.__syncStyleStrategy()
         self.scanListUpdated.emit(self.__scans)
         if self.__scan is not None:

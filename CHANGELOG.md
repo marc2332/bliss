@@ -9,6 +9,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Removed
+
+## [1.8.0 - 2021-05-28]
+
+### Added
+
+- new 'goto_min()' standard shell function
+- diffractometer support
+    - calculations using libhkl from F.Picca (SOLEIL)
+    - new HKLTrajectoryMaster for scans
+    - 47 new spec-like commands: br, ubr, ca, ci, pa, setmode, ..., hklscan, etc.
+- Axis
+    - user message when changing velocity or acceleration
+    - encoder steps per unit in info string
+- Frontend shutter displays message on mode setting error
+- ESRF CITY synchronization device support
+- OPIOM output signals generator
+- MOCO controller
+    - add set_default_config method which set parameters from yml file
+    - new oprange method
+    - check inbeam/outbeam methods
+    - take source=SOFT into account for 'inbeam' method
+- allow 'undulator_prefix' in addition to 'undu_prefix' in Undulator yml configuration
+- Writer
+    - prevents HDF5 file corruption in case of full disk
+        - print warning every 3 seconds if free disk space is below 1 GB
+        - FAULT state (will stop scan) if free space is below 200 MB
+    - add chunking and compression
+- Display positions of real axes of calc motors during 'umv'
+- MCS LA2000 Linear Servo Amplifier
+- TwoMotorMaster: acquisition master for 2 independent motors
+- additional check for good type of master and device in custom default chain
+- ScanWagoHook: init, post_move, pre_move only called at first motion and last motion of a scan
+- esrf hexapode reports metadata
+- CT2
+    - Integrator functionality
+    - server: multi-board support for spec
+- Lima
+    - NOSAVING mode handling
+    - ROI counters validity checks
+    - automatic adaptation of ROI after camera geometry changes
+- RPC
+    - improve error message on connection failure
+- Shell
+    - new hardware initialization display during BLISS session initialization
+    - new 'tw' standard shell command
+        - display a graphical interface to move selected motors and count
+    - log message at BLISS startup
+    - session creation script displays Beacon server
 - Flint
     - Added a tool to reset a curve plot to the used plotselect
     - Added dedicated widget for acqobj exposing 1D data
@@ -45,6 +98,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Shell
+    - based on ptpython 3
+        - integration with asyncio with aiogevent
+    - starts in monochrome mode
+- relative scans (dscans) translated to absolute scans in data saving
+- ICEPAP motor controller: better error message if connection cannot be established
+    - raises CommunicationError exception
+- Lima
+    - '.use_background_substraction' is replaced by 'use_background' True/False, and 'background_source'image/file
+- progress bar refactoring
+    - new progress bar based on tqdm, avoid memory leak
+    - progress bar is no more intertwined with scan chain
+- ct output: refactoring of formatting code
 - Flint
     - When Flint is not fast enough to reach data from Redis, NaN values
       are used in order to keep the data alignment
@@ -56,13 +122,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Client re-connection on server restart
     - Improved management of current_configuration / default_configuration
 - Project: Remove `-conda` suffix from requirement files
-
 - PI E712 E753
     - uniformization of communication and recorder.
     - "wave" motion generator.
 
 ### Fixed
 
+- Motion hook: post_scan is now executed after motor moved back to original position in case of 'dscan'
+- MCA
+    - better identification of communication errors
+    - when server is restarted, reconfigures device automatically
+    - block size adjusts automatically for Mercury and FalconX
+- RPC
+    - avoid collision between server and service methods
+    - disconnect callback
+    - reporting of BaseException raised in server to client
+    - reporting of Timeout exception
+- Settings
+    - Struct: avoid too many calls to redis by using `__getattr__` instead of `__getattribute__`
+    - use redis to determine last access time
+- CalcMotorController: avoid recursive calls in '_real_position_update'
+- Display of Alias column in lscnt()
+- Measurement Group
+    - fix counters returned in random order
 - Flint
     - Fix initial curve plot selection in order to properly reuse user selection
     - Fixed slow rendering occurred on live curves and scatters with fast scans
@@ -72,6 +154,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
       if not already selected.
     - Fixed update of the property view after an update of the backend
     - Fixed colormap LUT of the scatter plot when it is set with the style dialog
+
+### Removed
+
+- import of SpecClient_gevent in spec communication module
+    - as a consequence, "spec array" type is not supported
+- .statistics for scans
+    - was source of a memory leak
+    - for now: replaced by debugging with yappi
+    - equivalent, graphical version based on work by Linus before he left will be proposed
+
+## [1.7.4 - 2021-05-27]
+
+### Added
+
+- saving of Lima ROI collection
+- regulation
+    - new Pace controller
+    - Eurotherm 2000 (old temperature framework Eurotherm is kept for compatibility)
+- new Smaract MCS2 motor controller
+- new "oscilloscope" module, new Lecroy oscilloscope 
+
+### Changed
+
+- Bump silx version to 0.14.1
+
+### Fixed
+
+- Newport XPS: autoHome is now properly set to False by default, config checks for boolean value
+- fix logging of unicode characters in Electronic Logbook
+- CalcCounterController now works with aliases
+- fixed bad sleep time in integrating counter reading loop
+- removed 3-second hardcoded timeout waiting for STARTING state in scan group
+- saving: ensure dataset is sent to ICAT even when missing Redis nodes (incomplete metadata)
+- reset md5 cache on MUSST after RESET command is called
+- scanning: ensure reading tasks are killed when acquisition stop fails
+- Pilatus hardware ROIs
+- Aerotech motor controller bug in "._cmd" method
+- P201 (client side): clear buffer at the end of reading, in case acq. obj is reused
+- Elmo controller, added retries and communication improvement
+- Calc motor controller and dial_position with disabled caching
+- Flint
+    - Default workspace per BLISS session
+    - Fixed slow rendering occurred on live curves and scatters with fast scans
+    - The video image is now also used for Lima EXTRERNAL_TRIGGER and EXTERNAL_GATE
+    - Fixed memory leak on OpenGL when a widget is not visible
+    - Fixed blinking of the regulation plot legend
 
 ### Removed
 

@@ -642,6 +642,7 @@ class _DataItem(_property_tree_helper.ScanRowItem):
 class ScanItem(NamedTuple):
     scan: scan_model.Scan
     plotModel: plot_model.Plot
+    plotItem: plot_model.Item
     curveWidget: qt.QWidget
 
 
@@ -677,7 +678,7 @@ class ScanTableView(data_views.VDataTableView):
         self.setColumn(
             self.ScanStyleColumn,
             title="Style",
-            delegate=delegates.StyleScanDelegate,
+            delegate=delegates.ScanStyleDelegate,
             resizeMode=qt.QHeaderView.ResizeToContents,
         )
         self.setColumn(
@@ -712,7 +713,6 @@ class ScanTableView(data_views.VDataTableView):
         return qt.QModelIndex()
 
     def selectScan(self, select: scan_model.Scan):
-        model = self.model()
         index = self.scanIndex(select)
         selectionModel = self.selectionModel()
         # selectionModel.reset()
@@ -990,6 +990,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
             index = item.index()
         selectionModel = self.__tree.selectionModel()
         selectionModel.setCurrentIndex(index, flags)
+        self.__syncScanModel()
 
     def __scanSelectionChanged(self, scan: scan_model.Scan):
         curveWidget = self.__focusWidget
@@ -1091,9 +1092,12 @@ class CurvePlotPropertyWidget(qt.QWidget):
         plotModel = self.__plotModel
         if plotModel is None:
             return
+        plotItem = widget.selectedPlotItem()
         scans = widget.scanList()
-        scanList = [ScanItem(s, plotModel, widget) for s in scans]
+        scanList = [ScanItem(s, plotModel, plotItem, widget) for s in scans]
         self.__scanListModel.setObjectList(scanList)
+        with qtutils.blockSignals(self.__scanListView):
+            self.__scanListView.selectScan(widget.selectedScan())
 
     def __structureChanged(self):
         if self.__plotModel.isInTransaction():

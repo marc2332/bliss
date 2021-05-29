@@ -210,7 +210,7 @@ class RemovePropertyItemDelegate(qt.QStyledItemDelegate):
         pass
 
 
-class StyleScanDelegate(qt.QStyledItemDelegate):
+class ScanStyleDelegate(qt.QStyledItemDelegate):
     """Style delegate to display scan style.
     """
 
@@ -220,7 +220,7 @@ class StyleScanDelegate(qt.QStyledItemDelegate):
 
     def createEditor(self, parent, option, index):
         if not index.isValid():
-            return super(StyleScanDelegate, self).createEditor(parent, option, index)
+            return super(ScanStyleDelegate, self).createEditor(parent, option, index)
 
         editor = StylePropertyWidget(parent)
         editor.setEditable(self.__editable)
@@ -242,7 +242,9 @@ class StyleScanDelegate(qt.QStyledItemDelegate):
 
     def __updateEditor(self, editor: qt.QWidget, index: qt.QModelIndex):
         scanItem = index.data(ObjectRole)
-        plotItem = self.__getFirstItem(scanItem.plotModel)
+        plotItem = scanItem.plotItem
+        if plotItem is None:
+            plotItem = self.__getFirstItem(scanItem.plotModel)
         editor.setScan(scanItem.scan)
         editor.setPlotItem(plotItem)
 

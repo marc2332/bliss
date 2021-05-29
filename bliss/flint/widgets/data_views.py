@@ -164,5 +164,7 @@ class VDataTableView(qt.QTableView):
         if delegate is not None:
             if issubclass(delegate, qt.QAbstractItemDelegate):
                 delegate = delegate(self)
-            self.__columnsDelegated.add(columnId)
+            if hasattr(delegate, "EDITOR_ALWAYS_OPEN"):
+                if delegate.EDITOR_ALWAYS_OPEN:
+                    self.__columnsDelegated.add(columnId)
             self.setItemDelegateForColumn(columnId, delegate)

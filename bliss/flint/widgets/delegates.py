@@ -214,6 +214,8 @@ class ScanStyleDelegate(qt.QStyledItemDelegate):
     """Style delegate to display scan style.
     """
 
+    EDITOR_ALWAYS_OPEN = True
+
     def __init__(self, parent=None, editable=False):
         qt.QStyledItemDelegate.__init__(self, parent=parent)
         self.__editable = editable
@@ -306,6 +308,8 @@ class RemoveScanButton(qt.QToolButton):
 
 
 class RemoveScanDelegate(qt.QStyledItemDelegate):
+    EDITOR_ALWAYS_OPEN = True
+
     def createEditor(self, parent, option, index):
         if not index.isValid():
             return super(RemoveScanDelegate, self).createEditor(parent, option, index)
@@ -331,13 +335,7 @@ class RemoveScanDelegate(qt.QStyledItemDelegate):
 
 
 class ScanNumberDelegate(qt.QStyledItemDelegate):
-    def createEditor(self, parent, option, index):
-        if not index.isValid():
-            return super().createEditor(parent, option, index)
-        editor = qt.QLabel(parent=parent)
-        return editor
-
-    def setEditorData(self, editor, index):
+    def initStyleOption(self, option: qt.QStyleOptionViewItem, index: qt.QModelIndex):
         scanItem = index.data(ObjectRole)
         scanInfo = scanItem.scan.scanInfo()
         scanNb = scanInfo.get("scan_nb", None)
@@ -345,20 +343,15 @@ class ScanNumberDelegate(qt.QStyledItemDelegate):
             scanNb = ""
         else:
             scanNb = f"#{scanNb}"
-        editor.setText(scanNb)
+        option.text = scanNb
 
-    def setModelData(self, editor, model, index):
-        pass
+    def sizeHint(self, option: qt.QStyleOptionViewItem, index: qt.QModelIndex):
+        size = option.fontMetrics.size(qt.Qt.TextSingleLine, "####")
+        return size
 
 
 class ScanTitleDelegate(qt.QStyledItemDelegate):
-    def createEditor(self, parent, option, index):
-        if not index.isValid():
-            return super().createEditor(parent, option, index)
-        editor = qt.QLabel(parent=parent)
-        return editor
-
-    def setEditorData(self, editor, index):
+    def initStyleOption(self, option: qt.QStyleOptionViewItem, index: qt.QModelIndex):
         scanItem = index.data(ObjectRole)
         scanInfo = scanItem.scan.scanInfo()
         scanTitle = scanInfo.get("title", None)
@@ -366,32 +359,24 @@ class ScanTitleDelegate(qt.QStyledItemDelegate):
             scanTitle = scanInfo.get("type", None)
         if scanTitle is None:
             scanTitle = ""
-        editor.setText(scanTitle)
-
-    def setModelData(self, editor, model, index):
-        pass
+        option.text = scanTitle
 
 
 class ScanStartTimeDelegate(qt.QStyledItemDelegate):
-    def createEditor(self, parent, option, index):
-        if not index.isValid():
-            return super().createEditor(parent, option, index)
-        editor = qt.QLabel(parent=parent)
-        return editor
-
     def __toStartTimeText(self, scan: scan_model.Scan) -> str:
         value = scan.startTime()
         if value is None:
             return ""
         return value.strftime("%H:%M")
 
-    def setEditorData(self, editor, index):
+    def initStyleOption(self, option: qt.QStyleOptionViewItem, index: qt.QModelIndex):
         scanItem = index.data(ObjectRole)
         text = self.__toStartTimeText(scanItem.scan)
-        editor.setText(text)
+        option.text = text
 
-    def setModelData(self, editor, model, index):
-        pass
+    def sizeHint(self, option: qt.QStyleOptionViewItem, index: qt.QModelIndex):
+        size = option.fontMetrics.size(qt.Qt.TextSingleLine, "##:##")
+        return size
 
 
 class StylePropertyWidget(qt.QWidget):

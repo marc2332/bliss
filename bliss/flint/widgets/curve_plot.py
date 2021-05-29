@@ -119,6 +119,9 @@ class CurvePlotWidget(plot_helper.PlotWidget):
     plotItemSelected = qt.Signal(object)
     """Emitted when a flint plot item was selected by the plot"""
 
+    scanSelected = qt.Signal(object)
+    """Emitted when a flint plot item was selected by the plot"""
+
     scanListUpdated = qt.Signal(object)
     """Emitted when the list of scans is changed"""
 
@@ -149,6 +152,7 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         self.__plot.setBackgroundColor("white")
         self.__view = view_helper.ViewManager(self.__plot)
         self.__selectedPlotItem = None
+        self.__selectedScan: Optional[scan_model.Scan] = None
 
         self.__aggregator = plot_helper.ScalarEventAggregator(self)
         self.__refreshManager = refresh_helper.RefreshManager(self)
@@ -304,56 +308,78 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         propertyWidget = curve_plot_property.CurvePlotPropertyWidget(parent)
         propertyWidget.setFlintModel(self.__flintModel)
         propertyWidget.setFocusWidget(self)
-        propertyWidget.plotItemSelected.connect(self.__plotItemSelectedFromProperty)
         return propertyWidget
 
-    def __findItemFromPlotItem(self, requestedItem: plot_model.Item):
-        """Returns a silx plot item from a flint plot item."""
+    def __findItemFromPlot(
+        self, requestedItem: plot_model.Item, requestedScan: scan_model.Scan
+    ):
+        """Returns a silx plot item from a flint plot item and scan."""
         if requestedItem is None:
             return None
+        alternative = None
         for item in self.__plot.getItems():
             if isinstance(item, plot_helper.FlintCurve):
-                plotItem = item.customItem()
-                if plotItem is requestedItem:
-                    return item
-        return None
+                if item.customItem() is not requestedItem:
+                    continue
+                if item.scan() is not requestedScan:
+                    if item.scan() is self.__scan:
+                        alternative = item
+                    continue
+                return item
+        return alternative
 
     def selectedPlotItem(self) -> Optional[plot_model.Item]:
         """Returns the current selected plot item, if one"""
         return self.__selectedPlotItem
 
+    def selectedScan(self) -> Optional[scan_model.Scan]:
+        """Returns the current selected scan, if one"""
+        return self.__selectedScan
+
     def __selectionChanged(self, previous, current):
         """Callback executed when the selection from the plot was changed"""
         if isinstance(current, plot_helper.FlintCurve):
             selected = current.customItem()
+            scanSelected = current.scan()
         else:
             selected = None
+            scanSelected = None
         self.__selectedPlotItem = selected
         self.plotItemSelected.emit(selected)
+        self.scanSelected.emit(scanSelected)
         if self.__specMode.isEnabled():
             self.__updateTitle(self.__scan)
 
-    def __plotItemSelectedFromProperty(self, selected):
-        """Callback executed when the selection from the property view was
-        changed"""
-        self.selectPlotItem(selected)
+    def selectScan(self, select: scan_model.Scan):
+        wasUpdated = self.__selectedScan is not select
+        self.__selectedScan = select
+        if wasUpdated:
+            self.scanSelected.emit(select)
+        self.__updatePlotWithSelectedCurve()
 
-    def selectPlotItem(self, selected: plot_model.Item, force=False):
+    def selectPlotItem(self, select: plot_model.Item, force=False):
         """Select a flint plot item"""
         if not force:
-            if self.__selectedPlotItem is selected:
+            if self.__selectedPlotItem is select:
                 return
-            if selected is self.selectedPlotItem():
+            if select is self.selectedPlotItem():
                 # Break reentrant signals
                 return
-        self.__selectedPlotItem = selected
-        item = self.__findItemFromPlotItem(selected)
+        wasUpdated = self.__selectedPlotItem is not select
+        self.__selectedPlotItem = select
+        if wasUpdated:
+            self.plotItemSelected.emit(select)
+        self.__updatePlotWithSelectedCurve()
+
+    def __updatePlotWithSelectedCurve(self):
+        item = self.__findItemFromPlot(self.__selectedPlotItem, self.__selectedScan)
         # FIXME: We should not use the legend
         if item is None:
             legend = None
         else:
             legend = item.getLegend()
-        self.__plot.setActiveCurve(legend)
+        with qtutils.blockSignals(self.__plot):
+            self.__plot.setActiveCurve(legend)
 
     def flintModel(self) -> Optional[flint_model.FlintState]:
         return self.__flintModel
@@ -373,6 +399,7 @@ class CurvePlotWidget(plot_helper.PlotWidget):
             self.__plotModel.transactionFinished.disconnect(
                 self.__aggregator.callbackTo(self.__transactionFinished)
             )
+        previousModel = self.__plotModel
         self.__plotModel = plotModel
         self.__syncStyleStrategy()
         if self.__plotModel is not None:
@@ -386,8 +413,27 @@ class CurvePlotWidget(plot_helper.PlotWidget):
                 self.__aggregator.callbackTo(self.__transactionFinished)
             )
         self.plotModelUpdated.emit(plotModel)
+        self.__reselectPlotItem(previousModel, plotModel)
         self.__redrawAllScans()
         self.__syncAxisTitle.trigger()
+
+    def __reselectPlotItem(self, previousModel, plotModel):
+        """Update the plot item selection from the previous plot model to the
+        new plot model"""
+        if previousModel is None or plotModel is None:
+            return
+        selectedItem = self.__selectedPlotItem
+        if selectedItem is None:
+            return
+        expectedLabel = selectedItem.displayName("y", scan=None)
+        for item in plotModel.items():
+            if isinstance(item, plot_item_model.CurveMixIn):
+                if item.isValid():
+                    label = item.displayName("y", scan=None)
+                    if label == expectedLabel:
+                        self.selectPlotItem(item)
+                        return
+        self.selectPlotItem(None)
 
     def plotModel(self) -> plot_model.Plot:
         return self.__plotModel
@@ -615,6 +661,8 @@ class CurvePlotWidget(plot_helper.PlotWidget):
                 self.__scans.append(scan)
         self.__syncStyleStrategy()
         self.scanListUpdated.emit(self.__scans)
+        self.__selectedScan = self.__scan
+        self.scanSelected.emit(self.__scan)
         if self.__scan is not None:
             self.__scan.scanDataUpdated[object].connect(
                 self.__aggregator.callbackTo(self.__scanDataUpdated)

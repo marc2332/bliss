@@ -652,6 +652,8 @@ class ScanTableView(data_views.VDataTableView):
     ScanStyleColumn = 3
     ScanRemoveColumn = 4
 
+    scanSelected = qt.Signal(object)
+
     def initLayout(self):
         """Called after the model was set"""
         self.setColumn(
@@ -687,10 +689,40 @@ class ScanTableView(data_views.VDataTableView):
 
         self.setShowGrid(False)
         self.verticalHeader().setVisible(False)
-
+        selectionModel = self.selectionModel()
+        selectionModel.currentChanged.connect(self.__selectionChanged)
         vheader = self.verticalHeader()
         vheader.setDefaultSectionSize(30)
         vheader.sectionResizeMode(qt.QHeaderView.Fixed)
+
+    def __selectionChanged(self, current: qt.QModelIndex, previous: qt.QModelIndex):
+        model = self.model()
+        index = model.index(current.row(), 0)
+        scan = model.object(index)
+        self.scanSelected.emit(scan.scan)
+
+    def scanIndex(self, scan: scan_model.Scan) -> qt.QModelIndex:
+        """Returns the index of the scan"""
+        model = self.model()
+        for row in range(model.rowCount()):
+            index = model.index(row, 0)
+            obj = model.object(index)
+            if obj.scan is scan:
+                return index
+        return qt.QModelIndex()
+
+    def selectScan(self, select: scan_model.Scan):
+        model = self.model()
+        index = self.scanIndex(select)
+        selectionModel = self.selectionModel()
+        # selectionModel.reset()
+        mode = (
+            qt.QItemSelectionModel.Clear
+            | qt.QItemSelectionModel.Rows
+            | qt.QItemSelectionModel.Current
+            | qt.QItemSelectionModel.Select
+        )
+        selectionModel.select(index, mode)
 
 
 class CurvePlotPropertyWidget(qt.QWidget):
@@ -740,6 +772,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
         self.__scanListModel = data_views.ObjectListModel(self)
         self.__scanListView.setModel(self.__scanListModel)
         self.__scanListView.initLayout()
+        self.__scanListView.scanSelected.connect(self.__scanSelectionChanged)
 
         layout = qt.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -935,6 +968,9 @@ class CurvePlotPropertyWidget(qt.QWidget):
     def __selectionChangedFromPlot(self, current: plot_model.Item):
         self.selectPlotItem(current)
 
+    def __scanSelectionChangedFromPlot(self, current: scan_model.Scan):
+        self.__scanListView.selectScan(current)
+
     def selectPlotItem(self, select: plot_model.Item):
         selectionModel = self.__tree.selectionModel()
         if select is None:
@@ -955,6 +991,11 @@ class CurvePlotPropertyWidget(qt.QWidget):
         selectionModel = self.__tree.selectionModel()
         selectionModel.setCurrentIndex(index, flags)
 
+    def __scanSelectionChanged(self, scan: scan_model.Scan):
+        curveWidget = self.__focusWidget
+        if curveWidget is not None:
+            curveWidget.selectScan(scan)
+
     def __selectionChanged(self, current: qt.QModelIndex, previous: qt.QModelIndex):
         model = self.__tree.model()
         index = model.index(current.row(), 0, current.parent())
@@ -964,6 +1005,9 @@ class CurvePlotPropertyWidget(qt.QWidget):
         else:
             plotItem = None
         self.plotItemSelected.emit(plotItem)
+        curveWidget = self.__focusWidget
+        if curveWidget is not None:
+            curveWidget.selectPlotItem(plotItem)
 
     def selectedPlotItem(self) -> Optional[plot_model.Item]:
         """Returns the current selected plot item, if one"""
@@ -990,12 +1034,14 @@ class CurvePlotPropertyWidget(qt.QWidget):
         if self.__focusWidget is not None:
             widget.plotModelUpdated.disconnect(self.__plotModelUpdated)
             widget.plotItemSelected.disconnect(self.__selectionChangedFromPlot)
+            widget.scanSelected.disconnect(self.__scanSelectionChangedFromPlot)
             widget.scanModelUpdated.disconnect(self.__currentScanChanged)
             widget.scanListUpdated.disconnect(self.__currentScanListChanged)
         self.__focusWidget = widget
         if self.__focusWidget is not None:
             widget.plotModelUpdated.connect(self.__plotModelUpdated)
             widget.plotItemSelected.connect(self.__selectionChangedFromPlot)
+            widget.scanSelected.connect(self.__scanSelectionChangedFromPlot)
             widget.scanModelUpdated.connect(self.__currentScanChanged)
             widget.scanListUpdated.connect(self.__currentScanListChanged)
             plotModel = widget.plotModel()

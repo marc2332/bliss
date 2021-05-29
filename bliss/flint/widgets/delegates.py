@@ -397,8 +397,10 @@ class StylePropertyWidget(qt.QWidget):
         self.__buttonStyle: Optional[qt.QToolButton] = None
         self.__buttonContrast: Optional[qt.QToolButton] = None
 
-        self.__flintModel: Union[None, flint_model.FlintState] = None
-        self.__plotItem: Union[None, plot_model.Item] = None
+        self.__flintModel: Optional[flint_model.FlintState] = None
+        self.__plotItem: Optional[plot_model.Item] = None
+        self.__plotModel: Optional[plot_model.Plot] = None
+        """Holder the item plot to avoid earlier release of the plot"""
         self.__scan: Union[None, scan_model.Scan] = None
 
     def setEditable(self, isEditable):
@@ -497,8 +499,11 @@ class StylePropertyWidget(qt.QWidget):
             self.__plotItem.valueChanged.disconnect(self.__plotItemChanged)
         self.__plotItem = plotItem
         if self.__plotItem is not None:
+            self.__plotModel = self.__plotItem.plot()
             self.__plotItem.valueChanged.connect(self.__plotItemChanged)
             self.__plotItemStyleChanged()
+        else:
+            self.__plotModel = None
         self.__updateEditButton()
 
     def setFlintModel(self, flintModel: flint_model.FlintState = None):

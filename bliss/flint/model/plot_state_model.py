@@ -595,6 +595,19 @@ class NormalizedCurveItem(plot_model.ChildItem, plot_item_model.CurveMixIn):
         if eventType == plot_model.ChangeEventType.X_CHANNEL:
             self._emitValueChanged(plot_model.ChangeEventType.X_CHANNEL)
 
+    def isAvailableInScan(self, scan: scan_model.Scan) -> bool:
+        """Returns true if this item is available in this scan.
+
+        This only imply that the data source is available.
+        """
+        if not plot_model.ChildItem.isAvailableInScan(self, scan):
+            return False
+        monitor = self.monitorChannel()
+        if monitor is not None:
+            if monitor.channel(scan) is None:
+                return False
+        return True
+
     def displayName(self, axisName, scan: scan_model.Scan) -> str:
         """Helper to reach the axis display name"""
         sourceItem = self.source()

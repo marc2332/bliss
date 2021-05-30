@@ -381,6 +381,13 @@ class Item(qt.QObject):
         """
         return None
 
+    def isAvailableInScan(self, scan: scan_model.Scan) -> bool:
+        """Returns true if this item is available in this scan.
+
+        This only imply that the data source is available.
+        """
+        return True
+
     def isValidInScan(self, scan: scan_model.Scan) -> bool:
         """Returns true if this item do not have any messages associated with
         the data of this scan."""
@@ -510,6 +517,19 @@ class ChildItem(Item):
 
     def source(self) -> Optional[Item]:
         return self.__source
+
+    def isAvailableInScan(self, scan: scan_model.Scan) -> bool:
+        """Returns true if this item is available in this scan.
+
+        This only imply that the data source is available.
+        """
+        if not self.isValid():
+            return False
+        source = self.source()
+        if source is not None:
+            if not source.isAvailableInScan(scan):
+                return False
+        return True
 
 
 class ComputableMixIn:

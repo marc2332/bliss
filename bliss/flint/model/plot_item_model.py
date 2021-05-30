@@ -148,6 +148,21 @@ class CurveItem(plot_model.Item, CurveMixIn):
     def isValid(self):
         return self.__x is not None and self.__y is not None
 
+    def isAvailableInScan(self, scan: scan_model.Scan) -> bool:
+        """Returns true if this item is available in this scan.
+
+        This only imply that the data source is available.
+        """
+        if not self.isValid():
+            return False
+        channel = self.xChannel()
+        if channel.channel(scan) is None:
+            return False
+        channel = self.yChannel()
+        if channel.channel(scan) is None:
+            return False
+        return True
+
     def getScanValidation(self, scan: scan_model.Scan) -> Optional[str]:
         """
         Returns None if everything is fine, else a message to explain the problem.
@@ -228,6 +243,18 @@ class XIndexCurveItem(CurveItem):
     def isValid(self):
         channel = self.yChannel()
         return channel is not None
+
+    def isAvailableInScan(self, scan: scan_model.Scan) -> bool:
+        """Returns true if this item is available in this scan.
+
+        This only imply that the data source is available.
+        """
+        if not self.isValid():
+            return False
+        channel = self.yChannel()
+        if channel.channel(scan) is None:
+            return False
+        return True
 
     def xData(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
         yData = self.yData(scan)

@@ -227,6 +227,7 @@ class ScanStyleDelegate(qt.QStyledItemDelegate):
         editor = StylePropertyWidget(parent)
         editor.setEditable(self.__editable)
         editor.setMinimumSize(editor.sizeHint())
+        editor.setCheckItemValidity(True)
         self.__updateEditor(editor, index)
         return editor
 
@@ -402,6 +403,11 @@ class StylePropertyWidget(qt.QWidget):
         self.__plotModel: Optional[plot_model.Plot] = None
         """Holder the item plot to avoid earlier release of the plot"""
         self.__scan: Union[None, scan_model.Scan] = None
+        self.__checkItem = False
+
+    def setCheckItemValidity(self, check: bool):
+        self.__checkItem = check
+        self.__update()
 
     def setEditable(self, isEditable):
         """Set the widget editable.
@@ -574,6 +580,13 @@ class StylePropertyWidget(qt.QWidget):
         else:
             self.__legend.setSymbol(" ")
 
+    def __isItemAvailable(self, item: plot_model.Item, scan: scan_model.Scan):
+        if not self.__checkItem:
+            return True
+        if scan is None:
+            return False
+        return item.isAvailableInScan(scan)
+
     def __update(self):
         plotItem = self.__plotItem
         if plotItem is None:
@@ -583,10 +596,17 @@ class StylePropertyWidget(qt.QWidget):
         else:
             scan = self.__scan
             try:
-                style = plotItem.getStyle(scan)
-                if isinstance(plotItem, plot_item_model.ScatterItem):
+                if not self.__isItemAvailable(plotItem, scan):
+                    self.__legend.setSymbol("x")
+                    self.__legend.setSymbolColor("red")
+                    self.setToolTip("Not available in this scan")
+                elif isinstance(plotItem, plot_item_model.ScatterItem):
+                    self.setToolTip("")
+                    style = plotItem.getStyle(scan)
                     self.__updateScatter(style)
                 else:
+                    self.setToolTip("")
+                    style = plotItem.getStyle(scan)
                     color = self.getQColor(style.lineColor)
                     if style.symbolStyle is not style_model.SymbolStyle.NO_SYMBOL:
                         symbolStyle = style_model.symbol_to_silx(style.symbolStyle)
@@ -606,7 +626,8 @@ class StylePropertyWidget(qt.QWidget):
                     self.__legend.setLineColor(color)
                     self.__legend.setLineStyle(lineStyle)
                     self.__legend.setLineWidth(1.5)
-            except Exception:
+            except Exception as e:
+                self.setToolTip(f"Unknown error<br/>{str(e)}")
                 self.__legend.setLineColor("grey")
                 self.__legend.setLineStyle(":")
                 self.__legend.setLineWidth(1.5)

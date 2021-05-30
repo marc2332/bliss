@@ -782,6 +782,10 @@ class CurvePlotPropertyWidget(qt.QWidget):
         layout.addWidget(self.__tree)
         layout.addWidget(self.__scanListView)
 
+    def resizeEvent(self, event: qt.QResizeEvent):
+        self.__updateScanViewHeight(event.size())
+        return super(CurvePlotPropertyWidget, self).resizeEvent(event)
+
     def __removeAllItems(self):
         if self.__plotModel is None:
             return
@@ -864,6 +868,26 @@ class CurvePlotPropertyWidget(qt.QWidget):
         if curveWidget is not None:
             if value != curveWidget.maxStoredScans():
                 curveWidget.setMaxStoredScans(value)
+        self.__updateScanViewHeight(self.size())
+
+    def __updateScanViewHeight(self, widgetSize: qt.QSize):
+        maxHeight = widgetSize.height() // 2
+        curveWidget = self.__focusWidget
+        expectedRows = curveWidget.maxStoredScans()
+
+        expectedHeight = 0
+        vheader = self.__scanListView.verticalHeader()
+        expectedHeight += expectedRows * vheader.defaultSectionSize()
+        hscrollbar = self.__scanListView.horizontalScrollBar()
+        if not hscrollbar.isHidden():
+            expectedHeight += hscrollbar.height()
+        hheader = self.__scanListView.horizontalHeader()
+        if not hheader.isHidden():
+            expectedHeight += hheader.height()
+
+        expectedHeight = min(maxHeight, expectedHeight)
+        self.__scanListView.setMinimumHeight(expectedHeight)
+        self.__scanListView.setMaximumHeight(expectedHeight)
 
     def __resetPlotWithOriginalPlot(self):
         widget = self.__focusWidget

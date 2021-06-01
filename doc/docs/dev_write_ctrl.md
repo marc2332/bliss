@@ -1,16 +1,16 @@
 # Writing a BLISS controller
 
-Here you can find somt tips about the wrinting of a BLISS controller.
+Here are some tips to help you writing a BLISS controller.
 
 ## @autocomplete_property decorator
 
 In many controllers, the `@property` decorator is heavily used to protect certain
 attributes of the instance or to limit the access to read-only. When using the
-bliss command line interface the autocompletion will **not** suggeste any
+bliss command line interface the autocompletion will **not** suggest any
 completion based on the return value of the method underneath the property.
 
 This is a wanted behavior e.g. in case this would trigger hardware
-communication. There are however also usecases where a *deeper* autocompletion
+communication. There are however also use cases where a *deeper* autocompletion
 is wanted.
 
 !!! note
@@ -58,11 +58,11 @@ In Bliss, `__info__()` is used by the command line interface (Bliss shell or Bli
 repl) to enquire information of the internal state of any object / controller in
 case it is available.
 
-This is used to have simple way to get (detailed) information that is needed
-from a **user point of view** to use the object. This is in contrast to the
-build-in python function `__repr__()`, which should return a short summary of the
-concerned object from the **developer point of view**. The Protocol that is put
-in place in the Bliss shell is the following:
+That way, a user can get information how to use the object, detailed
+**from the user perspective**. This is in contrast to the built-in python function
+`__repr__()`, which should return a short summary of the concerned object from
+the **developer perspective**. The Protocol that is put in place in the Bliss
+shell is the following:
 
 * if the return value of a statement entered into the Bliss shel is a python
   object with `__info__()` implemented this `__info__()` function will be called
@@ -112,7 +112,7 @@ LIMA [5]: my_detectors
                                    object at 0x7f2f535b5f60>}
 ```
 
-In this case it is desirable that the python objects themselves are clearly
+In this case, it is desirable that the python objects themselves are clearly
 represented, which is exactly the role of `__repr__` (in this example the
 `lima_simulator` has a custom `__repr__` while in `simu1` there is no `__repr__`
 implemented so the bulid in python implementation is used).
@@ -143,7 +143,7 @@ BLISS [4]: [a]
     If, for any reason, there is an exception raised inside `__info__`, the
     fallback option will be used and `__repr__` is evaluated in this case.
 
-    And **this will hide the error**. So, *any* error musst be treated
+    And **this will hide the error**. So, *any* error must be treated
     before returning.
 
 
@@ -156,7 +156,7 @@ BLISS [4]: [a]
             return info_str
     ```
 
-The equivalent of `repr(obj)` or `str(obj)` is also availabe in
+The equivalent of `repr(obj)` or `str(obj)` is also available in
 `bliss.shell.standard` as `info(obj)` which can be used also outside the Bliss
 shell.
 
@@ -191,7 +191,7 @@ If implemented in a Python class, `__repr__` and `__str__` methods are
 build-in functions Python to return information about an object instantiating this class.
 
 * `__str__` should print a readable message
-* `__repr__` should print a __short__ message obout the objec that is unambigous (e.g. name of an identifier, class name, etc).
+* `__repr__` should print a __short__ message about the object that is unambiguous (e.g. name of an identifier, class name, etc.).
 
 * `__str__` is called:
     - when the object is passed to the print() function (e.g. `print(my_obj)`).
@@ -207,6 +207,3 @@ build-in functions Python to return information about an object instantiating th
 
 By default when no `__str__` or `__repr__` methods are defined, the `__repr__`
 returns the name of the class (Length) and `__str__` calls `__repr__`.
-
-
-

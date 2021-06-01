@@ -280,6 +280,39 @@ class ArcRoi(_BaseRoi):
             "a2": self.a2,
         }
 
+    def bounding_box(self):
+        # get the 4 'corners' points
+        pts = [self.p1, self.p2, self.p3, self.p4]
+
+        # add extra points (intersection with X and Y axes)
+        # force positive angles and a1 > a2 (so a2 could be greater than 360 and up to 540)
+        a1 = self.a1 % 360
+        a2 = self.a2 % 360
+        if a2 < a1:
+            a2 += 360
+        for theta in [0, 90, 180, 270, 360, 450, 540]:
+            if theta > a1 and theta < a2:
+                px = self.r2 * numpy.cos(numpy.deg2rad(theta)) + self.cx
+                py = self.r2 * numpy.sin(numpy.deg2rad(theta)) + self.cy
+                pts.append([px, py])
+
+        xmini = xmaxi = None
+        ymini = ymaxi = None
+        for (x, y) in pts:
+            if xmini == None or x < xmini:
+                xmini = x
+
+            if ymini == None or y < ymini:
+                ymini = y
+
+            if xmaxi == None or x > xmaxi:
+                xmaxi = x
+
+            if ymaxi == None or y > ymaxi:
+                ymaxi = y
+
+        return [[xmini, ymini], [xmaxi, ymaxi]]
+
 
 class ROI_PROFILE_MODES(str, enum.Enum):
     horizontal = "LINES_SUM"
@@ -765,7 +798,7 @@ class RoiCounters(IntegratingCounterController):
             return True
 
         elif isinstance(roi, ArcRoi):
-            for (x, y) in [roi.p1, roi.p2, roi.p3, roi.p4]:
+            for (x, y) in roi.bounding_box():
 
                 if x < 0 or x >= w0:
                     return False

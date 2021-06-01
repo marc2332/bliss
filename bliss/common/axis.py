@@ -1123,9 +1123,6 @@ class Axis(Scannable):
         """
         Return the axis state
 
-        Keyword Args:
-            read_hw (bool): read from hardware [default: False]
-
         Return:
             AxisState: axis state
         """

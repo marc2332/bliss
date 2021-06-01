@@ -43,7 +43,8 @@ class PI_E753(pi_gcs.Communication, pi_gcs.Recorder, Controller):
     # Init of controller.
     def initialize(self):
         """
-        Controller intialization: open a single socket for all 3 axes.
+        Controller intialization.
+        * 
         """
         self.com_initialize()
 
@@ -71,6 +72,8 @@ class PI_E753(pi_gcs.Communication, pi_gcs.Recorder, Controller):
         # Enables the closed-loop.
         # Can be dangerous ??? test diff between target and position before ???
         # self._set_closed_loop(axis, True)
+
+        # ?
         self._add_recoder_enum_on_axis(axis)
 
     def initialize_encoder(self, encoder):
@@ -190,9 +193,9 @@ class PI_E753(pi_gcs.Communication, pi_gcs.Recorder, Controller):
 
     def _get_pos(self):
         """
-        - no axis parameter as _get_pos() is also used by encoder object.
+        - no <axis> parameter as _get_pos() is also used by encoder object.
 
-        Returns : float'
+        Returns : float
             Real position of axis read by capacitive sensor.
         """
         return float(self.command("POS? 1"))

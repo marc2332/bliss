@@ -655,8 +655,8 @@ class ScanTableView(data_views.VDataTableView):
 
     scanSelected = qt.Signal(object)
 
-    def initLayout(self):
-        """Called after the model was set"""
+    def __init__(self, parent=None):
+        data_views.VDataTableView.__init__(self, parent=parent)
         self.setColumn(
             self.ScanNbColumn,
             title="Nb",
@@ -770,8 +770,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
 
         self.__scanListView = ScanTableView(self)
         self.__scanListModel = data_views.ObjectListModel(self)
-        self.__scanListView.setModel(self.__scanListModel)
-        self.__scanListView.initLayout()
+        self.__scanListView.setSourceModel(self.__scanListModel)
         self.__scanListView.scanSelected.connect(self.__scanSelectionChanged)
 
         layout = qt.QVBoxLayout(self)

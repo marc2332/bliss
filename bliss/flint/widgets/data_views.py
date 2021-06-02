@@ -119,21 +119,10 @@ class ObjectListModel(qt.QAbstractItemModel):
     def __init__(self, parent=None):
         super(ObjectListModel, self).__init__(parent=parent)
         self.__items: typing.List[object] = []
-        self.__delegatedColumns = set()
-        self.__columns = 1
-        self.__columnTitle = {}
 
     def setObjectList(self, items: typing.List[object]):
         self.beginResetModel()
         self.__items = list(items)
-        self.endResetModel()
-
-    def setColumn(self, columnId: int, title: str, delegated=False):
-        self.beginResetModel()
-        if delegated:
-            self.__delegatedColumns.add(columnId)
-        self.__columns = max(self.__columns, columnId + 1)
-        self.__columnTitle[columnId] = title
         self.endResetModel()
 
     def rowCount(self, parent: qt.QModelIndex = qt.QModelIndex()):
@@ -158,67 +147,50 @@ class ObjectListModel(qt.QAbstractItemModel):
     def parent(self, index: qt.QModelIndex):
         return qt.QModelIndex()
 
-    def flags(self, index: qt.QModelIndex):
-        defaultFlags = qt.QAbstractItemModel.flags(self, index)
-        if index.isValid():
-            if index.column() in self.__delegatedColumns:
-                return qt.Qt.ItemIsEditable | defaultFlags
-        return defaultFlags
-
     def data(self, index: qt.QModelIndex, role: int = qt.Qt.DisplayRole):
         row = index.row()
-        col = index.column()
         item = self.__items[row]
-        if role == qt.Qt.DisplayRole:
-            # Basic rendering
-            if col in self.__delegatedColumns:
-                return None
-            return f"{str(item)}"
-        elif role == delegates.ObjectRole:
+        if role == delegates.ObjectRole:
             return item
-
-    def headerData(
-        self,
-        section: int,
-        orientation: qt.Qt.Orientation,
-        role: int = qt.Qt.DisplayRole,
-    ):
-        if role == qt.Qt.DisplayRole:
-            if orientation == qt.Qt.Horizontal:
-                return self.__columnTitle.get(section, str(section))
-        return super(ObjectListModel, self).headerData(section, orientation, role)
+        elif role == qt.Qt.DisplayRole:
+            return str(item)
+        return None
 
     def columnCount(self, parent: qt.QModelIndex = qt.QModelIndex()):
-        return self.__columns
+        return 1
 
 
 class VDataTableView(qt.QTableView):
     """
-    Table view containing a single object per row which is displayed
-    using many columns.
+    Table view using a source model with a single column. A proxy column can
+    be defined and have to be delegate to display expected content.
 
     The default behaviour is to display columns as item delegate.
     Therefor, the method `setColumn` is used to define the layout of the table.
+
+    The view is based on a specific proxy model, thisfor the `setSourceModel`
+    have to be used instead of `setModel`.
     """
 
     def __init__(self, parent=None):
         super(VDataTableView, self).__init__(parent=parent)
         self.__columnsDelegated = set()
+        self.__proxyModel = ProxyColumnModel(self)
+        self.__proxyModel.modelReset.connect(self.__modelWasReset)
+        super(VDataTableView, self).setModel(self.__proxyModel)
         self.setEditTriggers(qt.QAbstractItemView.NoEditTriggers)
         self.setSelectionBehavior(qt.QAbstractItemView.SelectRows)
         self.setSelectionMode(qt.QAbstractItemView.SingleSelection)
         header = self.horizontalHeader()
         header.setHighlightSections(False)
 
-    def setModel(self, model: qt.QAbstractItemModel):
-        if model is not None and not isinstance(model, ObjectListModel):
-            raise ValueError(f"Unsupported model {type(model)}")
-        previousModel = self.model()
-        if previousModel is not None:
-            previousModel.modelReset.disconnect(self.__modelWasReset)
-        qt.QTableView.setModel(self, model)
-        if model is not None:
-            model.modelReset.connect(self.__modelWasReset)
+    def reset(self):
+        qt.QTableView.reset(self)
+        self.__modelWasReset()
+
+    def showEvent(self, event):
+        qt.QTableView.showEvent(self, event)
+        # Editors have to be open  when the widget is shown
         self.__modelWasReset()
 
     def indexToView(self, index, column=None):
@@ -238,15 +210,31 @@ class VDataTableView(qt.QTableView):
         """
         Enforce that each editors are open.
         """
+        if self.isHidden():
+            return
         model = self.model()
         for c in self.__columnsDelegated:
             for r in range(model.rowCount()):
                 index = model.index(r, c)
                 self.openPersistentEditor(index)
 
+    def setModel(self, model):
+        raise RuntimeError("Model is reserved. Use setSourceModel instead")
+
+    def setSourceModel(self, model):
+        """Set the model used by this view.
+
+        As this model enforce a specific proxy model, this method provides a
+        direct access to the model set by the business logic."""
+        self.__proxyModel.setSourceModel(model)
+
+    def sourceModel(self):
+        """Source model used by the proxy model enforced by this view"""
+        return self.__proxyModel.sourceModel()
+
     def setColumn(
         self,
-        columnId: int,
+        logicalColumnId: int,
         title: str,
         delegate: typing.Union[
             typing.Type[qt.QAbstractItemDelegate], qt.QAbstractItemDelegate
@@ -257,20 +245,37 @@ class VDataTableView(qt.QTableView):
         Define a column.
 
         Arguments:
-            columnId: Logical column id
+            logicalColumnId: Logical column id
             title: Title of this column
             delegate: An item delegate instance or class
             resizeMode: Mode used to resize the column
         """
-        model = self.model()
-        model.setColumn(columnId, title=title, delegated=delegate is not None)
+        self.__proxyModel.setColumn(logicalColumnId, title)
         if resizeMode is not None:
             header = self.horizontalHeader()
-            header.setSectionResizeMode(columnId, resizeMode)
+            header.setSectionResizeMode(logicalColumnId, resizeMode)
         if delegate is not None:
             if issubclass(delegate, qt.QAbstractItemDelegate):
                 delegate = delegate(self)
             if hasattr(delegate, "EDITOR_ALWAYS_OPEN"):
                 if delegate.EDITOR_ALWAYS_OPEN:
-                    self.__columnsDelegated.add(columnId)
-            self.setItemDelegateForColumn(columnId, delegate)
+                    self.__columnsDelegated.add(logicalColumnId)
+                    self.__proxyModel.setColumnEditor(logicalColumnId, True)
+            self.setItemDelegateForColumn(logicalColumnId, delegate)
+
+    def setDisplayedColumns(self, logicalColumnIds: typing.List[int]):
+        """
+        Defines order and visibility of columns by logical indexes.
+
+        Arguments:
+            logicalColumnIds: List of logical column indexes to display
+        """
+        header = self.horizontalHeader()
+        for pos, columnId in enumerate(logicalColumnIds):
+            currentPos = header.visualIndex(columnId)
+            header.moveSection(currentPos, pos)
+            header.setSectionHidden(columnId, False)
+        for columnId in set(range(header.model().columnCount())) - set(
+            logicalColumnIds
+        ):
+            header.setSectionHidden(columnId, True)

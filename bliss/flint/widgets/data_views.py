@@ -18,6 +18,9 @@ _logger = logging.getLogger(__name__)
 
 class ProxyColumnModel(qt.QIdentityProxyModel):
     """Provides proxyfied multi columns pointing to the same source column.
+
+    It is mainly used with `modelReset`. `dataChanged` is probably not properly
+    managed.
     """
 
     def __init__(self, parent=None):
@@ -107,6 +110,199 @@ class ProxyColumnModel(qt.QIdentityProxyModel):
         if orientation == qt.Qt.Horizontal:
             return sourceModel.headerData(0, orientation, role)
         return sourceModel.headerData(section, orientation, role)
+
+
+class ProxyColumnStandardModel(ProxyColumnModel):
+    """
+    `ProxyColumnModel` based on a source model using `QStandardItemModel`.
+
+    `ProxyColumnModel` is known to segfault time to time with trees. Using
+    the standard Qt structure allow to get ride of this problem.
+
+    It would be good to fix `ProxyColumnModel` instead, but it's maybe not
+    possible.
+    """
+
+    def parent(self, child: qt.QModelIndex):
+        if not child.isValid():
+            return child
+        if child.column() == 0:
+            return super(ProxyColumnStandardModel, self).parent(child)
+        parentItem = child.internalPointer()
+        if parentItem is None:
+            return qt.QModelIndex()
+        parentIndex = parentItem.index()
+        return parentIndex
+
+    def index(self, row: int, column: int, parent: qt.QModelIndex = qt.QModelIndex()):
+        if column == 0:
+            result = super(ProxyColumnStandardModel, self).index(row, column, parent)
+        else:
+            parentSource = self.mapToSource(parent)
+            sourceModel = self.sourceModel()
+            parentItem = sourceModel.itemFromIndex(parentSource)
+            result = self.createIndex(row, column, parentItem)
+        return result
+
+    def mapToSource(self, proxyIndex: qt.QModelIndex) -> qt.QModelIndex:
+        if not proxyIndex.isValid():
+            return qt.QModelIndex()
+        if proxyIndex.column() != 0:
+            parentItem = proxyIndex.internalPointer()
+            if parentItem is None:
+                parentIndex = qt.QModelIndex()
+            else:
+                parentIndex = parentItem.index()
+            sourceModel = self.sourceModel()
+            return sourceModel.index(proxyIndex.row(), 0, parentIndex)
+        return super(ProxyColumnStandardModel, self).mapToSource(proxyIndex)
+
+    def data(self, index: qt.QModelIndex, role: int = qt.Qt.DisplayRole):
+        if index.isValid():
+            if index.column() != 0:
+                parent = self.parent(index)
+                index = self.index(index.row(), 0, parent)
+        return super(ProxyColumnStandardModel, self).data(index, role)
+
+
+class DataTreeView(qt.QTreeView):
+    def __init__(self, parent=None):
+        qt.QTreeView.__init__(self, parent=parent)
+        self.__columnsDelegated = set()
+        self.__displayedColumnIds = None
+        self.__layoutInvalidated = False
+        self.__proxyModel = ProxyColumnStandardModel(self)
+        super(DataTreeView, self).setModel(self.__proxyModel)
+        self.expanded.connect(self.__expanded)
+
+    def reset(self):
+        self.__layoutInvalidated = True
+        return qt.QTreeView.reset(self)
+
+    def __expanded(self, index: qt.QModelIndex):
+        model = self.model()
+        for c in self.__columnsDelegated:
+            for r in range(model.rowCount(index)):
+                i = model.index(r, c, index)
+                self.openPersistentEditor(i)
+
+    def indexToView(self, index, column=None):
+        """Make sure an index can be used by the view."""
+        if index.model() is self.__proxyModel.sourceModel():
+            index = self.__proxyModel.mapFromSource(index)
+            if column is not None:
+                parent = index.parent()
+                index = self.__proxyModel.index(index.row(), column, parent)
+        return index
+
+    def indexWidget(self, index, column=None):
+        index = self.indexToView(index, column=column)
+        return super(DataTreeView, self).indexWidget(index)
+
+    def expand(self, index: qt.QModelIndex):
+        index = self.indexToView(index)
+        super(DataTreeView, self).expand(index)
+
+    def collapse(self, index: qt.QModelIndex):
+        index = self.indexToView(index)
+        super(DataTreeView, self).collapse(index)
+
+    def event(self, event):
+        result = qt.QTreeView.event(self, event)
+        if event.type() == qt.QEvent.LayoutRequest:
+            # A model reset remove editors and displayed columns
+            # But patching it during the reset is not enough
+            if self.__layoutInvalidated:
+                self.__modelWasReset()
+                self.__layoutInvalidated = False
+        return result
+
+    def showEvent(self, event):
+        qt.QTreeView.showEvent(self, event)
+        # Editors have to be open  when the widget is shown
+        self.__modelWasReset()
+
+    def __modelWasReset(self):
+        """
+        Enforce that each editors are open.
+        """
+        if self.isHidden():
+            return
+        # After a reset displayed columns are lost
+        if self.__displayedColumnIds is not None:
+            self.setDisplayedColumns(self.__displayedColumnIds)
+        # After a reset editors are lost
+        model = self.model()
+        for c in self.__columnsDelegated:
+            for r in range(model.rowCount()):
+                index = model.index(r, c)
+                self.openPersistentEditor(index)
+
+    def setModel(self, model):
+        raise RuntimeError("Model is reserved. Use setSourceModel instead")
+
+    def setSourceModel(self, model):
+        """Set the model used by this view.
+
+        As this model enforce a specific proxy model, this method provides a
+        direct access to the model set by the business logic."""
+        self.__proxyModel.setSourceModel(model)
+        self.__modelWasReset()
+
+    def sourceModel(self):
+        """Source model used by the proxy model enforced by this view"""
+        return self.__proxyModel.sourceModel()
+
+    def setColumn(
+        self,
+        logicalColumnId: int,
+        title: str,
+        delegate: typing.Union[
+            typing.Type[qt.QAbstractItemDelegate], qt.QAbstractItemDelegate
+        ] = None,
+        resizeMode: qt.QHeaderView.ResizeMode = None,
+    ):
+        """
+        Define a column.
+
+        Arguments:
+            logicalColumnId: Logical column id
+            title: Title of this column
+            delegate: An item delegate instance or class
+            resizeMode: Mode used to resize the column
+        """
+        # model = self.model()
+        # model.setColumn(columnId, title=title, delegated=delegate is not None)
+        self.__proxyModel.setColumn(logicalColumnId, title)
+        if resizeMode is not None:
+            header = self.header()
+            header.setSectionResizeMode(logicalColumnId, resizeMode)
+        if delegate is not None:
+            if issubclass(delegate, qt.QAbstractItemDelegate):
+                delegate = delegate(self)
+            if hasattr(delegate, "EDITOR_ALWAYS_OPEN"):
+                if delegate.EDITOR_ALWAYS_OPEN:
+                    self.__columnsDelegated.add(logicalColumnId)
+                    self.__proxyModel.setColumnEditor(logicalColumnId, True)
+            self.setItemDelegateForColumn(logicalColumnId, delegate)
+
+    def setDisplayedColumns(self, logicalColumnIds: typing.List[int]):
+        """
+        Defines order and visibility of columns by logical indexes.
+
+        Arguments:
+            logicalColumnIds: List of logical column indexes to display
+        """
+        self.__displayedColumnIds = logicalColumnIds
+        header = self.header()
+        for pos, columnId in enumerate(logicalColumnIds):
+            currentPos = header.visualIndex(columnId)
+            header.moveSection(currentPos, pos)
+            header.setSectionHidden(columnId, False)
+        for columnId in set(range(header.model().columnCount())) - set(
+            logicalColumnIds
+        ):
+            header.setSectionHidden(columnId, True)
 
 
 class ObjectListModel(qt.QAbstractItemModel):

@@ -646,7 +646,6 @@ class BaseHashSetting(BaseSetting):
     def items(self):
         cnx = self.connection
         next_id = 0
-        seen_keys = set()
         while True:
             next_id, pd = cnx.hscan(self.name, next_id)
             for k, v in pd.items():
@@ -654,9 +653,8 @@ class BaseHashSetting(BaseSetting):
                 k = k.decode()
                 if self._read_type_conversion:
                     v = self._read_type_conversion(v)
-                seen_keys.add(k)
                 yield k, v
-            if not next_id or next_id is "0":
+            if not next_id or next_id == "0":
                 break
 
     def __getitem__(self, key):
@@ -959,20 +957,10 @@ class HashSetting(BaseHashSetting):
         return all_dict
 
     def items(self):
-        cnx = self.connection
-        next_id = 0
         seen_keys = set()
-        while True:
-            next_id, pd = cnx.hscan(self.name, next_id)
-            for k, v in pd.items():
-                # Add key conversion
-                k = k.decode()
-                if self._read_type_conversion:
-                    v = self._read_type_conversion(v)
-                seen_keys.add(k)
-                yield k, v
-            if not next_id or next_id is "0":
-                break
+        for k, v in super().items():
+            seen_keys.add(k)
+            yield k, v
 
         for k, v in self._default_values.items():
             if k in seen_keys:

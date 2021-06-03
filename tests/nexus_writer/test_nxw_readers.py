@@ -41,7 +41,7 @@ def _test_nxw_readers(
     config=True,
     **kwargs
 ):
-    session.scan_saving.technique = "none"
+    session.scan_saving.dataset.all.definition = "none"
     detector = "diode3"
     detectorobj = session.env_dict[detector]
 

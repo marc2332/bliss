@@ -108,7 +108,6 @@ DEMO  [5]: SCAN_SAVING
      .date_format           = '%Y%m%d'
      .scan_number_format    = '%04d'
      .dataset_number_format = '%04d'
-     .technique             = ''
      .session               = 'demo'
      .date                  = '20200208'
      .scan_name             = '{scan_name}'

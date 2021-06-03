@@ -207,7 +207,7 @@ def prepare_scan_saving(session=None, tmpdir=None, policy=True, **kwargs):
                         )
         scan_saving.proposal_name = "testproposal"
         technique = nxw_test_config.technique["withpolicy"]
-        scan_saving.technique = technique
+        scan_saving.proposal.all.definition = technique
         measurementgroup.set_active_name(technique + "MG")
     else:
         tmpdir = str(tmpdir)

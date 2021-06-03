@@ -5,6 +5,7 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import sys
 import gevent
 import uuid
 import enum
@@ -350,7 +351,7 @@ class DataStreamReader:
         self.stop_handler = stop_handler
 
     def __str__(self):
-        return "{}({} subscribed, {} activate, {} consumer".format(
+        return "{}({} subscribed, {} active, {} consumer)".format(
             self.__class__.__name__,
             self.n_subscribed_streams,
             self.n_active_streams,
@@ -448,10 +449,10 @@ class DataStreamReader:
             return
         with pipeline(synchro_stream):
             if end:
-                self._logger.debug("SYNC_END")
+                self._logger.debug("PUBLISH SYNC_END")
                 synchro_stream.add(self.SYNC_END)
             else:
-                self._logger.debug("SYNC_EVENT")
+                self._logger.debug("PUBLISH SYNC_EVENT")
                 synchro_stream.add(self.SYNC_EVENT)
             synchro_stream.ttl(60)
 
@@ -501,7 +502,7 @@ class DataStreamReader:
                     continue
                 if not ignore_excluded and stream.name in self.excluded_stream_names:
                     continue
-                self._logger.debug(f"ADD STREAM {stream.name}")
+                self._logger.debug("ADD STREAM %s", stream.name)
                 self.check_stream_connection(stream)
                 sinfo = self._compile_stream_info(
                     stream, first_index=first_index, priority=priority, **info
@@ -656,6 +657,7 @@ class DataStreamReader:
         with self._read_task_context():
             keep_reading = True
             synchro_name = self._synchro_stream.name
+            self._logger.debug("READING events starts.")
             while keep_reading:
                 # When not waiting for new events (wait=False)
                 # will stop reading after reading all current
@@ -664,8 +666,9 @@ class DataStreamReader:
                 keep_reading = self._wait
 
                 # When wait=True: wait indefinitely when no events
-                self._logger.debug("READING ...")
+                self._logger.debug("READING events ...")
                 lst = self._read_active_streams()
+                self._logger.debug("RECEIVED events %d streams", len(lst))
                 read_priority = None
                 for name, events in lst:
                     name = name.decode()
@@ -676,16 +679,16 @@ class DataStreamReader:
                         # Lower priority streams are never read until
                         # while higher priority streams have unread data
                         keep_reading = True
-                        self._logger.debug("SKIP %s: %d events", name, len(events))
+                        self._logger.debug("SKIP %d events from %s", len(events), name)
                         break
-                    self._logger.debug("PROCESS %s: %d events", name, len(events))
+                    self._logger.debug("PROCESS %d events from %s", len(events), name)
                     if name == synchro_name:
                         self._process_synchro_events(events)
                         keep_reading = True
                     else:
                         self._process_consumer_events(sinfo, events)
                         gevent.idle()
-                self._logger.debug("READING DONE.")
+                self._logger.debug("EVENTS processed.")
 
                 # Keep reading when active streams are modified
                 # by the consumer. This ensures that all streams
@@ -693,6 +696,7 @@ class DataStreamReader:
                 self._wait_no_consuming()
                 if not keep_reading:
                     keep_reading = self.has_new_synchro_events()
+            self._logger.debug("READING events finished.")
 
     def _wait_no_consuming(self):
         """Wait until the consumer is not processing an event
@@ -715,7 +719,7 @@ class DataStreamReader:
         for index, raw in events:
             if streaming_events.EndEvent.istype(raw):
                 # stop reader loop (does not stop consumer)
-                self._logger.debug("STOP reading event")
+                self._logger.debug("RECEIVED stop event")
                 raise StopIteration
         self._synchro_index = index
         self._update_active_streams()
@@ -723,10 +727,19 @@ class DataStreamReader:
     def _log_events(self, task, stream, events):
         if self._logger.getEffectiveLevel() > logging.DEBUG:
             return
-        content = "\n ".join(
-            [f"{raw[b'__EVENT__']}: {raw.get(b'db_name')}" for idx, raw in events]
-        )
-        self._logger.debug(f"{task} {stream.name}:\n {content}")
+        content = "\n ".join(self._log_events_content(events))
+        self._logger.debug(f"{task} from {stream.name}:\n {content}")
+
+    @staticmethod
+    def _log_events_content(events):
+        for _, raw in events:
+            evttype = raw[b"__EVENT__"].decode()
+            db_name = raw.get(b"db_name", b"").decode()
+            nbytes = sys.getsizeof(raw)
+            if db_name:
+                yield f"{evttype}: {db_name} ({nbytes} bytes)"
+            else:
+                yield f"{evttype}: {nbytes} bytes"
 
     def _process_consumer_events(self, sinfo, events):
         """Queue stream events and progress the index
@@ -735,7 +748,7 @@ class DataStreamReader:
         :param dict sinfo: stream info
         :param list events: list((index, raw)))
         """
-        self._log_events("QUEUE", sinfo["stream"], events)
+        self._log_events("BUFFER events", sinfo["stream"], events)
         self._queue.put((sinfo["stream"], events))
         sinfo["first_index"] = events[-1][0]
 
@@ -769,14 +782,15 @@ class DataStreamReader:
             if not self._streams and not self._wait:
                 self._queue.put(StopIteration)
 
-            self._logger.debug("CONSUMING ...")
+            self._logger.debug("CONSUMING events starts.")
             for item in self._queue:
                 if isinstance(item, Exception):
                     raise item
-                self._log_events("QUEUE", item[0], item[1])
+                self._log_events("CONSUME events", item[0], item[1])
                 self._consumer_state = self.ConsumerState.PROCESSING
                 yield item
                 self._consumer_state = self.ConsumerState.WAITING
         finally:
             self._consumer_state = self.ConsumerState.FINISHED
             self._has_consumer = False
+            self._logger.debug("CONSUMING events finished.")

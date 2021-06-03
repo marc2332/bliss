@@ -197,7 +197,7 @@ class Transfocator(HasMetadataForScan):
 
             if self.nb_pinhole == 2:
                 # pinholes are always the first and the last channels
-                self.pinhole = [0, self.nb_lens - 1]
+                self.pinhole = [0, self.nb_lens + 1]
             elif self.nb_pinhole == 1:
                 # the pinhole is always the first channel
                 self.pinhole = [0]

@@ -18,23 +18,26 @@ def test_transfocator(default_session):
 
 def test_transfocator_inout(default_session):
     transfocator = default_session.config.get("transfocator_simulator")
+    assert transfocator.nb_pinhole == 2
+    assert transfocator.nb_lens == 8
     transfocator[:] = 0
+
     assert transfocator.pos_read() == 0
     assert (
         transfocator.__info__()
-        == "Transfocator transfocator_simulator:\nP0   L1   L2   L3   L4   L5   L6   L7   L8\nOUT  OUT  OUT  OUT  OUT  OUT  OUT  OUT  OUT"
+        == "Transfocator transfocator_simulator:\nP0   L1   L2   L3   L4   L5   L6   L7   L8   P9\nOUT  OUT  OUT  OUT  OUT  OUT  OUT  OUT  OUT  OUT"
     )
 
     transfocator[:] = 1
-    assert transfocator.pos_read() == 0b111111111
+    assert transfocator.pos_read() == 0b1111111111
     assert (
         transfocator.__info__()
-        == "Transfocator transfocator_simulator:\nP0  L1  L2  L3  L4  L5  L6  L7  L8\nIN  IN  IN  IN  IN  IN  IN  IN  IN"
+        == "Transfocator transfocator_simulator:\nP0  L1  L2  L3  L4  L5  L6  L7  L8  P9\nIN  IN  IN  IN  IN  IN  IN  IN  IN  IN"
     )
 
     transfocator.set_all(False)
     assert transfocator.pos_read() == 0
     transfocator.set_all()
-    assert transfocator.pos_read() == 0b111111111
+    assert transfocator.pos_read() == 0b1111111111
     transfocator.set_pin(False)
-    assert transfocator.pos_read() == 0b111111110
+    assert transfocator.pos_read() == 0b0111111110

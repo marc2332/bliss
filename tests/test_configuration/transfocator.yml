@@ -3,7 +3,7 @@
     class: TransfocatorMockup
     name: transfocator_simulator
     lenses: 8                      # (1)
-    pinhole: 1                     # (2)
+    pinhole: 2                     # (2)
     safety: False                  # (3)
     controller_ip: localhost       # (4)
     read_mode: 0                   # (5)

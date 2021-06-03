@@ -1575,7 +1575,7 @@ class Scan:
 
         with capture_exceptions(raise_index=0) as capture:
             with capture():
-                # check that icat metadata has been colleted for the dataset
+                # check that icat metadata has been collected for the dataset
                 self.__scan_saving.on_scan_run(not self._shadow_scan_number)
 
                 # create scan node in redis

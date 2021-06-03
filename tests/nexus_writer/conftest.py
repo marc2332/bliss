@@ -7,7 +7,6 @@
 
 import pytest
 import os
-import sys
 import gevent
 from gevent import subprocess
 from contextlib import contextmanager

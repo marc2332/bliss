@@ -7,7 +7,6 @@
 
 import gevent
 import pytest
-from gevent.time import time
 from bliss.common import scans
 from bliss.scanning.scan import ScanAbort
 from bliss.data.node import get_session_node

@@ -13,7 +13,6 @@
 Register metadata generators for a configurable writer
 """
 
-import enum
 from bliss.scanning import scan_meta
 from .subscribers import scan_writer_publish
 

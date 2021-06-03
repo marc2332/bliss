@@ -10,7 +10,6 @@ import pytest
 from bliss.common import scans
 from nexus_writer_service.utils.scan_utils import scan_filename
 from nexus_writer_service.io.io_utils import mkdir
-from nexus_writer_service.io import nexus
 from tests.nexus_writer.helpers import nxw_test_utils
 from ..utils.os_utils import enable_write_permissions, disable_write_permissions
 

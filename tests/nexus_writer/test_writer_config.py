@@ -5,7 +5,6 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import os
 from nexus_writer_service.utils import config_utils
 from nexus_writer_service.utils import scan_utils
 from nexus_writer_service.subscribers import scan_writer_publish

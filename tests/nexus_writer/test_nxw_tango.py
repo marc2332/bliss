@@ -16,8 +16,8 @@ from tests.nexus_writer.helpers import nxw_test_utils
 from tests.nexus_writer.helpers import nxw_test_data
 
 
-def test_nxw_tango_logging(nexus_writer_config):
-    _test_nxw_tango_logging(**nexus_writer_config)
+def test_nxw_tango_logging(nexus_writer_config_capture):
+    _test_nxw_tango_logging(**nexus_writer_config_capture)
 
 
 def test_nxw_tango_api(nexus_writer_config):

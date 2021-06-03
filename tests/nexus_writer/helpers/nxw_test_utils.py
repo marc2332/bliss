@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import gevent
+import gevent.event
 from gevent import subprocess
 import sys
 import functools
@@ -186,6 +187,9 @@ class PopenGreenlet(gevent.Greenlet):
         self.stderr = b""
         self.popenargs = popenargs
         self.popenkw = popenkw
+        if popenkw.pop("capture", False):
+            popenkw.setdefault("stdout", subprocess.PIPE)
+            popenkw.setdefault("stderr", subprocess.PIPE)
 
     def __str__(self):
         if self.process is None:
@@ -196,12 +200,17 @@ class PopenGreenlet(gevent.Greenlet):
     def _run(self):
         self.process = process = subprocess.Popen(*self.popenargs, **self.popenkw)
         try:
-            while True:
-                if process.stdout is not None:
-                    self.stdout += process.stdout.read1()
-                if process.stderr is not None:
-                    self.stderr += process.stderr.read1()
-                gevent.sleep()
+            capture_stdout = process.stdout is not None
+            capture_stderr = process.stderr is not None
+            if capture_stdout or capture_stderr:
+                while True:
+                    if capture_stdout:
+                        self.stdout += process.stdout.read1()
+                    if capture_stderr:
+                        self.stderr += process.stderr.read1()
+                    gevent.sleep(0.1)
+            else:
+                gevent.event.Event().wait()
         except gevent.GreenletExit:
             pass
         finally:

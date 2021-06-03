@@ -664,6 +664,10 @@ class Scan:
             scan_saving = current_session.scan_saving
         self.__scan_saving = scan_saving.clone()
 
+    @property
+    def scan_saving(self):
+        return self.__scan_saving
+
     def _init_scan_display(self):
         self.__scan_display = current_session.scan_display.clone()
 

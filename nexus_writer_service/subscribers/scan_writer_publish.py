@@ -31,6 +31,7 @@ from bliss.controllers.lima.roi import (
 )
 from bliss.common.counter import SamplingCounter
 from ..utils import config_utils
+from ..utils import session_utils
 from ..utils import scan_utils
 
 
@@ -58,7 +59,10 @@ def fill_instrument_name(scan):
     :param bliss.scanning.scan.Scan scan:
     """
     logger.debug("fill instrument name")
-    return {"instrument": config_utils.instrument()}
+    default = session_utils.scan_saving_get(
+        "beamline", scan_saving=scan.scan_saving, default=""
+    )
+    return {"instrument": config_utils.instrument(default=default)}
 
 
 def fill_technique_info(scan):
@@ -66,7 +70,7 @@ def fill_technique_info(scan):
     :param bliss.scanning.scan.Scan scan:
     """
     logger.debug("fill technique info")
-    return {"technique": current_technique_definition()}
+    return {"technique": current_technique_definition(scan.scan_saving)}
 
 
 def fill_masterfiles(scan):
@@ -205,7 +209,11 @@ def writer_config():
 
     :returns dict:
     """
-    return config_utils.static_root_find("nexus_definitions", default={})
+    cfgnode = config_utils.static_root_find("nexus_definitions")
+    if cfgnode is None:
+        return dict()
+    else:
+        return cfgnode.to_dict()
 
 
 def writer_config_get(name, default=None):
@@ -244,13 +252,15 @@ def default_technique():
     return technique_info_get("default", "undefined")
 
 
-def current_technique():
+def current_technique(scan_saving=None):
     """
     Active technique from the session's scan saving object
 
     :returns str:
     """
-    return config_utils.scan_saving_get("technique", default_technique())
+    return session_utils.dataset_get(
+        "definition", default_technique(), scan_saving=scan_saving
+    )
 
 
 def techniques():
@@ -280,13 +290,13 @@ def technique_definition(technique):
         "plots": plots,
         "plotselect": "",
     }
-    technique_info = technique_info_get("techniques", {}).get(technique, {})
-    if technique_info is None:
-        technique_info = {}
+    info = technique_info_get("techniques", {}).get(technique, {})
+    if info is None:
+        info = {}
 
     # Get the application definitions selected for this technique
     applicationdict = technique_info_get("applications", {})
-    for name in technique_info.get("applications", []):
+    for name in info.get("applications", []):
         definition = applicationdict.get(name, {})
         # for example {'xrf':{'I0': 'iodet',
         #                     'It': 'idet',
@@ -298,7 +308,7 @@ def technique_definition(technique):
     # Get the plots selected for this technique
     plotdict = technique_info_get("plots", {})
     plotselect = ""  # this first one is the default
-    for name in technique_info.get("plots", []):
+    for name in info.get("plots", []):
         plotdefinition = plotdict.get(name, {})
         # for examples:
         #   {'personal_name': 'counters', 'items': ['iodet', 'xmap1:deadtime_det2', ...]}
@@ -318,10 +328,10 @@ def technique_definition(technique):
     return ret
 
 
-def current_technique_definition():
+def current_technique_definition(scan_saving=None):
     """
     Current technique definition from the technique info
 
     :returns dict(dict): technique:definition (str:dict)
     """
-    return technique_definition(current_technique())
+    return technique_definition(current_technique(scan_saving=scan_saving))

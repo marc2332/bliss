@@ -11,7 +11,7 @@
 
 import os
 import gevent
-from . import config_utils
+from . import session_utils
 from . import data_policy
 from .logging_utils import print_out
 
@@ -98,7 +98,7 @@ def scan_filename(scan):
     return scan_info_get(scan, "filename")
 
 
-@config_utils.with_scan_saving
+@session_utils.with_scan_saving
 def session_filename(scan_saving=None):
     """
     Name of the file that contains the scan data of the current BLISS session
@@ -106,7 +106,7 @@ def session_filename(scan_saving=None):
     :param bliss.scanning.scan.ScanSaving scan_saving:
     :returns str or None:
     """
-    return config_utils.scan_saving_get(
+    return session_utils.scan_saving_get(
         "filename", default=None, scan_saving=scan_saving
     )
 
@@ -125,7 +125,7 @@ def scan_master_filenames(scan, config=True):
     return info.get("masterfiles", {})
 
 
-@config_utils.with_scan_saving
+@session_utils.with_scan_saving
 def session_master_filenames(scan_saving=None, config=True):
     """
     Names of the files that contain links to the scan data of the current BLISS session
@@ -165,7 +165,7 @@ def scan_filenames(scan, config=True):
     return filenames
 
 
-@config_utils.with_scan_saving
+@session_utils.with_scan_saving
 def session_filenames(scan_saving=None, config=True):
     """
     Names of the files that contain links to the scan data (raw or as links) of the current BLISS session

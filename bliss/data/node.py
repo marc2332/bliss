@@ -676,7 +676,7 @@ class DataNode(metaclass=DataNodeMetaClass):
         1. exists: the principal Redis key is created in Redis
         2. initialized: all Redis keys are created and initialized
         3. supported: initialized + version can be handled by the current implementation
-    
+
     Use the utility methods `get_node`, `get_nodes`, ... to instantiate
     a `DataNode` depending on its state.
     """

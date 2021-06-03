@@ -90,7 +90,8 @@ class Writer(FileWriter):
         self._retry(
             self.scan_writer_started,
             timeout_msg="Cannot check Nexus writer scan state",
-            fail_msg=f"Nexus writing for {self._scan_name} not started before {{time}}",
+            fail_msg=f"Nexus writer did not receive scan '{self._scan_name}' before {{time}}",
+            raise_on_timeout=True,
         )
         self._retry(
             self.check_writer_permissions,

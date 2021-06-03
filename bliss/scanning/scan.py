@@ -36,7 +36,6 @@ from bliss.scanning.scan_meta import (
     get_user_scan_meta,
     get_controllers_scan_meta,
 )
-from bliss.common.motor_group import is_motor_group
 from bliss.common.utils import Null, update_node_info, round
 from bliss.controllers.motor import Controller, get_real_axes
 from bliss.config.conductor.client import get_redis_proxy
@@ -943,15 +942,9 @@ class Scan:
 
     @property
     def get_channels_dict(self):
+        """A dictionary of all channels used in this scan
         """
-        returns a dict containing all channels used in this scan 
-        identified by their fullname
-        """
-        flatten = lambda l: [item for sublist in l for item in sublist]
-
-        return {
-            c.name: c for c in flatten([n.channels for n in self.acq_chain.nodes_list])
-        }
+        return {c.name: c for n in self.acq_chain.nodes_list for c in n.channels}
 
     def add_preset(self, preset):
         """
@@ -1220,18 +1213,14 @@ class Scan:
 
     def _pipeline_execute(self, pipeline, trigger_func):
         while True:
-            try:
-                pipeline.execute()
-                for event in self._pending_watch_callback.get(pipeline, list()):
-                    trigger_func(*event)
-            except:
-                raise
-            else:
-                if not len(self._current_pipeline_stream):
-                    break
-                new_pipeline = self.root_connection.pipeline()
-                pipeline = self._current_pipeline_stream
-                self._current_pipeline_stream = new_pipeline
+            pipeline.execute()
+            for ev in self._pending_watch_callback.get(pipeline, list()):
+                trigger_func(*ev)
+            if not len(self._current_pipeline_stream):
+                break
+            new_pipeline = self.root_connection.pipeline()
+            pipeline = self._current_pipeline_stream
+            self._current_pipeline_stream = new_pipeline
 
     def _swap_pipeline(self):
         with self._stream_pipeline_lock:
@@ -1673,7 +1662,7 @@ class Scan:
                     except KeyboardInterrupt as e:
                         killed = killed_by_user = True
                         raise ScanAbort from e
-                    except BaseException as e:
+                    except BaseException:
                         killed = True
                         raise
 

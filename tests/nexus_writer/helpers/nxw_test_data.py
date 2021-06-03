@@ -430,10 +430,12 @@ def validate_instrument(
         softtimer=softtimer,
         positioners=positioners,
     )
+
     # Positioners
     pos_instrument, _, pos_positioners = expected_positioners(
         master_name=master_name, positioners=positioners, save_options=save_options
     )
+
     # Check all subgroups present
     if config:
         expected = {"title"}
@@ -450,6 +452,10 @@ def validate_instrument(
         "transfocator_simulator",
     }
     assert_set_equal(set(instrument.keys()), expected)
+
+    if config:
+        assert instrument["title"][()] == "esrf-id00a"
+
     # Validate content of positioner NXcollections
     for name in expected_posg:
         assert instrument[name].attrs["NX_class"] == "NXcollection", name
@@ -472,10 +478,12 @@ def validate_instrument(
         if name == "positioners":
             expected |= set(pos_positioners)
         assert_set_equal(set(instrument[name].keys()), expected)
+
     # Validate content of NXpositioner groups
     for name, content in pos_instrument.items():
         assert instrument[name].attrs["NX_class"] == "NXpositioner", name
         assert_set_equal(set(instrument[name].keys()), set(content), msg=name)
+
     # Validate content of NXdetector groups
     variable_length = not all(scan_shape)
     for name in expected_dets:
@@ -495,6 +503,7 @@ def validate_instrument(
                 save_options,
                 variable_length=variable_length,
             )
+
     # Validate content of other groups
     content = dictdump.nxtodict(instrument["beamstop"], asarray=False)
     assert content == {"@NX_class": "NXbeam_stop", "status": "in"}

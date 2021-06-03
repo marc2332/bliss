@@ -17,6 +17,7 @@ def test_config_withoutpolicy(nexus_writer_config_nopolicy):
     validate_writer_config(scan_writer_publish.writer_config())
     assert config_utils.beamline() == "id00"
     assert config_utils.institute() == "ESRF"
+    assert config_utils.instrument() == "esrf-id00a"
     assert scan_writer_publish.default_technique() == "none"
     assert scan_writer_publish.current_technique() == "none"
     filenames = scan_utils.session_filenames(config=True)
@@ -30,6 +31,7 @@ def test_config_withpolicy(nexus_writer_config):
     validate_writer_config(scan_writer_publish.writer_config())
     assert config_utils.beamline() == "id00"
     assert config_utils.institute() == "ESRF"
+    assert config_utils.instrument() == "esrf-id00a"
     assert scan_writer_publish.default_technique() == "none"
     assert scan_writer_publish.current_technique() == "xrfxrd"
     filenames = scan_utils.session_filenames(config=True)

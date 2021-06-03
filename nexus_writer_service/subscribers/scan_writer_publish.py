@@ -58,15 +58,7 @@ def fill_instrument_name(scan):
     :param bliss.scanning.scan.Scan scan:
     """
     logger.debug("fill instrument name")
-    instrument = config_utils.institute()
-    beamline = config_utils.beamline()
-    beamline = config_utils.scan_saving_get("beamline", beamline)
-    if beamline:
-        if instrument:
-            instrument += ": " + beamline
-        else:
-            instrument = beamline
-    return {"instrument": instrument}
+    return {"instrument": config_utils.instrument()}
 
 
 def fill_technique_info(scan):

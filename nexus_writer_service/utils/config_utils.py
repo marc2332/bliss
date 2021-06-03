@@ -143,3 +143,16 @@ def institute():
     name = root.get("laboratory", name)
     name = root.get("synchrotron", name)
     return name
+
+
+def instrument():
+    """
+    :returns str:
+    """
+    root = static_root()
+    name = ""
+    name = root.get("institute", name)
+    name = root.get("laboratory", name)
+    name = root.get("synchrotron", name)
+    name = root.get("instrument", name)
+    return name

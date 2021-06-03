@@ -39,10 +39,24 @@ def run_scan(scan, runasync=False):
             ctrl_params["saving_format"] = "EDF"
             ctrl_params["saving_frame_per_file"] = 3
             ctrl_params["saving_suffix"] = ".edf"
+    run_method = scan_run(scan.run)
     if runasync:
-        return gevent.spawn(scan.run)
+        return gevent.spawn(run_method)
     else:
-        return scan.run()
+        return run_method()
+
+
+def scan_run(run_method):
+    @functools.wraps(run_method)
+    def wrapper(*args, **kw):
+        try:
+            return run_method(*args, **kw)
+        except Exception as e:
+            raise RuntimeError("Scan failed") from e
+        except gevent.Timeout as e:
+            raise RuntimeError("Scan did not finish in time") from e
+
+    return wrapper
 
 
 def assert_async_scans_success(scans, greenlets):

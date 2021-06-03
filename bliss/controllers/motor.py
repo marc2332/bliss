@@ -125,7 +125,7 @@ class Controller(BlissController):
             return "Switch"
 
     @check_disabled
-    def _get_config_subitem(self, name, cfg, parent_key, item_class):
+    def _create_subitem_from_config(self, name, cfg, parent_key, item_class):
 
         if parent_key == "axes":
             if item_class is None:  # it is a reference and name is the object

@@ -187,7 +187,7 @@ class BlissController(CounterContainer):
     @autocomplete_property
     def hardware(self):
         if self._hw_controller is None:
-            self._hw_controller = self._get_hardware()
+            self._hw_controller = self._create_hardware()
         return self._hw_controller
 
     @property
@@ -226,7 +226,7 @@ class BlissController(CounterContainer):
         else:  # its a referenced object (cfg_name contains the object instance)
             item_class = None
 
-        item = self._get_config_subitem(cfg_name, cfg, pkey, item_class)
+        item = self._create_subitem_from_config(cfg_name, cfg, pkey, item_class)
         if item is None:
             msg = f"\nUnable to obtain item {cfg_name} from {self.name} with:\n"
             msg += f"  class: {item_class}\n"
@@ -356,7 +356,7 @@ class BlissController(CounterContainer):
 
     # ========== ABSTRACT METHODS ====================
 
-    def _get_hardware(self):
+    def _create_hardware(self):
         """ return the low level hardware controller interface """
         raise NotImplementedError
 
@@ -388,7 +388,7 @@ class BlissController(CounterContainer):
 
         raise NotImplementedError
 
-    def _get_config_subitem(self, name, cfg, parent_key, item_class):
+    def _create_subitem_from_config(self, name, cfg, parent_key, item_class):
         # Called when a new subitem is created (i.e accessed for the first time via self._get_subitem)
         """ 
             Return the instance of a new item owned by this controller.

@@ -89,13 +89,15 @@ class Mockup(Controller):
 
         self._hw_state.create_state("PARKED", "mot au parking")
 
-    def _get_config_subitem(self, name, cfg, parent_key, item_class):
+    def _create_subitem_from_config(self, name, cfg, parent_key, item_class):
         if parent_key == "switches":
             switch = item_class(name, self, cfg)
             self._switches[name] = switch
             return switch
         else:
-            return super()._get_config_subitem(name, cfg, parent_key, item_class)
+            return super()._create_subitem_from_config(
+                name, cfg, parent_key, item_class
+            )
 
     def steps_position_precision(self, axis):
         """Mockup is really a stepper motor controller"""

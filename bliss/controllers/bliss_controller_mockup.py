@@ -104,7 +104,7 @@ class BCMockup(BlissController):
         "integration_time": ("int_time", "icc"),
     }
 
-    def _get_hardware(self):
+    def _create_hardware(self):
         """ return the low level hardware controller interface """
         return HCMockup(self.config["com"])
 
@@ -120,7 +120,7 @@ class BCMockup(BlissController):
             elif self._COUNTER_TAGS[tag][1] == "icc":
                 return "IntegratingCounter"
 
-    def _get_config_subitem(self, name, cfg, parent_key, item_class):
+    def _create_subitem_from_config(self, name, cfg, parent_key, item_class):
         if parent_key == "counters":
             name = cfg["name"]
             tag = cfg["tag"]
@@ -296,9 +296,9 @@ class Operator:
 
 
 class TestBCMockup(BCMockup):
-    def _get_config_subitem(self, name, cfg, parent_key, item_class):
+    def _create_subitem_from_config(self, name, cfg, parent_key, item_class):
 
-        item = super()._get_config_subitem(name, cfg, parent_key, item_class)
+        item = super()._create_subitem_from_config(name, cfg, parent_key, item_class)
 
         if item is None:
             if parent_key in ["fakeitems", "subsection"]:

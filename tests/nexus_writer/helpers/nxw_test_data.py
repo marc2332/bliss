@@ -515,7 +515,7 @@ def validate_instrument(
     assert content["@NX_class"] == "NXcollection"
     # The value of the L and P datasets is `True`, `False` or `None`.
     # A dataset value of `Ǹone` which is skipped by dicttonx;
-    maxkeys = {"@NX_class", "L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "P0"}
+    maxkeys = {"@NX_class", "L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "P0", "P9"}
     assert not (set(content.keys()) - maxkeys)
 
     content = dictdump.nxtodict(instrument["machine"], asarray=False)

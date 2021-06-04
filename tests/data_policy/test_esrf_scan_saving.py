@@ -1392,6 +1392,9 @@ def test_missing_icat_nodes_not_blocking(
     for policymethod in [newdataset, newsample, newproposal]:
         s = loopscan(1, .001, diode)
 
+        old_dataset = session.scan_saving.dataset
+        assert not old_dataset.is_closed
+
         if missing_dataset:
             dataset = session.scan_saving.dataset.node
             s.root_connection.delete(dataset.db_name)
@@ -1405,8 +1408,12 @@ def test_missing_icat_nodes_not_blocking(
         # Check that the dataset is closed despite the exception
         # due to missing nodes (i.e. incomplete ICAT metadata)
         if missing_dataset or missing_collection or missing_proposal:
-            with pytest.raises(RuntimeError, match="The dataset was closed"):
+            with pytest.raises(
+                RuntimeError,
+                match="The dataset was closed but its ICAT metadata is incomplete",
+            ):
                 policymethod("new")
+            assert old_dataset.is_closed
 
         # Check that the session is not blocked
         policymethod("new")

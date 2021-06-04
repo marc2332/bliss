@@ -1142,6 +1142,6 @@ def nexus_writer_service(ports):
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
 
     with start_tango_server(
-        "NexusWriterService", "testwriters", "--log", "info", device_fqdn=device_fqdn
+        "NexusWriterService", "testwriters", "--log", "warning", device_fqdn=device_fqdn
     ) as dev_proxy:
         yield device_fqdn, dev_proxy

@@ -98,4 +98,4 @@ class PI_E517(PI_E51X):
             )
 
         log_debug(self, "set_gate :  _cmd = %s" % _cmd)
-        self.send_no_ans(axis, _cmd)
+        self.command(_cmd)

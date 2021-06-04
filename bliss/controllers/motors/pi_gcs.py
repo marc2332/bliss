@@ -485,6 +485,7 @@ class Communication:
         """
 
         with self.sock.lock:
+            # print("   CMD=", cmd)
             cmd = cmd.strip()
             need_reply = cmd.find("?") > -1
             cmd = cmd.encode()
@@ -501,11 +502,11 @@ class Communication:
                     )
 
                 if nb_line > 1:
-                    # Multi-lines answer or multiple commands
+                    # print("Multi-lines answer or multiple commands")
                     parsed_reply = list()
                     commands = cmd.split(b"\n")
                     if len(commands) == nb_line:
-                        # Many queries, one reply per query
+                        # print("# Many queries, one reply per query")
                         # Return a tuple of str
                         for cmd, rep in zip(commands, reply):
                             space_pos = cmd.find(b" ")
@@ -516,18 +517,27 @@ class Communication:
                                 # No space in cmd => no param to parse. ex: "*IDN?" "CCL?"
                                 parsed_reply.append(rep)
                     else:
-                        # One command with reply in several lines
+                        # print("# One command with reply in several lines")
                         # Return a list of str
                         space_pos = cmd.find(b" ")
                         if space_pos > -1:
+                            # print("space_pos > -1")
                             args = cmd[space_pos + 1 :]
                             for arg, rep in zip(args.split(), reply):
-                                parsed_reply.append(self._parse_reply(rep, arg, cmd))
+                                parsed_reply.append(
+                                    self._parse_reply(rep, arg, cmd).strip()
+                                )
                         else:
-                            # TSP? TAD? IFC? etc.
+                            # print("# TSP? TAD? IFC? POS? etc.")
+                            # !!!! return non-parsed lines !!!
+                            # ex:
+                            #   pp.controller.command("POS?", nb_line=3)
+                            # return:
+                            #   ['A=32.9347', 'B=9.9985', 'C=15.3014']
                             for ans in reply:
-                                parsed_reply.append(ans.decode())
+                                parsed_reply.append(ans.decode().strip())
                     reply = parsed_reply
+                    # print("   REPLY=", reply)
                 else:
                     # Single line answer.
 

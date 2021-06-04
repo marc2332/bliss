@@ -69,8 +69,8 @@ class PI_E518(PI_E51X):
 
         # print "gate %s on axis channel %d  %f" % (state , self.gate_axis.channel, time.time())
         if state:
-            _cmd = "CTO %d 7 1" % (self.gate_axis.channel)
+            _cmd = "CTO %d 7 1" % (axis.channel)
         else:
-            _cmd = "CTO %d 7 0" % (self.gate_axis.channel)
+            _cmd = "CTO %d 7 0" % (axis.channel)
 
-        self.send_no_ans(self.gate_axis, _cmd)
+        self.command(_cmd)

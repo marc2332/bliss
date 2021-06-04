@@ -446,8 +446,11 @@ class BlissAxis(Device):
         return get_worker().execute(self._dev_state)
 
     def _dev_state(self):
-        """ This command gets the device state (stored in its device_state
-        data member) and returns it to the caller.
+        """
+        * get the device state from self.axis.state
+        * map it into a Tango STATE
+        * store tango state
+        * return tango state
 
         :param : none
         :type: tango.DevVoid

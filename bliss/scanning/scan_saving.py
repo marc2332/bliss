@@ -887,9 +887,8 @@ class ESRFScanSaving(BasicScanSaving):
             self._collection_object = self._get_collection_object(create=True)
         return self._collection_object
 
-    @property
+    @autocomplete_property
     def sample(self):
-        logtools.user_warning("Use 'collection' instead of 'sample'")
         return self.collection
 
     @property_with_eval_dict

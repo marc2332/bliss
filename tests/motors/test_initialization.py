@@ -110,38 +110,158 @@ def test_broken_controller_init(default_session):
     def faulty_initialize(*args, **kwargs):
         raise RuntimeError("FAILED TO INITIALIZE")
 
+    config = get_config()
+
+    # === config._name2instance and config._name2cache are empty
+    # print("=== name2instance:", list(config._name2instance.keys()))
+    # print("=== name2cache:", list(config._name2cache.keys()))
+
+    assert list(config._name2instance.keys()) == []
+    assert list(config._name2cache.keys()) == []
+
     with mock.patch(
         "bliss.controllers.motors.mockup.Mockup.initialize", wraps=faulty_initialize
     ):
-        with pytest.raises(RuntimeError):
+        # === expecting failure during plugin.from_config => BlissController._controller_init()
+        with pytest.raises(RuntimeError, match="FAILED TO INITIALIZE"):
             default_session.config.get("roby")
 
-        with pytest.raises(RuntimeError, match="Controller is disabled"):
+        # === now config._name2instance is still empty because _controller_init() has failed (from_config did not yield bctrl)
+        # === but config._name2cache has been filled with bctrl items
+        print("=== match=FAILED TO INITIALIZE")
+        print("=== name2instance:", list(config._name2instance.keys()))
+        print("=== name2cache:", list(config._name2cache.keys()))
+        assert list(config._name2instance.keys()) == []
+        assert "roby" in list(config._name2cache.keys())
+        assert "robu" in list(config._name2cache.keys())
+        roby_cached_id = id(config._name2cache["roby"])  # store id for later comparison
+        robu_cached_id = id(
+            config._name2cache["robu"]
+        )  # check that another item share the same controller
+        assert roby_cached_id == robu_cached_id
+
+        # === expecting failure during plugin.from_cache => BlissController._get_subitem => __build_subitem_from_config()
+        # === because controller is not initialized properly (see bctrl.__ctrl_is_initialized)
+        with pytest.raises(
+            RuntimeError, match="Controller not initialized"
+        ):  # Controller is disabled
             default_session.config.get("roby")
+
+        # === now config._name2instance is still empty because roby has failed again
+        # === but roby has been remmoved from config._name2cache (during from_cache(roby) at previous step)
+        print("=== match=Controller not initialized")
+        print("=== name2instance:", list(config._name2instance.keys()))
+        print("=== name2cache:", list(config._name2cache.keys()))
+        assert list(config._name2instance.keys()) == []
+        assert "roby" not in list(config._name2cache.keys())
+        assert "robu" in list(config._name2cache.keys())
+
+        # === now roby is not cached anymore so the controller will be initialized again
+        # === so expecting failure during plugin.from_config => BlissController._controller_init()
+        with pytest.raises(RuntimeError, match="FAILED TO INITIALIZE"):
+            default_session.config.get("roby")
+
+        # === and now controller items are cached again but pointing to the new controller instance
+        new_roby_cached_id = id(config._name2cache["roby"])
+        new_robu_cached_id = id(config._name2cache["robu"])
+        assert new_roby_cached_id != roby_cached_id
+        assert new_robu_cached_id != robu_cached_id
 
     with mock.patch(
         "bliss.controllers.motors.mockup.Mockup.initialize_hardware",
         wraps=faulty_initialize,
     ):
+
+        # === now roby is cached with a faulty controller
+        print("=== now roby is cached with a faulty controller")
+        print("=== name2instance:", list(config._name2instance.keys()))
+        print("=== name2cache:", list(config._name2cache.keys()))
+        assert list(config._name2instance.keys()) == []
+        assert "roby" in list(config._name2cache.keys())
+        assert "robu" in list(config._name2cache.keys())
+        assert config._name2cache["roby"]._is_initialized == False
+
+        # === expecting failure during plugin.from_cache => BlissController._get_subitem => __build_subitem_from_config()
+        # === because controller is not initialized properly (see bctrl.__ctrl_is_initialized)
+        with pytest.raises(RuntimeError, match="Controller not initialized"):
+            roby = default_session.config.get("roby")
+
+        # === roby has been removed from cache but still not instantiated
+        print("=== now roby has been removed from cache but still not instantiated")
+        print("=== name2instance:", list(config._name2instance.keys()))
+        print("=== name2cache:", list(config._name2cache.keys()))
+        assert list(config._name2instance.keys()) == []
+        assert "roby" not in list(config._name2cache.keys())
+        assert "robu" in list(config._name2cache.keys())
+
+        # === so controller will be initialized again but successfully this time
+        # === and roby will be initialized too but with faulty controller hardware
         roby = default_session.config.get("roby")
         assert roby
+        assert roby._disabled == False  # not yet disabled because of lasy hardware init
+        assert (
+            roby.controller._disabled == False
+        )  # not yet disabled because of lasy hardware init
+        print("=== assert roby True")
+        print("=== name2instance:", list(config._name2instance.keys()))
+        print("=== name2cache:", list(config._name2cache.keys()))
+        assert id(roby.controller) != new_roby_cached_id  # ctrl has been created again
+        assert (
+            len(list(config._name2instance.keys())) == 1
+        )  # only roby because ctrl has no name else 2
+        assert "roby" in list(config._name2instance.keys())
+        assert "roby" not in list(config._name2cache.keys())
 
-        with pytest.raises(RuntimeError):
+        # === accessing position will force controller to init its hardware and will fail
+        with pytest.raises(RuntimeError, match="FAILED TO INITIALIZE"):
             roby.position  # will call initialize_hardware => will fail
-        # axis roby stays disabled
-        # controller stays disabled
+        # axis roby and controller are now disabled
+        assert roby._disabled == True
+        assert roby.controller._disabled == True
 
     # roby and robu are on the same controller ;
-    # controller is disabled because hardware init failed
+    # controller is disabled because hardware init has failed
+    assert "robu" in list(config._name2cache.keys())
     with pytest.raises(RuntimeError, match="Controller is disabled"):
         default_session.config.get("robu")
+    assert "robu" not in list(config._name2instance.keys())
+    assert "robu" not in list(
+        config._name2cache.keys()
+    )  # robu has been removed from cache
 
     with pytest.raises(RuntimeError, match="Axis roby is disabled"):
         # axis is already disabled
         roby.position
+    assert roby._disabled == True
+    assert roby.controller._disabled == True
 
     with pytest.raises(RuntimeError, match="Controller is disabled"):
         roby.enable()
+    assert roby._disabled == True
+    assert roby.controller._disabled == True
+
+    # === now controller is initialized but disabled
+    # === so call _init() to re-enable the controller
+    roby.controller._init()
+    assert roby.controller._disabled == False
+    roby2 = default_session.config.get("roby")
+    assert roby is roby2
+
+    roby.enable()
+    assert roby._disabled == False
+
+    roby.position
+
+    robu = default_session.config.get("robu")
+    robu.position
+
+    # Note: the re-creation of the controller after 2 consecutive failures with config.get('roby') is dangerous
+    # If you get roby ok (robu in cache) and then hardware fails while getting robu
+    # then if you try to get robu again it will recache roby with new ctrl instance
+
+    # the best would be to keep a single instance of the ctrl and forget about cached items in plugin
+    # actually the controller already cache its items, so plugin just ask to controller if it exist and
+    # even if it has failed to do bctrl._controller_init()
 
 
 def test_encoder_disable_broken_init(default_session):

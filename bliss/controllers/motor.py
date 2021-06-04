@@ -166,6 +166,7 @@ class Controller(BlissController):
     def _init(self):
         try:
             self.initialize()
+            self._disabled = False
         except BaseException:
             self._disabled = True
             raise

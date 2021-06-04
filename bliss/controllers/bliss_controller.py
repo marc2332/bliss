@@ -200,6 +200,10 @@ class BlissController(CounterContainer):
 
     # ========== INTERNAL METHODS (PRIVATE) ============================
 
+    @property
+    def _is_initialized(self):
+        return self.__ctrl_is_initialized
+
     def __build_subitem_from_config(self, name):
         """ 
             Standard method to create an item from its config.
@@ -212,7 +216,7 @@ class BlissController(CounterContainer):
 
         if not self.__ctrl_is_initialized:
             raise RuntimeError(
-                f"{self} not initialized:\n  call '{self.name}._controller_init()'"
+                f"Controller not initialized: {self}\nCall 'ctrl._controller_init()'"
             )
 
         if name not in self._subitems_config:
@@ -338,7 +342,7 @@ class BlissController(CounterContainer):
         return self._subitems[name]
 
     def _controller_init(self):
-        """ Instantiate a controller the same way as the plugin does.
+        """ Initialize a controller the same way as the plugin does.
             This method must be called if the controller has been directly 
             instantiated with a config dictionary (i.e without going through the plugin and YML config). 
         """

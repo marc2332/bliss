@@ -94,7 +94,7 @@ def with_eval_dict(method):
     return eval_func
 
 
-class property_with_eval_dict(property):
+class property_with_eval_dict(autocomplete_property):
     """Combine the `with_eval_dict` and `property` decorators
     """
 
@@ -887,9 +887,8 @@ class ESRFScanSaving(BasicScanSaving):
             self._collection_object = self._get_collection_object(create=True)
         return self._collection_object
 
-    @property
+    @autocomplete_property
     def sample(self):
-        logtools.user_warning("Use 'collection' instead of 'sample'")
         return self.collection
 
     @property_with_eval_dict

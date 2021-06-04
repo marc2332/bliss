@@ -94,7 +94,7 @@ def with_eval_dict(method):
     return eval_func
 
 
-class property_with_eval_dict(property):
+class property_with_eval_dict(autocomplete_property):
     """Combine the `with_eval_dict` and `property` decorators
     """
 

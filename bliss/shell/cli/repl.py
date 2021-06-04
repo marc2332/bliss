@@ -204,15 +204,9 @@ __all__ = ("BlissRepl", "embed", "cli", "configure_repl")
 # patch ptpython signaturetoolbar
 import bliss.shell.cli.ptpython_signature_patch
 
-# patch ptpython completer
+# patch ptpython completer, and jedi
 import bliss.shell.cli.ptpython_completer_patch
 
-# add autocomplete_property to jedi's ALLOWED_DESCRIPTOR_ACCESS
-from bliss.common.utils import autocomplete_property
-import jedi
-
-jedi.Interpreter._allow_descriptor_getattr_default = False
-jedi.inference.compiled.access.ALLOWED_DESCRIPTOR_ACCESS += (autocomplete_property,)
 #############
 
 

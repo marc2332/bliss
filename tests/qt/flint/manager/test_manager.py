@@ -7,117 +7,72 @@ from bliss.flint.model import plot_item_model
 from bliss.flint.widgets.curve_plot import CurvePlotWidget
 from bliss.flint.helper import scan_info_helper
 from bliss.flint.helper import model_helper
+from tests.qt.flint.factory import ScanInfoFactory
 
 
-SCAN_INFO_LIMA_ROIS = {
-    "acquisition_chain": {
-        "timer": {"devices": ["timer", "beamviewer", "beamviewer:roi_counters"]}
-    },
-    "devices": {
-        "timer": {
-            "channels": ["timer:elapsed_time", "timer:epoch"],
-            "triggered_devices": ["beamviewer"],
-        },
-        "beamviewer": {
-            "type": "lima",
-            "triggered_devices": ["beamviewer:roi_counters"],
-            "channels": ["beamviewer:image"],
-        },
-        "beamviewer:roi_counters": {
-            "channels": [
-                "beamviewer:roi_counters:roi1_sum",
-                "beamviewer:roi_counters:roi2_sum",
-            ],
-            "roi1": {"kind": "rect", "x": 190, "y": 110, "width": 600, "height": 230},
-            "roi2": {
-                "kind": "arc",
-                "cx": 487.0,
-                "cy": 513.0,
-                "r1": 137.0,
-                "r2": 198.0,
-                "a1": -172.0,
-                "a2": -300.0,
-            },
-        },
-    },
-    "channels": {
-        "timer:elapsed_time": {"dim": 0},
-        "timer:epoch": {"dim": 0},
-        "beamviewer:roi_counters:roi1_sum": {"dim": 0},
-        "beamviewer:roi_counters:roi2_sum": {"dim": 0},
-        "beamviewer:image": {"dim": 2},
-    },
-}
-
-
-def _create_loopscan_scan_info(extra_name=None):
-    result = {
-        "type": "ascan",
-        "acquisition_chain": {"main": {"devices": ["master", "slave"]}},
-        "devices": {
-            "master": {
-                "channels": ["timer:elapsed_time", "timer:epoch"],
-                "triggered_devices": ["slave"],
-            },
-            "slave": {
-                "channels": [
-                    "timer:elapsed_time",
-                    "timer:epoch",
-                    "simulation_diode_sampling_controller:diode1",
-                    "simulation_diode_sampling_controller:diode2",
-                ]
-            },
-        },
-        "channels": {
-            "timer:elapsed_time": {"dim": 0},
-            "timer:epoch": {"dim": 0},
-            "simulation_diode_sampling_controller:diode1": {"dim": 0},
-            "simulation_diode_sampling_controller:diode2": {"dim": 0},
-        },
-    }
-    if extra_name is not None:
-        result["devices"]["slave"]["channels"].append(extra_name)
-        result["channels"][extra_name] = {"dim": 0}
-    return result
+def _create_loopscan_scan_info():
+    factory = ScanInfoFactory()
+    factory.add_device(root_id="timer", device_id="timer")
+    factory.add_channel(channel_id="timer:elapsed_time", dim=0, unit="s")
+    factory.add_channel(channel_id="timer:epoch", dim=0, unit="s")
+    factory.add_device(root_id="timer", device_id="diode", triggered_by="timer")
+    factory.add_channel(channel_id="diode:diode1", dim=0)
+    factory.add_channel(channel_id="diode:diode2", dim=0)
+    factory["type"] = "loopscan"
+    return factory.scan_info()
 
 
 def _create_ascan_scan_info(master_name, extra_name=None):
-    result = {
-        "type": "ascan",
-        "acquisition_chain": {"main": {"devices": ["master", "slave"]}},
-        "devices": {
-            "master": {"channels": [master_name], "triggered_devices": ["slave"]},
-            "slave": {
-                "channels": [
-                    "timer:elapsed_time",
-                    "timer:epoch",
-                    "simulation_diode_sampling_controller:diode1",
-                    "simulation_diode_sampling_controller:diode2",
-                ]
-            },
-        },
-        "channels": {
-            master_name: {"dim": 0},
-            "timer:elapsed_time": {"dim": 0},
-            "timer:epoch": {"dim": 0},
-            "simulation_diode_sampling_controller:diode1": {"dim": 0},
-            "simulation_diode_sampling_controller:diode2": {"dim": 0},
-        },
-    }
+    factory = ScanInfoFactory()
+    factory.add_device(root_id="ascan", device_id="master")
+    factory.add_channel(channel_id=master_name, device_id="master", dim=0)
+
+    factory.add_device(root_id="ascan", device_id="slave", triggered_by="master")
+    factory.add_channel(
+        channel_id="timer:elapsed_time", device_id="slave", dim=0, unit="s"
+    )
+    factory.add_channel(channel_id="timer:epoch", device_id="slave", dim=0, unit="s")
+    factory.add_channel(channel_id="diode:diode1", device_id="slave", dim=0)
+    factory.add_channel(channel_id="diode:diode2", device_id="slave", dim=0)
     if extra_name is not None:
-        result["devices"]["slave"]["channels"].append(extra_name)
-        result["channels"][extra_name] = {"dim": 0}
-    return result
+        factory.add_channel(channel_id=extra_name, device_id="master", dim=0)
+    factory["type"] = "ascan"
+    return factory.scan_info()
 
 
 def _create_lima_scan_info(include_roi2):
     """
     Simulate a scan containing a lima detector with ROIs.
     """
-    result = copy.deepcopy(SCAN_INFO_LIMA_ROIS)
-    if not include_roi2:
-        del result["devices"]["beamviewer:roi_counters"]["roi2"]
-    return result
+    factory = ScanInfoFactory()
+    factory.add_device(root_id="timer", device_id="timer")
+    factory.add_channel(channel_id="timer:elapsed_time", dim=0)
+    factory.add_channel(channel_id="timer:epoch", dim=0)
+
+    rois = {"roi1": {"kind": "rect", "x": 190, "y": 110, "width": 600, "height": 230}}
+    if include_roi2:
+        rois["roi2"] = {
+            "kind": "arc",
+            "cx": 487.0,
+            "cy": 513.0,
+            "r1": 137.0,
+            "r2": 198.0,
+            "a1": -172.0,
+            "a2": -300.0,
+        }
+    factory.add_lima_device(
+        device_id="beamviewer",
+        root_id="timer",
+        triggered_by="timer",
+        image=True,
+        rois=rois,
+    )
+    factory.add_channel(channel_id="beamviewer:roi_counters:roi1_sum", dim=0)
+    if include_roi2:
+        factory.add_channel(channel_id="beamviewer:roi_counters:roi2_sum", dim=0)
+
+    scan_info = factory.scan_info()
+    return scan_info
 
 
 def test_curve_plot__from_loopscan_to_ascan(local_flint):
@@ -176,12 +131,7 @@ def test_curve_plot__user_selection(local_flint):
 
     # user selection
     model_helper.updateDisplayedChannelNames(
-        plot,
-        scan,
-        [
-            "simulation_diode_sampling_controller:diode1",
-            "simulation_diode_sampling_controller:diode2",
-        ],
+        plot, scan, ["diode:diode1", "diode:diode2"]
     )
     plot.tagUserEditTime()
 

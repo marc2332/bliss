@@ -4,34 +4,39 @@ import numpy
 from bliss.flint.manager import scan_manager
 from bliss.data.lima_image import ImageFormatNotSupported
 from bliss.data.lima_image import Frame
+from tests.qt.flint.factory import ScanInfoFactory
 
 
-SCAN_INFO_1 = {
-    "acquisition_chain": {"main": {"devices": ["master", "slave"]}},
-    "devices": {
-        "master": {"channels": ["axis:roby"], "triggered_devices": ["slave"]},
-        "slave": {"channels": ["timer:elapsed_time"]},
-    },
-    "channels": {"axis:roby": {"dim": 0}, "timer:elapsed_time": {"dim": 0}},
-}
+def _create_scan_info_1(node_name: str):
+    factory = ScanInfoFactory()
+    factory.add_device(root_id="main", device_id="master")
+    factory.add_channel(channel_id="axis:roby", device_id="master", dim=0)
+    factory.add_device(root_id="main", device_id="slave", triggered_by="master")
+    factory.add_channel(
+        channel_id="timer:elapsed_time", device_id="slave", dim=0, unit="s"
+    )
+    factory["node_name"] = node_name
+    return factory.scan_info()
 
-SCAN_INFO_2 = {
-    "acquisition_chain": {"main": {"devices": ["master", "slave"]}},
-    "devices": {
-        "master": {"channels": ["axis:robz"], "triggered_devices": ["slave"]},
-        "slave": {"channels": ["timer:elapsed_time"]},
-    },
-    "channels": {"axis:robz": {"dim": 0}, "timer:elapsed_time": {"dim": 0}},
-}
 
-SCAN_INFO_3 = {
-    "acquisition_chain": {"main": {"devices": ["master", "slave"]}},
-    "devices": {
-        "master": {"channels": ["lima:image"], "triggered_devices": ["slave"]},
-        "slave": {"channels": []},
-    },
-    "channels": {"lima:image": {"dim": 2}},
-}
+def _create_scan_info_2(node_name: str):
+    factory = ScanInfoFactory()
+    factory.add_device(root_id="main", device_id="master")
+    factory.add_channel(channel_id="axis:robz", device_id="master", dim=0)
+    factory.add_device(root_id="main", device_id="slave", triggered_by="master")
+    factory.add_channel(
+        channel_id="timer:elapsed_time", device_id="slave", dim=0, unit="s"
+    )
+    factory["node_name"] = node_name
+    return factory.scan_info()
+
+
+def _create_scan_info_3(node_name: str):
+    factory = ScanInfoFactory()
+    factory.add_device(root_id="main", device_id="master")
+    factory.add_channel(channel_id="lima:image", device_id="master", dim=2)
+    factory["node_name"] = node_name
+    return factory.scan_info()
 
 
 class MockedScanManager(scan_manager.ScanManager):
@@ -58,8 +63,8 @@ def _create_scan_info(node_name, base_scan_info):
 
 
 def test_interleaved_scans():
-    scan_info_1 = _create_scan_info("scan1", SCAN_INFO_1)
-    scan_info_2 = _create_scan_info("scan2", SCAN_INFO_2)
+    scan_info_1 = _create_scan_info_1("scan1")
+    scan_info_2 = _create_scan_info_2("scan2")
 
     manager = MockedScanManager(flintModel=None)
     # Disabled async consumption
@@ -90,8 +95,8 @@ def test_interleaved_scans():
 
 
 def test_sequencial_scans():
-    scan_info_1 = _create_scan_info("scan1", SCAN_INFO_1)
-    scan_info_2 = _create_scan_info("scan2", SCAN_INFO_2)
+    scan_info_1 = _create_scan_info_1("scan1")
+    scan_info_2 = _create_scan_info_2("scan2")
 
     manager = MockedScanManager(flintModel=None)
 
@@ -115,7 +120,7 @@ def test_sequencial_scans():
 
 
 def test_bad_sequence__end_before_new():
-    scan_info_1 = _create_scan_info("scan1", SCAN_INFO_1)
+    scan_info_1 = _create_scan_info_1("scan1")
     manager = MockedScanManager(flintModel=None)
 
     manager.emit_scan_finished(scan_info_1)
@@ -166,7 +171,7 @@ class MockedLimaNode:
 
 
 def test_image__default():
-    scan_info_3 = _create_scan_info("scan1", SCAN_INFO_3)
+    scan_info_3 = _create_scan_info_3("scan1")
 
     manager = MockedScanManager(flintModel=None)
 
@@ -187,7 +192,7 @@ def test_image__default():
 
 
 def test_image__disable_video():
-    scan_info_3 = _create_scan_info("scan1", SCAN_INFO_3)
+    scan_info_3 = _create_scan_info_3("scan1")
 
     manager = MockedScanManager(flintModel=None)
 
@@ -212,7 +217,7 @@ def test_image__disable_video():
 
 
 def test_image__decoding_error():
-    scan_info_3 = _create_scan_info("scan1", SCAN_INFO_3)
+    scan_info_3 = _create_scan_info_3("scan1")
 
     manager = MockedScanManager(flintModel=None)
 
@@ -237,7 +242,7 @@ def test_image__decoding_error():
 
 
 def test_prefered_user_refresh():
-    scan_info_3 = _create_scan_info("scan1", SCAN_INFO_3)
+    scan_info_3 = _create_scan_info_3("scan1")
 
     manager = MockedScanManager(flintModel=None)
 
@@ -270,7 +275,7 @@ def test_prefered_user_refresh():
 
 def test_scalar_data_lost():
     scan_db_name = "scan1"
-    scan_info_1 = _create_scan_info(scan_db_name, SCAN_INFO_1)
+    scan_info_1 = _create_scan_info_1(scan_db_name)
 
     manager = MockedScanManager(flintModel=None)
     # Disabled async consumption

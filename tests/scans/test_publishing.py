@@ -1718,3 +1718,53 @@ def test_walk_new_events_filter(session):
             _filter_walk_get_nodes(session_node.walk_on_new_events, wait=True, **kw)
         )
         assert not db_names, kw
+
+
+@pytest.mark.parametrize(
+    "parents_exist, only_new_events", itertools.product([True, False], [True, False])
+)
+def test_walk_existing_parent_nodes(parents_exist, only_new_events, session):
+    if parents_exist:
+        session.scan_saving.get_parent_node()
+
+    started_event = gevent.event.Event()
+
+    events = list()
+
+    def watcher():
+        node = get_session_node(session.name)
+        if only_new_events:
+            eventgen = node.walk_on_new_events
+        else:
+            eventgen = node.walk_events
+
+        for ev in eventgen(started_event=started_event):
+            events.append(ev)
+            if ev.type == ev.type.END_SCAN:
+                break
+
+    g = gevent.spawn(watcher)
+    assert started_event.wait(timeout=3)
+
+    diode = session.env_dict["diode"]
+    scans.loopscan(1, .1, diode)
+    g.join(timeout=3)
+    try:
+        assert not g, "Did not receive END_SCAN event"
+    except AssertionError:
+        g.kill(timeout=3)
+        raise
+
+    nroot = len(session.scan_saving._db_path_keys) - 1  # -1 for the session node
+    containers_per_scan = 2  # master, controller
+    channels_per_scan = 3  # epoch, elapsed, diode
+    nodes_per_scan = 1 + containers_per_scan + channels_per_scan
+    nevents = 0
+    if not parents_exist or not only_new_events:
+        nevents += nroot  # NEW_NODE
+    nevents += nodes_per_scan  # NEW_NODE
+    nevents += channels_per_scan  # NEW_DATA
+    nevents += 1  # END_SCAN
+    nevents += 1  # PREPARED_SCAN
+
+    assert len(events) == nevents

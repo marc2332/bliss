@@ -909,7 +909,7 @@ class HashSetting(BaseHashSetting):
         connection=None,
         read_type_conversion=auto_coerce,
         write_type_conversion=str,
-        default_values={},
+        default_values=None,
     ):
         super().__init__(
             name,
@@ -917,6 +917,8 @@ class HashSetting(BaseHashSetting):
             read_type_conversion=read_type_conversion,
             write_type_conversion=write_type_conversion,
         )
+        if default_values is None:
+            default_values = dict()
         self._default_values = default_values
 
     @read_decorator
@@ -968,10 +970,12 @@ class HashSettingProp(BaseSetting):
         connection=None,
         read_type_conversion=auto_coerce,
         write_type_conversion=str,
-        default_values={},
+        default_values=None,
         use_object_name=True,
     ):
         super().__init__(name, connection, read_type_conversion, write_type_conversion)
+        if default_values is None:
+            default_values = dict()
         self._default_values = default_values
         self._use_object_name = use_object_name
 

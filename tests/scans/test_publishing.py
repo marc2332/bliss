@@ -41,6 +41,13 @@ from bliss.scanning.channel import AcquisitionChannel
 
 
 @pytest.fixture
+def streaming_debug_logging():
+    # Show streaming logs when test fails
+    logger = logging.getLogger("bliss.config.streaming")
+    logger.setLevel(logging.DEBUG)
+
+
+@pytest.fixture
 def lima_session(beacon, scan_tmpdir, lima_simulator):
     session = beacon.get("lima_test_session")
     session.setup()
@@ -206,7 +213,7 @@ def _validate_node_indexing(node, shape, dtype, npoints, expected_data, extract)
         extract(node[3:1])
 
 
-def test_scan_data_0d(session, redis_data_conn):
+def test_scan_data_0d(session, redis_data_conn, streaming_debug_logging):
     simul_counter = session.env_dict.get("sim_ct_gauss")
     npoints = 10
     s = scans.timescan(
@@ -239,7 +246,7 @@ def test_scan_data_0d(session, redis_data_conn):
     _validate_node_indexing(node, tuple(), float, npoints, expected_data, extract)
 
 
-def test_lima_data_channel_node(lima_session, redis_data_conn):
+def test_lima_data_channel_node(lima_session, redis_data_conn, streaming_debug_logging):
     lima_sim = lima_session.env_dict["lima_simulator"]
     npoints = 10
     s = scans.timescan(0.1, lima_sim, npoints=npoints)
@@ -282,7 +289,7 @@ def test_lima_data_channel_node(lima_session, redis_data_conn):
     )
 
 
-def test_data_iterator_event(beacon, redis_data_conn, session):
+def test_data_iterator_event(beacon, redis_data_conn, session, streaming_debug_logging):
     def iterate_channel_events(scan_db_name, channels):
         for e, n, data in get_node(scan_db_name).walk_events():
             if e == e.NEW_DATA:
@@ -327,7 +334,9 @@ def test_data_iterator_event(beacon, redis_data_conn, session):
 
 
 @pytest.mark.parametrize("with_roi", [False, True], ids=["without ROI", "with ROI"])
-def test_reference_with_lima(redis_data_conn, lima_session, with_roi):
+def test_reference_with_lima(
+    redis_data_conn, lima_session, with_roi, streaming_debug_logging
+):
     lima_sim = getattr(setup_globals, "lima_simulator")
 
     # Roi handling
@@ -353,7 +362,9 @@ def test_reference_with_lima(redis_data_conn, lima_session, with_roi):
 
 
 @pytest.mark.parametrize("with_roi", [False, True], ids=["without ROI", "with ROI"])
-def test_iterator_over_reference_with_lima(redis_data_conn, lima_session, with_roi):
+def test_iterator_over_reference_with_lima(
+    redis_data_conn, lima_session, with_roi, streaming_debug_logging
+):
     npoints = 5
     exp_time = 1
     lima_sim = getattr(setup_globals, "lima_simulator")
@@ -443,7 +454,7 @@ def test_ttl_setter(session, capsys, enable_ttl):
     assert err == ""
 
 
-def test_walk_after_nodes_disappeared(session):
+def test_walk_after_nodes_disappeared(session, streaming_debug_logging):
     detector = session.env_dict["diode"]
     s = scans.loopscan(1, 0.1, detector)
     session_db_name = session.name
@@ -513,7 +524,7 @@ def test_walk_after_nodes_disappeared(session):
     validate_count(nnodes, nevents)
 
 
-def test_children_timing(beacon, session):
+def test_children_timing(beacon, session, streaming_debug_logging):
     diode2 = session.env_dict["diode2"]
 
     def walker(db_name):
@@ -606,7 +617,7 @@ def test_scan_end_timing(
         # if this raises "END_SCAN" event was not emitted
 
 
-def test_data_shape_of_get(default_session):
+def test_data_shape_of_get(default_session, streaming_debug_logging):
     class myAcqDev(AcquisitionSlave):
         def __init__(self):
             class dev:
@@ -658,7 +669,7 @@ def test_data_shape_of_get(default_session):
     assert numpy.array(mynode.get_as_array(0, 2)).dtype == numpy.float64
 
 
-def test_stop_before_any_walk_event(default_session):
+def test_stop_before_any_walk_event(default_session, streaming_debug_logging):
     session_node = get_session_node(default_session.name)
     event = gevent.event.Event()
 
@@ -677,7 +688,7 @@ def test_stop_before_any_walk_event(default_session):
         task.get()
 
 
-def test_stop_after_first_walk_event(session):
+def test_stop_after_first_walk_event(session, streaming_debug_logging):
     session_node = get_session_node(session.name)
     event = gevent.event.Event()
 
@@ -720,10 +731,6 @@ def _count_node_events(
     :param num overhead: per event
     :returns dict or list, int: events or nodes, number of detectors in scan
     """
-    # Show streaming logs when test fails
-    l = logging.getLogger("bliss.config.streaming")
-    l.setLevel(logging.DEBUG)
-
     if beforestart:
         wait = True
 
@@ -871,7 +878,9 @@ _count_parameters = [
 
 
 @pytest.mark.parametrize("beforestart, wait, include_filter", _count_parameters)
-def test_walk_events_on_session_node(beforestart, wait, include_filter, session):
+def test_walk_events_on_session_node(
+    beforestart, wait, include_filter, session, streaming_debug_logging
+):
     events, nmasters, nchannels = _count_node_events(
         beforestart, session, session.name, include_filter=include_filter, wait=wait
     )
@@ -906,7 +915,9 @@ def test_walk_events_on_session_node(beforestart, wait, include_filter, session)
 
 
 @pytest.mark.parametrize("beforestart, wait, include_filter", _count_parameters)
-def test_walk_nodes_on_session_node(beforestart, wait, include_filter, session):
+def test_walk_nodes_on_session_node(
+    beforestart, wait, include_filter, session, streaming_debug_logging
+):
     nodes, nmasters, nchannels = _count_nodes(
         beforestart, session, session.name, include_filter=include_filter, wait=wait
     )
@@ -927,7 +938,9 @@ def test_walk_nodes_on_session_node(beforestart, wait, include_filter, session):
 
 
 @pytest.mark.parametrize("beforestart", [True, False])
-def test_walk_events_on_wrong_session_node(beforestart, session):
+def test_walk_events_on_wrong_session_node(
+    beforestart, session, streaming_debug_logging
+):
     events, nmasters, nchannels = _count_node_events(
         beforestart, session, session.name[:-1]
     )
@@ -935,13 +948,17 @@ def test_walk_events_on_wrong_session_node(beforestart, session):
 
 
 @pytest.mark.parametrize("beforestart", [True, False])
-def test_walk_nodes_on_wrong_session_node(beforestart, session):
+def test_walk_nodes_on_wrong_session_node(
+    beforestart, session, streaming_debug_logging
+):
     nodes, nmasters, nchannels = _count_nodes(beforestart, session, session.name[:-1])
     assert not nodes
 
 
 @pytest.mark.parametrize("beforestart, wait, include_filter", _count_parameters)
-def test_walk_events_on_dataset_node(beforestart, wait, include_filter, session):
+def test_walk_events_on_dataset_node(
+    beforestart, wait, include_filter, session, streaming_debug_logging
+):
     db_name = session.scan_saving.scan_parent_db_name
     events, nmasters, nchannels = _count_node_events(
         beforestart,
@@ -980,7 +997,9 @@ def test_walk_events_on_dataset_node(beforestart, wait, include_filter, session)
 
 
 @pytest.mark.parametrize("beforestart, wait, include_filter", _count_parameters)
-def test_walk_nodes_on_dataset_node(beforestart, wait, include_filter, session):
+def test_walk_nodes_on_dataset_node(
+    beforestart, wait, include_filter, session, streaming_debug_logging
+):
     db_name = session.scan_saving.scan_parent_db_name
     nodes, nmasters, nchannels = _count_nodes(
         beforestart,
@@ -1006,7 +1025,9 @@ def test_walk_nodes_on_dataset_node(beforestart, wait, include_filter, session):
 
 
 @pytest.mark.parametrize("beforestart, wait, include_filter", _count_parameters)
-def test_walk_events_on_scan_node(beforestart, wait, include_filter, session):
+def test_walk_events_on_scan_node(
+    beforestart, wait, include_filter, session, streaming_debug_logging
+):
     db_name = session.scan_saving.scan_parent_db_name + ":_1_ct"
     events, nmasters, nchannels = _count_node_events(
         beforestart,
@@ -1044,7 +1065,9 @@ def test_walk_events_on_scan_node(beforestart, wait, include_filter, session):
 
 
 @pytest.mark.parametrize("beforestart, wait, include_filter", _count_parameters)
-def test_walk_nodes_on_scan_node(beforestart, wait, include_filter, session):
+def test_walk_nodes_on_scan_node(
+    beforestart, wait, include_filter, session, streaming_debug_logging
+):
     db_name = session.scan_saving.scan_parent_db_name + ":_1_ct"
     nodes, nmasters, nchannels = _count_nodes(
         beforestart,
@@ -1069,7 +1092,9 @@ def test_walk_nodes_on_scan_node(beforestart, wait, include_filter, session):
 
 
 @pytest.mark.parametrize("beforestart, wait, include_filter", _count_parameters)
-def test_walk_events_on_master_node(beforestart, wait, include_filter, session):
+def test_walk_events_on_master_node(
+    beforestart, wait, include_filter, session, streaming_debug_logging
+):
     db_name = session.scan_saving.scan_parent_db_name + ":_1_ct:timer"
     events, nmasters, nchannels = _count_node_events(
         beforestart, session, db_name, include_filter=include_filter, wait=wait
@@ -1094,7 +1119,9 @@ def test_walk_events_on_master_node(beforestart, wait, include_filter, session):
 
 
 @pytest.mark.parametrize("beforestart, wait, include_filter", _count_parameters)
-def test_walk_nodes_on_master_node(beforestart, wait, include_filter, session):
+def test_walk_nodes_on_master_node(
+    beforestart, wait, include_filter, session, streaming_debug_logging
+):
     db_name = session.scan_saving.scan_parent_db_name + ":_1_ct:timer"
     nodes, nmasters, nchannels = _count_nodes(
         beforestart, session, db_name, include_filter=include_filter, wait=wait
@@ -1113,7 +1140,9 @@ def test_walk_nodes_on_master_node(beforestart, wait, include_filter, session):
 
 
 @pytest.mark.parametrize("beforestart, wait, include_filter", _count_parameters)
-def test_walk_events_on_controller_node(beforestart, wait, include_filter, session):
+def test_walk_events_on_controller_node(
+    beforestart, wait, include_filter, session, streaming_debug_logging
+):
     db_name = (
         session.scan_saving.scan_parent_db_name
         + ":_1_ct:timer:simulation_diode_sampling_controller"
@@ -1137,7 +1166,9 @@ def test_walk_events_on_controller_node(beforestart, wait, include_filter, sessi
 
 
 @pytest.mark.parametrize("beforestart, wait, include_filter", _count_parameters)
-def test_walk_nodes_on_controller_node(beforestart, wait, include_filter, session):
+def test_walk_nodes_on_controller_node(
+    beforestart, wait, include_filter, session, streaming_debug_logging
+):
     db_name = (
         session.scan_saving.scan_parent_db_name
         + ":_1_ct:timer:simulation_diode_sampling_controller"
@@ -1158,7 +1189,9 @@ def test_walk_nodes_on_controller_node(beforestart, wait, include_filter, sessio
 
 
 @pytest.mark.parametrize("beforestart, wait, include_filter", _count_parameters)
-def test_walk_events_on_masterchannel_node(beforestart, wait, include_filter, session):
+def test_walk_events_on_masterchannel_node(
+    beforestart, wait, include_filter, session, streaming_debug_logging
+):
     db_name = session.scan_saving.scan_parent_db_name + ":_1_ct:timer:elapsed_time"
     events, nmasters, nchannels = _count_node_events(
         beforestart,
@@ -1181,7 +1214,9 @@ def test_walk_events_on_masterchannel_node(beforestart, wait, include_filter, se
 
 
 @pytest.mark.parametrize("beforestart, wait, include_filter", _count_parameters)
-def test_walk_nodes_on_masterchannel_node(beforestart, wait, include_filter, session):
+def test_walk_nodes_on_masterchannel_node(
+    beforestart, wait, include_filter, session, streaming_debug_logging
+):
     db_name = session.scan_saving.scan_parent_db_name + ":_1_ct:timer:elapsed_time"
     nodes, nmasters, nchannels = _count_nodes(
         beforestart,
@@ -1265,7 +1300,7 @@ def test_no_ct_in_scans_queue(beacon, default_session):
     assert len(default_session.scans) == 1
 
 
-def test_block_size(default_session):
+def test_block_size(default_session, streaming_debug_logging):
     npoints = 107
 
     def block_generator(npoints, dtype):
@@ -1459,7 +1494,7 @@ def test_datanode_factory(beacon):
     gevent.joinall(glts, raise_error=True)
 
 
-def test_filter_nodes(session):
+def test_filter_nodes(session, streaming_debug_logging):
     # Fill Redis with scan data
     session_node = get_session_node(session.name)
     detectors = (session.env_dict["diode"],)
@@ -1536,7 +1571,7 @@ def _filter_walk_get_nodes(walk_func, wait=False, timeout=2, **kw):
                 yield node.node.db_name
 
 
-def test_walk_nodes_filter(session):
+def test_walk_nodes_filter(session, streaming_debug_logging):
     # Fill Redis with scan data
     session_node = get_session_node(session.name)
     detectors = (session.env_dict["diode"],)
@@ -1573,7 +1608,7 @@ def test_walk_nodes_filter(session):
         assert db_names == scan_db_names
 
 
-def test_walk_new_nodes_filter(session):
+def test_walk_new_nodes_filter(session, streaming_debug_logging):
     # Fill Redis with scan data
     session_node = get_session_node(session.name)
     detectors = (session.env_dict["diode"],)
@@ -1641,7 +1676,7 @@ def test_walk_new_nodes_filter(session):
         assert not db_names
 
 
-def test_walk_events_filter(session):
+def test_walk_events_filter(session, streaming_debug_logging):
     # Fill Redis with scan data
     session_node = get_session_node(session.name)
     detectors = (session.env_dict["diode"],)
@@ -1684,7 +1719,7 @@ def test_walk_events_filter(session):
         assert set(db_names) == set(scan_db_names), kw
 
 
-def test_walk_new_events_filter(session):
+def test_walk_new_events_filter(session, streaming_debug_logging):
     # Fill Redis with scan data
     session_node = get_session_node(session.name)
     detectors = (session.env_dict["diode"],)
@@ -1723,7 +1758,9 @@ def test_walk_new_events_filter(session):
 @pytest.mark.parametrize(
     "parents_exist, only_new_events", itertools.product([True, False], [True, False])
 )
-def test_walk_existing_parent_nodes(parents_exist, only_new_events, session):
+def test_walk_existing_parent_nodes(
+    parents_exist, only_new_events, session, streaming_debug_logging
+):
     if parents_exist:
         session.scan_saving.get_parent_node()
 

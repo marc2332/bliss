@@ -1428,8 +1428,7 @@ class DataNodeContainer(DataNode):
     def __init__(
         self, node_type, name, parent=None, connection=None, create=False, **kwargs
     ):
-        DataNode.__init__(
-            self,
+        super().__init__(
             node_type,
             name,
             parent=parent,

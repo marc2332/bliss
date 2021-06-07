@@ -566,8 +566,7 @@ class BaseHashSetting(BaseSetting):
         return f"<{type(self).__name__} name=%s value=%s>" % (self.name, value)
 
     def __delitem__(self, key):
-        cnx = self.connection
-        cnx.hdel(self.name, key)
+        self.remove(key)
 
     def __len__(self):
         cnx = self.connection
@@ -771,12 +770,6 @@ class OrderedHashSetting(BaseHashSetting):
     @property
     def _name_order(self):
         return self._name + ":creation_order"
-
-    def __delitem__(self, key):
-        self.remove(key)
-
-    def __len__(self):
-        return super().__len__()
 
     def ttl(self, value=-1):
         hash_ttl = super().ttl(value)

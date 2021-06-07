@@ -821,6 +821,7 @@ class DataNode(metaclass=DataNodeMetaClass):
         :returns DataStream:
         """
         kw.setdefault("connection", self.db_connection)
+        kw.setdefault("create", self.__new_node)
         return streaming.DataStream(name, **kw)
 
     def _create_stream(self, suffix, **kw):

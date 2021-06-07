@@ -23,7 +23,7 @@ def test_data_stream(wait_all_created, beacon):
         """Create stream and publish nevents
         """
         nonlocal nstreams, stream_created, start_streaming
-        stream = streaming.DataStream(f"stream_{nevents}")
+        stream = streaming.DataStream(f"stream_{nevents}", create=True)
         nstreams += 1
         stream_created.set()
         start_streaming.wait()
@@ -77,11 +77,13 @@ def test_data_stream(wait_all_created, beacon):
             order = []
             # block=0: wait indefinitely for new events
             for stream_name, events in connection.xread(streams_to_read, block=0):
+                if not events:
+                    continue
                 nevents = int(stream_name.split(b"_")[1])
                 lst = data.setdefault(nevents, [])
-                for index, value in events:
+                for _, value in events:
                     lst.append(int(value[b"data"]))
-                streams_to_read[stream_name.decode()] = index
+                streams_to_read[stream_name.decode()] = events[-1][0]
                 order.append(nevents)
             assert order == sorted(order, reverse=True), "read order not preserved"
             if len(data) == len(streams_to_read):
@@ -176,7 +178,7 @@ class DataStreamTestPublishers:
         :param str stream_name:
         """
         try:
-            stream = streaming.DataStream(stream_name)
+            stream = streaming.DataStream(stream_name, create=True)
             idata = 0
             while True:
                 gevent.sleep(random.random() / 1000)

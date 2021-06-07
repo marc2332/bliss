@@ -15,6 +15,7 @@ import logging
 from contextlib import contextmanager
 from bliss.config.settings import BaseSetting, pipeline
 from bliss.config import streaming_events
+from bliss.config.conductor.redis_scripts import register_script, evaluate_script
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,25 @@ logger = logging.getLogger(__name__)
 class CustomLogger(logging.LoggerAdapter):
     def process(self, msg, kwargs):
         return "[{}] {}".format(str(self.extra), msg), kwargs
+
+
+create_stream_script = """
+-- Atomic creation of an empty STREAM in Redis
+
+-- KEYS[1]: redis-key of the STREAM
+
+local streamkey = KEYS[1]
+
+if (redis.call("EXISTS", streamkey)==0) then
+    redis.call("XADD", streamkey, "0-1", "key", "value")
+    redis.call("XDEL", streamkey, "0-1")
+end
+"""
+
+
+def create_data_stream(name, connection):
+    register_script(connection, "create_stream_script", create_stream_script)
+    evaluate_script(connection, "create_stream_script", keys=(name,))
 
 
 class DataStream(BaseSetting):
@@ -39,7 +59,9 @@ class DataStream(BaseSetting):
     The dictionary values are dictionaries which represent encoded StreamEvent's.
     """
 
-    def __init__(self, name, connection=None, maxlen=None, approximate=True):
+    def __init__(
+        self, name, connection=None, maxlen=None, approximate=True, create=False
+    ):
         """
         :param str name:
         :param connection:
@@ -49,6 +71,8 @@ class DataStream(BaseSetting):
         super().__init__(name, connection, None, None)
         self._maxlen = maxlen
         self._approximate = approximate
+        if create:
+            create_data_stream(self.name, self.connection)
 
     def __str__(self):
         return f"{self.__class__.__name__}({self.name}, maxlen={self._maxlen})"
@@ -434,7 +458,9 @@ class DataStreamReader:
             raise TypeError("All streams must have the same redis connection")
 
         # Create the synchronization stream
-        self.__synchro_stream = DataStream(str(uuid.uuid4()), maxlen=16, connection=cnx)
+        self.__synchro_stream = DataStream(
+            str(uuid.uuid4()), maxlen=16, connection=cnx, create=True
+        )
         return self.__synchro_stream
 
     @property
@@ -671,6 +697,10 @@ class DataStreamReader:
                 self._logger.debug("RECEIVED events %d streams", len(lst))
                 read_priority = None
                 for name, events in lst:
+                    if not events:
+                        # This happens because of empty stream creation
+                        # in create_stream_script.
+                        continue
                     name = name.decode()
                     sinfo = self._active_streams[name]
                     if read_priority is None:

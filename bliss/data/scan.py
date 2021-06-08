@@ -232,6 +232,9 @@ class ScansWatcher:
         self._ready_event = gevent.event.Event()
         """Handle the ready event"""
 
+        self._terminated_event = gevent.event.Event()
+        """Handle the end event"""
+
         self._stop_handler = DataStreamReaderStopHandler()
         """Handler to be able to stop the event loop"""
 
@@ -247,6 +250,19 @@ class ScansWatcher:
                      (or fractions thereof).
         """
         self._ready_event.wait(timeout=timeout)
+
+    def wait_terminated(self, timeout: float = None):
+        """Wait until the scan watcher is terminated.
+
+        The steps between `started` and `ready` can takes few seconds depending
+        on the amount of data and the load of Redis.
+
+        Arguments:
+            timeout: If not `None`, it should be a floating point number
+                     specifying a timeout for the operation in seconds
+                     (or fractions thereof).
+        """
+        self._terminated_event.wait(timeout=timeout)
 
     def running_scan_names(self) -> typing.Sequence[str]:
         """
@@ -316,6 +332,7 @@ class ScansWatcher:
         when `exclude_existing_scans` is True.
         """
         assert not self._running
+        self._terminated_event.clear()
         self._running = True
         try:
             session_node = get_or_create_node(self._session_name, node_type="session")
@@ -443,6 +460,7 @@ class ScansWatcher:
                 gevent.idle()
         finally:
             self._running = False
+            self._terminated_event.set()
 
     def stop(self):
         """Call it to stop the event loop."""

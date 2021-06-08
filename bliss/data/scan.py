@@ -11,6 +11,7 @@ import numpy
 import gevent
 import typing
 import warnings
+import contextlib
 
 from typing import Dict
 
@@ -321,6 +322,32 @@ class ScansWatcher:
             if db_name.startswith(key):
                 return key
         return None
+
+    @contextlib.contextmanager
+    def watch(self, delay=0.5):
+        """Context manager to start and stop the watcher.
+
+        It uses a gevent spawn.
+
+        Arguments:
+            delay: Time to wait after the yield and before the watcher
+                   termination
+
+        Yield:
+            The spawned greenlet
+        """
+        try:
+            gwatcher = gevent.spawn(self.run)
+            self.wait_ready(timeout=3)
+            yield gwatcher
+        finally:
+            # Wait until all events from the yield are executed
+            gevent.sleep(delay)
+            self.stop()
+            try:
+                self.wait_terminated(timeout=1)
+            finally:
+                gwatcher.kill()
 
     def run(self):
         """

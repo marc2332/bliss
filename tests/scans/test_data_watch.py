@@ -71,13 +71,8 @@ def watching(session, observer, exclude_groups=False):
     if not exclude_groups:
         watcher.set_watch_scan_group(True)
     watcher.set_observer(observer)
-    session_watcher = gevent.spawn(watcher.run)
-    watcher.wait_ready(timeout=3)
-    try:
+    with watcher.watch():
         yield watcher
-    finally:
-        gevent.sleep(0.5)
-        session_watcher.kill()
 
 
 def test_simple_continuous_scan_with_session_watcher(session, test_observer):

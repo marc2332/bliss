@@ -647,6 +647,15 @@ class TimeCurvePlot(BasePlot):
         """
         self.submit("setXName", name)
 
+    def select_x_duration(self, second: int):
+        """
+        Select the x-axis duration in second
+
+        Arguments:
+            second: Amount of seconds displayed in the x-axis
+        """
+        self.submit("setXDuration", second)
+
     def select_curve(self, name, **kwargs):
         """
         Append the data displayed in this plot.

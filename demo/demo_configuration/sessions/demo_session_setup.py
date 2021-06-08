@@ -1,6 +1,7 @@
 from bliss.setup_globals import *
 from bliss import current_session
 from bliss.controllers.lima.roi import Roi
+from bliss.common.scans.simulation import simu_l2scan
 
 sy.custom_set_measured_noise(0.002)
 sz.custom_set_measured_noise(0.002)
@@ -39,6 +40,8 @@ Some ideas for scans:
 - timescan(1, tomocam)
 - timescan(1, diffcam)
 - timescan(1, mca1)
+- regulation.plot();sleep(1);regulation.setpoint=10
+- s=simu_l2scan(robx,20,85,100,roby,50,110,30,0.01, simdatapath='bliss/tests/images/bliss_logo.png', scale=1)
 
 Slits are fully open when slit_top=10 and slit_bottom=10
 Slits are not aligned, yet!

@@ -1,4 +1,22 @@
-controller:
+
+
+- class: mockup
+  axes:
+  - name: robx
+    steps_per_unit: 10000
+    velocity: 25000
+    acceleration: 10000
+    low_limit: -inf
+    high_limit: inf
+    unit: mm
+  - class: MockupAxis
+    name: roby
+    steps_per_unit: 10000
+    velocity: 25000.0
+    acceleration: 10000.0
+    low_limit: -inf
+    high_limit: inf
+    
 - class: mockup
   axes:
   - name: sz

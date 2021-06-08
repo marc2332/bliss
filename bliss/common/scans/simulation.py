@@ -5,9 +5,12 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import os
 import time
 import numpy
 import gevent
+
+from bliss.common.logtools import log_debug, disable_user_output
 
 from bliss.scanning.chain import AcquisitionMaster
 from bliss.scanning.channel import AcquisitionChannel
@@ -252,7 +255,7 @@ class FakeController(CounterController):
         return params
 
     def _prepare_counters_data(self, npoints):
-        print(f"=== FakeController._prepare_counters_data")
+        log_debug(self, f"=== FakeController._prepare_counters_data")
         self._cnts_values = {}
         self._last_indexes = {}
         for cnt in self.counters:
@@ -337,7 +340,7 @@ class FakeController(CounterController):
         return cnts_value
 
     def on_trigger_event(self):
-        print(f"FakeController.on_trigger_event@{_CLOCK.time()}")
+        log_debug(self, f"=== FakeController.on_trigger_event@{_CLOCK.time()}")
         self._recv_triggers += 1
 
 
@@ -412,26 +415,18 @@ class FakeAcquisitionSlave(AcquisitionSlave):
         return tmp_dict
 
     def prepare(self):
-        print("=== FakeAcquisitionSlave preparing")
         self.device._prepare_counters_data(self.npoints)
-        print("=== FakeAcquisitionSlave prepared")
 
     def start(self):
-        print("=== FakeAcquisitionSlave starting")
         self._nb_acq_points = 0
         self._stop_flag = False
         self.device._recv_triggers = 0
-        print("=== FakeAcquisitionSlave started")
 
     def stop(self):
-        print("=== FakeAcquisitionSlave stopping")
         self._stop_flag = True
-        # self._event.set()
-        print("=== FakeAcquisitionSlave stopped")
 
     def trigger(self):
-        print("=== FakeAcquisitionSlave has been triggered")
-        # self._event.set()
+        pass
 
     def reading(self):
         """ Reading is always spawn (AcqSlave) by the Scan at each iteration """
@@ -444,9 +439,9 @@ class FakeAcquisitionSlave(AcquisitionSlave):
         # If the data buffer is not empty (full of last acq data) then the polling while find all data and retrieve them!
         # to avoid that, at the begining of the loop, it should wait that its triggering master has started.
 
-        print(
-            f"=== FakeAcquisitionSlave starts reading in mode {self.trigger_type.name}"
-        )
+        # print(
+        #    f"=== FakeAcquisitionSlave starts reading in mode {self.trigger_type.name}"
+        # )
         # self._counters is a dict {Counter: AcquisitionChannel}
         counters = list(self._counters.keys())
 
@@ -490,18 +485,16 @@ class FakeAcquisitionSlave(AcquisitionSlave):
                 # CHECK THAT THE NUMBER OF MEASUREMENTS OF THE FIRST COUNTER IS > 0
                 nb_values = len(cnts_values[0])
                 if nb_values > 0:
-                    for i, cnt in enumerate(counters):
-
-                        print(
-                            f"{cnt.name} (recv_trig_nb={self.device._recv_triggers}) emmitting {nb_values} values of shape {cnt.shape}"
-                        )
+                    # for i, cnt in enumerate(counters):
+                    #     print(
+                    #         f"{cnt.name} (recv_trig_nb={self.device._recv_triggers}) emmitting {nb_values} values of shape {cnt.shape}"
+                    #     )
                     self._nb_acq_points += nb_values
                     self._emit_new_data(cnts_values)
 
-                # gevent.sleep(self.count_time / 2.0)
                 gevent.sleep(0.02)
 
-        print(f"=== FakeAcquisitionSlave exits reading")
+        # print(f"=== FakeAcquisitionSlave exits reading")
 
 
 class FakeAcquisitionCard(FakeController):
@@ -578,6 +571,7 @@ class FakeAcquisitionCard(FakeController):
             cb = device.on_trigger_event
             self._registered_callbacks.append(cb)
             levent.connect(self, self.SIG_HARD_TRIG, cb)
+            log_debug(self, f"=== FakeAcquisitionCard: registering {device.name}")
 
     def run_program(self, nb_triggers, delta_time):
         if not self._prg_task:
@@ -596,18 +590,19 @@ class FakeAcquisitionCard(FakeController):
             via registered callbacks each 'delta_time'.
             
         """
-        print("PROGRAM STARTS", nb_triggers, delta_time)
+        log_debug(self, "=== PROGRAM STARTS", nb_triggers, delta_time)
         _CLOCK.reset()
 
         for i in range(nb_triggers):
-            print(f"=== CARD PROG: STORE AND ATRIG @trig {i}")
+            log_debug(self, f"=== CARD PROG: STORE AND ATRIG @trig {i}")
             self.STORE()
             self.ATRIG()
             gevent.sleep(delta_time)
             if self._abort:
+                log_debug(self, "=== ABORTING PROGRAM")
                 break
 
-        print("PROGRAM FINISHED")
+        log_debug(self, "=== PROGRAM FINISHED")
 
     def abort(self):
         if self.is_running:
@@ -621,7 +616,6 @@ class FakeAcquisitionCard(FakeController):
         self._send_trigger(self.SIG_HARD_TRIG)
 
     def STORE(self):
-        # print("ON STORE")
         for cname in self._card_channels:
             chnum, rfunc = self._card_channels[cname]
             chvalue = rfunc()
@@ -702,36 +696,27 @@ class FakeAcquisitionCardMaster(AcquisitionMaster):
         # self._event = gevent.event.Event()
 
     def prepare(self):
-        print("=== FakeAcquisitionCardMaster preparing")
         self.device.register_to_trigger_event(self.device)
         for slave in self.slaves:
-            print(f"=== FakeAcquisitionCardMaster: registering {slave.device.name}")
             self.device.register_to_trigger_event(slave.device)
-        print("=== FakeAcquisitionCardMaster prepared")
 
     def start(self):
-        print("=== FakeAcquisitionCardMaster spawn program")
         self.device.run_program(self.npoints, self._count_time)
 
     def stop(self):
-        print("=== FakeAcquisitionCardMaster stopping")
         if self.device.is_running:
             self.device.abort()
             self.wait_ready()
-        print("=== FakeAcquisitionCardMaster stopped")
 
     # def trigger(self):
-    #     print("=== FakeAcquisitionCardMaster trigger slaves")
     #     self.trigger_slaves()
 
     # def trigger_ready(self):
     #     return not self.device.is_running()
 
     def wait_ready(self):
-        print("=== FakeAcquisitionCardMaster wait_ready starts")
         while self.device.is_running:
             gevent.sleep(0.02)
-        print("=== FakeAcquisitionCardMaster wait_ready ends")
 
 
 class XYSampleData:
@@ -857,6 +842,10 @@ def simu_mesh(
 
     if simdatapath is None:
         simdatapath = test_image()
+    elif not os.path.isfile(simdatapath):
+        print(f"cannot find file {simdatapath}")
+        return
+
     img = XYSampleData(simdatapath, roby, robz, scale=scale, imshow=imshow)
 
     card_config = {
@@ -906,7 +895,7 @@ def simu_lscan(
     save_images=False,
     backnforth=False,
     scale=0.1,
-    imshow=True,
+    imshow=False,
     simdatapath=None,
 ):
     """
@@ -958,6 +947,10 @@ def simu_lscan(
 
     if simdatapath is None:
         simdatapath = test_image()
+    elif not os.path.isfile(simdatapath):
+        print(f"cannot find file {simdatapath}")
+        return
+
     img = XYSampleData(simdatapath, fast_motor, scale=scale, imshow=imshow)
 
     card_config = {
@@ -1009,8 +1002,8 @@ def simu_lscan(
             )
             chain.add(simu_master, node)
 
-    print(chain._tree)
-    builder.print_tree(not_ready_only=False)
+    # print(chain._tree)
+    # builder.print_tree(not_ready_only=False)
 
     total_points = x_npoints
 
@@ -1088,7 +1081,7 @@ def simu_l2scan(
     save_images=False,
     backnforth=False,
     scale=0.1,
-    imshow=True,
+    imshow=False,
     simdatapath=None,
 ):
     """
@@ -1156,6 +1149,10 @@ def simu_l2scan(
 
     if simdatapath is None:
         simdatapath = test_image()
+    elif not os.path.isfile(simdatapath):
+        print(f"cannot find file {simdatapath}")
+        return
+
     img = XYSampleData(simdatapath, fast_motor, slow_motor, scale=scale, imshow=imshow)
 
     card_config = {
@@ -1216,8 +1213,8 @@ def simu_l2scan(
         node.set_parameters(acq_params={"npoints": y_npoints, "count_time": count_time})
         chain.add(slow_master, node)
 
-    print(chain._tree)
-    builder.print_tree(not_ready_only=False)
+    # print(chain._tree)
+    # builder.print_tree(not_ready_only=False)
 
     total_points = x_npoints * y_npoints
 

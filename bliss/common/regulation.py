@@ -759,9 +759,6 @@ class Loop(SamplingCounterController):
 
         self._wait_mode = self.WaitMode.DEADBAND  # RAMP
 
-        self._history_size = 100
-        self.clear_history_data()
-
         self.reg_plot = None
 
         self.max_sampling_frequency = config.get("max_sampling_frequency", 5)
@@ -942,53 +939,20 @@ class Loop(SamplingCounterController):
     def is_in_idleband(self):
         return self._x_is_in_idleband(self.input.read())
 
-    ##--- DATA HISTORY METHODS
-    def clear_history_data(self):
-        self._history_start_time = time.time()
-        self.history_data = {"input": [], "output": [], "setpoint": [], "time": []}
-
-        self._history_counter = 0
-
-    def _store_history_data(self):
-
-        xval = time.time() - self._history_start_time
-        # xval = self._history_counter
-        self._history_counter += 1
-
-        self.history_data["time"].append(xval)
-        self.history_data["setpoint"].append(self._get_working_setpoint())
-        self.history_data["input"].append(self._get_last_input_value())
-        self.history_data["output"].append(self._get_last_output_value())
-
-        for data in self.history_data.values():
-            dx = len(data) - self._history_size
-            if dx > 0:
-                for i in range(dx):
-                    data.pop(0)
+    def get_last_data(self):
+        data = {
+            "time": time.time(),
+            "setpoint": self._get_working_setpoint(),
+            "input": self._get_last_input_value(),
+            "output": self._get_last_output_value(),
+        }
+        return data
 
     def _get_last_input_value(self):
         return self.input.read()
 
     def _get_last_output_value(self):
         return self.output.read()
-
-    @property
-    def history_size(self):
-        """
-        Get the size of the buffer that stores the latest data (input_value, output_value, working_setpoint)
-        """
-
-        log_debug(self, "Loop:get_history_size")
-        return self._history_size
-
-    @history_size.setter
-    def history_size(self, value):
-        """
-        Set the size of the buffer that stores the latest data (input_value, output_value, working_setpoint)
-        """
-
-        log_debug(self, "Loop:set_history_size: %s" % (value,))
-        self._history_size = value
 
     ##--- CTRL METHODS
     @property
@@ -2049,7 +2013,6 @@ class RegPlot:
             self.create_plot()
 
         if not self.task:
-            self.loop.clear_history_data()
             self._stop_event.clear()
             self.task = gevent.spawn(self.run)
 
@@ -2068,25 +2031,19 @@ class RegPlot:
             except (gevent.timeout.Timeout, Exception) as e:
                 pass
 
-            # update data history
-            self.loop._store_history_data()
-
             try:
-                dbp = [
-                    x + self.loop.deadband for x in self.loop.history_data["setpoint"]
-                ]
-                dbm = [
-                    x - self.loop.deadband for x in self.loop.history_data["setpoint"]
-                ]
+                data = self.loop.get_last_data()
+                dbp = data["setpoint"] + self.loop.deadband
+                dbm = data["setpoint"] - self.loop.deadband
 
                 # Update curves plot (refreshes the plot widget)
-                self.fig.set_data(
-                    time=self.loop.history_data["time"],
-                    input=self.loop.history_data["input"],
-                    output=self.loop.history_data["output"],
-                    setpoint=self.loop.history_data["setpoint"],
-                    deadband_high=dbp,
-                    deadband_low=dbm,
+                self.fig.append_data(
+                    time=[data["time"]],
+                    input=[data["input"]],
+                    output=[data["output"]],
+                    setpoint=[data["setpoint"]],
+                    deadband_high=[dbp],
+                    deadband_low=[dbm],
                 )
 
             except (gevent.timeout.Timeout, Exception):

@@ -2010,16 +2010,14 @@ class RegPlot:
 
     def create_plot(self):
 
-        # Declare a CurvePlot (see bliss.flint.client.plots)
+        # Declare and setup the plot
         self.fig = get_flint().get_plot(
-            plot_class="Plot1D",
+            plot_class="TimeCurvePlot",
             name=self.loop.name,
             unique_name=f"regul_plot_{self.loop.name}",
             closeable=True,
             selected=True,
         )
-
-        self.fig.submit("setGraphXLabel", "Time (s)")
         self.fig.submit(
             "setGraphYLabel",
             f"Processed value ({self.loop.input.config.get('unit','')})",
@@ -2031,13 +2029,14 @@ class RegPlot:
         )
         self.fig.submit("setGraphGrid", which=True)
 
-        self.fig.submit(
-            "setDataMargins",
-            xMinMargin=0.0,
-            xMaxMargin=0.0,
-            yMinMargin=0.1,
-            yMaxMargin=0.1,
+        # Define the plot content
+        self.fig.select_curve("setpoint", color="blue", linestyle="-", z=2)
+        self.fig.select_curve("input", color="red", linestyle="-", z=2)
+        self.fig.select_curve(
+            "output", color="green", linestyle="-", yaxis="right", z=2
         )
+        self.fig.select_curve("deadband_high", color="blue", linestyle="--", z=2)
+        self.fig.select_curve("deadband_low", color="blue", linestyle="--", z=2)
 
     def is_plot_active(self):
         if self.fig is None:
@@ -2073,39 +2072,22 @@ class RegPlot:
             self.loop._store_history_data()
 
             try:
-                self.fig.submit("setAutoReplot", False)
-
-                self.fig.add_data(self.loop.history_data["time"], field="time")
-                self.fig.add_data(self.loop.history_data["input"], field="Input")
-                self.fig.add_data(self.loop.history_data["output"], field="Output")
-                self.fig.add_data(self.loop.history_data["setpoint"], field="Setpoint")
-
                 dbp = [
                     x + self.loop.deadband for x in self.loop.history_data["setpoint"]
                 ]
                 dbm = [
                     x - self.loop.deadband for x in self.loop.history_data["setpoint"]
                 ]
-                self.fig.add_data(dbp, field="Deadband_high")
-                self.fig.add_data(dbm, field="Deadband_low")
 
                 # Update curves plot (refreshes the plot widget)
-                # select_data takes all kwargs of the associated plot methode (e.g. silx => addCurve(kwargs) )
-                self.fig.select_data(
-                    "time", "Setpoint", color="blue", linestyle="-", z=2
+                self.fig.set_data(
+                    time=self.loop.history_data["time"],
+                    input=self.loop.history_data["input"],
+                    output=self.loop.history_data["output"],
+                    setpoint=self.loop.history_data["setpoint"],
+                    deadband_high=dbp,
+                    deadband_low=dbm,
                 )
-                self.fig.select_data("time", "Input", color="red", linestyle="-", z=2)
-                self.fig.select_data(
-                    "time", "Output", color="green", linestyle="-", yaxis="right", z=2
-                )
-                self.fig.select_data(
-                    "time", "Deadband_high", color="blue", linestyle="--", z=2
-                )
-                self.fig.select_data(
-                    "time", "Deadband_low", color="blue", linestyle="--", z=2
-                )
-
-                self.fig.submit("setAutoReplot", True)
 
             except (gevent.timeout.Timeout, Exception):
                 log_debug(self, "Error while plotting the data", exc_info=True)

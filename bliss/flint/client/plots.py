@@ -622,6 +622,51 @@ class CurveStack(BasePlot):
         )
 
 
+class TimeCurvePlot(BasePlot):
+    # Name of the corresponding silx widget
+    WIDGET = "bliss.flint.custom_plots.time_curve_plot.TimeCurvePlot"
+
+    # Available name to identify this plot
+    ALIASES = ["timecurveplot"]
+
+    # Name of the method to add data to the plot
+    METHOD = "appendData"
+
+    # Single / Multiple data handling
+    MULTIPLE = False
+
+    # Data input number for a single representation
+    DATA_INPUT_NUMBER = 1
+
+    def select_x_axis(self, name: str):
+        """
+        Select the x-axis to use
+
+        Arguments:
+            name: Name of the data to use as x-axis
+        """
+        self.submit("setXName", name)
+
+    def select_curve(self, name, **kwargs):
+        """
+        Append the data displayed in this plot.
+
+        Arguments:
+            name: Name of the data to use as y-axis
+            kwargs: Associated style (see `addCurve` from silx plot)
+        """
+        self.submit("selectCurve", name, **kwargs)
+
+    def set_data(self, **kwargs):
+        """
+        Set the data displayed in this plot.
+
+        Arguments:
+            kwargs: Name of the data associated to the new numpy array to use
+        """
+        self.submit("setData", **kwargs)
+
+
 class ImageView(BasePlot):
 
     # Name of the corresponding silx widget
@@ -699,7 +744,15 @@ class LiveOneDimPlot(Plot1D):
     ALIASES = ["onedim"]
 
 
-CUSTOM_CLASSES = [Plot1D, Plot2D, ScatterView, ImageView, StackView, CurveStack]
+CUSTOM_CLASSES = [
+    Plot1D,
+    Plot2D,
+    ScatterView,
+    ImageView,
+    StackView,
+    CurveStack,
+    TimeCurvePlot,
+]
 
 LIVE_CLASSES = [
     LiveCurvePlot,

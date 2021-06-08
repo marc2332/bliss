@@ -25,6 +25,7 @@ from .conductor import client
 from bliss.config.conductor.client import set_config_db_file, remote_open
 from bliss.common.utils import Null, auto_coerce
 from bliss import current_session
+from bliss.config.conductor.redis_scripts import register_script, evaluate_script
 
 logger = logging.getLogger(__name__)
 
@@ -566,8 +567,7 @@ class BaseHashSetting(BaseSetting):
         return f"<{type(self).__name__} name=%s value=%s>" % (self.name, value)
 
     def __delitem__(self, key):
-        cnx = self.connection
-        cnx.hdel(self.name, key)
+        self.remove(key)
 
     def __len__(self):
         cnx = self.connection
@@ -680,7 +680,7 @@ class BaseHashSetting(BaseSetting):
             return False
 
 
-lua_script = """
+orderedhashsetting_helper_script = """
 -- Atomic addiction of a key to a hash and to a list
 -- to keep track of inserction order
 
@@ -730,7 +730,7 @@ else
     -- attribute does exist
     return redis.call("HSET", hashkey, attribute, value)
 end
-""".encode()
+"""
 
 
 class OrderedHashSetting(BaseHashSetting):
@@ -745,38 +745,17 @@ class OrderedHashSetting(BaseHashSetting):
         write_type_conversion: conversion of data applied before writing
     """
 
-    add_key_script_sha1 = None
-
-    def __init__(
-        self,
-        name,
-        connection=None,
-        read_type_conversion=auto_coerce,
-        write_type_conversion=str,
-    ):
-        super().__init__(name, connection, read_type_conversion, write_type_conversion)
-        if (
-            self.add_key_script_sha1 is None
-        ):  # class attribute to execute only the first time
-            # calculate sha1 of the script
-            sha1 = hashlib.sha1(lua_script).hexdigest()
-
-            # check if script already exists in Redis and if not loads it
-            if not self.connection.script_exists(sha1)[0]:
-                sha1_from_redis = self.connection.script_load(lua_script)
-                if sha1_from_redis != sha1:
-                    raise RuntimeError("Exception in sending lua script to Redis")
-            type(self).add_key_script_sha1 = sha1
+    def __init__(self, *args, **kw):
+        super().__init__(*args, **kw)
+        register_script(
+            self.connection,
+            "orderedhashsetting_helper_script",
+            orderedhashsetting_helper_script,
+        )
 
     @property
     def _name_order(self):
         return self._name + ":creation_order"
-
-    def __delitem__(self, key):
-        self.remove(key)
-
-    def __len__(self):
-        return super().__len__()
 
     def ttl(self, value=-1):
         hash_ttl = super().ttl(value)
@@ -826,13 +805,11 @@ class OrderedHashSetting(BaseHashSetting):
         cnx.delete(self._name_order)
         if mapping is not None:
             for k, v in mapping.items():
-                cnx.evalsha(
-                    self.add_key_script_sha1,
-                    2,
-                    self._name,
-                    self._name + ":creation_order",
-                    k,
-                    v,
+                evaluate_script(
+                    cnx,
+                    "orderedhashsetting_helper_script",
+                    keys=(self._name, self._name + ":creation_order"),
+                    args=(k, v),
                 )
         cnx.execute()
 
@@ -841,13 +818,11 @@ class OrderedHashSetting(BaseHashSetting):
         with pipeline(self) as p:
             if values:
                 for k, v in values.items():
-                    p.evalsha(
-                        self.add_key_script_sha1,
-                        2,
-                        self._name,
-                        self._name + ":creation_order",
-                        k,
-                        v,
+                    evaluate_script(
+                        p,
+                        "orderedhashsetting_helper_script",
+                        keys=(self._name, self._name + ":creation_order"),
+                        args=(k, v),
                     )
 
     def has_key(self, key):
@@ -883,13 +858,11 @@ class OrderedHashSetting(BaseHashSetting):
         if self._write_type_conversion:
             value = self._write_type_conversion(value)
         cnx = self._cnx()
-        cnx.evalsha(
-            self.add_key_script_sha1,
-            2,
-            self._name,
-            self._name + ":creation_order",
-            key,
-            value,
+        evaluate_script(
+            cnx,
+            "orderedhashsetting_helper_script",
+            keys=(self._name, self._name + ":creation_order"),
+            args=(key, value),
         )
 
     def __contains__(self, key):
@@ -916,7 +889,7 @@ class HashSetting(BaseHashSetting):
         connection=None,
         read_type_conversion=auto_coerce,
         write_type_conversion=str,
-        default_values={},
+        default_values=None,
     ):
         super().__init__(
             name,
@@ -924,6 +897,8 @@ class HashSetting(BaseHashSetting):
             read_type_conversion=read_type_conversion,
             write_type_conversion=write_type_conversion,
         )
+        if default_values is None:
+            default_values = dict()
         self._default_values = default_values
 
     @read_decorator
@@ -975,10 +950,12 @@ class HashSettingProp(BaseSetting):
         connection=None,
         read_type_conversion=auto_coerce,
         write_type_conversion=str,
-        default_values={},
+        default_values=None,
         use_object_name=True,
     ):
         super().__init__(name, connection, read_type_conversion, write_type_conversion)
+        if default_values is None:
+            default_values = dict()
         self._default_values = default_values
         self._use_object_name = use_object_name
 

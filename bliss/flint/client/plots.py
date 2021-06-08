@@ -666,6 +666,15 @@ class TimeCurvePlot(BasePlot):
         """
         self.submit("setData", **kwargs)
 
+    def append_data(self, **kwargs):
+        """
+        Append the data displayed in this plot.
+
+        Arguments:
+            kwargs: Name of the data associated to the numpy array to append
+        """
+        self.submit("appendData", **kwargs)
+
 
 class ImageView(BasePlot):
 

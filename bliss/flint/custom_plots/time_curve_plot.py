@@ -12,6 +12,7 @@ import numpy
 
 from silx.gui import qt
 from silx.gui.plot import Plot1D
+from silx.gui.plot.items import axis as axis_mdl
 
 
 _logger = logging.getLogger(__name__)
@@ -33,6 +34,8 @@ class TimeCurvePlot(qt.QWidget):
         self.__plot = Plot1D(self)
         layout = qt.QVBoxLayout(self)
         layout.addWidget(self.__plot)
+
+        self.__maxPoints = 100
 
         self.__plot.setGraphXLabel("Time")
         xAxis = self.__plot.getXAxis()
@@ -73,6 +76,8 @@ class TimeCurvePlot(qt.QWidget):
             data = numpy.concatenate((data, newData))
         else:
             data = newData
+        if len(data) > self.__maxPoints:
+            data = data[-self.__maxPoints :]
         self.__data[name] = data
 
     def selectCurve(self, yName, **kwargs):
@@ -89,6 +94,12 @@ class TimeCurvePlot(qt.QWidget):
         self.__data = dict(kwargs)
         self.__safeUpdatePlot()
 
+    def appendData(self, **kwargs):
+        """Update the current data with extra data"""
+        for name, data in kwargs.items():
+            self.__appendData(name, data)
+        self.__safeUpdatePlot()
+
     def __safeUpdatePlot(self):
         try:
             self.__updatePlot()
@@ -96,12 +107,10 @@ class TimeCurvePlot(qt.QWidget):
             _logger.critical("Error while updating the plot", exc_info=True)
 
     def __updatePlot(self):
-
         self.__plot.clear()
         xData = self.__data.get(self.__xAxisName)
         if xData is None:
             return
-
         for name, style in self.__description.items():
             yData = self.__data.get(name)
             if yData is None:

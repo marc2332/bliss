@@ -304,6 +304,14 @@ class FlintApi:
         manager.waitFlintReady()
 
     def run_method(self, plot_id, method, args, kwargs):
+        # Patch numpy arrays
+        for i, v in enumerate(args):
+            if isinstance(v, numpy.ndarray):
+                args[i] = _aswritablearray(v)
+        for k, v in kwargs.items():
+            if isinstance(v, numpy.ndarray):
+                kwargs[k] = _aswritablearray(v)
+
         plot = self._get_plot_widget(plot_id)
         silxPlot = plot._silxPlot()
         method = getattr(silxPlot, method)

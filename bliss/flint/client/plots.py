@@ -573,7 +573,7 @@ class Plot2D(BasePlot):
     WIDGET = "silx.gui.plot.Plot2D"
 
     # Available name to identify this plot
-    ALIASES = ["image", "plot2d"]
+    ALIASES = ["plot2d"]
 
     # Name of the method to add data to the plot
     METHOD = "addImage"

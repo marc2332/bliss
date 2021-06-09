@@ -157,10 +157,10 @@ Args:
 """
 
 
-def log_debug(instance, msg, *args):
+def log_debug(instance, msg, *args, **kwargs):
     __doc__ = LOG_DOCSTRING + "Log level: DEBUG"
     logger = get_logger(instance)
-    logger.debug(msg, *args)
+    logger.debug(msg, *args, **kwargs)
 
 
 def log_debug_data(instance, msg, *args):
@@ -185,34 +185,34 @@ def log_debug_data(instance, msg, *args):
     logger.debug_data(msg, *args)
 
 
-def log_info(instance, msg, *args):
+def log_info(instance, msg, *args, **kwargs):
     __doc__ = LOG_DOCSTRING + "Log level: INFO"
     logger = get_logger(instance)
-    logger.info(msg, *args)
+    logger.info(msg, *args, **kwargs)
 
 
-def log_warning(instance, msg, *args):
+def log_warning(instance, msg, *args, **kwargs):
     __doc__ = LOG_DOCSTRING + "Log level: WARNING"
     logger = get_logger(instance)
-    logger.warning(msg, *args)
+    logger.warning(msg, *args, **kwargs)
 
 
-def log_error(instance, msg, *args):
+def log_error(instance, msg, *args, **kwargs):
     __doc__ = LOG_DOCSTRING + "Log level: ERROR"
     logger = get_logger(instance)
-    logger.error(msg, *args)
+    logger.error(msg, *args, **kwargs)
 
 
-def log_critical(instance, msg, *args):
+def log_critical(instance, msg, *args, **kwargs):
     __doc__ = LOG_DOCSTRING + "Log level: CRITICAL"
     logger = get_logger(instance)
-    logger.critical(msg, *args)
+    logger.critical(msg, *args, **kwargs)
 
 
-def log_exception(instance, msg, *args):
+def log_exception(instance, msg, *args, **kwargs):
     __doc__ = LOG_DOCSTRING + "Log level: ERROR with added exception trace"
     logger = get_logger(instance)
-    logger.exception(msg, *args)
+    logger.exception(msg, *args, **kwargs)
 
 
 def set_log_format(instance, frmt):

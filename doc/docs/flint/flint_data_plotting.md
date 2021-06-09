@@ -1,71 +1,206 @@
 
 # Flint Data Plotting
 
-During a BLISS session users may create data (other than scan data) that needs to be displayed graphically. Flint offers a collection of different type of plots (curve, scatter, image...) so user can select the one that best fits with the data to be displayed.
+During a BLISS session, users may create data (other than scan data) that needs
+to be displayed graphically. Flint offers a collection of different type of
+plots (curve, scatter, image...) so user can select the one that best fits
+with the data to be displayed.
 
-## Plot types
+## Basic plot display
 
-The **bliss.common.plot** module offers several types of plot:
+A generic display is provided through the BLISS `plot` command.
 
-### Curve plot
+This the data dimensionality to select and display a plot.
 
-`class CurvePlot(BasePlot)`
+This can be convenient for basic display.
 
-  * plotting of one or several 1D data as curves
-  * Optional x-axis data can be provided
-  * the plot is created using `plot_curve`
+![Screenshot](img/plot_1d_cosinus.png)
 
 ```python
+# Display a list (as a single curve using index as x-axis)
+plot([1, 2, 3, 1, 2, 3])
+
 import numpy
-from bliss.common import plot as plot_mdl
 
-# Function
-t = numpy.linspace(0, 10 * numpy.pi, 100)
-y = numpy.sin(t)
-plot_mdl.plot_curve(data=y, name="My sin")
+# Display a 1D data (as a single curve using index as x-axis)
+array = numpy.array([1, 2, 3, 1, 2, 3])
+plot(array)
 
-# Parametric function
-t = numpy.linspace(-3, 3, 50)
-x = 16 * numpy.sin(t)**3
-y = 13 * numpy.cos(t) - 5 * numpy.cos(2*t) - 2 * numpy.cos(3*t) - numpy.cos(4*t)
-plot_mdl.plot_curve(data=y, x=x, name="My heart")
+# Display a 2D data (as an image)
+image = numpy.array([[1, 2, 3], [1, 2, 3], [1, 2, 3]])
+plot(image)
+
+# Display a 3D data (as a stack of images)
+cube = numpy.arange(1000)
+cube.shape = 10, 10, 10
+plot(cube)
 ```
 
-### Scatter plot
+## Create a plot
 
-`class ScatterPlot(BasePlot)`
+To use more features another way is provided.
 
-  * plotting one or several scattered data
-  * each scatter is a group of three 1D data of same length
-  * the plot is created using `plot_scatter`
+First a plot have to be created from the Flint.
 
-### Image plot
-
-`class ImagePlot(BasePlot)`
-
-  * plots one or several images on top of each other
-  * the images order can be controlled using a depth parameter
-  * the plot is created using `plot_image`
-
-### Image + histogram plot
-
-`class HistogramImagePlot(BasePlot)`
-
-  * plot a single 2D image (greyscale or colormap)
-  * two histograms along the X and Y dimensions are displayed
-  * the plot is created using `plot_image_with_histogram`
-
-### Curve stack
-
-This plot displays a single curve from a selectable list of curves.
-
-THe selection is done with a slider.
+The first argument (here `curve`) is used to select the kind of expected plot.
+See the following documentation for example for each kind.
 
 ```python
 f = flint()
+p = f.get_plot("curve")
+```
 
-p = f.get_plot(plot_class="curvestack", name="curve-stack")
+Other arguments are available to edit some behavior of this plot.
 
+A title can be specified, a unique name can be set to reuse plots instead of
+creating a new one. The plot can be closeable (default is true) or selected
+by default at the creation (default is false).
+
+```python
+p = f.get_plot("curve",
+               name="My plot title",
+               unique_name="myplot42",
+               closeable=True,
+               selected=True)
+```
+
+## 1D plot / curve plot
+
+The main plot is a curve plot.
+
+It can be used to display several 1D data as curves.
+
+```python
+import numpy
+
+# Create the plot
+f = flint()
+p = f.get_plot("curve", name="My plot")
+
+# Create data
+t = numpy.linspace(0, 10 * numpy.pi, 100)
+s = numpy.sin(t)
+c = numpy.cos(t)
+
+# Update the plot
+p.add_curve(t, c, legend="aaa")  # the legend have to be unique
+p.add_curve(t, s, legend="bbb")
+
+# Clean up the plot
+p.clean_data()
+```
+
+This also can be used to display parametric functions
+
+```python
+import numpy
+
+t = numpy.linspace(-3, 3, 50)
+x = 16 * numpy.sin(t)**3
+y = 13 * numpy.cos(t) - 5 * numpy.cos(2*t) - 2 * numpy.cos(3*t) - numpy.cos(4*t)
+
+f = flint()
+p = f.get_plot("curve", name="My heart")
+p.add_curve(x, y, legend="heart")
+```
+
+## Scatter plot
+
+A 2D scatter plot is provided.
+
+A scatter is a group of of three 1D data of the same length. Each of them
+respectively contains x-locations, y-locations and values.
+
+The widget provides different visualization mode to display the data as points,
+or with a solid rendering, including 2D histogram rendering.
+
+```python
+import numpy
+
+# Create the plot
+f = flint()
+p = f.get_plot("scatter", name="My plot")
+
+# Create the data and setup the plot
+y, x = numpy.ogrid[:10, :10]
+x, y = numpy.zeros_like(y) + x, numpy.zeros_like(x) + y
+x, y = x.flatten(), y.flatten()
+v = numpy.sin(numpy.sqrt((x-5)**2 + (y-5)**2))
+p.set_data(x, y, v)
+
+# The colormap can be updated
+p.set_colormap(lut="red")
+```
+
+![Screenshot](img/custom-plot-scatter-view.png)
+
+## Image plot
+
+A plot is provided to display a specific image.
+
+It provides a dedicated view to display a single image, with tools
+to provides vertical and horizontal histograms.
+
+```python
+import numpy
+
+# Create the plot
+f = flint()
+p = f.get_plot("image", name="My plot")
+
+# Create the data and setup the plot
+y, x = numpy.ogrid[:10, :10]
+image = numpy.sin(numpy.sqrt((x-5)**2 + (y-5)**2))
+p.set_data(image)
+
+# The colormap can be updated
+p.set_colormap(lut="red")
+```
+
+![Screenshot](img/custom-plot-image-view.png)
+
+## 2D plot
+
+Another 2D plot is provided to allow to compose a view with many images.
+It provides less tools than the dedicated image plot.
+
+```python
+import numpy
+
+# Create the plot
+f = flint()
+p = f.get_plot("plot2d", name="My plot")
+
+# Create the data and setup the plot
+y, x = numpy.ogrid[:10, :10]
+image1 = numpy.sin(numpy.sqrt((x-5)**2 + (y-5)**2))
+image2 = numpy.cos(numpy.sqrt((x-5)**2 + (y-5)**2))
+p.add_image(image1, origin=(0, 0), scale=(0.5, 0.5), legend="img1")  # legend have to be unique
+p.add_image(image2, origin=(5, 0), scale=(0.5, 0.5), legend="img2")
+
+# Clean up the plot
+p.clean_data()
+```
+
+![Screenshot](img/custom-plot-plot2d.png)
+
+## Curve stack
+
+This plot displays a single curve from a selectable list of curves.
+
+The data have to be provided as a 2D array. The slow axis is used as the axis
+of the curve.
+
+The selection is done with a slider.
+
+```python
+import numpy
+
+# Create the plot
+f = flint()
+p = f.get_plot(plot_class="curvestack", name="My curve stack")
+
+# Create the data and setup the plot
 curves = numpy.empty((10, 100))
 for i in range(10):
     curves[i] = numpy.sin(numpy.arange(100) / 30 + i * 6)
@@ -75,16 +210,33 @@ p.set_data(curves=curves, x=x)
 
 ![Screenshot](img/custom-plot-curve-stack.png)
 
-### Image stack plot
+## Image stack
 
-`class ImageStackPlot(BasePlot)`
+This plot displays a single image from a stack of image.
 
-  * plot a single stack of image
-  * a slider is provided to browse the images
-  * the plot is created using `plot_image_stack`
+The data have to be provided as a 3D array. The 2 first slow axis are used as
+the image axes.
 
-An extra helper called `plot` is provided to automatically infer
-a suitable type of plot from the data provided.
+A slider is provided to browse the images.
+
+```python
+import numpy
+
+# Create the plot
+f = flint()
+p = f.get_plot(plot_class="stackview", name="My image stack")
+
+# Create the data and setup the plot
+cube = numpy.arange(10 * 10 * 10)
+cube.shape = 10, 10, 10
+cube = numpy.sin(cube)
+p.set_data(cube)
+
+# The colormap can be updated
+p.set_colormap(lut="red")
+```
+
+![Screenshot](img/custom-plot-stack-view.png)
 
 ## Time curve plot
 
@@ -102,7 +254,8 @@ The GUI allow the user to change the last displayed period of time displayed.
 
 ```python
 # Create the plot
-p = flint.get_plot(plot_class="timecurveplot", name="My plot")
+f = flint()
+p = f.get_plot(plot_class="timecurveplot", name="My plot")
 
 # Setup the plot to display a dedicated data name
 # The data will be provided later
@@ -126,105 +279,49 @@ p.select_x_duration(second=5)
 p.clear_data()
 ```
 
-## Basic interface
+## Extra commands
 
-All the above plot types provide the same interface. They take the data
-as an argument and return a plot. Here's an example on how to display a cosine wave in a curve plot.
-
-```python
-xx = numpy.linspace(0, 4*3.14, 50)
-yy = numpy.cos(xx)
-plot(yy, name="Plot 0")
-```
-
-After the execution of these commands, Flint interface will show up, with a main tab named "Plot 0" (below application's main menu) with a plot with a cosine wave on it.
-
-![Screenshot](img/plot_1d_cosinus.png)
-
-We can add extra keyword arguments that are forwarded to silx. and recover a plot object to interact with it lately:
+Plots provide few extra commands.
 
 ```python
-p = plot(mydata, xlabel='A', ylabel='b')
-```
-
-From then on, all the interaction with the corresponding plot window goes
-through the plot object `p`. For instance, it provides a ``plot`` method
-to add and display extra data:
-
-```python
-p.plot(some_extra_data, yaxis='right')
-```
-
-## Advanced interface
-
-To be able to reuse a plot you can use the function from Flint object.
-Based on the unique name, this will create a plot only if needed, else it will
-retrieve the existing plot.
-
-```python
+# Create a plot
 f = flint()
-p = f.get_plot("plot1d", "My title", "uniquename999")
+p = f.get_plot(plot_class="plot1d", name="My plot")
 ```
 
-For a finer control over the plotted data, the data management is
-separated from the plot management. In order to add more data to
-the plot, use the following interface:
-
+The plot life cycle can be checked and changed with this commands:
 ```python
-p.add_data(cos_data, field='cos')
+if p.is_open():
+    p.close()
 ```
 
-This data is now identified using its field, ``'cos'``. A dict or
-a structured numpy array can also be provided. In this case,
-the fields of the provided data structure are used as identifiers:
-
+Set the focus on a specific plot can be set the following way:
 ```python
-p.add_data({'cos': cos_data, 'sin': sin_data})
+p.focus()
 ```
 
-Note that ``add_data`` does not plot the data on the chart. The plot selection is then done through the ``select_data`` method.
-For a curve plot, the expected arguments are the names of the data
-to use for X and Y:
-
+A plot can be exported to the logbook this way:
 ```python
-p.select_data('sin', 'cos')
+p.export_to_logbook()
 ```
 
-Again, the extra keyword arguments will be forwarded to silx:
+## From scripts
+
+From a scripts Flint also can be used to display plot.
+
+The `plot` command can be imported the following way:
 
 ```python
-p.select_data('sin', 'cos', color='green', symbol='x')
+from bliss.common.plot import plot
+
+plot([1, 2, 3, 4, 5, 6])
 ```
 
-The curve can then be deselected:
+Flint and it's plot API can be imported the followng way:
 
 ```python
-p.deselect_data('sin', 'cos')
-```
+from bliss.common.plot import get_flint
 
-And the data can be cleared:
-
-```python
-p.clear_data()
-```
-
-To sum up, here's how to achieve the same cosine chart of the previous section in a different way:
-
-```python
-from bliss.common import plot as plot_mdl
-import numpy
-
-# create plot object
-p = plot_mdl.plot_curve()
-
-# create data : x and y values
-xx = numpy.linspace(0, 4*3.14, 50)
-yy = numpy.cos(xx)
-
-# add data to plot: this does not show it up
-p.add_data(yy, field='cos')
-p.add_data(xx, field='x')
-
-# select x and y data to display them
-p.select_data('x', 'cos')
+f = get_flint()
+p = f.get_plot("plot1d", name="My plot")
 ```

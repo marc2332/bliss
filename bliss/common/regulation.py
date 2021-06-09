@@ -939,15 +939,6 @@ class Loop(SamplingCounterController):
     def is_in_idleband(self):
         return self._x_is_in_idleband(self.input.read())
 
-    def get_last_data(self):
-        data = {
-            "time": time.time(),
-            "setpoint": self._get_working_setpoint(),
-            "input": self._get_last_input_value(),
-            "output": self._get_last_output_value(),
-        }
-        return data
-
     def _get_last_input_value(self):
         return self.input.read()
 
@@ -2032,16 +2023,20 @@ class RegPlot:
                 pass
 
             try:
-                data = self.loop.get_last_data()
-                dbp = data["setpoint"] + self.loop.deadband
-                dbm = data["setpoint"] - self.loop.deadband
+                loop = self.loop
+                data_time = time.time()
+                setpoint = loop._get_working_setpoint()
+                input_value = loop._get_last_input_value()
+                output_value = loop._get_last_output_value()
+                dbp = setpoint + loop.deadband
+                dbm = setpoint - loop.deadband
 
                 # Update curves plot (refreshes the plot widget)
                 self.fig.append_data(
-                    time=[data["time"]],
-                    input=[data["input"]],
-                    output=[data["output"]],
-                    setpoint=[data["setpoint"]],
+                    time=[data_time],
+                    input=[input_value],
+                    output=[output_value],
+                    setpoint=[setpoint],
                     deadband_high=[dbp],
                     deadband_low=[dbm],
                 )

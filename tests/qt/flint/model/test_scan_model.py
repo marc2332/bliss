@@ -4,39 +4,39 @@ import pytest
 import numpy
 from bliss.flint.model import scan_model
 from bliss.flint.helper import scan_info_helper
+from tests.qt.flint.factory import ScanInfoFactory
 
 
-SCATTER_SCAN_INFO = {
-    "acquisition_chain": {"master_time1": {"devices": ["master", "slave"]}},
-    "devices": {
-        "master": {
-            "channels": ["device1:channel1", "device2:channel1", "device2:channel2"],
-            "triggered_devices": ["slave"],
-        },
-        "slave": {
-            "channels": [
-                "device3:channel1",
-                "device4:channel1",
-                "master_time1:index",
-                "lima:image",
-            ]
-        },
-    },
-    "channels": {
-        "device1:channel1": {"unit": "mm", "dim": 0},
-        "device2:channel1": {"unit": "mm", "dim": 0},
-        "device2:channel2": {"unit": "mm", "dim": 0},
-        "device3:channel1": {"unit": "mm", "dim": 0},
-        "device4:channel1": {"unit": "mm", "dim": 0},
-        "master_time1:index": {"unit": "s", "dim": 0},
-        "lima:image": {"dim": 2},
-    },
-    "data_dim": 2,
-}
+def _create_scatter_scan_info():
+    factory = ScanInfoFactory()
+    factory.add_device(root_id="master_time1", device_id="master")
+    factory.add_channel(
+        channel_id="device1:channel1", device_id="master", unit="mm", dim=0
+    )
+    factory.add_channel(
+        channel_id="device2:channel1", device_id="master", unit="mm", dim=0
+    )
+    factory.add_channel(
+        channel_id="device2:channel2", device_id="master", unit="mm", dim=0
+    )
+
+    factory.add_device(root_id="master_time1", device_id="slave", triggered_by="master")
+    factory.add_channel(
+        channel_id="device3:channel1", device_id="slave", unit="mm", dim=0
+    )
+    factory.add_channel(
+        channel_id="device4:channel1", device_id="slave", unit="mm", dim=0
+    )
+    factory.add_channel(
+        channel_id="master_time1:index", device_id="slave", unit="mm", dim=0
+    )
+    factory.add_channel(channel_id="lima:image", device_id="slave", dim=2)
+    return factory.scan_info()
 
 
 def test_scan_data_update_whole_channels():
-    scan = scan_info_helper.create_scan_model(SCATTER_SCAN_INFO)
+    scan_info = _create_scatter_scan_info()
+    scan = scan_info_helper.create_scan_model(scan_info)
     event = scan_model.ScanDataUpdateEvent(scan)
     expected = [
         "device1:channel1",
@@ -50,7 +50,8 @@ def test_scan_data_update_whole_channels():
 
 
 def test_scan_data_update_single_channel():
-    scan = scan_info_helper.create_scan_model(SCATTER_SCAN_INFO)
+    scan_info = _create_scatter_scan_info()
+    scan = scan_info_helper.create_scan_model(scan_info)
     channel = scan.getChannelByName("device2:channel2")
     event = scan_model.ScanDataUpdateEvent(scan, channel=channel)
     expected = {"device2:channel2"}
@@ -58,7 +59,8 @@ def test_scan_data_update_single_channel():
 
 
 def test_scan_data_update_single_image_channel():
-    scan = scan_info_helper.create_scan_model(SCATTER_SCAN_INFO)
+    scan_info = _create_scatter_scan_info()
+    scan = scan_info_helper.create_scan_model(scan_info)
     channel = scan.getChannelByName("lima:image")
     event = scan_model.ScanDataUpdateEvent(scan, channel=channel)
     expected = {"lima:image"}
@@ -66,7 +68,8 @@ def test_scan_data_update_single_image_channel():
 
 
 def test_scan_data_update_master_channels():
-    scan = scan_info_helper.create_scan_model(SCATTER_SCAN_INFO)
+    scan_info = _create_scatter_scan_info()
+    scan = scan_info_helper.create_scan_model(scan_info)
     device = scan.getDeviceByName("master_time1")
     event = scan_model.ScanDataUpdateEvent(scan, masterDevice=device)
     expected = {

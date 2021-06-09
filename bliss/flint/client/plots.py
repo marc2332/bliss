@@ -747,7 +747,7 @@ class StackView(BasePlot):
     WIDGET = "silx.gui.plot.StackView"
 
     # Available name to identify this plot
-    ALIASES = ["stack", "imagestack"]
+    ALIASES = ["stack", "imagestack", "stackview"]
 
     # Name of the method to add data to the plot
     METHOD = "setStack"

@@ -235,3 +235,37 @@ def test_curve_stack(flint_session):
     p.clear_data()
     vrange = p.get_data_range()
     assert vrange == [None, None]
+
+
+def test_time_curve_plot(flint_session):
+    """Coverage of the main time curve plot API"""
+    f = plot.get_flint()
+
+    p = f.get_plot(plot_class="timecurveplot", name="timecurveplot")
+
+    p.select_time_curve("diode1")
+    p.select_time_curve("diode2")
+
+    # set_data update the curves
+    p.set_data(time=[0, 1, 2], diode1=[0, 1, 1], diode2=[1, 5, 1])
+    vrange = p.get_data_range()
+    assert vrange[0] == [0, 2]
+    assert vrange[1] == [0, 5]
+
+    # append data update the data on the right side
+    p.append_data(time=[3], diode1=[2], diode2=[6])
+    vrange = p.get_data_range()
+    assert vrange[0] == [0, 3]
+    assert vrange[1] == [0, 6]
+
+    # when a fixed duration is used, the data disappear on one side
+    p.select_x_duration(second=5)
+    p.append_data(time=[10], diode1=[2], diode2=[6])
+    vrange = p.get_data_range()
+    assert vrange[0][0] > 1
+    assert vrange[0][1] == 10
+
+    # clean data clean up the plot
+    p.clear_data()
+    vrange = p.get_data_range()
+    assert vrange == [None, None]

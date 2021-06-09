@@ -474,6 +474,23 @@ If `loop.output.ramprate != 0` then any new value sent to the output will use a 
 The output ramping is useful when the hardware must be protected against brutal variations (like a high voltage output).
 By, default the output ramprate is set to zero.
 
+!!! Note
+    While setting a new setpoint, some controllers will compute the ramp from the last setpoint or working setpoint instead of the current process value.
+    If the current process value is far from the working setpoint, this could lead to a unwanted ramp and dangerous overshoots.
+    To prevent this, by default, the framework forces the controller to compute the new ramp from actual process value by setting the setpoint to current process value just before applying the new setpoint asked by the user. This behavior can be deactivated by setting the loop attribute `loop._force_ramping_from_current_pv` to `False`.
+    This can be done in the loop YML configuration with the key `ramp_from_pv`.
+
+    ``` yml
+        ctrl_loops:
+            - name: ls336l_1    # one loop
+            input: $ls336_B   # a reference to one of the inputs above
+            output: $ls336o_1 # a reference to one of the outputs above
+            channel: 1
+            ramp_from_pv: False
+    ```
+
+
+
 ### Scanning
 
 The Loop object has a special method `Loop.axis` that returns the loop as an `Axis`.

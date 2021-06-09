@@ -457,7 +457,7 @@ class Plot1D(BasePlot):
         # Get default x
         elif x is None:
             key = next(iter(data_dict))
-            length, = data_dict[key].shape
+            length = len(data_dict[key])
             x = numpy.arange(length)
         # Add x data
         if x is not None:

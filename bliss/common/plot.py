@@ -179,7 +179,7 @@ def _create_plot(
     data=None,
     name=None,
     existing_id=None,
-    selected=False,
+    selected=True,
     closeable=True,
     **kwargs,
 ):

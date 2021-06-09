@@ -560,11 +560,14 @@ class ScatterView(BasePlot):
     def clear_data(self):
         self.submit("setData", None, None, None)
 
-    def set_data(self, x, y, value, **kwargs):
+    def set_data(self, x, y, value, resetzoom=True, **kwargs):
         if x is None or y is None or value is None:
             self.clear_data()
         else:
             self.submit("setData", x, y, value, **kwargs)
+            # Else the view is not updated
+            if resetzoom:
+                self.submit("resetZoom")
 
 
 class Plot2D(BasePlot):

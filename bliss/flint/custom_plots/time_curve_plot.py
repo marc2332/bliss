@@ -178,6 +178,12 @@ class TimeCurvePlot(qt.QWidget):
             data = data[index:]
             self.__data[name] = data
 
+    def getDataRange(self):
+        r = self.__plot.getDataRange()
+        if r is None:
+            return None
+        return r[0], r[1]
+
     def setGraphGrid(self, which):
         self.__plot.setGraphGrid(which)
 

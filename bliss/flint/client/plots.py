@@ -70,6 +70,15 @@ class BasePlot(object):
 
         def update_data(self, field, data):
             data_dict = self.data()
+
+            # Data from the network is sometime not writable
+            # This make it fail silx for some use cases
+            if data is None:
+                return None
+            if isinstance(data, numpy.ndarray):
+                if not data.flags.writeable:
+                    data = numpy.array(data)
+
             data_dict[field] = data
 
         def remove_data(self, field):

@@ -955,10 +955,17 @@ class FlintApi:
         Allows to setup the default colormap of a widget.
         """
         widget = self._get_plot_widget(plot_id)
-        if not hasattr(widget, "defaultColormap"):
-            raise TypeError("Widget %s does not expose a colormap" % plot_id)
+        if hasattr(widget, "defaultColormap"):
+            colormap = widget.defaultColormap()
+        elif hasattr(widget, "getColormap"):
+            colormap = widget.getColormap()
+        else:
+            colormap - None
+        if colormap is None:
+            raise TypeError(
+                f"Widget {plot_id} ({type(widget)}) does not expose a colormap"
+            )
 
-        colormap = widget.defaultColormap()
         if lut is not None:
             colormap.setName(lut)
         if vmin is not None:

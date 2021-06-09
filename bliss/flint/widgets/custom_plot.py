@@ -61,6 +61,14 @@ class CustomPlot(qt.QWidget):
         layout.addWidget(plot)
         self.__plot = plot
 
+    def defaultColormap(self):
+        plot = self.__plot
+        if plot is None:
+            return None
+        if hasattr(plot, "getColormap"):
+            return plot.getColormap()
+        return None
+
     def _silxPlot(self):
         return self.__plot
 

@@ -100,7 +100,11 @@ class BasePlot(object):
 
         def get_data_range(self):
             widget = self.widget()
-            return widget.getDataRange()
+            if hasattr(widget, "getDataRange"):
+                return widget.getDataRange()
+            plot = widget.getPlotWidget()
+            if hasattr(plot, "getDataRange"):
+                return plot.getDataRange()
 
     def _register(self, flint, plot_id, register):
         """Register everything needed remotely"""
@@ -494,6 +498,9 @@ class Plot1D(BasePlot):
             ydata = numpy.asarray(ydata)
         self._flint.update_user_data(self._plot_id, unique_name, channel_name, ydata)
 
+    def add_curve(self, x, y, **kwargs):
+        self.submit("addCurve", x, y, **kwargs)
+
     def set_xaxis_scale(self, value):
         """
         Set the X-axis scale of this plot.
@@ -526,7 +533,7 @@ class ScatterView(BasePlot):
     ALIASES = ["scatter"]
 
     # Name of the method to add data to the plot
-    METHOD = "addScatter"
+    METHOD = "setData"
 
     # The dimension of the data to plot
     DATA_DIMENSIONS = (1,)
@@ -540,6 +547,15 @@ class ScatterView(BasePlot):
     def _init(self):
         # Make it public
         self.set_colormap = self._set_colormap
+
+    def clear_data(self):
+        self.submit("setData", None, None, None)
+
+    def set_data(self, x, y, value, **kwargs):
+        if x is None or y is None or value is None:
+            self.clear_data()
+        else:
+            self.submit("setData", x, y, value, **kwargs)
 
 
 class Plot2D(BasePlot):
@@ -570,6 +586,9 @@ class Plot2D(BasePlot):
         super(ImagePlot, self)._init_plot()
         self.submit("setKeepDataAspectRatio", True)
         self._remote_plot().show_intensity_histogram(True)
+
+    def add_image(self, data, **kwargs):
+        self.submit("addImage", data, **kwargs)
 
     def select_mask(self, initial_mask: numpy.ndarray = None, directory: str = None):
         """Request a mask image from user selection.
@@ -691,7 +710,7 @@ class ImageView(BasePlot):
     WIDGET = "silx.gui.plot.ImageView"
 
     # Available name to identify this plot
-    ALIASES = ["imageview", "histogramimage"]
+    ALIASES = ["image", "imageview", "histogramimage"]
 
     # Name of the method to add data to the plot
     METHOD = "setImage"
@@ -704,6 +723,13 @@ class ImageView(BasePlot):
 
     # Data input number for a single representation
     DATA_INPUT_NUMBER = 1
+
+    def _init(self):
+        # Make it public
+        self.set_colormap = self._set_colormap
+
+    def set_data(self, data, **kwargs):
+        self.submit("setImage", data, **kwargs)
 
 
 class StackView(BasePlot):
@@ -725,6 +751,13 @@ class StackView(BasePlot):
 
     # Data input number for a single representation
     DATA_INPUT_NUMBER = 1
+
+    def _init(self):
+        # Make it public
+        self.set_colormap = self._set_colormap
+
+    def set_data(self, data, **kwargs):
+        self.submit("setStack", data, **kwargs)
 
 
 class LiveCurvePlot(Plot1D):

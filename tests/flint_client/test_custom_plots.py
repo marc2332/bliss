@@ -218,9 +218,179 @@ def test_select_shapes__initial_selection(flint_session):
     assert rois[3].name == roi_profile.name
 
 
+def test_plot1d(flint_session):
+    f = plot.get_flint()
+    p = f.get_plot(plot_class="plot1d", name="plot1d")
+
+    # Check the default data setter
+    x = numpy.arange(11) * 2
+    y = numpy.arange(11)
+    y2 = numpy.arange(11) / 2
+    p.add_curve(x=x, y=y, legend="c1", yaxis="left")
+    p.add_curve(x=x, y=y2, legend="c2", yaxis="right")
+    vrange = p.get_data_range()
+    assert vrange == [[0, 20], [0, 10], [0, 5]]
+
+    # Clear the data
+    p.clear_data()
+    vrange = p.get_data_range()
+    assert vrange == [None, None, None]
+
+    # Check deprecated API
+    x = numpy.arange(11) * 2
+    y = numpy.arange(11)
+    y2 = numpy.arange(11) / 2
+    p.add_data(x, field="x")
+    p.add_data(y, field="y")
+    p.add_data(y2, field="y2")
+    p.select_data("x", "y", yaxis="left")
+    p.select_data("x", "y2", yaxis="right")
+    vrange = p.get_data_range()
+    assert vrange == [[0, 20], [0, 10], [0, 5]]
+
+    # Check the default way to clear data
+    p.clear_data()
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [None, None]
+
+
+def test_plot2d(flint_session):
+    f = plot.get_flint()
+    p = f.get_plot(plot_class="plot2d", name="plot2d")
+
+    # Check the default data setter
+    image = numpy.arange(10 * 10)
+    image.shape = 10, 10
+    p.add_image(image)
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [[0, 10], [0, 10]]
+
+    # FIXME: addImage have to support this API
+    # p.set_colormap(lut="viridis", vmin=0, vmax=10)
+
+    # Check the default way to clear data
+    p.clear_data()
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [None, None]
+
+    # Check deprecated API
+    image = numpy.arange(9 * 9)
+    image.shape = 9, 9
+    p.add_data(image, field="image")
+    p.select_data("image")
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [[0, 9], [0, 9]]
+
+    # Check the default way to clear data
+    p.clear_data()
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [None, None]
+
+
+def test_scatter_view(flint_session):
+    f = plot.get_flint()
+    p = f.get_plot(plot_class="scatter", name="scatterview")
+
+    # Check the default data setter
+    x = numpy.arange(11)
+    y = numpy.arange(11)
+    value = numpy.arange(11)
+    p.set_data(x=x, y=y, value=value)
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [[0, 10], [0, 10]]
+
+    # Allow to setup the colormap
+    p.set_colormap(lut="viridis", vmin=0, vmax=10)
+
+    # Set none can be use to clear the data
+    p.set_data(None, None, None)
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [None, None]
+
+    # Check deprecated API
+    x = numpy.arange(9)
+    y = numpy.arange(9)
+    value = numpy.arange(9)
+    p.add_data(x, field="x")
+    p.add_data(y, field="y")
+    p.add_data(value, field="value")
+    p.select_data("x", "y", "value")
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [[0, 8], [0, 8]]
+
+    # Check the default way to clear data
+    p.clear_data()
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [None, None]
+
+
+def test_image_view(flint_session):
+    f = plot.get_flint()
+    p = f.get_plot(plot_class="imageview", name="imageview")
+
+    # Check the default data setter
+    image = numpy.arange(10 * 10)
+    image.shape = 10, 10
+    p.set_data(image)
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [[0, 10], [0, 10]]
+
+    # Allow to setup the colormap
+    p.set_colormap(lut="viridis", vmin=0, vmax=10)
+
+    # Set none can be use to clear the data
+    p.set_data(None)
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [None, None]
+
+    # Check deprecated API
+    image = numpy.arange(9 * 9)
+    image.shape = 9, 9
+    p.add_data(image, field="image")
+    p.select_data("image")
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [[0, 9], [0, 9]]
+
+    # Check the default way to clear data
+    p.clear_data()
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [None, None]
+
+
+def test_image_stack(flint_session):
+    f = plot.get_flint()
+    p = f.get_plot(plot_class="imagestack", name="imagestack")
+
+    cube = numpy.arange(10 * 10 * 10)
+    cube.shape = 10, 10, 10
+
+    # Check the default data setter
+    p.set_data(cube)
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [[0, 10], [0, 10]]
+
+    # Allow to setup the colormap
+    p.set_colormap(lut="viridis", vmin=0, vmax=10)
+
+    # Set none can be use to clear the data
+    p.set_data(None)
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [None, None]
+
+    # Check deprecated API
+    p.add_data(cube, field="cube")
+    p.select_data("cube")
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [[0, 10], [0, 10]]
+
+    # Check the default way to clear data
+    p.clear_data()
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [None, None]
+
+
 def test_curve_stack(flint_session):
     f = plot.get_flint()
-
     p = f.get_plot(plot_class="curvestack", name="curve-stack")
 
     curves = numpy.empty((10, 100))

@@ -10,15 +10,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Flint
-    - Create a `time-curve-plot` custom plot
+    - Added a `time-curve-plot` custom plot
+    - Added a new API from custom curve plots
+    - Rewritten custom plot user documentation including examples
 
 ### Changed
 
-- Use `time-curve-plot` for the regulation plot
+- Flint
+    - Custom plot API
+        - `plot_image` now uses `ImageView` (which includes histogram)
+        - `plot_image_with_histogram` is deprecated (use `plot_inage`)
+        - `plot_scatter` signature was changed (x, y, value have to be individually
+           defined)
+        - `select_data`/`deselect_data`/`add_data` are deprecated
+- The regulation plot now uses `time-curve-plot`
 
 ### Fixed
 
+- Flint
+    - Fixed many inconsistencies in the custom plot API
+
 ### Removed
+
+- Flint
+    - Custom plot API
+        - Removed method `add_single_data`
 
 ## [1.8.0 - 2021-05-28]
 

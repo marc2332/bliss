@@ -150,8 +150,6 @@ def test_soft_regulation_failure(temp_soft_tloop):
 def test_regulation_plot(temp_tloop, flint_session):
     x = temp_tloop
     x.setpoint = 0
-    x.history_size = 150
-    x.clear_history_data()
     plt = x.plot()
     plt.stop()
     gevent.sleep(1.0)

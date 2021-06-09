@@ -426,10 +426,6 @@ The plot can be stopped and restarted using the commands `plt.stop()` and `plot.
 
 The refresh time of the plot can be modified with `plt.sleep_time = 0.1`.
 
-The size of stored data for the plot can be modified: `loop.history_size = 150`.
-
-The stored data can be cleared with: `loop.clear_history_data()`
-
 ```python
 
 TEST_SESSION [4]: loop.plot()

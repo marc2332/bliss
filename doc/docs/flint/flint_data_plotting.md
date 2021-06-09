@@ -86,6 +86,46 @@ p.set_data(curves=curves, x=x)
 An extra helper called `plot` is provided to automatically infer
 a suitable type of plot from the data provided.
 
+## Time curve plot
+
+![Screenshot](img/custom-plot-time-curve-plot.png)
+
+A dedicated plot is provided to display curve data with time as x-axis.
+
+It's the plot used by the regulation framework.
+
+This is useful to simplify the display of a fixed period of time
+(the last x seconds), and to update the data using the new known
+data only.
+
+The GUI allow the user to change the last displayed period of time displayed.
+
+```python
+# Create the plot
+p = flint.get_plot(plot_class="timecurveplot", name="My plot")
+
+# Setup the plot to display a dedicated data name
+# The data will be provided later
+# the `time` data name is used as x-axis
+p.select_time_curve("diode1")
+# The curve style can be specified
+p.select_time_curve("diode2", color="red")
+
+# The data can be set
+# The time have to be provided in epoch second UTC (see python API `time.time()`)
+p.set_data(time=[0, 1, 2], diode1=[0, 1, 1], diode2=[1, 5, 1])
+
+# The data also can be appended
+p.append_data(time=[3], diode1=[2], diode2=[6])
+
+# Old data is dropped automatically
+# This can be setup programatically
+p.select_x_duration(second=5)
+
+# And data can be cleared
+p.clear_data()
+```
+
 ## Basic interface
 
 All the above plot types provide the same interface. They take the data

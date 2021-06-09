@@ -48,8 +48,8 @@ class CurveStack(qt.QWidget):
     def setGraphXLabel(self, label: str):
         self.__plot.setGraphXLabel(label)
 
-    def setGraphYLabel(self, label: str):
-        self.__plot.setGraphYLabel(label)
+    def setGraphYLabel(self, label: str, axis="left"):
+        self.__plot.setGraphYLabel(label, axis=axis)
 
     def getPlotWidget(self):
         return self.__plot

@@ -759,9 +759,6 @@ class Loop(SamplingCounterController):
 
         self._wait_mode = self.WaitMode.DEADBAND  # RAMP
 
-        self._history_size = 100
-        self.clear_history_data()
-
         self.reg_plot = None
 
         self.max_sampling_frequency = config.get("max_sampling_frequency", 5)
@@ -942,53 +939,11 @@ class Loop(SamplingCounterController):
     def is_in_idleband(self):
         return self._x_is_in_idleband(self.input.read())
 
-    ##--- DATA HISTORY METHODS
-    def clear_history_data(self):
-        self._history_start_time = time.time()
-        self.history_data = {"input": [], "output": [], "setpoint": [], "time": []}
-
-        self._history_counter = 0
-
-    def _store_history_data(self):
-
-        xval = time.time() - self._history_start_time
-        # xval = self._history_counter
-        self._history_counter += 1
-
-        self.history_data["time"].append(xval)
-        self.history_data["setpoint"].append(self._get_working_setpoint())
-        self.history_data["input"].append(self._get_last_input_value())
-        self.history_data["output"].append(self._get_last_output_value())
-
-        for data in self.history_data.values():
-            dx = len(data) - self._history_size
-            if dx > 0:
-                for i in range(dx):
-                    data.pop(0)
-
     def _get_last_input_value(self):
         return self.input.read()
 
     def _get_last_output_value(self):
         return self.output.read()
-
-    @property
-    def history_size(self):
-        """
-        Get the size of the buffer that stores the latest data (input_value, output_value, working_setpoint)
-        """
-
-        log_debug(self, "Loop:get_history_size")
-        return self._history_size
-
-    @history_size.setter
-    def history_size(self, value):
-        """
-        Set the size of the buffer that stores the latest data (input_value, output_value, working_setpoint)
-        """
-
-        log_debug(self, "Loop:set_history_size: %s" % (value,))
-        self._history_size = value
 
     ##--- CTRL METHODS
     @property
@@ -2010,16 +1965,14 @@ class RegPlot:
 
     def create_plot(self):
 
-        # Declare a CurvePlot (see bliss.flint.client.plots)
+        # Declare and setup the plot
         self.fig = get_flint().get_plot(
-            plot_class="Plot1D",
+            plot_class="TimeCurvePlot",
             name=self.loop.name,
             unique_name=f"regul_plot_{self.loop.name}",
             closeable=True,
             selected=True,
         )
-
-        self.fig.submit("setGraphXLabel", "Time (s)")
         self.fig.submit(
             "setGraphYLabel",
             f"Processed value ({self.loop.input.config.get('unit','')})",
@@ -2031,13 +1984,14 @@ class RegPlot:
         )
         self.fig.submit("setGraphGrid", which=True)
 
-        self.fig.submit(
-            "setDataMargins",
-            xMinMargin=0.0,
-            xMaxMargin=0.0,
-            yMinMargin=0.1,
-            yMaxMargin=0.1,
+        # Define the plot content
+        self.fig.select_time_curve("setpoint", color="blue", linestyle="-", z=2)
+        self.fig.select_time_curve("input", color="red", linestyle="-", z=2)
+        self.fig.select_time_curve(
+            "output", color="green", linestyle="-", yaxis="right", z=2
         )
+        self.fig.select_time_curve("deadband_high", color="blue", linestyle="--", z=2)
+        self.fig.select_time_curve("deadband_low", color="blue", linestyle="--", z=2)
 
     def is_plot_active(self):
         if self.fig is None:
@@ -2050,7 +2004,6 @@ class RegPlot:
             self.create_plot()
 
         if not self.task:
-            self.loop.clear_history_data()
             self._stop_event.clear()
             self.task = gevent.spawn(self.run)
 
@@ -2069,43 +2022,24 @@ class RegPlot:
             except (gevent.timeout.Timeout, Exception) as e:
                 pass
 
-            # update data history
-            self.loop._store_history_data()
-
             try:
-                self.fig.submit("setAutoReplot", False)
-
-                self.fig.add_data(self.loop.history_data["time"], field="time")
-                self.fig.add_data(self.loop.history_data["input"], field="Input")
-                self.fig.add_data(self.loop.history_data["output"], field="Output")
-                self.fig.add_data(self.loop.history_data["setpoint"], field="Setpoint")
-
-                dbp = [
-                    x + self.loop.deadband for x in self.loop.history_data["setpoint"]
-                ]
-                dbm = [
-                    x - self.loop.deadband for x in self.loop.history_data["setpoint"]
-                ]
-                self.fig.add_data(dbp, field="Deadband_high")
-                self.fig.add_data(dbm, field="Deadband_low")
+                loop = self.loop
+                data_time = time.time()
+                setpoint = loop._get_working_setpoint()
+                input_value = loop._get_last_input_value()
+                output_value = loop._get_last_output_value()
+                dbp = setpoint + loop.deadband
+                dbm = setpoint - loop.deadband
 
                 # Update curves plot (refreshes the plot widget)
-                # select_data takes all kwargs of the associated plot methode (e.g. silx => addCurve(kwargs) )
-                self.fig.select_data(
-                    "time", "Setpoint", color="blue", linestyle="-", z=2
+                self.fig.append_data(
+                    time=[data_time],
+                    input=[input_value],
+                    output=[output_value],
+                    setpoint=[setpoint],
+                    deadband_high=[dbp],
+                    deadband_low=[dbm],
                 )
-                self.fig.select_data("time", "Input", color="red", linestyle="-", z=2)
-                self.fig.select_data(
-                    "time", "Output", color="green", linestyle="-", yaxis="right", z=2
-                )
-                self.fig.select_data(
-                    "time", "Deadband_high", color="blue", linestyle="--", z=2
-                )
-                self.fig.select_data(
-                    "time", "Deadband_low", color="blue", linestyle="--", z=2
-                )
-
-                self.fig.submit("setAutoReplot", True)
 
             except (gevent.timeout.Timeout, Exception):
                 log_debug(self, "Error while plotting the data", exc_info=True)

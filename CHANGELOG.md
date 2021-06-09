@@ -9,7 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Flint
+    - Create a `time-curve-plot` custom plot
+
 ### Changed
+
+- Use `time-curve-plot` for the regulation plot
 
 ### Fixed
 

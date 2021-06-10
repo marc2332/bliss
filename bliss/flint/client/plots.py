@@ -113,60 +113,6 @@ class BasePlot(object):
         """Set the focus on this plot"""
         self._flint.export_to_logbook(self._plot_id)
 
-    # Data handling
-
-    def upload_data(self, field, data):
-        """
-        Update data as an identifier into the server side
-
-        Argument:
-            field: Identifier in the targeted plot
-            data: Data to upload
-        """
-        return self.submit("updateStoredData", field, data)
-
-    def upload_data_if_needed(self, field, data):
-        """Upload data only if it is a numpy array or a list
-        """
-        if isinstance(data, (numpy.ndarray, list)):
-            self.submit("updateStoredData", field, data)
-            return field
-        else:
-            return data
-
-    def add_data(self, data, field="default"):
-        # Get fields
-        if isinstance(data, dict):
-            fields = list(data)
-        else:
-            fields = numpy.array(data).dtype.fields
-        # Single data
-        if fields is None:
-            data_dict = dict([(field, data)])
-        # Multiple data
-        else:
-            data_dict = dict((field, data[field]) for field in fields)
-        # Send data
-        for field, value in data_dict.items():
-            self.upload_data(field, value)
-        # Return data dict
-        return data_dict
-
-    def remove_data(self, field):
-        self.submit("removeStoredData", field)
-
-    def select_data(self, *names, **kwargs):
-        self.submit("selectStoredData", *names, **kwargs)
-
-    def deselect_data(self, *names):
-        self.submit("deselectStoredData", *names)
-
-    def clear_data(self):
-        self.submit("clear")
-
-    def get_data(self, field=None):
-        return self.submit("getStoredData", field=field)
-
     def get_data_range(self):
         """Returns the current data range used by this plot"""
         return self.submit("getDataRange")
@@ -296,10 +242,75 @@ class BasePlot(object):
         )
 
 
+class _DataPlot(BasePlot):
+    """
+    Plot providing a common API to store data
+
+    This was introduced for baward compatibility with BLISS <= 1.8
+
+    FIXME: This have to be deprecated and removed. Plots should be updated using
+    another API
+    """
+
+    # Data handling
+
+    def upload_data(self, field, data):
+        """
+        Update data as an identifier into the server side
+
+        Argument:
+            field: Identifier in the targeted plot
+            data: Data to upload
+        """
+        return self.submit("updateStoredData", field, data)
+
+    def upload_data_if_needed(self, field, data):
+        """Upload data only if it is a numpy array or a list
+        """
+        if isinstance(data, (numpy.ndarray, list)):
+            self.submit("updateStoredData", field, data)
+            return field
+        else:
+            return data
+
+    def add_data(self, data, field="default"):
+        # Get fields
+        if isinstance(data, dict):
+            fields = list(data)
+        else:
+            fields = numpy.array(data).dtype.fields
+        # Single data
+        if fields is None:
+            data_dict = dict([(field, data)])
+        # Multiple data
+        else:
+            data_dict = dict((field, data[field]) for field in fields)
+        # Send data
+        for field, value in data_dict.items():
+            self.upload_data(field, value)
+        # Return data dict
+        return data_dict
+
+    def remove_data(self, field):
+        self.submit("removeStoredData", field)
+
+    def select_data(self, *names, **kwargs):
+        self.submit("selectStoredData", *names, **kwargs)
+
+    def deselect_data(self, *names):
+        self.submit("deselectStoredData", *names)
+
+    def clear_data(self):
+        self.submit("clear")
+
+    def get_data(self, field=None):
+        return self.submit("getStoredData", field=field)
+
+
 # Plot classes
 
 
-class Plot1D(BasePlot):
+class Plot1D(_DataPlot):
 
     # Name of the corresponding silx widget
     WIDGET = "bliss.flint.custom_plots.silx_plots.Plot1D"
@@ -345,7 +356,7 @@ class Plot1D(BasePlot):
         flint.run_method(self._plot_id, "setYAxisLogarithmic", [value == "log"], {})
 
 
-class ScatterView(BasePlot):
+class ScatterView(_DataPlot):
 
     # Name of the corresponding silx widget
     WIDGET = "bliss.flint.custom_plots.silx_plots.ScatterView"
@@ -357,9 +368,6 @@ class ScatterView(BasePlot):
         # Make it public
         self.set_colormap = self._set_colormap
 
-    def clear_data(self):
-        self.submit("setData", None, None, None)
-
     def set_data(self, x, y, value, resetzoom=True, **kwargs):
         if x is None or y is None or value is None:
             self.clear_data()
@@ -367,7 +375,7 @@ class ScatterView(BasePlot):
             self.submit("setData", x, y, value, **kwargs)
 
 
-class Plot2D(BasePlot):
+class Plot2D(_DataPlot):
 
     # Name of the corresponding silx widget
     WIDGET = "bliss.flint.custom_plots.silx_plots.Plot2D"
@@ -424,6 +432,9 @@ class CurveStack(BasePlot):
         """
         self.submit("setData", data=curves, x=x, resetZoom=reset_zoom)
 
+    def clear_data(self):
+        self.submit("clear")
+
 
 class TimeCurvePlot(BasePlot):
     # Name of the corresponding silx widget
@@ -478,8 +489,11 @@ class TimeCurvePlot(BasePlot):
         """
         self.submit("appendData", **kwargs)
 
+    def clear_data(self):
+        self.submit("clear")
 
-class ImageView(BasePlot):
+
+class ImageView(_DataPlot):
 
     # Name of the corresponding silx widget
     WIDGET = "bliss.flint.custom_plots.silx_plots.ImageView"
@@ -500,7 +514,7 @@ class ImageView(BasePlot):
         self.submit("setImage", data, **kwargs)
 
 
-class StackView(BasePlot):
+class StackView(_DataPlot):
 
     # Name of the corresponding silx widget
     WIDGET = "bliss.flint.custom_plots.silx_plots.StackImageView"
@@ -516,7 +530,7 @@ class StackView(BasePlot):
         self.submit("setStack", data, **kwargs)
 
 
-class LiveCurvePlot(Plot1D):
+class LiveCurvePlot(BasePlot):
 
     WIDGET = None
 
@@ -546,28 +560,36 @@ class LiveCurvePlot(Plot1D):
         self._flint.update_user_data(self._plot_id, unique_name, channel_name, ydata)
 
 
-class LiveImagePlot(Plot2D):
+class LiveImagePlot(BasePlot):
 
     WIDGET = None
 
     ALIASES = ["image"]
 
+    def _init(self):
+        # Make it public
+        self.set_colormap = self._set_colormap
 
-class LiveScatterPlot(Plot1D):
+
+class LiveScatterPlot(BasePlot):
 
     WIDGET = None
 
     ALIASES = ["scatter"]
 
+    def _init(self):
+        # Make it public
+        self.set_colormap = self._set_colormap
 
-class LiveMcaPlot(Plot1D):
+
+class LiveMcaPlot(BasePlot):
 
     WIDGET = None
 
     ALIASES = ["mca"]
 
 
-class LiveOneDimPlot(Plot1D):
+class LiveOneDimPlot(BasePlot):
 
     WIDGET = None
 

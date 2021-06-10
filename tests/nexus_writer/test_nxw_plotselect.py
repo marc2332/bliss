@@ -21,7 +21,7 @@ def _test_nxw_plotselect(
 ):
     scan_saving = session.scan_saving
     env_dict = session.env_dict
-    scan_saving.technique = ""
+    scan_saving.dataset.all.definition = "none"
     detectors = [env_dict[name] for name in ["diode3", "diode4", "diode5"]]
     scan_shape = (10,)
 

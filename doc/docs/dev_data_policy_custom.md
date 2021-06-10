@@ -12,14 +12,14 @@ class Session:
             self.env_dict["SCAN_SAVING"] = self.scan_saving
 ```
 
-Creating a custom data policy means deriving a class from `bliss.scanning.scan_saving.BaseScanSaving`:
+Creating a custom data policy means deriving a class from `bliss.scanning.scan_saving.BasicScanSaving`:
 
 ```python
 
-class CustomScanSaving(BaseScanSaving):
+class CustomScanSaving(BasicScanSaving):
     DEFAULT_VALUES = {
         # default and not removable values
-        "technique": "",
+        "scan_number_format": "%04d",
         ...
         # saved properties in Redis:
         "_proposal": "",

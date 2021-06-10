@@ -40,7 +40,10 @@ def test_nxw_scangroup_base_nopolicy(nexus_writer_base_nopolicy):
 
 @nxw_test_utils.writer_stdout_on_exception
 def _test_nxw_scangroup(session=None, tmpdir=None, writer=None, **kwargs):
-    session.scan_saving.add("technique", "none")
+    try:
+        session.scan_saving.dataset.all.definition = "none"
+    except AttributeError:
+        pass  # data policy disabled
     npoints = 10
     detector1 = session.env_dict["diode3"]
     detector2 = session.env_dict["diode4"]

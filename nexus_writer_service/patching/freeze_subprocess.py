@@ -13,7 +13,7 @@
 original and Bliss will not patch it.
 """
 
-import bliss
+import bliss  # unused but needed
 import subprocess
 from nexus_writer_service.patching.gevent import unpatch_module
 

@@ -7,7 +7,6 @@
 
 import pytest
 import os
-import sys
 import gevent
 from gevent import subprocess
 from contextlib import contextmanager
@@ -82,6 +81,21 @@ def nexus_writer_config(nexus_writer_session_policy, scan_tmpdir):
 
 
 @pytest.fixture
+def nexus_writer_config_capture(nexus_writer_session_policy, scan_tmpdir):
+    """Writer session with a Nexus writer
+    """
+    with nexus_writer(
+        nexus_writer_session_policy,
+        scan_tmpdir,
+        config=True,
+        alt=False,
+        policy=True,
+        capture=True,
+    ) as info:
+        yield info
+
+
+@pytest.fixture
 def nexus_writer_limited_disk_space(nexus_writer_session_policy, scan_tmpdir):
     """Like nexus_writer_config but require more disk space
     than available.
@@ -121,7 +135,13 @@ def nexus_writer_config_alt(nexus_writer_session_policy, scan_tmpdir):
 
 @contextmanager
 def nexus_writer(
-    session, tmpdir, config=True, alt=False, policy=True, required_disk_space=None
+    session,
+    tmpdir,
+    config=True,
+    alt=False,
+    policy=True,
+    capture=False,
+    required_disk_space=None,
 ):
     """Nexus writer for this session
 
@@ -130,6 +150,7 @@ def nexus_writer(
     :param bool policy:
     :param bool config:
     :param bool alt:
+    :param bool capture:
     :param num required_disk_space:
     :returns dict:
     """
@@ -143,7 +164,7 @@ def nexus_writer(
     }
     prepare_objects(**info)
     prepare_scan_saving(**info)
-    with writer_tango(**info) as writer:
+    with writer_tango(capture=capture, **info) as writer:
         info["writer"] = writer
         yield info
 
@@ -186,7 +207,7 @@ def prepare_scan_saving(session=None, tmpdir=None, policy=True, **kwargs):
                         )
         scan_saving.proposal_name = "testproposal"
         technique = nxw_test_config.technique["withpolicy"]
-        scan_saving.technique = technique
+        scan_saving.proposal.all.definition = technique
         measurementgroup.set_active_name(technique + "MG")
     else:
         tmpdir = str(tmpdir)
@@ -207,6 +228,7 @@ def writer_tango(
     tmpdir=None,
     config=True,
     alt=False,
+    capture=False,
     required_disk_space=None,
     **kwargs,
 ):
@@ -218,6 +240,7 @@ def writer_tango(
     :param callable wait_for_fixture:
     :param bool config:
     :param bool alt:
+    :param bool capture:
     :param num required_disk_space:
     :param kwargs: ignored
     :returns PopenGreenlet:
@@ -239,9 +262,7 @@ def writer_tango(
     db.put_device_property(device_name, properties)
     exception = None
     for i in range(3):
-        with nxw_test_utils.popencontext(
-            cliargs, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env
-        ) as greenlet:
+        with nxw_test_utils.popencontext(cliargs, env=env, capture=capture) as greenlet:
             try:
                 dev_proxy = wait_tango_device(
                     device_fqdn=device_fqdn, state=DevState.ON
@@ -267,7 +288,9 @@ def writer_tango(
 
 
 @contextmanager
-def writer_process(session=None, tmpdir=None, config=True, alt=False, **kwargs):
+def writer_process(
+    session=None, tmpdir=None, config=True, alt=False, capture=False, **kwargs
+):
     """
     Run external writer as a python process
 
@@ -275,6 +298,7 @@ def writer_process(session=None, tmpdir=None, config=True, alt=False, **kwargs):
     :param tmpdir:
     :param bool config:
     :param bool alt:
+    :param bool capture:
     :param kwargs: ignored
     :returns PopenGreenlet:
     """
@@ -284,9 +308,7 @@ def writer_process(session=None, tmpdir=None, config=True, alt=False, **kwargs):
         + writer_cli_logargs(tmpdir)
         + writer_options(tango=False, config=config, alt=alt)
     )
-    with nxw_test_utils.popencontext(
-        cliargs, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env
-    ) as greenlet:
+    with nxw_test_utils.popencontext(cliargs, env=env, capture=capture) as greenlet:
         with gevent.Timeout(10, RuntimeError("Nexus Writer not running")):
             while not greenlet.stdout_contains("Start listening"):
                 gevent.sleep(0.1)
@@ -335,10 +357,10 @@ def writer_options(tango=True, config=True, alt=False, required_disk_space=None)
 def writer_cli_logargs(tmpdir):
     return (
         "--log=warning",  # applies to log_tango as well (abbreviations allowed)
-        "--redirectstdout",
-        "--redirectstderr",
-        "--logfileout={}".format(tmpdir.join("writer.stdout.log")),
-        "--logfileerr={}".format(tmpdir.join("writer.stderr.log")),
+        # "--redirectstdout",
+        # "--redirectstderr",
+        # "--logfileout={}".format(tmpdir.join("writer.stdout.log")),
+        # "--logfileerr={}".format(tmpdir.join("writer.stderr.log")),
     )
 
 

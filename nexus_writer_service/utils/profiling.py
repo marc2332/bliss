@@ -15,7 +15,6 @@ else:
 
 import os
 from io import StringIO
-import logging
 from contextlib import contextmanager, ExitStack
 from time import time
 from .logging_utils import log

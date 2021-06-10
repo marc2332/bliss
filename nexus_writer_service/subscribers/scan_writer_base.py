@@ -13,8 +13,6 @@
 Basic Nexus writer listening to Redis events of a scan
 """
 
-import gevent
-import os
 import numpy
 import traceback
 import logging

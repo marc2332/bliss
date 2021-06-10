@@ -749,7 +749,6 @@ class ESRFScanSaving(BasicScanSaving):
         "date_format": "%Y%m%d",
         "scan_number_format": "%04d",
         "dataset_number_format": "%04d",
-        "technique": "",
         # saved properties in Redis:
         "_writer_module": "nexus",
         "_proposal": "",
@@ -796,12 +795,16 @@ class ESRFScanSaving(BasicScanSaving):
         self._remove_deprecated()
 
     def _remove_deprecated(self):
+        """Remove deprecated items from existing Redis databases"""
         stored = self.to_dict()
         if "_sample" in stored:
-            # Deprecated in Bliss 1.7
+            # Deprecated in Bliss > 1.7.0
             value = stored["_sample"]
             self.remove("._sample")
             self._collection = value
+        if "technique" in stored:
+            # Deprecated in Bliss > 1.8.0
+            self.remove("technique")
 
     def __dir__(self):
         keys = super().__dir__()

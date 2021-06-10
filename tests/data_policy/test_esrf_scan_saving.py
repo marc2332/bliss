@@ -1377,36 +1377,52 @@ def test_parallel_scans(session, esrf_data_policy):
 
 
 @pytest.mark.parametrize(
-    "missing_dataset, missing_collection, missing_proposal",
-    list(itertools.product(*[[True, False]] * 3)),
+    "missing_dataset, missing_collection, missing_proposal, policymethod",
+    list(
+        itertools.product(
+            [True, False],
+            [True, False],
+            [True, False],
+            [newdataset, newsample, newproposal],
+        )
+    ),
 )
 def test_missing_icat_nodes_not_blocking(
     missing_dataset,
     missing_collection,
     missing_proposal,
+    policymethod,
     session,
     esrf_data_policy,
     nexus_writer_service,
 ):
     diode = session.config.get("diode")
-    for policymethod in [newdataset, newsample, newproposal]:
-        s = loopscan(1, .001, diode)
+    scan_saving = session.scan_saving
 
-        if missing_dataset:
-            dataset = session.scan_saving.dataset.node
-            s.root_connection.delete(dataset.db_name)
-        if missing_collection:
-            collection = session.scan_saving.collection.node
-            s.root_connection.delete(collection.db_name)
-        if missing_proposal:
-            proposal = session.scan_saving.proposal.node
-            s.root_connection.delete(proposal.db_name)
+    s = loopscan(1, .001, diode)
 
-        # Check that the dataset is closed despite the exception
-        # due to missing nodes (i.e. incomplete ICAT metadata)
-        if missing_dataset or missing_collection or missing_proposal:
-            with pytest.raises(RuntimeError, match="The dataset was closed"):
-                policymethod("new")
+    old_dataset = scan_saving.dataset
+    assert not old_dataset.is_closed
 
-        # Check that the session is not blocked
-        policymethod("new")
+    if missing_dataset:
+        dataset = scan_saving.dataset.node
+        s.root_connection.delete(dataset.db_name)
+    if missing_collection:
+        collection = scan_saving.collection.node
+        s.root_connection.delete(collection.db_name)
+    if missing_proposal:
+        proposal = scan_saving.proposal.node
+        s.root_connection.delete(proposal.db_name)
+
+    # Check that the dataset is closed despite the exception
+    # due to missing nodes (i.e. incomplete ICAT metadata)
+    if missing_dataset or missing_collection or missing_proposal:
+        with pytest.raises(
+            RuntimeError,
+            match="The dataset was closed but its ICAT metadata is incomplete",
+        ):
+            policymethod("new")
+        assert old_dataset.is_closed
+
+    # Check that the session is not blocked
+    policymethod("new")

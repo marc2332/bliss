@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import gevent
+import gevent.event
 from gevent import subprocess
 import sys
 import functools
@@ -38,10 +39,24 @@ def run_scan(scan, runasync=False):
             ctrl_params["saving_format"] = "EDF"
             ctrl_params["saving_frame_per_file"] = 3
             ctrl_params["saving_suffix"] = ".edf"
+    run_method = scan_run(scan.run)
     if runasync:
-        return gevent.spawn(scan.run)
+        return gevent.spawn(run_method)
     else:
-        return scan.run()
+        return run_method()
+
+
+def scan_run(run_method):
+    @functools.wraps(run_method)
+    def wrapper(*args, **kw):
+        try:
+            return run_method(*args, **kw)
+        except Exception as e:
+            raise RuntimeError("Scan failed") from e
+        except gevent.Timeout as e:
+            raise RuntimeError("Scan did not finish in time") from e
+
+    return wrapper
 
 
 def assert_async_scans_success(scans, greenlets):
@@ -186,6 +201,9 @@ class PopenGreenlet(gevent.Greenlet):
         self.stderr = b""
         self.popenargs = popenargs
         self.popenkw = popenkw
+        if popenkw.pop("capture", False):
+            popenkw.setdefault("stdout", subprocess.PIPE)
+            popenkw.setdefault("stderr", subprocess.PIPE)
 
     def __str__(self):
         if self.process is None:
@@ -196,12 +214,17 @@ class PopenGreenlet(gevent.Greenlet):
     def _run(self):
         self.process = process = subprocess.Popen(*self.popenargs, **self.popenkw)
         try:
-            while True:
-                if process.stdout is not None:
-                    self.stdout += process.stdout.read1()
-                if process.stderr is not None:
-                    self.stderr += process.stderr.read1()
-                gevent.sleep()
+            capture_stdout = process.stdout is not None
+            capture_stderr = process.stderr is not None
+            if capture_stdout or capture_stderr:
+                while True:
+                    if capture_stdout:
+                        self.stdout += process.stdout.read1()
+                    if capture_stderr:
+                        self.stderr += process.stderr.read1()
+                    gevent.sleep(0.1)
+            else:
+                gevent.event.Event().wait()
         except gevent.GreenletExit:
             pass
         finally:

@@ -16,7 +16,6 @@ import logging
 from gevent.time import time
 from gevent import sleep
 from collections import OrderedDict
-from contextlib import contextmanager
 from fabio.edfimage import EdfImage
 from silx.io import dictdump
 from .base_proxy import BaseProxy

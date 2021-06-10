@@ -453,29 +453,6 @@ class Plot1D(BasePlot):
             self._plot_id, unique_name, channel_name, position, text
         )
 
-    def update_user_data(
-        self, unique_name: str, channel_name: str, ydata: Optional[numpy.ndarray]
-    ):
-        """Add user data to a live plot.
-
-        It will define a curve in the plot using the y-data provided and the
-        x-data from the parent item (defined by the `channel_name`)
-
-        The key `unique_name` + `channel_name` is unique. So if it already
-        exists the item will be updated.
-
-        Arguments:
-            unique_name: Name of this item in the property tree
-            channel_name: Name of the channel that will be used as parent for
-                this item. If this parent item does not exist, it is created
-                but set hidden.
-            ydata: Y-data for this item. If `None`, if the item already exists,
-                it is removed from the plot
-        """
-        if ydata is not None:
-            ydata = numpy.asarray(ydata)
-        self._flint.update_user_data(self._plot_id, unique_name, channel_name, ydata)
-
     def add_curve(self, x, y, **kwargs):
         if x is None:
             x = numpy.arange(len(y))
@@ -750,6 +727,29 @@ class LiveCurvePlot(Plot1D):
     WIDGET = None
 
     ALIASES = ["curve"]
+
+    def update_user_data(
+        self, unique_name: str, channel_name: str, ydata: Optional[numpy.ndarray]
+    ):
+        """Add user data to a live plot.
+
+        It will define a curve in the plot using the y-data provided and the
+        x-data from the parent item (defined by the `channel_name`)
+
+        The key `unique_name` + `channel_name` is unique. So if it already
+        exists the item will be updated.
+
+        Arguments:
+            unique_name: Name of this item in the property tree
+            channel_name: Name of the channel that will be used as parent for
+                this item. If this parent item does not exist, it is created
+                but set hidden.
+            ydata: Y-data for this item. If `None`, if the item already exists,
+                it is removed from the plot
+        """
+        if ydata is not None:
+            ydata = numpy.asarray(ydata)
+        self._flint.update_user_data(self._plot_id, unique_name, channel_name, ydata)
 
 
 class LiveImagePlot(Plot2D):

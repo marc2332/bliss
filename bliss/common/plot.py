@@ -605,12 +605,12 @@ def get_plot(
     plot_id = flint.get_live_scan_plot(channel_name, plot_type, as_axes=as_axes)
 
     if plot_type == "curve":
-        return flint_plots.CurvePlot(flint=flint, plot_id=plot_id)
+        return flint_plots.LiveCurvePlot(flint=flint, plot_id=plot_id)
     elif plot_type == "scatter":
-        return flint_plots.ScatterPlot(flint=flint, plot_id=plot_id)
+        return flint_plots.LiveScatterPlot(flint=flint, plot_id=plot_id)
     elif plot_type == "mca":
-        return flint_plots.McaPlot(flint=flint, plot_id=plot_id)
+        return flint_plots.LiveMcaPlot(flint=flint, plot_id=plot_id)
     elif plot_type == "image":
-        return flint_plots.ImagePlot(flint=flint, plot_id=plot_id)
+        return flint_plots.LiveImagePlot(flint=flint, plot_id=plot_id)
     else:
         print("Argument plot_type uses an invalid value: '%s'." % plot_type)

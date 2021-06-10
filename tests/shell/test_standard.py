@@ -1,6 +1,11 @@
-import subprocess
+# -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2015-2020 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
+
 import time
-import builtins
 import pytest
 import numpy
 import psutil
@@ -8,6 +13,7 @@ import gevent
 
 from bliss.shell import standard
 from bliss.shell.standard import wa, wm, sta, stm, _launch_silx, umv
+from bliss.shell.standard import lsmot, lsconfig, lsobj
 
 from bliss.shell.standard import sin, cos, tan, arcsin, arccos, arctan, arctan2
 from bliss.shell.standard import log, log10, sqrt, exp, power, deg2rad, rad2deg
@@ -318,3 +324,54 @@ def test_edit_roi_counters(
     assert "roi2" in cam.roi_profiles
     plot_mock.select_shapes.assert_called_once()
     plot_mock.focus.assert_called_once()
+
+
+def test_lsmot(session, capsys, log_shell_mode):
+    lsmot()
+
+    captured = capsys.readouterr()
+    # print(captured.out)
+    # att1z  bad    bsy   bsz   calc_mot1  calc_mot2  custom_axis  hooked_error_m0
+    # hooked_m0  hooked_m1  jogger  m0 m1 omega  roby  robz  robz2 s1b s1d s1f s1hg
+    # s1ho s1u s1vg s1vo
+
+    # Ensure to find only some motors to avoid formatting problems.
+    assert "att1z" in captured.out
+    assert "bad" in captured.out
+    assert "custom_axis" in captured.out
+    assert "hooked_error_m0" in captured.out
+    assert "omega" in captured.out
+    assert "roby" in captured.out
+    assert "s1d" in captured.out
+    assert "hooked_m1" in captured.out
+
+
+def test_lsobj(session, capsys, log_shell_mode):
+    lsobj()
+    captured = capsys.readouterr()
+    # print(captured.out)
+    assert "att1" in captured.out
+    assert "calc_mot1" in captured.out
+    assert "diode0" in captured.out
+    assert "hooked_m0" in captured.out
+    assert "m1enc" in captured.out
+    assert "s1u" in captured.out
+    assert "sim_ct_gauss" in captured.out
+    assert "sim_ct_flat_12" in captured.out
+    assert "thermo_sample" in captured.out
+    assert "transfocator_simulator" in captured.out
+
+
+def test_lsconfig(session, capsys, log_shell_mode):
+    lsconfig()
+    captured = capsys.readouterr()
+    # print(captured.out)
+    assert "Motor:" in captured.out
+    assert "v6biturbo" in captured.out
+    assert "wrong_counter" in captured.out
+    assert "dummy1" in captured.out
+    assert "xrfxrdMG" in captured.out
+    assert "working_ctrl" in captured.out
+    assert "machinfo" in captured.out
+    assert "times2_2d" in captured.out
+    assert "xia1" in captured.out

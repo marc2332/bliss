@@ -111,6 +111,22 @@ Current     2.00000    12.00000
 Low      -456.00000  -456.00000
 ```
 
+
+### lsmot
+* `lsmot()` : Print Motors configured in current session.
+
+```python
+DEMO [2]: lsmot()
+Motors configured in current session:
+-------------------------------------
+att1z        bad              bsy        bsz        calc_mot1  calc_mot2
+custom_axis  hooked_error_m0  hooked_m0  hooked_m1  jogger     m0
+m1           omega            roby       robz       robz2      s1b
+s1d          s1f              s1hg       s1ho       s1u        s1vg
+s1vo
+```
+
+
 ### sync
 * `sync([<motor>]*)`: Force axes synchronization with the hardware. If no axis is
   given, it syncs all all axes present in the session
@@ -190,6 +206,8 @@ simul_mca.deadtime_det1  0D       simul_mca
 
 ## Bliss Objects
 
+
+### lsobj
 * `lsobj()`: print the list of BLISS objects defined in a session. Can be used
   with usual jocker characters:
 
@@ -209,6 +227,53 @@ beamstop  att1  bad  calc_mot1  calc_mot2  custom_axis
 TEST_SESSION [6]: lsobj("???")       # all objects with 3-lettres names
 MG1  MG2  bad  s1b  s1d  s1f  s1u
 ```
+
+
+### lsconfig
+
+* `lsconfig()`: print the list of BLISS objects in config, not only objects
+  declared in current session.
+
+Example:
+```python
+DEMO [2]: lsconfig()
+
+MeasurementGroup:
+----------------
+demo_counters  MG_tomo  MG_sim  MG_gauss  MG_align
+
+MultiplePositions:
+-----------------
+beamstop  att1
+
+Motor:
+-----
+wl_mono     u42c     u42b    spec_m3  pzth_enc  pzth      psho         pshg
+psf         psb      motor7  motor6   mono      mme       mm_enc       mm9
+mm8         mm7      mm6     mm5      mm4       mm3       mm2          mm16
+mm15        mm14     mm13    mm12     mm11      mm10      mm1          mech1
+mc2         mc1_enc  mc1     mbv4mot  m5        m4        m3           m2
+m1          kbvo     kbvg    kbho     kbhg      ice2      ice1         gal
+fsh         e_mono   dummy2  dummy1   calc_mot  blade_up  blade_front  blade_down
+blade_back  bend_u   bend_d
+
+None:
+----
+ser0                 out1     kb1      hpz_rx               hpz_off_2
+hpz_off_1            hppstc2  hppstc1  controller_setting3  controller_setting2
+controller_setting1
+
+SimulationCounter:
+-----------------
+sim_ct_calib_gauss3  sim_ct_calib_gauss2  sim_ct_calib_gauss  sim_ct_5  sim_ct_4
+sim_ct_3             sim_ct_2             sim_ct_1            ct1
+
+Session:
+-------
+test_session demo  cyril
+```
+
+
 
 ## Data Policy
 * `newproposal()` `newsample()` `newdataset()`: Change the **proposal** **sample**

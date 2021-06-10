@@ -26,7 +26,7 @@ from bliss.config.channels import EventChannel
 from bliss.config.conductor.client import get_text_file, get_python_modules, get_file
 from bliss.common.proxy import Proxy
 from bliss.common.logtools import log_warning
-from bliss.common.utils import UserNamespace
+from bliss.common.utils import UserNamespace, chunk_list
 from bliss.common import constants
 from bliss.scanning import scan_saving
 from bliss.scanning import scan_display
@@ -46,12 +46,6 @@ def set_current_session(session, force=True):
 
 def get_current_session():
     return CURRENT_SESSION
-
-
-def chunk_list(lst, n):
-    """Yield successive n-sized chunks from lst."""
-    for i in range(0, len(lst), n):
-        yield lst[i : i + n]
 
 
 class _StringImporter(object):

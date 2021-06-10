@@ -8,21 +8,22 @@
 Standard functions provided to the BLISS shell.
 """
 
-import logging
 import contextlib
-import time
 import inspect
 import itertools
 import linecache
-import sys
-import os
-import typing
-import typeguard
-import subprocess
-import fnmatch
+import logging
 import numpy
+import os
+import shutil
 import socket
-from pprint import pprint
+import subprocess
+import sys
+import time
+import typeguard
+import typing
+
+from pprint import pprint  # noqa (pprint is exported in shell from this module)
 from gevent import sleep, Timeout
 
 from pygments import highlight
@@ -31,10 +32,11 @@ from pygments.formatters import TerminalFormatter
 
 from prompt_toolkit import print_formatted_text, HTML
 
+import bliss
 from bliss import global_map, global_log, setup_globals, current_session
 from bliss.common import timedisplay
-from bliss.common.plot import plot
-from bliss.common.standard import (
+from bliss.common.plot import plot  # noqa
+from bliss.common.standard import (  # noqa
     iter_counters,
     iter_axes_state,
     iter_axes_state_all,
@@ -44,7 +46,7 @@ from bliss.common.standard import (
     info,
     __move,
     reset_equipment,
-)  # noqa: F401
+)
 from bliss.common.standard import wid as std_wid
 from bliss.common.event import connect
 from bliss.controllers.lima.limatools import *
@@ -52,8 +54,8 @@ from bliss.controllers.lima import limatools
 from bliss.controllers.lima import roi as lima_roi
 from bliss.common.protocols import CounterContainer
 from bliss.common import measurementgroup
-from bliss.common.soft_axis import SoftAxis
-from bliss.common.counter import SoftCounter, Counter
+from bliss.common.soft_axis import SoftAxis  # noqa
+from bliss.common.counter import SoftCounter, Counter  # noqa
 from bliss.common.utils import (
     ShellStr,
     typecheck_var_args_pattern,
@@ -69,16 +71,15 @@ from bliss.shell.dialog.helpers import find_dialog, dialog as dialog_dec_cls
 
 
 # objects given to Bliss shell user
-from bliss.common.standard import mv, mvr, mvd, mvdr, move, rockit
-
-from bliss.common.cleanup import cleanup, error_cleanup
+from bliss.common.standard import mv, mvr, mvd, mvdr, move, rockit  # noqa
+from bliss.common.cleanup import cleanup, error_cleanup  # noqa
 
 from bliss.common import scans
 from bliss.common.scans import *
 from bliss.scanning.scan import Scan
 from bliss.comm.rpc import Client
 from bliss.common import logtools
-from bliss.common.logtools import elog_print
+from bliss.common.logtools import elog_print, user_print
 from bliss.common.interlocks import interlock_state
 from bliss.common.session import get_current_session
 from bliss.data import lima_image
@@ -103,7 +104,7 @@ from bliss.shell.cli import user_dialog, pt_widgets
 
 import tabulate
 
-from bliss.common.utils import typeguardTypeError_to_hint
+from bliss.common.utils import typeguardTypeError_to_hint, chunk_list
 from typing import Optional, Union
 from bliss.controllers.lima.lima_base import Lima
 from bliss.common.protocols import Scannable
@@ -156,6 +157,7 @@ __all__ = (
         "rockit",
         "move",
         "lsmot",
+        "lsconfig",
         "plotinit",
         "plotselect",
         "flint",
@@ -430,19 +432,6 @@ def lsmg():
     print(_lsmg())
 
 
-def _lsobj(pattern=None):
-    obj_list = list()
-
-    if pattern is None:
-        pattern = "*"
-
-    for name in current_session.object_names:
-        if fnmatch.fnmatch(name, pattern):
-            obj_list.append(name)
-
-    return obj_list
-
-
 def lsobj(pattern=None):
     """
     Print the list of BLISS object in current session matching the
@@ -450,7 +439,8 @@ def lsobj(pattern=None):
     <pattern> can contain jocker characters like '*' or '?'.
     NB: print also badly initilized objects...
     """
-    for obj_name in _lsobj(pattern):
+
+    for obj_name in bliss.common.standard._lsobj(pattern):
         print(obj_name, end="  ")
 
     print("")
@@ -642,11 +632,79 @@ def wa(**kwargs):
 
 def lsmot():
     """
-    Display names of all motors
+    Display names of motors configured in current session.
     """
 
-    for name in global_map.get_axes_names_iter():
-        print("* {}".format(name))
+    motor_list = bliss.common.standard._lsmot()
+
+    # Maximal length of objects names (min 5).
+    display_width = shutil.get_terminal_size().columns
+    if len(motor_list) == 0:
+        max_length = 5
+        print("No motor found in current session's config.")
+    else:
+        max_length = max([len(x) for x in motor_list])
+
+        # Number of items displayable on one line.
+        item_number = int(display_width / max_length) + 1
+
+        motor_list.sort(key=str.casefold)
+
+        user_print("Motors configured in current session:")
+        user_print("-------------------------------------")
+        print(tabulate.tabulate(chunk_list(motor_list, item_number), tablefmt="plain"))
+        user_print("\n")
+
+
+from bliss.config import static
+
+
+def lsconfig():
+    """
+    Print all objects found in config.
+    Not only objects declared in current session's config.
+    """
+    obj_dict = dict()
+
+    config = static.get_config()
+
+    # Maximal length of objects names (min 5).
+    display_width = shutil.get_terminal_size().columns
+
+    print()
+
+    for name in config.names_list:
+        c = config.get_config(name).get("class")
+        # print(f"{name}: {c}")
+        if c is None and config.get_config(name).plugin == "emotion":
+            c = "Motor"
+        try:
+            obj_dict[c].append(name)
+        except KeyError:
+            obj_dict[c] = list()
+            obj_dict[c].append(name)
+
+    # For each class
+    for cc in obj_dict.keys():
+        user_print(f"{cc}: ")
+        if cc is None:
+            user_print("----")
+        else:
+            user_print("-" * len(cc))
+        obj_list = list()
+
+        # put all objects of this class in a list
+        while obj_dict[cc]:
+            obj_list.append(obj_dict[cc].pop())
+        # print(obj_list)
+
+        max_length = max([len(x) for x in obj_list])
+
+        # Number of items displayable on one line.
+        item_count = int(display_width / max_length) + 1
+
+        print(tabulate.tabulate(chunk_list(obj_list, item_count), tablefmt="plain"))
+        user_print()
 
 
 @custom_error_msg(

@@ -270,13 +270,6 @@ class BasePlot(object):
         """Returns the current data range used by this plot"""
         return self.__remote.get_data_range()
 
-    # Plotting
-
-    def plot(self, data, **kwargs):
-        fields = list(self.add_data(data))
-        names = fields[: self.DATA_INPUT_NUMBER]
-        self.select_data(*names, **kwargs)
-
     # Clean up
 
     def is_open(self) -> bool:
@@ -451,30 +444,6 @@ class Plot1D(BasePlot):
 
     # Data input number for a single representation
     DATA_INPUT_NUMBER = 2
-
-    # Specialized x data handling
-
-    def plot(self, data, **kwargs):
-        # Add data
-        data_dict = self.add_data(data)
-        # Get x field
-        x = kwargs.pop("x", None)
-        x_field = x if isinstance(x, str) else "x"
-        # Get provided x
-        if x_field in data_dict:
-            x = data_dict[x_field]
-        # Get default x
-        elif x is None:
-            key = next(iter(data_dict))
-            length = len(data_dict[key])
-            x = numpy.arange(length)
-        # Add x data
-        if x is not None:
-            self.add_single_data(x_field, x)
-        # Plot all curves
-        for field in data_dict:
-            if field != x_field:
-                self.select_data(x_field, field, **kwargs)
 
     def update_axis_marker(
         self, unique_name: str, channel_name, position: float, text: str

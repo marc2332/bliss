@@ -103,18 +103,6 @@ class BasePlot(object):
             data_dict.clear()
             widget.clear()
 
-        def show_intensity_histogram(self, show: bool):
-            widget = self.widget()
-            widget.getIntensityHistogramAction().setVisible(show)
-
-        def get_data_range(self):
-            widget = self.widget()
-            if hasattr(widget, "getDataRange"):
-                return widget.getDataRange()
-            plot = widget.getPlotWidget()
-            if hasattr(plot, "getDataRange"):
-                return plot.getDataRange()
-
     def _register(self, flint, plot_id, register):
         """Register everything needed remotely"""
         self.__remote = self._remotifyClass(self.RemotePlot, register=register)
@@ -268,7 +256,7 @@ class BasePlot(object):
 
     def get_data_range(self):
         """Returns the current data range used by this plot"""
-        return self.__remote.get_data_range()
+        return self.submit("getDataRange")
 
     # Clean up
 
@@ -428,7 +416,7 @@ class BasePlot(object):
 class Plot1D(BasePlot):
 
     # Name of the corresponding silx widget
-    WIDGET = "silx.gui.plot.Plot1D"
+    WIDGET = "bliss.flint.custom_plots.silx_plots.Plot1D"
 
     # Available name to identify this plot
     ALIASES = ["curve", "plot1d"]
@@ -486,7 +474,7 @@ class Plot1D(BasePlot):
 class ScatterView(BasePlot):
 
     # Name of the corresponding silx widget
-    WIDGET = "silx.gui.plot.ScatterView"
+    WIDGET = "bliss.flint.custom_plots.silx_plots.ScatterView"
 
     # Available name to identify this plot
     ALIASES = ["scatter"]
@@ -515,15 +503,12 @@ class ScatterView(BasePlot):
             self.clear_data()
         else:
             self.submit("setData", x, y, value, **kwargs)
-            # Else the view is not updated
-            if resetzoom:
-                self.submit("resetZoom")
 
 
 class Plot2D(BasePlot):
 
     # Name of the corresponding silx widget
-    WIDGET = "silx.gui.plot.Plot2D"
+    WIDGET = "bliss.flint.custom_plots.silx_plots.Plot2D"
 
     # Available name to identify this plot
     ALIASES = ["plot2d"]
@@ -545,9 +530,9 @@ class Plot2D(BasePlot):
         self.set_colormap = self._set_colormap
 
     def _init_plot(self):
-        super(ImagePlot, self)._init_plot()
+        super(Plot2D, self)._init_plot()
         self.submit("setKeepDataAspectRatio", True)
-        self._remote_plot().show_intensity_histogram(True)
+        self.submit("setDisplayedIntensityHistogram", True)
 
     def add_image(self, data, **kwargs):
         self.submit("addImage", data, **kwargs)
@@ -669,7 +654,7 @@ class TimeCurvePlot(BasePlot):
 class ImageView(BasePlot):
 
     # Name of the corresponding silx widget
-    WIDGET = "silx.gui.plot.ImageView"
+    WIDGET = "bliss.flint.custom_plots.silx_plots.ImageView"
 
     # Available name to identify this plot
     ALIASES = ["image", "imageview", "histogramimage"]
@@ -690,6 +675,11 @@ class ImageView(BasePlot):
         # Make it public
         self.set_colormap = self._set_colormap
 
+    def _init_plot(self):
+        super(ImageView, self)._init_plot()
+        self.submit("setKeepDataAspectRatio", True)
+        self.submit("setDisplayedIntensityHistogram", True)
+
     def set_data(self, data, **kwargs):
         self.submit("setImage", data, **kwargs)
 
@@ -697,7 +687,7 @@ class ImageView(BasePlot):
 class StackView(BasePlot):
 
     # Name of the corresponding silx widget
-    WIDGET = "silx.gui.plot.StackView"
+    WIDGET = "bliss.flint.custom_plots.silx_plots.StackImageView"
 
     # Available name to identify this plot
     ALIASES = ["stack", "imagestack", "stackview"]

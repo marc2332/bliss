@@ -35,12 +35,6 @@ class BasePlot(object):
     # The possible dimensions of the data to plot
     DATA_DIMENSIONS = NotImplemented
 
-    # Single / Multiple data handling
-    MULTIPLE = NotImplemented
-
-    # Data input number for a single representation
-    DATA_INPUT_NUMBER = NotImplemented
-
     def __init__(self, flint, plot_id, register=False):
         """Describe a custom plot handled by Flint.
         """
@@ -427,12 +421,6 @@ class Plot1D(BasePlot):
     # The dimension of the data to plot
     DATA_DIMENSIONS = (1,)
 
-    # Single / Multiple data handling
-    MULTIPLE = True
-
-    # Data input number for a single representation
-    DATA_INPUT_NUMBER = 2
-
     def update_axis_marker(
         self, unique_name: str, channel_name, position: float, text: str
     ):
@@ -485,12 +473,6 @@ class ScatterView(BasePlot):
     # The dimension of the data to plot
     DATA_DIMENSIONS = (1,)
 
-    # Single / Multiple data handling
-    MULTIPLE = True
-
-    # Data input number for a single representation
-    DATA_INPUT_NUMBER = 3
-
     def _init(self):
         # Make it public
         self.set_colormap = self._set_colormap
@@ -518,12 +500,6 @@ class Plot2D(BasePlot):
 
     # The dimension of the data to plot
     DATA_DIMENSIONS = 2, 3
-
-    # Single / Multiple data handling
-    MULTIPLE = True
-
-    # Data input number for a single representation
-    DATA_INPUT_NUMBER = 1
 
     def _init(self):
         # Make it public
@@ -564,12 +540,6 @@ class CurveStack(BasePlot):
     # Name of the method to add data to the plot
     METHOD = "setData"
 
-    # Single / Multiple data handling
-    MULTIPLE = False
-
-    # Data input number for a single representation
-    DATA_INPUT_NUMBER = 1
-
     def set_data(self, curves, x=None, reset_zoom=None):
         """
         Set the data displayed in this plot.
@@ -597,12 +567,6 @@ class TimeCurvePlot(BasePlot):
 
     # Name of the method to add data to the plot
     METHOD = "appendData"
-
-    # Single / Multiple data handling
-    MULTIPLE = False
-
-    # Data input number for a single representation
-    DATA_INPUT_NUMBER = 1
 
     def select_x_axis(self, name: str):
         """
@@ -665,12 +629,6 @@ class ImageView(BasePlot):
     # The dimension of the data to plot
     DATA_DIMENSIONS = (2,)
 
-    # Single / Multiple data handling
-    MULTIPLE = False
-
-    # Data input number for a single representation
-    DATA_INPUT_NUMBER = 1
-
     def _init(self):
         # Make it public
         self.set_colormap = self._set_colormap
@@ -697,12 +655,6 @@ class StackView(BasePlot):
 
     # The dimension of the data to plot
     DATA_DIMENSIONS = 3, 4
-
-    # Single / Multiple data handling
-    MULTIPLE = False
-
-    # Data input number for a single representation
-    DATA_INPUT_NUMBER = 1
 
     def _init(self):
         # Make it public

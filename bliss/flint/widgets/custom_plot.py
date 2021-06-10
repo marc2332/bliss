@@ -70,7 +70,10 @@ class CustomPlot(qt.QWidget):
         return None
 
     def _silxPlot(self):
-        return self.__plot
+        plot = self.__plot
+        if hasattr(plot, "silxPlot"):
+            return plot.silxPlot()
+        return plot
 
     def registerMethod(self, method_id, method):
         if method_id in self.__methods:

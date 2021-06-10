@@ -312,9 +312,15 @@ class FlintApi:
             if isinstance(v, numpy.ndarray):
                 kwargs[k] = _aswritablearray(v)
 
-        plot = self._get_plot_widget(plot_id)
-        silxPlot = plot._silxPlot()
-        method = getattr(silxPlot, method)
+        customPlotHolder = self._get_plot_widget(plot_id)
+        plotWidget = customPlotHolder.widget()
+        if hasattr(plotWidget, method):
+            # Method from the custom plot widget
+            method = getattr(plotWidget, method)
+        else:
+            # Method from PlotWidget class
+            silxPlot = customPlotHolder._silxPlot()
+            method = getattr(silxPlot, method)
         return method(*args, **kwargs)
 
     def run_custom_method(self, plot_id, method_id, args, kwargs):

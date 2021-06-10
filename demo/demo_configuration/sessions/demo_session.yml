@@ -5,6 +5,8 @@
   config-objects: 
     - diode1
     - diode2
+    - robx
+    - roby
     - sx
     - sy
     - sz

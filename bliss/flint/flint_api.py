@@ -17,13 +17,11 @@ from typing import NamedTuple
 from typing import Optional
 
 import sys
-import types
 import logging
 import importlib
 import itertools
 import functools
 import numpy
-import marshal
 
 from silx.gui import qt
 import bliss
@@ -322,20 +320,6 @@ class FlintApi:
             silxPlot = customPlotHolder._silxPlot()
             method = getattr(silxPlot, method)
         return method(*args, **kwargs)
-
-    def run_custom_method(self, plot_id, method_id, args, kwargs):
-        """Run a registered method from a custom plot.
-        """
-        plot = self._get_plot_widget(plot_id, live_plot=False)
-        return plot.runMethod(method_id, args, kwargs)
-
-    def register_custom_method(self, plot_id, method_id, serialized_method):
-        """Register a method to a custom plot.
-        """
-        plot = self._get_plot_widget(plot_id, live_plot=False)
-        code = marshal.loads(serialized_method)
-        method = types.FunctionType(code, globals(), "deserialized_function")
-        plot.registerMethod(method_id, method)
 
     def ping(self, msg=None, stderr=False):
         """Debug function to check writing on stdout/stderr remotely."""

@@ -14,8 +14,6 @@ from typing import Optional
 
 import numpy
 import gevent
-import marshal
-import inspect
 
 from . import proxy
 from bliss.common import event
@@ -44,67 +42,13 @@ class BasePlot(object):
         self._ylabel = None
         self._init()
         if flint is not None:
-            self._register(flint, plot_id, register)
+            if register:
+                self._init_plot()
 
     def _init(self):
         """Allow to initialize extra attributes in a derived class, without
         redefining the constructor"""
         pass
-
-    class RemotePlot:
-        """This class is serialized method by method and executed inside the Flint context"""
-
-        def set_data(self, method, *names, **kwargs):
-            data_dict = self.data()
-            widget = self.widget()
-            args = tuple(data_dict[name] for name in names)
-            widget_method = getattr(widget, method)
-            # Plot
-            widget_method(*args, **kwargs)
-
-        def update_data(self, field, data):
-            data_dict = self.data()
-
-            # Data from the network is sometime not writable
-            # This make it fail silx for some use cases
-            if data is None:
-                return None
-            if isinstance(data, numpy.ndarray):
-                if not data.flags.writeable:
-                    data = numpy.array(data)
-
-            data_dict[field] = data
-
-        def remove_data(self, field):
-            data_dict = self.data()
-            data_dict[field]
-
-        def get_data(self, field=None):
-            data_dict = self.data()
-            if field is None:
-                return data_dict
-            else:
-                return data_dict.get(field, [])
-
-        def deselect_data(self, *names):
-            widget = self.widget()
-            legend = " -> ".join(names)
-            widget.remove(legend)
-
-        def clear_data(self):
-            data_dict = self.data()
-            widget = self.widget()
-            data_dict.clear()
-            widget.clear()
-
-    def _register(self, flint, plot_id, register):
-        """Register everything needed remotely"""
-        self.__remote = self._remotifyClass(self.RemotePlot, register=register)
-        if register:
-            self._init_plot()
-
-    def _remote_plot(self):
-        return self.__remote
 
     def _init_plot(self):
         """Inherits it to custom the plot initialization"""
@@ -185,13 +129,13 @@ class BasePlot(object):
             field: Identifier in the targeted plot
             data: Data to upload
         """
-        return self.__remote.update_data(field, data)
+        return self.submit("updateStoredData", field, data)
 
     def upload_data_if_needed(self, field, data):
         """Upload data only if it is a numpy array or a list
         """
         if isinstance(data, (numpy.ndarray, list)):
-            self.__remote.update_data(field, data)
+            self.submit("updateStoredData", field, data)
             return field
         else:
             return data
@@ -231,22 +175,22 @@ class BasePlot(object):
         return data_dict
 
     def remove_data(self, field):
-        self.__remote.remove_data(field)
+        self.submit("removeStoredData", field)
 
     def select_data(self, *names, **kwargs):
         # FIXME: This have to be moved per plot widget
         if "legend" not in kwargs and self.METHOD.startswith("add"):
             kwargs["legend"] = " -> ".join(names)
-        self.__remote.set_data(self.METHOD, *names, **kwargs)
+        self.submit("setStoredData", self.METHOD, *names, **kwargs)
 
     def deselect_data(self, *names):
-        self.__remote.deselect_data(*names)
+        self.submit("deselectStoredData", *names)
 
     def clear_data(self):
-        self.__remote.clear_data()
+        self.submit("clear")
 
     def get_data(self, field=None):
-        return self.__remote.get_data(field=field)
+        return self.submit("getStoredData", field=field)
 
     def get_data_range(self):
         """Returns the current data range used by this plot"""
@@ -335,33 +279,6 @@ class BasePlot(object):
         flint = self._flint
         request_id = flint.request_select_shape(self._plot_id, shape)
         return self._wait_for_user_selection(request_id)
-
-    def _remotifyClass(self, remoteClass, register=True):
-        class RemoteProxy:
-            pass
-
-        proxy = RemoteProxy()
-        methods = inspect.getmembers(remoteClass, predicate=inspect.isfunction)
-        for name, func in methods:
-            handle = self._remotifyFunc(func, register=register)
-            setattr(proxy, name, handle)
-
-        return proxy
-
-    def _remotifyFunc(self, func, register=True):
-        """Make a function callable remotely"""
-        method_id = func.__qualname__
-        plot_id = self._plot_id
-        if register:
-            if func.__closure__:
-                raise TypeError("Only function without closure are supported.")
-            serialized_func = marshal.dumps(func.__code__)
-            self._flint.register_custom_method(plot_id, method_id, serialized_func)
-
-        def handler(*args, **kwargs):
-            return self._flint.run_custom_method(plot_id, method_id, args, kwargs)
-
-        return handler
 
     def _set_colormap(
         self,
@@ -551,11 +468,7 @@ class CurveStack(BasePlot):
             reset_zoom: If True force reset zoom, else the user selection is
                         applied
         """
-        data_field = self.upload_data_if_needed("data", curves)
-        x_field = self.upload_data_if_needed("x", x)
-        self._remote_plot().set_data(
-            self.METHOD, data_field, x_field, resetZoom=reset_zoom
-        )
+        self.submit("setData", data=curves, x=x, resetZoom=reset_zoom)
 
 
 class TimeCurvePlot(BasePlot):

@@ -43,6 +43,49 @@ class _DataWidget(qt.QWidget):
         silxWidget = self.silxWidget()
         return getattr(silxWidget, name)
 
+    def setStoredData(self, method, *names, **kwargs):
+        data_dict = self.dataDict()
+        args = tuple(data_dict[name] for name in names)
+        widget_method = getattr(self, method)
+        # Plot
+        widget_method(*args, **kwargs)
+
+    def updateStoredData(self, field, data):
+        data_dict = self.dataDict()
+
+        # Data from the network is sometime not writable
+        # This make it fail silx for some use cases
+        if data is None:
+            return None
+        if isinstance(data, numpy.ndarray):
+            if not data.flags.writeable:
+                data = numpy.array(data)
+
+        data_dict[field] = data
+
+    def removeStoredData(self, field):
+        data_dict = self.dataDict()
+        data_dict[field]
+
+    def getStoredData(self, field=None):
+        data_dict = self.dataDict()
+        if field is None:
+            return data_dict
+        else:
+            return data_dict.get(field, [])
+
+    def deselectStoredData(self, *names):
+        legend = " -> ".join(names)
+        self.remove(legend)
+
+    def clearStoredData(self):
+        data_dict = self.dataDict()
+        data_dict.clear()
+
+    def clear(self):
+        self.clearStoredData()
+        self.silxWidget().clear()
+
 
 class Plot1D(_DataWidget):
     """Generic plot to display 1D data"""

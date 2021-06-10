@@ -65,7 +65,7 @@ class _DataWidget(qt.QWidget):
 
     def removeStoredData(self, field):
         data_dict = self.dataDict()
-        data_dict[field]
+        del data_dict[field]
 
     def getStoredData(self, field=None):
         data_dict = self.dataDict()

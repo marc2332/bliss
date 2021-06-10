@@ -21,23 +21,33 @@ def test_remove_custom_plot(flint_session):
     assert flint.is_plot_exists("foo-rm") is False
 
 
-def test_custom_plot_curveplot(flint_session):
+def test_curveplot__bliss_1_8(flint_session):
+    """Check custom plot curve API from BLISS <= 1.8"""
     flint = plot.get_flint()
     p = flint.get_plot(plot_class="curve", name="foo-cp")
 
-    cos_data = numpy.cos(numpy.linspace(0, 2 * numpy.pi, 10))
-    sin_data = numpy.sin(numpy.linspace(0, 2 * numpy.pi, 10))
+    data1 = numpy.array([4, 5, 6])
+    data2 = numpy.array([2, 5, 2])
 
-    p.add_data({"cos": cos_data, "sin": sin_data})
-    p.select_data("sin", "cos")
-    p.select_data("sin", "cos", color="green", symbol="x")
-    p.deselect_data("sin", "cos")
-    p.remove_data("sin")
+    p.add_data({"data1": data1, "data2": data2})
+    vrange = p.get_data_range()
+    assert vrange == [None, None, None]
 
-    data = p.get_data("cos")
-    assert data == pytest.approx(cos_data)
+    p.select_data("data1", "data2")
+    p.select_data("data1", "data2", color="green", symbol="x")
+    vrange = p.get_data_range()
+    assert vrange == [[4, 6], [2, 5], None]
 
-    p.clear_data()
+    p.deselect_data("data1", "data2")
+    vrange = p.get_data_range()
+    assert vrange == [None, None, None]
+
+    data = p.get_data("data1")
+    assert data == pytest.approx(data1)
+
+    p.remove_data("data1")
+    data = p.get_data("data1")
+    assert data == []
 
 
 def test_reuse_custom_plot(flint_session):

@@ -27,9 +27,6 @@ class BasePlot(object):
     # Available name to identify this plot
     ALIASES = []
 
-    # Name of the method to add data to the plot
-    METHOD = NotImplemented
-
     def __init__(self, flint, plot_id, register=False):
         """Describe a custom plot handled by Flint.
         """
@@ -159,10 +156,7 @@ class BasePlot(object):
         self.submit("removeStoredData", field)
 
     def select_data(self, *names, **kwargs):
-        # FIXME: This have to be moved per plot widget
-        if "legend" not in kwargs and self.METHOD.startswith("add"):
-            kwargs["legend"] = " -> ".join(names)
-        self.submit("setStoredData", self.METHOD, *names, **kwargs)
+        self.submit("selectStoredData", *names, **kwargs)
 
     def deselect_data(self, *names):
         self.submit("deselectStoredData", *names)
@@ -313,9 +307,6 @@ class Plot1D(BasePlot):
     # Available name to identify this plot
     ALIASES = ["curve", "plot1d"]
 
-    # Name of the method to add data to the plot
-    METHOD = "addCurve"
-
     def update_axis_marker(
         self, unique_name: str, channel_name, position: float, text: str
     ):
@@ -362,9 +353,6 @@ class ScatterView(BasePlot):
     # Available name to identify this plot
     ALIASES = ["scatter"]
 
-    # Name of the method to add data to the plot
-    METHOD = "setData"
-
     def _init(self):
         # Make it public
         self.set_colormap = self._set_colormap
@@ -386,9 +374,6 @@ class Plot2D(BasePlot):
 
     # Available name to identify this plot
     ALIASES = ["plot2d"]
-
-    # Name of the method to add data to the plot
-    METHOD = "addImage"
 
     def _init(self):
         # Make it public
@@ -426,9 +411,6 @@ class CurveStack(BasePlot):
     # Available name to identify this plot
     ALIASES = ["curvestack"]
 
-    # Name of the method to add data to the plot
-    METHOD = "setData"
-
     def set_data(self, curves, x=None, reset_zoom=None):
         """
         Set the data displayed in this plot.
@@ -449,9 +431,6 @@ class TimeCurvePlot(BasePlot):
 
     # Available name to identify this plot
     ALIASES = ["timecurveplot"]
-
-    # Name of the method to add data to the plot
-    METHOD = "appendData"
 
     def select_x_axis(self, name: str):
         """
@@ -508,9 +487,6 @@ class ImageView(BasePlot):
     # Available name to identify this plot
     ALIASES = ["image", "imageview", "histogramimage"]
 
-    # Name of the method to add data to the plot
-    METHOD = "setImage"
-
     def _init(self):
         # Make it public
         self.set_colormap = self._set_colormap
@@ -531,9 +507,6 @@ class StackView(BasePlot):
 
     # Available name to identify this plot
     ALIASES = ["stack", "imagestack", "stackview"]
-
-    # Name of the method to add data to the plot
-    METHOD = "setStack"
 
     def _init(self):
         # Make it public

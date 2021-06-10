@@ -43,13 +43,6 @@ class _DataWidget(qt.QWidget):
         silxWidget = self.silxWidget()
         return getattr(silxWidget, name)
 
-    def setStoredData(self, method, *names, **kwargs):
-        data_dict = self.dataDict()
-        args = tuple(data_dict[name] for name in names)
-        widget_method = getattr(self, method)
-        # Plot
-        widget_method(*args, **kwargs)
-
     def updateStoredData(self, field, data):
         data_dict = self.dataDict()
 
@@ -74,10 +67,6 @@ class _DataWidget(qt.QWidget):
         else:
             return data_dict.get(field, [])
 
-    def deselectStoredData(self, *names):
-        legend = " -> ".join(names)
-        self.remove(legend)
-
     def clearStoredData(self):
         data_dict = self.dataDict()
         data_dict.clear()
@@ -86,9 +75,28 @@ class _DataWidget(qt.QWidget):
         self.clearStoredData()
         self.silxWidget().clear()
 
+    def selectStoredData(self, *names, **kwargs):
+        # FIXME: This have to be moved per plot widget
+        # FIXME: METHOD have to be removed
+        method = self.METHOD
+        if "legend" not in kwargs and method.startswith("add"):
+            kwargs["legend"] = " -> ".join(names)
+        data_dict = self.dataDict()
+        args = tuple(data_dict[name] for name in names)
+        widget_method = getattr(self, method)
+        # Plot
+        widget_method(*args, **kwargs)
+
+    def deselectStoredData(self, *names):
+        legend = " -> ".join(names)
+        self.remove(legend)
+
 
 class Plot1D(_DataWidget):
     """Generic plot to display 1D data"""
+
+    # Name of the method to add data to the plot
+    METHOD = "addCurve"
 
     def _createSilxWidget(self, parent):
         return silx_plot.Plot1D(parent=parent)
@@ -96,6 +104,9 @@ class Plot1D(_DataWidget):
 
 class Plot2D(_DataWidget):
     """Generic plot to display 2D data"""
+
+    # Name of the method to add data to the plot
+    METHOD = "addImage"
 
     def _createSilxWidget(self, parent):
         return silx_plot.Plot2D(parent=parent)
@@ -107,6 +118,9 @@ class Plot2D(_DataWidget):
 class ImageView(_DataWidget):
     """Dedicated plot to display an image"""
 
+    # Name of the method to add data to the plot
+    METHOD = "setImage"
+
     def _createSilxWidget(self, parent):
         return silx_plot.ImageView(parent=parent)
 
@@ -116,6 +130,9 @@ class ImageView(_DataWidget):
 
 class ScatterView(_DataWidget):
     """Dedicated plot to display a 2D scatter"""
+
+    # Name of the method to add data to the plot
+    METHOD = "setData"
 
     def _createSilxWidget(self, parent):
         return silx_plot.ScatterView(parent=parent)
@@ -140,6 +157,9 @@ class ScatterView(_DataWidget):
 
 class StackImageView(_DataWidget):
     """Dedicated plot to display a stack of images"""
+
+    # Name of the method to add data to the plot
+    METHOD = "setStack"
 
     def _createSilxWidget(self, parent):
         return silx_plot.StackView(parent=parent)

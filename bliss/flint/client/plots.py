@@ -30,9 +30,6 @@ class BasePlot(object):
     # Name of the method to add data to the plot
     METHOD = NotImplemented
 
-    # The possible dimensions of the data to plot
-    DATA_DIMENSIONS = NotImplemented
-
     def __init__(self, flint, plot_id, register=False):
         """Describe a custom plot handled by Flint.
         """
@@ -139,22 +136,6 @@ class BasePlot(object):
             return field
         else:
             return data
-
-    def add_single_data(self, field, data):
-        data = numpy.array(data)
-        if (
-            self.DATA_DIMENSIONS is not None
-            and self.DATA_DIMENSIONS is not NotImplemented
-        ):
-            # FIXME: Testing the data here have no meaning
-            # Because this only upload the data but do not describe how it will be used
-            if data.ndim not in self.DATA_DIMENSIONS:
-                raise ValueError(
-                    "Data dimension must be in {} (got {})".format(
-                        self.DATA_DIMENSIONS, data.ndim
-                    )
-                )
-        return self.upload_data(field, data)
 
     def add_data(self, data, field="default"):
         # Get fields
@@ -335,9 +316,6 @@ class Plot1D(BasePlot):
     # Name of the method to add data to the plot
     METHOD = "addCurve"
 
-    # The dimension of the data to plot
-    DATA_DIMENSIONS = (1,)
-
     def update_axis_marker(
         self, unique_name: str, channel_name, position: float, text: str
     ):
@@ -387,9 +365,6 @@ class ScatterView(BasePlot):
     # Name of the method to add data to the plot
     METHOD = "setData"
 
-    # The dimension of the data to plot
-    DATA_DIMENSIONS = (1,)
-
     def _init(self):
         # Make it public
         self.set_colormap = self._set_colormap
@@ -414,9 +389,6 @@ class Plot2D(BasePlot):
 
     # Name of the method to add data to the plot
     METHOD = "addImage"
-
-    # The dimension of the data to plot
-    DATA_DIMENSIONS = 2, 3
 
     def _init(self):
         # Make it public
@@ -539,9 +511,6 @@ class ImageView(BasePlot):
     # Name of the method to add data to the plot
     METHOD = "setImage"
 
-    # The dimension of the data to plot
-    DATA_DIMENSIONS = (2,)
-
     def _init(self):
         # Make it public
         self.set_colormap = self._set_colormap
@@ -565,9 +534,6 @@ class StackView(BasePlot):
 
     # Name of the method to add data to the plot
     METHOD = "setStack"
-
-    # The dimension of the data to plot
-    DATA_DIMENSIONS = 3, 4
 
     def _init(self):
         # Make it public

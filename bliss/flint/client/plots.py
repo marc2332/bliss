@@ -508,6 +508,10 @@ class Plot1D(BasePlot):
         self._flint.update_user_data(self._plot_id, unique_name, channel_name, ydata)
 
     def add_curve(self, x, y, **kwargs):
+        if x is None:
+            x = numpy.arange(len(y))
+        if y is None:
+            raise ValueError("A y value is expected. None found.")
         self.submit("addCurve", x, y, **kwargs)
 
     def set_xaxis_scale(self, value):

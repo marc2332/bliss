@@ -104,6 +104,63 @@ p = f.get_plot("curve", name="My heart")
 p.add_curve(x, y, legend="heart")
 ```
 
+## Descriptive 1D plot
+
+The 1D plot also provides a descriptive mode. In this mode, there is a separation
+between the data and the way it is rendered.
+
+The description of the rendering is done by a layer of items. First this
+description have to be provided, then the data can be set.
+
+When data for axis are shared, it's also a convenient way to only transfer data
+once.
+
+```python
+import numpy
+
+# Create the plot
+f = flint()
+p = f.get_plot("curve", name="My plot")
+
+# Create the data
+t = numpy.linspace(0, 10 * numpy.pi, 100)
+s1 = numpy.sin(t)
+s2 = numpy.sin(t + numpy.pi * 0.5)
+s3 = numpy.sin(t + numpy.pi * 1.0)
+s4 = numpy.sin(t + numpy.pi * 1.5)
+
+# Describe the plot
+p.add_curve_item("t", "s1")
+p.add_curve_item("t", "s2")
+p.add_curve_item("t", "s3")
+p.add_curve_item("t", "s4")
+
+# Transfer the data / and update the plot
+p.set_data(t=t, s1=s1, s2=s2, s3=s3, s4=s4)
+
+# As the plot description is already known
+# Theplot can be updated the same way again
+p.set_data(t=t+1, s1=s1+1, s2=s2+1, s3=s3+1, s4=s4+1)
+
+# Clean up the plot
+p.clean_data()
+```
+
+For complex plot, if you want to handle properly the refresh of the plot
+a transaction can be used. It will enforce a signle update of the plot at the
+end of the transaction.
+
+```python
+with p.transaction():
+    p.clear_items()
+    p.add_curve_item("x", "y", legend="item1")
+    p.add_curve_item("x", "w", legend="item2")
+    p.remove_item(legend="item2")
+    p.set_data(x=[1])
+    p.append_data(x=[2, 3, 4, 5])
+    p.set_data(y=[6, 5, 6, 5, 6])
+```
+
 ## Scatter plot
 
 A 2D scatter plot is provided.

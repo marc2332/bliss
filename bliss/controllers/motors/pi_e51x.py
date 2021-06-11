@@ -8,8 +8,6 @@
 """
 Bliss controller for ethernet PI E51X piezo controller.
 Base controller for E517 and E518
-Cyril Guilloud ESRF BLISS
-Thu 13 Feb 2014 15:51:41
 """
 
 import time
@@ -52,9 +50,16 @@ class PI_E51X(pi_gcs.Communication, pi_gcs.Recorder, Controller):
     model = None  # defined in inherited classes.
 
     def __init__(self, *args, **kwargs):
+        # Called at session startup
+        # No hardware access
         pi_gcs.Communication.__init__(self)
         pi_gcs.Recorder.__init__(self)
         Controller.__init__(self, *args, **kwargs)
+
+        # Keep cache of: online, closed_loop, auto_gate, low_limit, high_limit
+        # per axis (it cannot be global ones otherwise last axis initialized
+        # is the only winner !!)
+        # To be chganged for BLISS setting ?
         self._axis_online = weakref.WeakKeyDictionary()
         self._axis_closed_loop = weakref.WeakKeyDictionary()
         self._axis_auto_gate = weakref.WeakKeyDictionary()
@@ -111,6 +116,8 @@ class PI_E51X(pi_gcs.Communication, pi_gcs.Recorder, Controller):
         Returns:
             - None
         """
+        # called at first p1 access (eg: __info__())
+
         axis.channel = axis.config.get("channel", int)
         if axis.channel not in (1, 2, 3):
             raise ValueError("PI_E51X invalid motor channel : can only be 1, 2 or 3")

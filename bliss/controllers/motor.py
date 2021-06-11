@@ -213,6 +213,7 @@ class Controller:
 
     def _initialize_hardware(self):
         # initialize controller hardware only once.
+
         if not self.__initialized_hw.value:
             try:
                 self.initialize_hardware()
@@ -224,6 +225,7 @@ class Controller:
     @check_disabled
     def _initialize_axis(self, axis, *args, **kwargs):
         """
+        Called by axis.lazy_init
         """
         with self.__lock:
             if self.__initialized_axis[axis]:
@@ -231,8 +233,8 @@ class Controller:
 
             self._initialize_hardware()
 
-            # Consider axis is initialized => prevent re-entering
-            # _initialize_axis in lazy_init
+            # Consider axis is initialized
+            # => prevent re-entering  _initialize_axis()  in lazy_init
             self.__initialized_axis[axis] = True
 
             try:

@@ -269,6 +269,21 @@ def plot_image(data=None, name=None, existing_id=None, selected=True, closeable=
         selected: If true the plot will be selected when created
         closeable: If true the plot will be closeable
     """
+    if data is not None and data.ndim == 3 and data.shape[2] in (3, 4):
+        # FIXME: silx 0.15 do not support RGB in ImageView
+        # So here we use Plot2D
+        # This can be removed when https://github.com/silx-kit/silx/pull/3487 is merged
+        flint = flint_proxy.get_flint()
+        p = flint.get_plot(
+            "plot2d",
+            name=name,
+            unique_name=existing_id,
+            selected=selected,
+            closeable=closeable,
+        )
+        p.add_image(data, legend="image")
+        return p
+
     flint = flint_proxy.get_flint()
     p = flint.get_plot(
         "image",

@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import logging
 import numpy
 
 from silx.gui import qt
@@ -99,7 +98,9 @@ class Plot1D(_DataWidget):
     METHOD = "addCurve"
 
     def _createSilxWidget(self, parent):
-        return silx_plot.Plot1D(parent=parent)
+        widget = silx_plot.Plot1D(parent=parent)
+        widget.setDataMargins(0.05, 0.05, 0.05, 0.05)
+        return widget
 
 
 class Plot2D(_DataWidget):
@@ -109,7 +110,9 @@ class Plot2D(_DataWidget):
     METHOD = "addImage"
 
     def _createSilxWidget(self, parent):
-        return silx_plot.Plot2D(parent=parent)
+        widget = silx_plot.Plot2D(parent=parent)
+        widget.setDataMargins(0.05, 0.05, 0.05, 0.05)
+        return widget
 
     def setDisplayedIntensityHistogram(self, show):
         self.getIntensityHistogramAction().setVisible(show)
@@ -122,7 +125,9 @@ class ImageView(_DataWidget):
     METHOD = "setImage"
 
     def _createSilxWidget(self, parent):
-        return silx_plot.ImageView(parent=parent)
+        widget = silx_plot.ImageView(parent=parent)
+        widget.setDataMargins(0.05, 0.05, 0.05, 0.05)
+        return widget
 
     def setDisplayedIntensityHistogram(self, show):
         self.getIntensityHistogramAction().setVisible(show)
@@ -135,7 +140,10 @@ class ScatterView(_DataWidget):
     METHOD = "setData"
 
     def _createSilxWidget(self, parent):
-        return silx_plot.ScatterView(parent=parent)
+        widget = silx_plot.ScatterView(parent=parent)
+        plot = widget.getPlotWidget()
+        plot.setDataMargins(0.05, 0.05, 0.05, 0.05)
+        return widget
 
     def getDataRange(self):
         plot = self.silxWidget().getPlotWidget()

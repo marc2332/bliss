@@ -1027,7 +1027,9 @@ class Config(metaclass=Singleton):
                 module_name = "default"
             m = __import__("bliss.config.plugins.%s" % (module_name), fromlist=[None])
             if hasattr(m, "create_object_from_cache"):
-                cache_object = self._name2cache.pop(name, None)
+                cache_object = self._name2cache.pop(
+                    name, None
+                )  # it should be popped only if object instantiation succeed !
                 if cache_object is not None:
                     cache_func = getattr(m, "create_object_from_cache")
                     instance_object = cache_func(self, name, cache_object)

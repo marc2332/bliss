@@ -5,6 +5,7 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+from unittest.mock import Base
 from bliss.config.plugins.utils import find_top_class_and_node
 from bliss.controllers.bliss_controller import BlissController
 
@@ -36,7 +37,7 @@ def create_objects_from_config_node(cfg_obj, cfg_node):
     # always create the bliss controller first
     bctrl = klass(ctrl_node)
 
-    # print(f"\n=== From config: {item_name} from {bctrl.name}")
+    print(f"\n=== From config: {item_name} from {bctrl.name}")
 
     if isinstance(bctrl, BlissController):
 
@@ -46,25 +47,31 @@ def create_objects_from_config_node(cfg_obj, cfg_node):
         cacheditemnames2ctrl = bctrl._prepare_subitems_configs()
         # print(f"\n=== Caching: {list(cacheditemnames2ctrl.keys())} from {bctrl.name}")
 
-        # --- add the controller to registered items, if it has a name.
+        # --- add the controller to registered items (if it has a name)
         name2items = {}
         if ctrl_name:
             name2items[ctrl_name] = bctrl
 
-        # update the config cache dict now to avoid cyclic instanciation with internal references
+        # update the config cache dict now to avoid cyclic instantiation with internal references
         # an internal reference occurs when a subitem config uses a reference to another subitem owned by the same controller.
         yield name2items, cacheditemnames2ctrl
 
         # load config and init controller
-        bctrl._controller_init()
+        try:
+            bctrl._controller_init()
+        except BaseException:
+            # remove cached obj if controller initialization fails (to avoid items with different instances of the same controller)
+            for iname in cacheditemnames2ctrl.keys():
+                cfg_obj._name2cache.pop(iname, None)
+            raise
 
-        # --- don't forget to instanciate the object for which this function has been called (if not a controller)
+        # --- don't forget to instantiate the object for which this function has been called (if not a controller)
         if item_name != ctrl_name:
             obj = cfg_obj.get(item_name)
             yield {item_name: obj}
 
         # --- Now any new object_name going through 'config.get( obj_name )' should call 'create_object_from_cache' only.
-        # --- 'create_objects_from_config_node' should never be called again for any object related to the controller instanciated here (see config.get code)
+        # --- 'create_objects_from_config_node' should never be called again for any object related to the controller instantiated here (see config.get code)
 
     elif (
         item_name == ctrl_name
@@ -76,5 +83,11 @@ def create_objects_from_config_node(cfg_obj, cfg_node):
 
 
 def create_object_from_cache(config, name, bctrl):
-    # print(f"\n=== From cache: {name} from {bctrl.name}")
-    return bctrl._get_subitem(name)
+    print(f"\n=== From cache: {name} from {bctrl.name}")
+
+    try:
+        return bctrl._get_subitem(name)
+    except BaseException:
+        # put back item in cached items if instantiation has failed
+        config._name2cache[name] = bctrl
+        raise

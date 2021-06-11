@@ -18,6 +18,7 @@ import contextlib
 
 from . import proxy
 from bliss.common import event
+from bliss.common import deprecation
 
 
 class BasePlot(object):
@@ -263,11 +264,20 @@ class _DataPlot(BasePlot):
             field: Identifier in the targeted plot
             data: Data to upload
         """
+        deprecation.deprecated_warning(
+            "Method", "upload_data", replacement="set_data", since_version="1.9"
+        )
         return self.submit("updateStoredData", field, data)
 
     def upload_data_if_needed(self, field, data):
         """Upload data only if it is a numpy array or a list
         """
+        deprecation.deprecated_warning(
+            "Method",
+            "upload_data_if_needed",
+            replacement="set_data",
+            since_version="1.9",
+        )
         if isinstance(data, (numpy.ndarray, list)):
             self.submit("updateStoredData", field, data)
             return field
@@ -276,6 +286,9 @@ class _DataPlot(BasePlot):
 
     def add_data(self, data, field="default"):
         # Get fields
+        deprecation.deprecated_warning(
+            "Method", "add_data", replacement="set_data", since_version="1.9"
+        )
         if isinstance(data, dict):
             fields = list(data)
         else:
@@ -296,9 +309,21 @@ class _DataPlot(BasePlot):
         self.submit("removeStoredData", field)
 
     def select_data(self, *names, **kwargs):
+        deprecation.deprecated_warning(
+            "Method",
+            "select_data",
+            replacement="set_data/add_curve/add_curve_item/set_data",
+            since_version="1.9",
+        )
         self.submit("selectStoredData", *names, **kwargs)
 
     def deselect_data(self, *names):
+        deprecation.deprecated_warning(
+            "Method",
+            "deselect_data",
+            replacement="set_data/add_curve/add_curve_item",
+            since_version="1.9",
+        )
         self.submit("deselectStoredData", *names)
 
     def clear_data(self):

@@ -21,8 +21,7 @@ from bliss.common.axis import AxisState
 from bliss.common.logtools import log_info, log_debug
 from bliss import global_map
 
-from bliss.comm.util import TCP
-from bliss.common import event
+from bliss.common.event import connect, disconnect
 from . import pi_gcs
 
 
@@ -89,20 +88,37 @@ class PI_E51X(pi_gcs.Communication, pi_gcs.Recorder, Controller):
     def initialize(self):
         """
         Controller intialization.
-        * 
+        Called at session startup.
+        Called Only once per controller even if more than
+        one axis is declared in config.
         """
-        self.com_initialize()
 
         # acceleration is not mandatory in config
         self.axis_settings.config_setting["acceleration"] = False
 
-        self.comm = pi_gcs.get_pi_comm(self.config, TCP)
-
-        global_map.register(self, children_list=[self.comm])
 
     def close(self):
-        if self.comm is not None:
-            self.comm.close()
+        """
+        Called at session exit. 6 times ???
+        """
+        self.com_close()
+        for axis in self.axes.values():
+            disconnect(axis, "move_done", self.move_done_event_received)
+
+
+    def initialize_hardware(self):
+        """
+        Called once per controller at first axis use.
+        """
+        # Initialize socket communication.
+        self.com_initialize()
+
+
+    def initialize_hardware_axis(self, axis):
+        """
+        Called once per axis at first use of the axis
+        """
+        pass
 
     def initialize_axis(self, axis):
         """
@@ -145,7 +161,7 @@ class PI_E51X(pi_gcs.Communication, pi_gcs.Recorder, Controller):
         self._axis_auto_gate[axis] = False
 
         # connect move_done for auto_gate mode
-        event.connect(axis, "move_done", self.move_done_event_received)
+        connect(axis, "move_done", self.move_done_event_received)
 
         # keep limits for gate
         self._axis_low_limit[axis] = self._get_low_limit(axis)

@@ -59,7 +59,7 @@ def test_curveplot__create_empty(flint_session):
 def test_curveplot__bliss_1_8(flint_session):
     """Check custom plot curve API from BLISS <= 1.8"""
     flint = plot.get_flint()
-    p = flint.get_plot(plot_class="curve", name="foo-cp")
+    p = flint.get_plot(plot_class="curve", name="bliss-1.8")
 
     data1 = numpy.array([4, 5, 6])
     data2 = numpy.array([2, 5, 2])
@@ -83,6 +83,56 @@ def test_curveplot__bliss_1_8(flint_session):
     p.remove_data("data1")
     data = p.get_data("data1")
     assert data == []
+
+
+def test_curveplot__bliss_1_9(flint_session):
+    """Check custom plot curve API from BLISS >= 1.9"""
+    flint = plot.get_flint()
+    p = flint.get_plot(plot_class="curve", name="bliss-1.9")
+    p.submit("setRaiseOnException", True)
+
+    y1 = numpy.array([4, 5, 6])
+    y2 = numpy.array([2, 5, 2])
+    x = numpy.array([1, 2, 3])
+
+    # Setup the items
+    p.add_curve_item("x", "y1", legend="item1", color="red", yaxis="left")
+    p.add_curve_item("x", "y2", legend="item2", color="blue", yaxis="right")
+    vrange = p.get_data_range()
+    assert vrange == [None, None, None]
+
+    # Update the data
+    p.set_data(x=x, y1=y1, y2=y2)
+    vrange = p.get_data_range()
+    assert vrange == [[1, 3], [4, 6], [2, 5]]
+
+    # Clear the data
+    p.clear_data()
+    vrange = p.get_data_range()
+    assert vrange == [None, None, None]
+
+    # Append the data
+    for i in range(len(x)):
+        p.append_data(x=x[i : i + 1], y1=y1[i : i + 1], y2=y2[i : i + 1])
+    vrange = p.get_data_range()
+    assert vrange == [[1, 3], [4, 6], [2, 5]]
+
+    # Or change the item layout
+    p.remove_item("item2")
+    vrange = p.get_data_range()
+    assert vrange == [[1, 3], [4, 6], None]
+
+    # Check transaction
+    p.clear_data()
+    with p.transaction(resetzoom=False):
+        p.set_data(x=x, y=y1)
+        vrange = p.get_data_range()
+        assert vrange == [None, None, None]
+        p.add_curve_item("x", "y", legend="item")
+        vrange = p.get_data_range()
+        assert vrange == [None, None, None]
+    vrange = p.get_data_range()
+    assert vrange == [[1, 3], [4, 6], None]
 
 
 def test_curveplot__reuse_plot(flint_session):

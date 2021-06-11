@@ -14,6 +14,7 @@ from typing import Optional
 
 import numpy
 import gevent
+import contextlib
 
 from . import proxy
 from bliss.common import event
@@ -327,6 +328,9 @@ class Plot1D(_DataPlot):
         )
 
     def add_curve(self, x, y, **kwargs):
+        """
+        Create a curve in this plot.
+        """
         if x is None:
             x = numpy.arange(len(y))
         if y is None:
@@ -354,6 +358,58 @@ class Plot1D(_DataPlot):
         assert value in ("linear", "log")
         flint = self._flint
         flint.run_method(self._plot_id, "setYAxisLogarithmic", [value == "log"], {})
+
+    def clear_items(self):
+        """Remove all the items described in this plot
+
+        If no transaction was open, it will update the plot and refresh the plot
+        view.
+        """
+        self.submit("clearItems")
+
+    def add_curve_item(self, xname: str, yname: str, legend: str = None, **kwargs):
+        """Define a specific curve item
+
+        If no transaction was open, it will update the plot and refresh the plot
+        view.
+        """
+        self.submit("addCurveItem", xname, yname, legend=legend, **kwargs)
+
+    def remove_item(self, legend: str):
+        """Remove a specific item.
+
+        If no transaction was open, it will update the plot and refresh the plot
+        view.
+        """
+        self.submit("removeItem", legend)
+
+    def set_data(self, **kwargs):
+        """Set data named from keys with associated values.
+
+        If no transaction was open, it will update the plot and refresh the plot
+        view.
+        """
+        self.submit("setData", **kwargs)
+
+    def append_data(self, **kwargs):
+        """Append data named from keys with associated values.
+
+        If no transaction was open, it will update the plot and refresh the plot
+        view.
+        """
+        self.submit("appendData", **kwargs)
+
+    @contextlib.contextmanager
+    def transaction(self, resetzoom=True):
+        """Context manager to handle a set of changes and a single refresh of
+        the plot. This is needed cause the action are done on the plot
+        asynchronously"""
+        self.submit("setAutoUpdatePlot", False)
+        try:
+            yield
+        finally:
+            self.submit("setAutoUpdatePlot", True)
+            self.submit("updatePlot", resetzoom=resetzoom)
 
 
 class ScatterView(_DataPlot):

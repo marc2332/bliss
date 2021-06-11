@@ -7,10 +7,14 @@
 
 from __future__ import annotations
 
+import typing
 import numpy
+import logging
 
 from silx.gui import qt
 from silx.gui import plot as silx_plot
+
+_logger = logging.getLogger(__name__)
 
 
 class _DataWidget(qt.QWidget):
@@ -97,10 +101,101 @@ class Plot1D(_DataWidget):
     # Name of the method to add data to the plot
     METHOD = "addCurve"
 
+    class CurveItem(typing.NamedTuple):
+        xdata: str
+        ydata: str
+        style: typing.Dict[str, object]
+
+    def __init__(self, parent=None):
+        _DataWidget.__init__(self, parent=parent)
+        self.__items = {}
+        self.__autoUpdatePlot = True
+        self.__raiseOnException = False
+
+    def setRaiseOnException(self, raises):
+        """To simplify remote debug"""
+        self.__raiseOnException = raises
+
     def _createSilxWidget(self, parent):
         widget = silx_plot.Plot1D(parent=parent)
         widget.setDataMargins(0.05, 0.05, 0.05, 0.05)
         return widget
+
+    def setAutoUpdatePlot(self, update="bool"):
+        """Set to true to enable or disable update of plot for each changes of
+        the data or items"""
+        self.__autoUpdatePlot = update
+
+    def clearItems(self):
+        """Remove the item definitions"""
+        self.__items.clear()
+        self.__updatePlotIfNeeded()
+
+    def removeItem(self, legend: str):
+        """Remove a specific item by name"""
+        del self.__items[legend]
+        self.__updatePlotIfNeeded()
+
+    def addCurveItem(self, xdata: str, ydata: str, legend: str = None, **kwargs):
+        """Define an item which have to be displayed with the specified data
+        name
+        """
+        if legend is None:
+            legend = ydata + " -> " + xdata
+        self.__items[legend] = self.CurveItem(xdata, ydata, kwargs)
+        self.__updatePlotIfNeeded()
+
+    def setData(self, **kwargs):
+        dataDict = self.dataDict()
+        for k, v in kwargs.items():
+            dataDict[k] = v
+        self.__updatePlotIfNeeded()
+
+    def appendData(self, **kwargs):
+        dataDict = self.dataDict()
+        for k, v in kwargs.items():
+            d = dataDict.get(k, None)
+            if d is None:
+                d = v
+            else:
+                d = numpy.concatenate((d, v))
+            dataDict[k] = d
+        self.__updatePlotIfNeeded()
+
+    def clear(self):
+        super(Plot1D, self).clear()
+        self.__updatePlotIfNeeded()
+
+    def updatePlot(self, resetzoom: bool = True):
+        try:
+            self.__updatePlot()
+        except Exception:
+            _logger.error("Error while updating the plot", exc_info=True)
+            if self.__raiseOnException:
+                raise
+        if resetzoom:
+            self.resetZoom()
+
+    def __updatePlotIfNeeded(self):
+        if self.__autoUpdatePlot:
+            self.updatePlot(resetzoom=True)
+
+    def __updatePlot(self):
+        plot = self.silxPlot()
+        plot.clear()
+        dataDict = self.dataDict()
+        for legend, item in self.__items.items():
+            xData = dataDict.get(item.xdata)
+            yData = dataDict.get(item.ydata)
+            if xData is None or yData is None:
+                continue
+            if len(yData) != len(xData):
+                size = min(len(yData), len(xData))
+                xData = xData[0:size]
+                yData = yData[0:size]
+            if len(yData) == 0:
+                continue
+            plot.addCurve(xData, yData, legend=legend, **item.style, resetzoom=False)
 
 
 class Plot2D(_DataWidget):

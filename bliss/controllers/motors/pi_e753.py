@@ -262,6 +262,7 @@ class PI_E753(pi_gcs.Communication, pi_gcs.Recorder, Controller):
     """
     ID/INFO
     """
+
     @object_attribute_get(type_info="str")
     def get_model(self, axis):
         return self.model

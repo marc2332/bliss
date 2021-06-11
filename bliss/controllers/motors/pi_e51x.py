@@ -96,7 +96,6 @@ class PI_E51X(pi_gcs.Communication, pi_gcs.Recorder, Controller):
         # acceleration is not mandatory in config
         self.axis_settings.config_setting["acceleration"] = False
 
-
     def close(self):
         """
         Called at session exit. 6 times ???
@@ -105,14 +104,12 @@ class PI_E51X(pi_gcs.Communication, pi_gcs.Recorder, Controller):
         for axis in self.axes.values():
             disconnect(axis, "move_done", self.move_done_event_received)
 
-
     def initialize_hardware(self):
         """
         Called once per controller at first axis use.
         """
         # Initialize socket communication.
         self.com_initialize()
-
 
     def initialize_hardware_axis(self, axis):
         """
@@ -422,7 +419,6 @@ class PI_E51X(pi_gcs.Communication, pi_gcs.Recorder, Controller):
         """
         return float(self.command(f"VMI? {axis.channel}"))
 
-
     """
     Closed loop commands
     """
@@ -503,6 +499,7 @@ class PI_E51X(pi_gcs.Communication, pi_gcs.Recorder, Controller):
     """
     ID/INFO
     """
+
     @object_attribute_get(type_info="str")
     def get_model(self, axis):
         return self.model
@@ -551,7 +548,6 @@ class PI_E51X(pi_gcs.Communication, pi_gcs.Recorder, Controller):
         """
         return self.command("*IDN?")
 
-
     def get_axis_info(self, axis):
         """
         Return Controller specific info about <axis>
@@ -562,7 +558,6 @@ class PI_E51X(pi_gcs.Communication, pi_gcs.Recorder, Controller):
         info_str += f"     closed loop = {self.get_closed_loop(axis)}\n"
 
         return info_str
-
 
     @object_method(types_info=("None", "string"))
     def get_info(self, axis):

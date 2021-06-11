@@ -387,15 +387,43 @@ class PI_E51X(pi_gcs.Communication, pi_gcs.Recorder, Controller):
     Voltage commands
     """
 
-    def _get_voltage(self, axis):
+    @object_method(types_info=("None", "float"))
+    def get_voltage(self, axis):
         """
-        Returns Voltage Of Output Signal Channel (VOL? command)
+        Returns Voltage Of Output Signal Channel (SVA? command)
         """
-        _ans = self.command(f"VOL? {axis.channel}")
-        _vol = float(_ans.split("=+")[-1])
+        _ans = self.command(f"SVA? {axis.chan_letter}")
+        _vol = float(_ans)
         return _vol
 
-    """ 
+    @object_method(types_info=("None", "float"))
+    def get_output_voltage(self, axis):
+        """
+        Return output voltage
+        """
+        return float(self.command(f"VOL? {axis.channel}"))
+
+    # Voltage Low  Hard-Limit (ID 0x0B000007)
+    # Voltage High Hard-Limit (ID 0x0B000008)
+    # ("Voltage output high limit  ", "VMA? %s" % axis.channel),
+    # ("Voltage output low limit   ", "VMI? %s" % axis.channel),
+
+    @object_method(types_info=("None", "float"))
+    def get_voltage_high_limit(self, axis):
+        """
+        Return voltage HIGH limit
+        """
+        return float(self.command(f"VMA? {axis.channel}"))
+
+    @object_method(types_info=("None", "float"))
+    def get_voltage_low_limit(self, axis):
+        """
+        Return voltage LOW limit
+        """
+        return float(self.command(f"VMI? {axis.channel}"))
+
+
+    """
     Closed loop commands
     """
 
@@ -475,6 +503,9 @@ class PI_E51X(pi_gcs.Communication, pi_gcs.Recorder, Controller):
     """
     ID/INFO
     """
+    @object_attribute_get(type_info="str")
+    def get_model(self, axis):
+        return self.model
 
     def __info__(self, axis=None):
         if axis is None:
@@ -494,11 +525,11 @@ class PI_E51X(pi_gcs.Communication, pi_gcs.Recorder, Controller):
         _txt = "PI_E51X controller :\n"
         # Reads pre-defined infos (1 line answers)
         for (label, cmd) in _infos:
-            value = self.comm.write_readline(cmd.encode() + b"\n")
-            _txt = _txt + "%s %s\n" % (label, value.decode())
+            value = self.command(cmd)
+            _txt = _txt + "%s %s\n" % (label, value)
 
         # Reads multi-lines infos.
-        _ans = [bs.decode() for bs in self.comm.write_readlines(b"IFC?\n", 6)]
+        _ans = self.command("IFC?", nb_line=6)
         _txt = _txt + "\n%s :\n%s\n" % ("Communication parameters", "\n".join(_ans))
 
         """
@@ -509,7 +540,7 @@ class PI_E51X(pi_gcs.Communication, pi_gcs.Recorder, Controller):
         1 = use DHCP to obtain IP address, if this fails, use IPADR (default);
         """
 
-        _ans = [bs.decode() for bs in self.comm.write_readlines(b"VER?\n", 3)]
+        _ans = self.command("VER?", nb_line=3)
         _txt = _txt + "\n%s :\n%s\n" % ("Firmware version", "\n".join(_ans))
 
         return _txt
@@ -519,6 +550,19 @@ class PI_E51X(pi_gcs.Communication, pi_gcs.Recorder, Controller):
         - Returns a 'str' string.
         """
         return self.command("*IDN?")
+
+
+    def get_axis_info(self, axis):
+        """
+        Return Controller specific info about <axis>
+        """
+        info_str = "PI AXIS INFO:\n"
+        info_str += f"     voltage (SVA) = {self.get_voltage(axis)}\n"
+        info_str += f"     output voltage (VOL) = {self.get_output_voltage(axis)}\n"
+        info_str += f"     closed loop = {self.get_closed_loop(axis)}\n"
+
+        return info_str
+
 
     @object_method(types_info=("None", "string"))
     def get_info(self, axis):

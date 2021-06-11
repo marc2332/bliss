@@ -517,7 +517,7 @@ class TimeCurvePlot(BasePlot):
         """
         self.submit("setXDuration", second)
 
-    def select_time_curve(self, yname, **kwargs):
+    def add_time_curve_item(self, yname, **kwargs):
         """
         Select a dedicated data to be displayed against the time.
 
@@ -525,7 +525,7 @@ class TimeCurvePlot(BasePlot):
             name: Name of the data to use as y-axis
             kwargs: Associated style (see `addCurve` from silx plot)
         """
-        self.submit("selectCurve", yname, **kwargs)
+        self.submit("addTimeCurveItem", yname, **kwargs)
 
     def set_data(self, **kwargs):
         """

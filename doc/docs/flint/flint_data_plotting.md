@@ -260,9 +260,9 @@ p = f.get_plot(plot_class="timecurveplot", name="My plot")
 # Setup the plot to display a dedicated data name
 # The data will be provided later
 # the `time` data name is used as x-axis
-p.select_time_curve("diode1")
+p.add_time_curve_item("diode1")
 # The curve style can be specified
-p.select_time_curve("diode2", color="red")
+p.add_time_curve_item("diode2", color="red")
 
 # The data can be set
 # The time have to be provided in epoch second UTC (see python API `time.time()`)

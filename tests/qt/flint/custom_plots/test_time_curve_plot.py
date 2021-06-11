@@ -27,8 +27,8 @@ def test_time_curve_plot__set_data(time_curve_plot_widget):
     We expect curves to be displayed
     """
     w = time_curve_plot_widget
-    w.selectCurve("value1")
-    w.selectCurve("value2")
+    w.addTimeCurveItem("value1")
+    w.addTimeCurveItem("value2")
     w.setData(
         time=[0, 1, 2, 3, 4, 5], value1=[0, 1, 2, 3, 4, 5], value2=[0, 1, 2, 3, 4, 5]
     )
@@ -42,8 +42,8 @@ def test_time_curve_plot__clear(time_curve_plot_widget):
     We expect no curves to be displayed
     """
     w = time_curve_plot_widget
-    w.selectCurve("value1")
-    w.selectCurve("value2")
+    w.addTimeCurveItem("value1")
+    w.addTimeCurveItem("value2")
     w.setData(
         time=[0, 1, 2, 3, 4, 5], value1=[0, 1, 2, 3, 4, 5], value2=[0, 1, 2, 3, 4, 5]
     )
@@ -58,8 +58,8 @@ def test_time_curve_plot__append_data(time_curve_plot_widget):
     We expect the plot to contains curves witch grow up.
     """
     w = time_curve_plot_widget
-    w.selectCurve("value1")
-    w.selectCurve("value2")
+    w.addTimeCurveItem("value1")
+    w.addTimeCurveItem("value2")
     w.appendData(time=[0, 1, 2], value1=[0, 1, 2], value2=[0, 1, 2])
     plot = w.getPlotWidget()
     curve = plot.getAllCurves()[0]
@@ -77,8 +77,8 @@ def test_time_curve_plot__drop_data(time_curve_plot_widget):
     """
     w = time_curve_plot_widget
     w.setXDuration(5)
-    w.selectCurve("value1")
-    w.selectCurve("value2")
+    w.addTimeCurveItem("value1")
+    w.addTimeCurveItem("value2")
     w.appendData(time=[0, 1, 2], value1=[0, 1, 2], value2=[0, 1, 2])
     w.appendData(time=[3, 4, 5], value1=[0, 1, 2], value2=[0, 1, 2])
     w.appendData(time=[6, 7, 8], value1=[0, 1, 2], value2=[0, 1, 2])

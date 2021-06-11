@@ -508,8 +508,8 @@ def test_time_curve_plot(flint_session):
 
     p = f.get_plot(plot_class="timecurveplot", name="timecurveplot")
 
-    p.select_time_curve("diode1")
-    p.select_time_curve("diode2")
+    p.add_time_curve_item("diode1")
+    p.add_time_curve_item("diode2")
 
     # set_data update the curves
     p.set_data(time=[0, 1, 2], diode1=[0, 1, 1], diode2=[1, 5, 1])

@@ -211,7 +211,7 @@ class TimeCurvePlot(qt.QWidget):
             data = newData
         self.__data[name] = data
 
-    def selectCurve(self, yName, **kwargs):
+    def addTimeCurveItem(self, yName, **kwargs):
         """Update the plot description"""
         self.__description[yName] = kwargs
         self.__safeUpdatePlot()

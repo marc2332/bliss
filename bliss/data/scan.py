@@ -344,6 +344,7 @@ class ScansWatcher:
         """
         try:
             gwatcher = gevent.spawn(self.run)
+            gwatcher.name = "bliss_scans_watcher"
             self.wait_ready(timeout=3)
             yield gwatcher
         finally:

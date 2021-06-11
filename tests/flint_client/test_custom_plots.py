@@ -7,18 +7,53 @@ from bliss.common import plot
 from bliss.controllers.lima import roi as lima_roi
 
 
-def test_empty_plot(flint_session):
-    flint = plot.get_flint()
-    p = flint.get_plot(plot_class="curve", name="foo-empty")
-    assert flint.is_plot_exists("foo-empty") is False
-    assert p is not None
+def test_plot__create_2_plot(flint_session):
+    """Create 2 plots
+
+    Make sure it exists 2 plots
+    """
+    p = plot.plot(name="Foo")
+    pid = plot.get_flint()._pid
+    assert "flint_pid={}".format(pid) in repr(p)
+    assert p.name == "Foo"
+
+    p = plot.plot(name="Some name")
+    assert "flint_pid={}".format(pid) in repr(p)
+    assert p.name == "Some name"
 
 
-def test_remove_custom_plot(flint_session):
+def test_plot__reuse_plot__api_1_0(flint_session):
+    """Test reuse of custom plot from an ID"""
+    widget = plot.plot_curve(name="foo")
+    cos_data = numpy.cos(numpy.linspace(0, 2 * numpy.pi, 10))
+    widget.add_data({"cos": cos_data, "foo": cos_data})
+    widget2 = plot.plot_curve(name="foo", existing_id=widget.plot_id)
+    cos = widget2.get_data()["cos"]
+    numpy.testing.assert_allclose(cos, cos_data)
+
+
+def test_plot__reuse_plot__api_1_6(flint_session):
+    """Test reuse of custom plot from a name"""
+    widget = plot.plot_curve(name="foo", existing_id="myplot")
+    cos_data = numpy.cos(numpy.linspace(0, 2 * numpy.pi, 10))
+    widget.add_data({"cos": cos_data, "foo": cos_data})
+    widget2 = plot.plot_curve(name="foo", existing_id="myplot")
+    cos = widget2.get_data()["cos"]
+    numpy.testing.assert_allclose(cos, cos_data)
+
+
+def test_plot__remove_plot(flint_session):
     flint = plot.get_flint()
-    p = flint.get_plot(plot_class="curve", name="foo-rm")
+    p = flint.get_plot(plot_class="curve", name="foo-rm", unique_name="foo-rm")
     flint.remove_plot(p.plot_id)
     assert flint.is_plot_exists("foo-rm") is False
+
+
+def test_curveplot__create_empty(flint_session):
+    flint = plot.get_flint()
+    p = flint.get_plot(plot_class="curve", name="foo-empty", unique_name="foo-empty")
+    assert flint.is_plot_exists("foo-empty")
+    assert p is not None
 
 
 def test_curveplot__bliss_1_8(flint_session):
@@ -50,7 +85,7 @@ def test_curveplot__bliss_1_8(flint_session):
     assert data == []
 
 
-def test_reuse_custom_plot(flint_session):
+def test_curveplot__reuse_plot(flint_session):
     flint = plot.get_flint()
     p = flint.get_plot(plot_class="curve", unique_name="foo-reuse")
     cos_data = numpy.cos(numpy.linspace(0, 2 * numpy.pi, 10))

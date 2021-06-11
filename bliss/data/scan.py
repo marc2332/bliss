@@ -236,8 +236,13 @@ class ScansWatcher:
         self._terminated_event = gevent.event.Event()
         """Handle the end event"""
 
+        self._no_scans_event = gevent.event.Event()
+        """Handle the amount of listened scans"""
+
         self._stop_handler = DataStreamReaderStopHandler()
         """Handler to be able to stop the event loop"""
+
+        self._no_scans_event.set()
 
     def wait_ready(self, timeout: float = None):
         """Wait until the scan watcher is ready to receive new event.
@@ -251,6 +256,11 @@ class ScansWatcher:
                      (or fractions thereof).
         """
         self._ready_event.wait(timeout=timeout)
+
+    def wait_no_more_running_scans(self, timeout: float = None):
+        """Wait until there is no more running scans in this watcher.
+        """
+        self._no_scans_event.wait(timeout=timeout)
 
     def wait_terminated(self, timeout: float = None):
         """Wait until the scan watcher is terminated.
@@ -324,14 +334,10 @@ class ScansWatcher:
         return None
 
     @contextlib.contextmanager
-    def watch(self, delay=0.5):
+    def watch(self):
         """Context manager to start and stop the watcher.
 
         It uses a gevent spawn.
-
-        Arguments:
-            delay: Time to wait after the yield and before the watcher
-                   termination
 
         Yield:
             The spawned greenlet
@@ -341,8 +347,7 @@ class ScansWatcher:
             self.wait_ready(timeout=3)
             yield gwatcher
         finally:
-            # Wait until all events from the yield are executed
-            gevent.sleep(delay)
+            self.wait_no_more_running_scans(timeout=2)
             self.stop()
             try:
                 self.wait_terminated(timeout=1)
@@ -393,12 +398,14 @@ class ScansWatcher:
                         # New scan was created
                         scan_info = node.info.get_all()
                         self._running_scans.add(db_name)
+                        self._no_scans_event.clear()
                         observer.on_scan_created(db_name, scan_info)
                     elif node_type == "scan_group":
                         if self._watch_scan_group:
                             # New scan was created
                             scan_info = node.info.get_all()
                             self._running_scans.add(db_name)
+                            self._no_scans_event.clear()
                             observer.on_scan_created(db_name, scan_info)
                     else:
                         scan_db_name = self._get_scan_db_name_from_child(db_name)
@@ -483,7 +490,8 @@ class ScansWatcher:
                                     sys.excepthook(*sys.exc_info())
                             finally:
                                 self._running_scans.discard(db_name)
-
+                                if len(self._running_scans) == 0:
+                                    self._no_scans_event.set()
                 gevent.idle()
         finally:
             self._running = False

@@ -9,6 +9,8 @@
 import time
 import gevent
 
+from collections import Counter
+
 from bliss.common import event
 from bliss import global_map
 from bliss.common.axis import AxisState
@@ -26,7 +28,6 @@ controller:
   name: xps-q
   description: Newport-Q test
   tcp: 160.103.146.95:5001
-  nbAxes: 1
   axes:
     -
       name: omega
@@ -47,6 +48,10 @@ controller:
       gpio_conn: GPIO3        # GPIO connector for constant velocity pulse
       motion_hooks:
         - $newport_hook       # execute post motion
+        
+Note: all axes of each group must be declared in config
+
+Note: the address is the index of the axis in its group (start at 1)
 """
 
 
@@ -57,7 +62,10 @@ class NewportXPS(Controller):
     def initialize(self):
         log_debug(self, "initialize() called")
 
-        self.__nbAxes = self.config.get("nbAxes", int)
+        # dict with nbAxes for each group
+        self.__nbAxesPerGroup = Counter(
+            [axis.to_dict()["group"] for axis in self.config.get("axes", list)]
+        )
         comm_cfg = self.config.config_dict
         self.__xps = XPS(comm_cfg)
         global_map.register(self, children_list=[self.__xps._sock])
@@ -98,7 +106,9 @@ class NewportXPS(Controller):
 
     def read_position(self, axis):
         log_debug(self, "read_position() called")
-        reply = self.__xps.GroupPositionCurrentGet(axis.group, self.__nbAxes)
+        reply = self.__xps.GroupPositionCurrentGet(
+            axis.group, self.__nbAxesPerGroup[axis.group]
+        )
         if reply[0] != 0:
             log_error(self, "NewportXPS Error: Failed to read position" + reply[1])
         else:

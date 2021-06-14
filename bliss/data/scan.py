@@ -353,7 +353,10 @@ class ScansWatcher:
             try:
                 self.wait_terminated(timeout=1)
             finally:
-                gwatcher.kill()
+                try:
+                    gwatcher.join(timeout=1)
+                except Exception:
+                    gwatcher.kill()
 
     def run(self):
         """

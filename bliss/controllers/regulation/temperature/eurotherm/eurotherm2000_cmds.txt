@@ -362,7 +362,7 @@
     #"vp_bounded_sensor_break": (62, 'H'),
     "vp_manual_output__alterable_in_man_only": (60, 'H'),
     "vp_motor_calibration_state": (210, 'H'),
-    "working_output": (4, 'H'),
+    "working_output": (4, 'f'),
     "working_set_point": (5, 'f'),
     },
 

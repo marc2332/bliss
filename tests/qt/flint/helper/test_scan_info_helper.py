@@ -518,6 +518,62 @@ def test_read_plot_models__scatter_axis():
     assert item.valueChannel() is None
 
 
+def test_read_plot_models__curve_axis():
+    scan_info = {
+        "plots": [
+            {
+                "name": "plot",
+                "kind": "scatter-plot",
+                "items": [{"kind": "scatter", "x": "a"}],
+            }
+        ]
+    }
+    plots = scan_info_helper.read_plot_models(scan_info)
+    assert len(plots) == 1
+    assert len(plots[0].items()) == 1
+    item = plots[0].items()[0]
+    assert item.xChannel().name() == "a"
+    assert item.yChannel() is None
+
+
+def test_read_plot_models__curve_item():
+    scan_info = {
+        "plots": [
+            {
+                "name": "plot",
+                "kind": "curve-plot",
+                "items": [{"kind": "curve", "x": "a", "y": "b"}],
+            }
+        ]
+    }
+    plots = scan_info_helper.read_plot_models(scan_info)
+    assert len(plots) == 1
+    assert len(plots[0].items()) == 1
+    item = plots[0].items()[0]
+    assert item.xChannel().name() == "a"
+    assert item.yChannel().name() == "b"
+    assert item.yAxis() == "left"
+
+
+def test_read_plot_models__curve_right_item():
+    scan_info = {
+        "plots": [
+            {
+                "name": "plot",
+                "kind": "curve-plot",
+                "items": [{"kind": "curve", "x": "a", "y": "b", "y_axis": "right"}],
+            }
+        ]
+    }
+    plots = scan_info_helper.read_plot_models(scan_info)
+    assert len(plots) == 1
+    assert len(plots[0].items()) == 1
+    item = plots[0].items()[0]
+    assert item.xChannel().name() == "a"
+    assert item.yChannel().name() == "b"
+    assert item.yAxis() == "right"
+
+
 def test_read_scatter_data__different_groups():
     scan_info = {
         "acquisition_chain": {"timer": {"devices": ["timer"]}},

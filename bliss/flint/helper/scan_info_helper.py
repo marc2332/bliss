@@ -716,6 +716,77 @@ def create_plot_model(
     return plots
 
 
+def _read_scatter_plot(plot_description: Dict) -> List[plot_model.Plot]:
+    """Read a scatter plot definition from the scan_info"""
+    plot = plot_item_model.ScatterPlot()
+
+    name = plot_description.get("name", None)
+    if name is not None:
+        plot.setName(name)
+
+    items = plot_description.get("items", None)
+    if not isinstance(items, list):
+        _logger.warning("'items' not using the right type. List expected. Ignored.")
+        items = []
+
+    for item_description in items:
+        kind = item_description.get("kind", None)
+        if kind == "scatter":
+            item = plot_item_model.ScatterItem(plot)
+
+            xname = item_description.get("x", None)
+            if xname is not None:
+                x_channel = plot_model.ChannelRef(plot, xname)
+                item.setXChannel(x_channel)
+            yname = item_description.get("y", None)
+            if yname is not None:
+                y_channel = plot_model.ChannelRef(plot, yname)
+                item.setYChannel(y_channel)
+            valuename = item_description.get("value", None)
+            if valuename is not None:
+                value_channel = plot_model.ChannelRef(plot, valuename)
+                item.setValueChannel(value_channel)
+            plot.addItem(item)
+        else:
+            _logger.warning("Item 'kind' %s unsupported. Item ignored.", kind)
+    return plot
+
+
+def _read_curve_plot(plot_description: Dict) -> List[plot_model.Plot]:
+    """Read a curve plot definition from the scan_info"""
+    plot = plot_item_model.CurvePlot()
+
+    name = plot_description.get("name", None)
+    if name is not None:
+        plot.setName(name)
+
+    items = plot_description.get("items", None)
+    if not isinstance(items, list):
+        _logger.warning("'items' not using the right type. List expected. Ignored.")
+        items = []
+
+    for item_description in items:
+        kind = item_description.get("kind", None)
+        if kind == "curve":
+            item = plot_item_model.CurveItem(plot)
+
+            xname = item_description.get("x", None)
+            if xname is not None:
+                x_channel = plot_model.ChannelRef(plot, xname)
+                item.setXChannel(x_channel)
+            yname = item_description.get("y", None)
+            if yname is not None:
+                y_channel = plot_model.ChannelRef(plot, yname)
+                item.setYChannel(y_channel)
+            y_axis = item_description.get("y_axis", None)
+            if y_axis in ("left", "right"):
+                item.setYAxis(y_axis)
+            plot.addItem(item)
+        else:
+            _logger.warning("Item 'kind' %s unsupported. Item ignored.", kind)
+    return plot
+
+
 def read_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
     """Read description of plot models from a scan_info"""
     result: List[plot_model.Plot] = []
@@ -730,41 +801,14 @@ def read_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
             continue
 
         kind = plot_description.get("kind", None)
-        if kind != "scatter-plot":
+        if kind == "scatter-plot":
+            plot = _read_scatter_plot(plot_description)
+        elif kind == "curve-plot":
+            plot = _read_curve_plot(plot_description)
+        else:
             _logger.warning("Kind %s unsupported. Skipped.", kind)
             continue
 
-        plot = plot_item_model.ScatterPlot()
-
-        name = plot_description.get("name", None)
-        if name is not None:
-            plot.setName(name)
-
-        items = plot_description.get("items", None)
-        if not isinstance(items, list):
-            _logger.warning("'items' not using the right type. List expected. Ignored.")
-            items = []
-
-        for item_description in items:
-            kind = item_description.get("kind", None)
-            if kind == "scatter":
-                item = plot_item_model.ScatterItem(plot)
-
-                xname = item_description.get("x", None)
-                if xname is not None:
-                    x_channel = plot_model.ChannelRef(plot, xname)
-                    item.setXChannel(x_channel)
-                yname = item_description.get("y", None)
-                if yname is not None:
-                    y_channel = plot_model.ChannelRef(plot, yname)
-                    item.setYChannel(y_channel)
-                valuename = item_description.get("value", None)
-                if valuename is not None:
-                    value_channel = plot_model.ChannelRef(plot, valuename)
-                    item.setValueChannel(value_channel)
-                plot.addItem(item)
-            else:
-                _logger.warning("Item 'kind' %s unsupported. Item ignored.", kind)
         result.append(plot)
 
     return result

@@ -272,6 +272,10 @@ class ScanInfo(dict):
                     "A 'stop' position for the channel '%s' should be set", name
                 )
 
+    def add_plots_entry(self):
+        """CReate the main entry for plots description"""
+        self._scan_info.setdefault("plots", [])
+
     @typeguard.typechecked
     def add_scatter_plot(
         self,

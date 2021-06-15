@@ -280,6 +280,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Flint
+    - Added a tool to display many scans in the curve widget
+
 ### Changed
 
 ### Fixed

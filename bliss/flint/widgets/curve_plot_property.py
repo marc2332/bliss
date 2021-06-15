@@ -10,6 +10,7 @@ from typing import Union
 from typing import List
 from typing import Dict
 from typing import Optional
+from typing import NamedTuple
 
 import logging
 import functools
@@ -29,6 +30,7 @@ from bliss.flint.helper.style_helper import DefaultStyleStrategy
 from bliss.flint.utils import qmodelutils
 from bliss.flint.widgets.select_channel_dialog import SelectChannelDialog
 from . import delegates
+from . import data_views
 from . import _property_tree_helper
 
 
@@ -637,6 +639,92 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         self.updateError()
 
 
+class ScanItem(NamedTuple):
+    scan: scan_model.Scan
+    plotModel: plot_model.Plot
+    plotItem: plot_model.Item
+    curveWidget: qt.QWidget
+
+
+class ScanTableView(data_views.VDataTableView):
+    ScanNbColumn = 0
+    ScanTitleColumn = 1
+    ScanStartTimeColumn = 2
+    ScanStyleColumn = 3
+    ScanRemoveColumn = 4
+
+    scanSelected = qt.Signal(object)
+
+    def __init__(self, parent=None):
+        data_views.VDataTableView.__init__(self, parent=parent)
+        self.setColumn(
+            self.ScanNbColumn,
+            title="Nb",
+            delegate=delegates.ScanNumberDelegate,
+            resizeMode=qt.QHeaderView.ResizeToContents,
+        )
+        self.setColumn(
+            self.ScanTitleColumn,
+            title="Title",
+            delegate=delegates.ScanTitleDelegate,
+            resizeMode=qt.QHeaderView.Stretch,
+        )
+        self.setColumn(
+            self.ScanStartTimeColumn,
+            title="Time",
+            delegate=delegates.ScanStartTimeDelegate,
+            resizeMode=qt.QHeaderView.ResizeToContents,
+        )
+        self.setColumn(
+            self.ScanStyleColumn,
+            title="Style",
+            delegate=delegates.ScanStyleDelegate,
+            resizeMode=qt.QHeaderView.ResizeToContents,
+        )
+        self.setColumn(
+            self.ScanRemoveColumn,
+            title="Remove",
+            delegate=delegates.RemoveScanDelegate,
+            resizeMode=qt.QHeaderView.ResizeToContents,
+        )
+
+        self.setShowGrid(False)
+        self.verticalHeader().setVisible(False)
+        selectionModel = self.selectionModel()
+        selectionModel.currentChanged.connect(self.__selectionChanged)
+        vheader = self.verticalHeader()
+        vheader.setDefaultSectionSize(30)
+        vheader.sectionResizeMode(qt.QHeaderView.Fixed)
+
+    def __selectionChanged(self, current: qt.QModelIndex, previous: qt.QModelIndex):
+        model = self.model()
+        index = model.index(current.row(), 0)
+        scan = model.object(index)
+        self.scanSelected.emit(scan.scan)
+
+    def scanIndex(self, scan: scan_model.Scan) -> qt.QModelIndex:
+        """Returns the index of the scan"""
+        model = self.model()
+        for row in range(model.rowCount()):
+            index = model.index(row, 0)
+            obj = model.object(index)
+            if obj.scan is scan:
+                return index
+        return qt.QModelIndex()
+
+    def selectScan(self, select: scan_model.Scan):
+        index = self.scanIndex(select)
+        selectionModel = self.selectionModel()
+        # selectionModel.reset()
+        mode = (
+            qt.QItemSelectionModel.Clear
+            | qt.QItemSelectionModel.Rows
+            | qt.QItemSelectionModel.Current
+            | qt.QItemSelectionModel.Select
+        )
+        selectionModel.select(index, mode)
+
+
 class CurvePlotPropertyWidget(qt.QWidget):
 
     NameColumn = 0
@@ -680,12 +768,22 @@ class CurvePlotPropertyWidget(qt.QWidget):
         line.setFrameShape(qt.QFrame.HLine)
         line.setFrameShadow(qt.QFrame.Sunken)
 
+        self.__scanListView = ScanTableView(self)
+        self.__scanListModel = data_views.ObjectListModel(self)
+        self.__scanListView.setSourceModel(self.__scanListModel)
+        self.__scanListView.scanSelected.connect(self.__scanSelectionChanged)
+
         layout = qt.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         layout.addWidget(toolBar)
         layout.addWidget(line)
         layout.addWidget(self.__tree)
+        layout.addWidget(self.__scanListView)
+
+    def resizeEvent(self, event: qt.QResizeEvent):
+        self.__updateScanViewHeight(event.size())
+        return super(CurvePlotPropertyWidget, self).resizeEvent(event)
 
     def __removeAllItems(self):
         if self.__plotModel is None:
@@ -728,6 +826,24 @@ class CurvePlotPropertyWidget(qt.QWidget):
         toolBar.addSeparator()
 
         action = qt.QAction(self)
+        icon = icons.getQIcon("flint:icons/scan-many")
+        action.setCheckable(True)
+        action.setIcon(icon)
+        action.setToolTip("Enable displaying many scans and show the list")
+        action.toggled.connect(self.__toggeledShowScans)
+        toolBar.addAction(action)
+        self.__storeScanAction = action
+
+        action = qt.QWidgetAction(self)
+        self.__nbStoredScans = qt.QSpinBox(self)
+        self.__nbStoredScans.setRange(1, 20)
+        self.__nbStoredScans.setToolTip("Max number of displayed scans")
+        self.__nbStoredScans.valueChanged.connect(self.__nbStoredScansChanged)
+        action.setDefaultWidget(self.__nbStoredScans)
+        toolBar.addAction(action)
+        self.__storeScanNumberAction = action
+
+        action = qt.QAction(self)
         icon = icons.getQIcon("flint:icons/scan-history")
         action.setIcon(icon)
         action.setToolTip(
@@ -737,6 +853,40 @@ class CurvePlotPropertyWidget(qt.QWidget):
         toolBar.addAction(action)
 
         return toolBar
+
+    def __toggeledShowScans(self, checked):
+        self.__scanListView.setVisible(checked)
+        curveWidget = self.__focusWidget
+        if curveWidget is not None:
+            curveWidget.setPreviousScanStored(checked)
+            self.__storeScanNumberAction.setVisible(checked)
+
+    def __nbStoredScansChanged(self):
+        value = self.__nbStoredScans.value()
+        curveWidget = self.__focusWidget
+        if curveWidget is not None:
+            if value != curveWidget.maxStoredScans():
+                curveWidget.setMaxStoredScans(value)
+        self.__updateScanViewHeight(self.size())
+
+    def __updateScanViewHeight(self, widgetSize: qt.QSize):
+        maxHeight = widgetSize.height() // 2
+        curveWidget = self.__focusWidget
+        expectedRows = curveWidget.maxStoredScans()
+
+        expectedHeight = 0
+        vheader = self.__scanListView.verticalHeader()
+        expectedHeight += expectedRows * vheader.defaultSectionSize()
+        hscrollbar = self.__scanListView.horizontalScrollBar()
+        if not hscrollbar.isHidden():
+            expectedHeight += hscrollbar.height()
+        hheader = self.__scanListView.horizontalHeader()
+        if not hheader.isHidden():
+            expectedHeight += hheader.height()
+
+        expectedHeight = min(maxHeight, expectedHeight)
+        self.__scanListView.setMinimumHeight(expectedHeight)
+        self.__scanListView.setMaximumHeight(expectedHeight)
 
     def __resetPlotWithOriginalPlot(self):
         widget = self.__focusWidget
@@ -796,27 +946,32 @@ class CurvePlotPropertyWidget(qt.QWidget):
         scan = scan_history.create_scan(nodeName)
         widget = self.__focusWidget
         if widget is not None:
-            plots = scan_info_helper.create_plot_model(scan.scanInfo(), scan)
-            plots = [p for p in plots if isinstance(p, plot_item_model.CurvePlot)]
-            if len(plots) == 0:
-                _logger.warning("No curve plot to display")
-                qt.QMessageBox.warning(
-                    None, "Warning", "There was no curve plot in the selected scan"
-                )
-                return
-            plotModel = plots[0]
-            previousWidgetPlot = self.__plotModel
+            if widget.isPreviousScanStored():
+                widget.insertScan(scan)
+            else:
+                plots = scan_info_helper.create_plot_model(scan.scanInfo(), scan)
+                plots = [p for p in plots if isinstance(p, plot_item_model.CurvePlot)]
+                if len(plots) == 0:
+                    _logger.warning("No curve plot to display")
+                    qt.QMessageBox.warning(
+                        None, "Warning", "There was no curve plot in the selected scan"
+                    )
+                    return
+                plotModel = plots[0]
+                previousWidgetPlot = self.__plotModel
 
-            # Reuse only available values
-            if isinstance(previousWidgetPlot, plot_item_model.CurvePlot):
-                model_helper.removeNotAvailableChannels(
-                    previousWidgetPlot, plotModel, scan
-                )
-                widget.setScan(scan)
-            if previousWidgetPlot is None or previousWidgetPlot.isEmpty():
-                if plotModel.styleStrategy() is None:
-                    plotModel.setStyleStrategy(DefaultStyleStrategy(self.__flintModel))
-                widget.setPlotModel(plotModel)
+                # Reuse only available values
+                if isinstance(previousWidgetPlot, plot_item_model.CurvePlot):
+                    model_helper.removeNotAvailableChannels(
+                        previousWidgetPlot, plotModel, scan
+                    )
+                    widget.setScan(scan)
+                if previousWidgetPlot is None or previousWidgetPlot.isEmpty():
+                    if plotModel.styleStrategy() is None:
+                        plotModel.setStyleStrategy(
+                            DefaultStyleStrategy(self.__flintModel)
+                        )
+                    widget.setPlotModel(plotModel)
 
     def __findItemFromPlotItem(
         self, requestedItem: plot_model.Item
@@ -835,6 +990,9 @@ class CurvePlotPropertyWidget(qt.QWidget):
 
     def __selectionChangedFromPlot(self, current: plot_model.Item):
         self.selectPlotItem(current)
+
+    def __scanSelectionChangedFromPlot(self, current: scan_model.Scan):
+        self.__scanListView.selectScan(current)
 
     def selectPlotItem(self, select: plot_model.Item):
         selectionModel = self.__tree.selectionModel()
@@ -855,6 +1013,12 @@ class CurvePlotPropertyWidget(qt.QWidget):
             index = item.index()
         selectionModel = self.__tree.selectionModel()
         selectionModel.setCurrentIndex(index, flags)
+        self.__syncScanModel()
+
+    def __scanSelectionChanged(self, scan: scan_model.Scan):
+        curveWidget = self.__focusWidget
+        if curveWidget is not None:
+            curveWidget.selectScan(scan)
 
     def __selectionChanged(self, current: qt.QModelIndex, previous: qt.QModelIndex):
         model = self.__tree.model()
@@ -865,6 +1029,9 @@ class CurvePlotPropertyWidget(qt.QWidget):
         else:
             plotItem = None
         self.plotItemSelected.emit(plotItem)
+        curveWidget = self.__focusWidget
+        if curveWidget is not None:
+            curveWidget.selectPlotItem(plotItem)
 
     def selectedPlotItem(self) -> Optional[plot_model.Item]:
         """Returns the current selected plot item, if one"""
@@ -891,22 +1058,37 @@ class CurvePlotPropertyWidget(qt.QWidget):
         if self.__focusWidget is not None:
             widget.plotModelUpdated.disconnect(self.__plotModelUpdated)
             widget.plotItemSelected.disconnect(self.__selectionChangedFromPlot)
+            widget.scanSelected.disconnect(self.__scanSelectionChangedFromPlot)
             widget.scanModelUpdated.disconnect(self.__currentScanChanged)
+            widget.scanListUpdated.disconnect(self.__currentScanListChanged)
         self.__focusWidget = widget
         if self.__focusWidget is not None:
             widget.plotModelUpdated.connect(self.__plotModelUpdated)
             widget.plotItemSelected.connect(self.__selectionChangedFromPlot)
+            widget.scanSelected.connect(self.__scanSelectionChangedFromPlot)
             widget.scanModelUpdated.connect(self.__currentScanChanged)
+            widget.scanListUpdated.connect(self.__currentScanListChanged)
             plotModel = widget.plotModel()
             scanModel = widget.scan()
         else:
             plotModel = None
             scanModel = None
-        self.__plotModelUpdated(plotModel)
+
+        if widget is not None:
+            scansVisible = widget.isPreviousScanStored()
+            self.__scanListView.setVisible(scansVisible)
+            self.__storeScanAction.setChecked(scansVisible)
+            self.__nbStoredScans.setValue(widget.maxStoredScans())
+            self.__storeScanNumberAction.setVisible(scansVisible)
+
         self.__currentScanChanged(scanModel)
+        self.__currentScanListChanged(widget.scanList())
+        self.__plotModelUpdated(plotModel)
+        self.__syncScanModel()
 
     def __plotModelUpdated(self, plotModel):
         self.setPlotModel(plotModel)
+        self.__syncScanModel()
 
     def setPlotModel(self, plotModel: plot_model.Plot):
         if self.__plotModel is not None:
@@ -922,6 +1104,23 @@ class CurvePlotPropertyWidget(qt.QWidget):
 
     def __currentScanChanged(self, scanModel):
         self.__setScan(scanModel)
+
+    def __currentScanListChanged(self, scanList):
+        self.__syncScanModel()
+
+    def __syncScanModel(self):
+        widget = self.__focusWidget
+        if widget is None:
+            return
+        plotModel = self.__plotModel
+        if plotModel is None:
+            return
+        plotItem = widget.selectedPlotItem()
+        scans = widget.scanList()
+        scanList = [ScanItem(s, plotModel, plotItem, widget) for s in scans]
+        self.__scanListModel.setObjectList(scanList)
+        with qtutils.blockSignals(self.__scanListView):
+            self.__scanListView.selectScan(widget.selectedScan())
 
     def __structureChanged(self):
         if self.__plotModel.isInTransaction():
@@ -1074,6 +1273,10 @@ class CurvePlotPropertyWidget(qt.QWidget):
 
         model = self.__tree.model()
         model.clear()
+        if self.__plotModel is None:
+            return
+        if self.__scan is None:
+            return
 
         if self.__plotModel is None:
             model.setHorizontalHeaderLabels([""])

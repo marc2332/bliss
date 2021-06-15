@@ -110,14 +110,16 @@ can reduce the CPU constraints and avoid blinking of the display.
 
 # Plot description
 
-Plots can be described in the `scan_info`.
+Plots can be described in the `scan_info`, and stored in the `plots` field.
 
-If there is no plot description, Flint will try to infer plots from other
-`scan_info` fields.
+If there is no plot description (the field is not there), Flint will try to infer
+plots from other `scan_info` fields.
 
-It is stored in the `plots` field.
+If this field is an empty list, Flint will consider that there is no plot to
+display. This can be useful to ignore the content of a scan, like for example
+a sequence of scans.
 
-For now only scatters are supported.
+For now, very basic plots are supported for curves and scatters.
 
 Here is an example.
 ```
@@ -127,14 +129,19 @@ scan_info.add_scatter_plot(name="unique-plot-name",
                            x="axis:sx",
                            y="axis:sy",
                            value="diode2")
+
+scan_info.add_curve_plot(name="unique-plot-name2", x="axis:sx")
 ```
 
-The plot name is not mandatory. It will be used by Flint to reuse the same plot
-widget between scans. A single plot without name will use the default scatter
-plot provided by Flint.
+The default BLISS commands uses this API to specify the default channels to use
+as axis for the curve and the scatter plots. In this case the plot name is not set,
+cause it is considered as a default plot.
 
+If you want to use standard scans, you can override this plot by defining the
+default plot in the `scan_info` passed to the standard scan command. It will not
+be redefined.
 
-For your information in BLISS 1.7, the previous code will generate a dictionary
+For your information in BLISS 1.9, the previous code will generate a dictionary
 looking like the following one. But it is not recommended to generate it
 manually, in case of changes.
 ```
@@ -143,7 +150,14 @@ plots = [
         "name": "unique-plot-name"
         "kind": "scatter-plot",
         "items": [
-            {"x": "axis:sx", "y": "axis:sy", "value": "diode2"},
+            {"kind": "scatter", "x": "axis:sx", "y": "axis:sy", "value": "diode2"},
+        ]
+    },
+    {
+        "name": "unique-plot-name2"
+        "kind": "curve-plot",
+        "items": [
+            {"kind": "curve", "x": "axis:sx"},
         ]
     },
 ]

@@ -14,11 +14,11 @@ from typing import Optional
 
 import numpy
 import gevent
-import marshal
-import inspect
+import contextlib
 
 from . import proxy
 from bliss.common import event
+from bliss.common import deprecation
 
 
 class BasePlot(object):
@@ -29,18 +29,6 @@ class BasePlot(object):
     # Available name to identify this plot
     ALIASES = []
 
-    # Name of the method to add data to the plot
-    METHOD = NotImplemented
-
-    # The possible dimensions of the data to plot
-    DATA_DIMENSIONS = NotImplemented
-
-    # Single / Multiple data handling
-    MULTIPLE = NotImplemented
-
-    # Data input number for a single representation
-    DATA_INPUT_NUMBER = NotImplemented
-
     def __init__(self, flint, plot_id, register=False):
         """Describe a custom plot handled by Flint.
         """
@@ -50,66 +38,13 @@ class BasePlot(object):
         self._ylabel = None
         self._init()
         if flint is not None:
-            self._register(flint, plot_id, register)
+            if register:
+                self._init_plot()
 
     def _init(self):
         """Allow to initialize extra attributes in a derived class, without
         redefining the constructor"""
         pass
-
-    class RemotePlot:
-        """This class is serialized method by method and executed inside the Flint context"""
-
-        def set_data(self, method, *names, **kwargs):
-            data_dict = self.data()
-            widget = self.widget()
-            args = tuple(data_dict[name] for name in names)
-            widget_method = getattr(widget, method)
-            # Plot
-            widget_method(*args, **kwargs)
-
-        def update_data(self, field, data):
-            data_dict = self.data()
-            data_dict[field] = data
-
-        def remove_data(self, field):
-            data_dict = self.data()
-            data_dict[field]
-
-        def get_data(self, field=None):
-            data_dict = self.data()
-            if field is None:
-                return data_dict
-            else:
-                return data_dict.get(field, [])
-
-        def deselect_data(self, *names):
-            widget = self.widget()
-            legend = " -> ".join(names)
-            widget.remove(legend)
-
-        def clear_data(self):
-            data_dict = self.data()
-            widget = self.widget()
-            data_dict.clear()
-            widget.clear()
-
-        def show_intensity_histogram(self, show: bool):
-            widget = self.widget()
-            widget.getIntensityHistogramAction().setVisible(show)
-
-        def get_data_range(self):
-            widget = self.widget()
-            return widget.getDataRange()
-
-    def _register(self, flint, plot_id, register):
-        """Register everything needed remotely"""
-        self.__remote = self._remotifyClass(self.RemotePlot, register=register)
-        if register:
-            self._init_plot()
-
-    def _remote_plot(self):
-        return self.__remote
 
     def _init_plot(self):
         """Inherits it to custom the plot initialization"""
@@ -180,89 +115,9 @@ class BasePlot(object):
         """Set the focus on this plot"""
         self._flint.export_to_logbook(self._plot_id)
 
-    # Data handling
-
-    def upload_data(self, field, data):
-        """
-        Update data as an identifier into the server side
-
-        Argument:
-            field: Identifier in the targeted plot
-            data: Data to upload
-        """
-        return self.__remote.update_data(field, data)
-
-    def upload_data_if_needed(self, field, data):
-        """Upload data only if it is a numpy array or a list
-        """
-        if isinstance(data, (numpy.ndarray, list)):
-            self.__remote.update_data(field, data)
-            return field
-        else:
-            return data
-
-    def add_single_data(self, field, data):
-        data = numpy.array(data)
-        if (
-            self.DATA_DIMENSIONS is not None
-            and self.DATA_DIMENSIONS is not NotImplemented
-        ):
-            # FIXME: Testing the data here have no meaning
-            # Because this only upload the data but do not describe how it will be used
-            if data.ndim not in self.DATA_DIMENSIONS:
-                raise ValueError(
-                    "Data dimension must be in {} (got {})".format(
-                        self.DATA_DIMENSIONS, data.ndim
-                    )
-                )
-        return self.upload_data(field, data)
-
-    def add_data(self, data, field="default"):
-        # Get fields
-        if isinstance(data, dict):
-            fields = list(data)
-        else:
-            fields = numpy.array(data).dtype.fields
-        # Single data
-        if fields is None:
-            data_dict = dict([(field, data)])
-        # Multiple data
-        else:
-            data_dict = dict((field, data[field]) for field in fields)
-        # Send data
-        for field, value in data_dict.items():
-            self.upload_data(field, value)
-        # Return data dict
-        return data_dict
-
-    def remove_data(self, field):
-        self.__remote.remove_data(field)
-
-    def select_data(self, *names, **kwargs):
-        # FIXME: This have to be moved per plot widget
-        if "legend" not in kwargs and self.METHOD.startswith("add"):
-            kwargs["legend"] = " -> ".join(names)
-        self.__remote.set_data(self.METHOD, *names, **kwargs)
-
-    def deselect_data(self, *names):
-        self.__remote.deselect_data(*names)
-
-    def clear_data(self):
-        self.__remote.clear_data()
-
-    def get_data(self, field=None):
-        return self.__remote.get_data(field=field)
-
     def get_data_range(self):
         """Returns the current data range used by this plot"""
-        return self.__remote.get_data_range()
-
-    # Plotting
-
-    def plot(self, data, **kwargs):
-        fields = list(self.add_data(data))
-        names = fields[: self.DATA_INPUT_NUMBER]
-        self.select_data(*names, **kwargs)
+        return self.submit("getDataRange")
 
     # Clean up
 
@@ -348,33 +203,6 @@ class BasePlot(object):
         request_id = flint.request_select_shape(self._plot_id, shape)
         return self._wait_for_user_selection(request_id)
 
-    def _remotifyClass(self, remoteClass, register=True):
-        class RemoteProxy:
-            pass
-
-        proxy = RemoteProxy()
-        methods = inspect.getmembers(remoteClass, predicate=inspect.isfunction)
-        for name, func in methods:
-            handle = self._remotifyFunc(func, register=register)
-            setattr(proxy, name, handle)
-
-        return proxy
-
-    def _remotifyFunc(self, func, register=True):
-        """Make a function callable remotely"""
-        method_id = func.__qualname__
-        plot_id = self._plot_id
-        if register:
-            if func.__closure__:
-                raise TypeError("Only function without closure are supported.")
-            serialized_func = marshal.dumps(func.__code__)
-            self._flint.register_custom_method(plot_id, method_id, serialized_func)
-
-        def handler(*args, **kwargs):
-            return self._flint.run_custom_method(plot_id, method_id, args, kwargs)
-
-        return handler
-
     def _set_colormap(
         self,
         lut: Optional[str] = None,
@@ -416,52 +244,105 @@ class BasePlot(object):
         )
 
 
+class _DataPlot(BasePlot):
+    """
+    Plot providing a common API to store data
+
+    This was introduced for baward compatibility with BLISS <= 1.8
+
+    FIXME: This have to be deprecated and removed. Plots should be updated using
+    another API
+    """
+
+    # Data handling
+
+    def upload_data(self, field, data):
+        """
+        Update data as an identifier into the server side
+
+        Argument:
+            field: Identifier in the targeted plot
+            data: Data to upload
+        """
+        deprecation.deprecated_warning(
+            "Method", "upload_data", replacement="set_data", since_version="1.9"
+        )
+        return self.submit("updateStoredData", field, data)
+
+    def upload_data_if_needed(self, field, data):
+        """Upload data only if it is a numpy array or a list
+        """
+        deprecation.deprecated_warning(
+            "Method",
+            "upload_data_if_needed",
+            replacement="set_data",
+            since_version="1.9",
+        )
+        if isinstance(data, (numpy.ndarray, list)):
+            self.submit("updateStoredData", field, data)
+            return field
+        else:
+            return data
+
+    def add_data(self, data, field="default"):
+        # Get fields
+        deprecation.deprecated_warning(
+            "Method", "add_data", replacement="set_data", since_version="1.9"
+        )
+        if isinstance(data, dict):
+            fields = list(data)
+        else:
+            fields = numpy.array(data).dtype.fields
+        # Single data
+        if fields is None:
+            data_dict = dict([(field, data)])
+        # Multiple data
+        else:
+            data_dict = dict((field, data[field]) for field in fields)
+        # Send data
+        for field, value in data_dict.items():
+            self.upload_data(field, value)
+        # Return data dict
+        return data_dict
+
+    def remove_data(self, field):
+        self.submit("removeStoredData", field)
+
+    def select_data(self, *names, **kwargs):
+        deprecation.deprecated_warning(
+            "Method",
+            "select_data",
+            replacement="set_data/add_curve/add_curve_item/set_data",
+            since_version="1.9",
+        )
+        self.submit("selectStoredData", *names, **kwargs)
+
+    def deselect_data(self, *names):
+        deprecation.deprecated_warning(
+            "Method",
+            "deselect_data",
+            replacement="set_data/add_curve/add_curve_item",
+            since_version="1.9",
+        )
+        self.submit("deselectStoredData", *names)
+
+    def clear_data(self):
+        self.submit("clear")
+
+    def get_data(self, field=None):
+        return self.submit("getStoredData", field=field)
+
+
 # Plot classes
 
 
-class Plot1D(BasePlot):
+class Plot1D(_DataPlot):
 
     # Name of the corresponding silx widget
-    WIDGET = "silx.gui.plot.Plot1D"
+    WIDGET = "bliss.flint.custom_plots.silx_plots.Plot1D"
 
     # Available name to identify this plot
     ALIASES = ["curve", "plot1d"]
-
-    # Name of the method to add data to the plot
-    METHOD = "addCurve"
-
-    # The dimension of the data to plot
-    DATA_DIMENSIONS = (1,)
-
-    # Single / Multiple data handling
-    MULTIPLE = True
-
-    # Data input number for a single representation
-    DATA_INPUT_NUMBER = 2
-
-    # Specialized x data handling
-
-    def plot(self, data, **kwargs):
-        # Add data
-        data_dict = self.add_data(data)
-        # Get x field
-        x = kwargs.pop("x", None)
-        x_field = x if isinstance(x, str) else "x"
-        # Get provided x
-        if x_field in data_dict:
-            x = data_dict[x_field]
-        # Get default x
-        elif x is None:
-            key = next(iter(data_dict))
-            length, = data_dict[key].shape
-            x = numpy.arange(length)
-        # Add x data
-        if x is not None:
-            self.add_single_data(x_field, x)
-        # Plot all curves
-        for field in data_dict:
-            if field != x_field:
-                self.select_data(x_field, field, **kwargs)
 
     def update_axis_marker(
         self, unique_name: str, channel_name, position: float, text: str
@@ -471,28 +352,15 @@ class Plot1D(BasePlot):
             self._plot_id, unique_name, channel_name, position, text
         )
 
-    def update_user_data(
-        self, unique_name: str, channel_name: str, ydata: Optional[numpy.ndarray]
-    ):
-        """Add user data to a live plot.
-
-        It will define a curve in the plot using the y-data provided and the
-        x-data from the parent item (defined by the `channel_name`)
-
-        The key `unique_name` + `channel_name` is unique. So if it already
-        exists the item will be updated.
-
-        Arguments:
-            unique_name: Name of this item in the property tree
-            channel_name: Name of the channel that will be used as parent for
-                this item. If this parent item does not exist, it is created
-                but set hidden.
-            ydata: Y-data for this item. If `None`, if the item already exists,
-                it is removed from the plot
+    def add_curve(self, x, y, **kwargs):
         """
-        if ydata is not None:
-            ydata = numpy.asarray(ydata)
-        self._flint.update_user_data(self._plot_id, unique_name, channel_name, ydata)
+        Create a curve in this plot.
+        """
+        if x is None:
+            x = numpy.arange(len(y))
+        if y is None:
+            raise ValueError("A y value is expected. None found.")
+        self.submit("addCurve", x, y, **kwargs)
 
     def set_xaxis_scale(self, value):
         """
@@ -516,60 +384,97 @@ class Plot1D(BasePlot):
         flint = self._flint
         flint.run_method(self._plot_id, "setYAxisLogarithmic", [value == "log"], {})
 
+    def clear_items(self):
+        """Remove all the items described in this plot
 
-class ScatterView(BasePlot):
+        If no transaction was open, it will update the plot and refresh the plot
+        view.
+        """
+        self.submit("clearItems")
+
+    def add_curve_item(self, xname: str, yname: str, legend: str = None, **kwargs):
+        """Define a specific curve item
+
+        If no transaction was open, it will update the plot and refresh the plot
+        view.
+        """
+        self.submit("addCurveItem", xname, yname, legend=legend, **kwargs)
+
+    def remove_item(self, legend: str):
+        """Remove a specific item.
+
+        If no transaction was open, it will update the plot and refresh the plot
+        view.
+        """
+        self.submit("removeItem", legend)
+
+    def set_data(self, **kwargs):
+        """Set data named from keys with associated values.
+
+        If no transaction was open, it will update the plot and refresh the plot
+        view.
+        """
+        self.submit("setData", **kwargs)
+
+    def append_data(self, **kwargs):
+        """Append data named from keys with associated values.
+
+        If no transaction was open, it will update the plot and refresh the plot
+        view.
+        """
+        self.submit("appendData", **kwargs)
+
+    @contextlib.contextmanager
+    def transaction(self, resetzoom=True):
+        """Context manager to handle a set of changes and a single refresh of
+        the plot. This is needed cause the action are done on the plot
+        asynchronously"""
+        self.submit("setAutoUpdatePlot", False)
+        try:
+            yield
+        finally:
+            self.submit("setAutoUpdatePlot", True)
+            self.submit("updatePlot", resetzoom=resetzoom)
+
+
+class ScatterView(_DataPlot):
 
     # Name of the corresponding silx widget
-    WIDGET = "silx.gui.plot.ScatterView"
+    WIDGET = "bliss.flint.custom_plots.silx_plots.ScatterView"
 
     # Available name to identify this plot
     ALIASES = ["scatter"]
-
-    # Name of the method to add data to the plot
-    METHOD = "addScatter"
-
-    # The dimension of the data to plot
-    DATA_DIMENSIONS = (1,)
-
-    # Single / Multiple data handling
-    MULTIPLE = True
-
-    # Data input number for a single representation
-    DATA_INPUT_NUMBER = 3
 
     def _init(self):
         # Make it public
         self.set_colormap = self._set_colormap
 
+    def set_data(self, x, y, value, resetzoom=True, **kwargs):
+        if x is None or y is None or value is None:
+            self.clear_data()
+        else:
+            self.submit("setData", x, y, value, **kwargs)
 
-class Plot2D(BasePlot):
+
+class Plot2D(_DataPlot):
 
     # Name of the corresponding silx widget
-    WIDGET = "silx.gui.plot.Plot2D"
+    WIDGET = "bliss.flint.custom_plots.silx_plots.Plot2D"
 
     # Available name to identify this plot
-    ALIASES = ["image", "plot2d"]
-
-    # Name of the method to add data to the plot
-    METHOD = "addImage"
-
-    # The dimension of the data to plot
-    DATA_DIMENSIONS = 2, 3
-
-    # Single / Multiple data handling
-    MULTIPLE = True
-
-    # Data input number for a single representation
-    DATA_INPUT_NUMBER = 1
+    ALIASES = ["plot2d"]
 
     def _init(self):
         # Make it public
         self.set_colormap = self._set_colormap
 
     def _init_plot(self):
-        super(ImagePlot, self)._init_plot()
+        super(Plot2D, self)._init_plot()
         self.submit("setKeepDataAspectRatio", True)
-        self._remote_plot().show_intensity_histogram(True)
+        self.submit("setDisplayedIntensityHistogram", True)
+
+    def add_image(self, data, **kwargs):
+        self.submit("addImage", data, **kwargs)
 
     def select_mask(self, initial_mask: numpy.ndarray = None, directory: str = None):
         """Request a mask image from user selection.
@@ -595,15 +500,6 @@ class CurveStack(BasePlot):
     # Available name to identify this plot
     ALIASES = ["curvestack"]
 
-    # Name of the method to add data to the plot
-    METHOD = "setData"
-
-    # Single / Multiple data handling
-    MULTIPLE = False
-
-    # Data input number for a single representation
-    DATA_INPUT_NUMBER = 1
-
     def set_data(self, curves, x=None, reset_zoom=None):
         """
         Set the data displayed in this plot.
@@ -615,11 +511,10 @@ class CurveStack(BasePlot):
             reset_zoom: If True force reset zoom, else the user selection is
                         applied
         """
-        data_field = self.upload_data_if_needed("data", curves)
-        x_field = self.upload_data_if_needed("x", x)
-        self._remote_plot().set_data(
-            self.METHOD, data_field, x_field, resetZoom=reset_zoom
-        )
+        self.submit("setData", data=curves, x=x, resetZoom=reset_zoom)
+
+    def clear_data(self):
+        self.submit("clear")
 
 
 class TimeCurvePlot(BasePlot):
@@ -628,15 +523,6 @@ class TimeCurvePlot(BasePlot):
 
     # Available name to identify this plot
     ALIASES = ["timecurveplot"]
-
-    # Name of the method to add data to the plot
-    METHOD = "appendData"
-
-    # Single / Multiple data handling
-    MULTIPLE = False
-
-    # Data input number for a single representation
-    DATA_INPUT_NUMBER = 1
 
     def select_x_axis(self, name: str):
         """
@@ -656,7 +542,7 @@ class TimeCurvePlot(BasePlot):
         """
         self.submit("setXDuration", second)
 
-    def select_time_curve(self, yname, **kwargs):
+    def add_time_curve_item(self, yname, **kwargs):
         """
         Select a dedicated data to be displayed against the time.
 
@@ -664,7 +550,7 @@ class TimeCurvePlot(BasePlot):
             name: Name of the data to use as y-axis
             kwargs: Associated style (see `addCurve` from silx plot)
         """
-        self.submit("selectCurve", yname, **kwargs)
+        self.submit("addTimeCurveItem", yname, **kwargs)
 
     def set_data(self, **kwargs):
         """
@@ -684,78 +570,107 @@ class TimeCurvePlot(BasePlot):
         """
         self.submit("appendData", **kwargs)
 
-
-class ImageView(BasePlot):
-
-    # Name of the corresponding silx widget
-    WIDGET = "silx.gui.plot.ImageView"
-
-    # Available name to identify this plot
-    ALIASES = ["imageview", "histogramimage"]
-
-    # Name of the method to add data to the plot
-    METHOD = "setImage"
-
-    # The dimension of the data to plot
-    DATA_DIMENSIONS = (2,)
-
-    # Single / Multiple data handling
-    MULTIPLE = False
-
-    # Data input number for a single representation
-    DATA_INPUT_NUMBER = 1
+    def clear_data(self):
+        self.submit("clear")
 
 
-class StackView(BasePlot):
+class ImageView(_DataPlot):
 
     # Name of the corresponding silx widget
-    WIDGET = "silx.gui.plot.StackView"
+    WIDGET = "bliss.flint.custom_plots.silx_plots.ImageView"
 
     # Available name to identify this plot
-    ALIASES = ["stack", "imagestack"]
+    ALIASES = ["image", "imageview", "histogramimage"]
 
-    # Name of the method to add data to the plot
-    METHOD = "setStack"
+    def _init(self):
+        # Make it public
+        self.set_colormap = self._set_colormap
 
-    # The dimension of the data to plot
-    DATA_DIMENSIONS = 3, 4
+    def _init_plot(self):
+        super(ImageView, self)._init_plot()
+        self.submit("setKeepDataAspectRatio", True)
+        self.submit("setDisplayedIntensityHistogram", True)
 
-    # Single / Multiple data handling
-    MULTIPLE = False
-
-    # Data input number for a single representation
-    DATA_INPUT_NUMBER = 1
+    def set_data(self, data, **kwargs):
+        self.submit("setImage", data, **kwargs)
 
 
-class LiveCurvePlot(Plot1D):
+class StackView(_DataPlot):
+
+    # Name of the corresponding silx widget
+    WIDGET = "bliss.flint.custom_plots.silx_plots.StackImageView"
+
+    # Available name to identify this plot
+    ALIASES = ["stack", "imagestack", "stackview"]
+
+    def _init(self):
+        # Make it public
+        self.set_colormap = self._set_colormap
+
+    def set_data(self, data, **kwargs):
+        self.submit("setStack", data, **kwargs)
+
+
+class LiveCurvePlot(BasePlot):
 
     WIDGET = None
 
     ALIASES = ["curve"]
 
+    def update_user_data(
+        self, unique_name: str, channel_name: str, ydata: Optional[numpy.ndarray]
+    ):
+        """Add user data to a live plot.
 
-class LiveImagePlot(Plot2D):
+        It will define a curve in the plot using the y-data provided and the
+        x-data from the parent item (defined by the `channel_name`)
+
+        The key `unique_name` + `channel_name` is unique. So if it already
+        exists the item will be updated.
+
+        Arguments:
+            unique_name: Name of this item in the property tree
+            channel_name: Name of the channel that will be used as parent for
+                this item. If this parent item does not exist, it is created
+                but set hidden.
+            ydata: Y-data for this item. If `None`, if the item already exists,
+                it is removed from the plot
+        """
+        if ydata is not None:
+            ydata = numpy.asarray(ydata)
+        self._flint.update_user_data(self._plot_id, unique_name, channel_name, ydata)
+
+
+class LiveImagePlot(BasePlot):
 
     WIDGET = None
 
     ALIASES = ["image"]
 
+    def _init(self):
+        # Make it public
+        self.set_colormap = self._set_colormap
 
-class LiveScatterPlot(Plot1D):
+
+class LiveScatterPlot(BasePlot):
 
     WIDGET = None
 
     ALIASES = ["scatter"]
 
+    def _init(self):
+        # Make it public
+        self.set_colormap = self._set_colormap
 
-class LiveMcaPlot(Plot1D):
+
+class LiveMcaPlot(BasePlot):
 
     WIDGET = None
 
     ALIASES = ["mca"]
 
 
-class LiveOneDimPlot(Plot1D):
+class LiveOneDimPlot(BasePlot):
 
     WIDGET = None
 

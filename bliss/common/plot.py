@@ -16,37 +16,10 @@ This Qt application is started automatically when a new plot is created.
 This interface supports several types of plot:
 
 - **curve plot**:
-
-  * plotting one or several 1D data as curves
-  * Optional x-axis data can be provided
-  * the plot is created using ``plot_curve``
-
 - **scatter plot**:
-
-  * plotting one or several scattered data
-  * each scatter is a group of three 1D data of same length
-  * the plot is created using ``plot_scatter``
-
 - **image plot**:
-
-  * plot one or several image on top of each other
-  * the image order can be controlled using a depth parameter
-  * the plot is created using ``plot_image``
-
-- **image + histogram plot**:
-
-  * plot a single 2D image (greyscale or colormap)
-  * two histograms along the X and Y dimensions are displayed
-  * the plot is created using ``plot_image_with_histogram``
-
 - **image stack plot**:
-
-  * plot a single stack of image
-  * a slider is provided to browse the images
-  * the plot is created using ``plot_image_stack``
-
-An extra helper called ``plot`` is provided to automatically infer
-a suitable type of plot from the data provided.
+- And few others
 
 Basic interface
 ---------------
@@ -59,86 +32,19 @@ as an argument and return a plot:
     >>> plot(mydata, name="My plot")
     ImagePlot(plot_id=1, flint_pid=17450)
 
-Extra keyword arguments are forwarded to silx:
-
-    >>> p = plot(mydata, xlabel='A', ylabel='b')
-
-From then on, all the interaction with the corresponding plot window goes
-through the plot object. For instance, it provides a ``plot`` method
-to add and display extra data:
-
-    >>> p.plot(some_extra_data, yaxis='right')
-
-
 Advanced interface
 ------------------
 
-For a finer control over the plotted data, the data management is
-separated from the plot management. In order to add more data to
-the plot, use the following interface:
+There is way to have finer control of the plot content, especially to create
+plot containing many curves.
 
-    >>> p.add_data(cos_data, field='cos')
-
-This data is now identified using its field, ``'cos'``. A dict or
-a structured numpy array can also be provided. In this case,
-the fields of the provided data structure are used as identifiers:
-
-    >>> p.add_data({'cos': cos_data, 'sin': sin_data})
-
-The plot selection is then done through the ``select_data`` method.
-For a curve plot, the expected arguments are the names of the data
-to use for X and Y:
-
-    >>> p.select_data('sin', 'cos')
-
-Again, the extra keyword arguments will be forwarded to silx:
-
-    >>> p.select_data('sin', 'cos', color='green', symbol='x')
-
-The curve can then be deselected:
-
-    >>> p.deselect_data('sin', 'cos')
-
-And the data can be cleared:
-
-    >>> p.clear_data()
-
-
-Plot interaction
-----------------
-
-In order to interact with a given plot, several methods are provided.
-
-The ``select_points`` method allows the user to select a given number of point
-on the corresponding plot using their mouse.
-
-    >>> a, b, c = p.select_points(3)
-    # Blocks until the user selects the 3 points
-    >>> a
-    (1.2, 3.4)
-
-The ``select_shape`` methods allows the user to select a given shape on the
-corresponding plot using their mouse. The available shapes are:
-
-- ``'rectangle'``: rectangle selection
-- ``'line'``: line selection
-- ``'hline'``: horizontal line selection
-- ``'vline'``: vertical line selection
-- ``'polygon'``: polygon selection
-
-The return values are shown in the following example:
-
-   >>> topleft, bottomright = p.select_shape('rectangle')
-   >>> start, stop = p.select_shape('line')
-   >>> left, right = p.select_shape('hline')
-   >>> bottom, top = p.select_shape('vline')
-   >>> points = p.select_shape('polygon')
+See the `online BLISS documentation <https://bliss.gitlab-pages.esrf.fr/bliss/master/flint/flint_data_plotting.html>`
+for detailed explanation and examples.
 """
 
 from typing import List
 
 import numpy
-import functools
 import time
 
 from bliss import current_session, is_bliss_shell, global_map
@@ -174,79 +80,226 @@ close_flint = flint_proxy.close_flint
 restart_flint = flint_proxy.restart_flint
 
 
-def _create_plot(
-    plot_class,
-    data=None,
-    name=None,
-    existing_id=None,
-    selected=False,
-    closeable=True,
-    **kwargs,
+def plot_curve(
+    data=None, x=None, name=None, existing_id=None, selected=True, closeable=True
 ):
+    """
+    Display `data` as curve
+
+    Arguments:
+        data: A list, a numpy array a dict containing numpy arrays, and
+              structured numpy arrays
+        x: If specified, used as x-axis
+        name: Name of the plot
+        existing_id: A unique name for the plot
+        selected: If true the plot will be selected when created
+        closeable: If true the plot will be closeable
+    """
     flint = flint_proxy.get_flint()
-    plot = flint.get_plot(
-        plot_class,
+    p = flint.get_plot(
+        "curve",
         name=name,
         unique_name=existing_id,
         selected=selected,
         closeable=closeable,
     )
     if data is not None:
-        plot.plot(data=data, **kwargs)
-    return plot
+        p.clear_data()
+    if isinstance(data, list):
+        p.add_curve(data, x, legend="value")
+    elif isinstance(data, dict):
+        if x is None:
+            x_from_args = False
+            x = data.get("x")
+        else:
+            x_from_args = True
+        for k, v in data.items():
+            if not x_from_args and k == "x":
+                # This key is used as x axis
+                continue
+            p.add_curve(x, v, legend=k)
+    elif isinstance(data, numpy.ndarray):
+        if data.dtype.fields is not None:
+            if x is None:
+                x_from_args = False
+                if "x" in data.dtype.fields:
+                    x = data["x"]
+            else:
+                x_from_args = True
+            for k in data.dtype.fields.keys():
+                if not x_from_args and k == "x":
+                    # This key is used as x axis
+                    continue
+                v = data[k]
+                p.add_curve(x, v, legend=k)
+        else:
+            p.add_curve(x, data, legend="value")
+
+    return p
 
 
-plot_curve = functools.partial(_create_plot, flint_plots.CurvePlot)
-plot_scatter = functools.partial(_create_plot, flint_plots.ScatterPlot)
-plot_image = functools.partial(_create_plot, flint_plots.ImagePlot)
-plot_image_with_histogram = functools.partial(
-    _create_plot, flint_plots.HistogramImagePlot
-)
-plot_image_stack = functools.partial(_create_plot, flint_plots.ImageStackPlot)
+def plot_scatter(
+    x, y, value, name=None, existing_id=None, selected=True, closeable=True
+):
+    """
+    Display `data` as scatter
+
+    Arguments:
+        x: A list or 1D numpy array with the x-axis values
+        y: A list or 1D numpy array with the y-axis values
+        value: A list or 1D numpy array with the intensity
+        name: Name of the plot
+        existing_id: A unique name for the plot
+        selected: If true the plot will be selected when created
+        closeable: If true the plot will be closeable
+    """
+    flint = flint_proxy.get_flint()
+    p = flint.get_plot(
+        "scatter",
+        name=name,
+        unique_name=existing_id,
+        selected=selected,
+        closeable=closeable,
+    )
+    p.set_data(x, y, value)
+    return p
 
 
-def default_plot(data=None, **kwargs):
-    kwargs["data"] = data
-    # No data available
-    if data is None:
-        return plot_curve(**kwargs)
-    # Assume a dict of curves
-    if isinstance(data, dict):
-        return plot_curve(**kwargs)
-    data = numpy.array(data)
-    # Unstructured data
-    if data.dtype.fields is None:
-        # Assume a single curve
-        if data.ndim == 1:
-            return plot_curve(**kwargs)
-        # Assume a single image
-        if data.ndim == 2:
-            return plot_image(**kwargs)
-        # Assume a colored image
-        if data.ndim == 3 and data.shape[2] in (3, 4):
-            return plot_image(**kwargs)
-        # Assume an image stack
-        if data.ndim == 3:
-            return plot_image_stack(**kwargs)
+def plot_image(data=None, name=None, existing_id=None, selected=True, closeable=True):
+    """
+    Display `data` as an image
+
+    Arguments:
+        data: A 2D numpy array
+        name: Name of the plot
+        existing_id: A unique name for the plot
+        selected: If true the plot will be selected when created
+        closeable: If true the plot will be closeable
+    """
+    if data is not None and data.ndim == 3 and data.shape[2] in (3, 4):
+        # FIXME: silx 0.15 do not support RGB in ImageView
+        # So here we use Plot2D
+        # This can be removed when https://github.com/silx-kit/silx/pull/3487 is merged
+        flint = flint_proxy.get_flint()
+        p = flint.get_plot(
+            "plot2d",
+            name=name,
+            unique_name=existing_id,
+            selected=selected,
+            closeable=closeable,
+        )
+        p.add_image(data, legend="image")
+        return p
+
+    flint = flint_proxy.get_flint()
+    p = flint.get_plot(
+        "image",
+        name=name,
+        unique_name=existing_id,
+        selected=selected,
+        closeable=closeable,
+    )
+    if data is not None:
+        p.set_data(data)
+    return p
+
+
+plot_image_with_histogram = plot_image
+"""Compatibility with BLISS <= 1.8"""
+
+
+def plot_image_stack(
+    data=None, name=None, existing_id=None, selected=True, closeable=True
+):
+    """
+    Display `data` as a stack of images
+
+    Arguments:
+        data: A 3D numpy array
+        name: Name of the plot
+        existing_id: A unique name for the plot
+        selected: If true the plot will be selected when created
+        closeable: If true the plot will be closeable
+    """
+
+    flint = flint_proxy.get_flint()
+    p = flint.get_plot(
+        "imagestack",
+        name=name,
+        unique_name=existing_id,
+        selected=selected,
+        closeable=closeable,
+    )
+    if data is not None:
+        p.set_data(data)
+    return p
+
+
+def _plot_from_dict(data, **kwargs):
+    """Create a plot from a dict.
+
+    Assume each key is a 1D array.
+
+    If a `x` key is used, it will be used as x-axis
+    """
+    return plot_curve(data, **kwargs)
+
+
+def _plot_from_structured_array(data, **kwargs):
     # Assume a single struct of curves
     if data.ndim == 0:
-        return plot_curve(**kwargs)
+        return plot_curve(data, **kwargs)
     # A list of struct
     if data.ndim == 1:
         # Assume multiple curves
         if all(data[field].ndim == 1 for field in data.dtype.fields):
-            return plot_curve(**kwargs)
+            return plot_curve(data, **kwargs)
         # Assume multiple plots
-        return tuple(
-            default_plot(data=data[field], **kwargs) for field in data.dtype.fields
-        )
-    # Not recognized
-    raise ValueError("Not recognized data")
+        return tuple(plot(data=data[field], **kwargs) for field in data.dtype.fields)
+
+    raise ValueError(
+        f"No plot representation for this numpy structured array (dim={data.ndim})"
+    )
+
+
+def _plot_from_array(data, **kwargs):
+    # Assume a single curve
+    if data.ndim == 1:
+        return plot_curve(data, **kwargs)
+    # Assume a single image
+    if data.ndim == 2:
+        return plot_image(data, **kwargs)
+    # Assume a colored image
+    if data.ndim == 3 and data.shape[2] in (3, 4):
+        return plot_image(data, **kwargs)
+    # Assume an image stack
+    if data.ndim == 3:
+        return plot_image_stack(data, **kwargs)
+
+    raise ValueError(
+        f"No plot representation for this numpy array data (dim={data.ndim})"
+    )
+
+
+def plot(data=None, **kwargs):
+    # No data available
+    if data is None:
+        return plot_curve(data=None, **kwargs)
+
+    if isinstance(data, dict):
+        return _plot_from_dict(data=data, **kwargs)
+
+    data = numpy.array(data)
+
+    if data.dtype.fields is not None:
+        return _plot_from_structured_array(data=data, **kwargs)
+
+    return _plot_from_array(data=data, **kwargs)
 
 
 # Alias
-plot = default_plot
-
+default_plot = plot
+"""Compatibility with BLISS <= 1.8"""
 
 ### plotselect etc.
 
@@ -474,12 +527,12 @@ def get_plot(
     plot_id = flint.get_live_scan_plot(channel_name, plot_type, as_axes=as_axes)
 
     if plot_type == "curve":
-        return flint_plots.CurvePlot(flint=flint, plot_id=plot_id)
+        return flint_plots.LiveCurvePlot(flint=flint, plot_id=plot_id)
     elif plot_type == "scatter":
-        return flint_plots.ScatterPlot(flint=flint, plot_id=plot_id)
+        return flint_plots.LiveScatterPlot(flint=flint, plot_id=plot_id)
     elif plot_type == "mca":
-        return flint_plots.McaPlot(flint=flint, plot_id=plot_id)
+        return flint_plots.LiveMcaPlot(flint=flint, plot_id=plot_id)
     elif plot_type == "image":
-        return flint_plots.ImagePlot(flint=flint, plot_id=plot_id)
+        return flint_plots.LiveImagePlot(flint=flint, plot_id=plot_id)
     else:
         print("Argument plot_type uses an invalid value: '%s'." % plot_type)

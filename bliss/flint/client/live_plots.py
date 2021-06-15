@@ -64,9 +64,9 @@ class LiveImagePlot:
     def create_plot(self, data):
         flint = proxy.get_flint()
         self.fig = flint.add_plot(
-            plots.ImagePlot, name=self._name, selected=True, closeable=True
+            plots.ImageView, name=self._name, selected=True, closeable=True
         )
-        self.fig.plot(data=data)
+        self.fig.set_data(data)
 
     def is_plot_active(self):
         return self.fig is not None and self.fig.is_open()

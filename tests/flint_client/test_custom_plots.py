@@ -7,40 +7,135 @@ from bliss.common import plot
 from bliss.controllers.lima import roi as lima_roi
 
 
-def test_empty_plot(flint_session):
-    flint = plot.get_flint()
-    p = flint.get_plot(plot_class="curve", name="foo-empty")
-    assert flint.is_plot_exists("foo-empty") is False
-    assert p is not None
+def test_plot__create_2_plot(flint_session):
+    """Create 2 plots
+
+    Make sure it exists 2 plots
+    """
+    p = plot.plot(name="Foo")
+    pid = plot.get_flint()._pid
+    assert "flint_pid={}".format(pid) in repr(p)
+    assert p.name == "Foo"
+
+    p = plot.plot(name="Some name")
+    assert "flint_pid={}".format(pid) in repr(p)
+    assert p.name == "Some name"
 
 
-def test_remove_custom_plot(flint_session):
+def test_plot__reuse_plot__api_1_0(flint_session):
+    """Test reuse of custom plot from an ID"""
+    widget = plot.plot_curve(name="foo")
+    cos_data = numpy.cos(numpy.linspace(0, 2 * numpy.pi, 10))
+    widget.add_data({"cos": cos_data, "foo": cos_data})
+    widget2 = plot.plot_curve(name="foo", existing_id=widget.plot_id)
+    cos = widget2.get_data()["cos"]
+    numpy.testing.assert_allclose(cos, cos_data)
+
+
+def test_plot__reuse_plot__api_1_6(flint_session):
+    """Test reuse of custom plot from a name"""
+    widget = plot.plot_curve(name="foo", existing_id="myplot")
+    cos_data = numpy.cos(numpy.linspace(0, 2 * numpy.pi, 10))
+    widget.add_data({"cos": cos_data, "foo": cos_data})
+    widget2 = plot.plot_curve(name="foo", existing_id="myplot")
+    cos = widget2.get_data()["cos"]
+    numpy.testing.assert_allclose(cos, cos_data)
+
+
+def test_plot__remove_plot(flint_session):
     flint = plot.get_flint()
-    p = flint.get_plot(plot_class="curve", name="foo-rm")
+    p = flint.get_plot(plot_class="curve", name="foo-rm", unique_name="foo-rm")
     flint.remove_plot(p.plot_id)
     assert flint.is_plot_exists("foo-rm") is False
 
 
-def test_custom_plot_curveplot(flint_session):
+def test_curveplot__create_empty(flint_session):
     flint = plot.get_flint()
-    p = flint.get_plot(plot_class="curve", name="foo-cp")
+    p = flint.get_plot(plot_class="curve", name="foo-empty", unique_name="foo-empty")
+    assert flint.is_plot_exists("foo-empty")
+    assert p is not None
 
-    cos_data = numpy.cos(numpy.linspace(0, 2 * numpy.pi, 10))
-    sin_data = numpy.sin(numpy.linspace(0, 2 * numpy.pi, 10))
 
-    p.add_data({"cos": cos_data, "sin": sin_data})
-    p.select_data("sin", "cos")
-    p.select_data("sin", "cos", color="green", symbol="x")
-    p.deselect_data("sin", "cos")
-    p.remove_data("sin")
+def test_curveplot__bliss_1_8(flint_session):
+    """Check custom plot curve API from BLISS <= 1.8"""
+    flint = plot.get_flint()
+    p = flint.get_plot(plot_class="curve", name="bliss-1.8")
 
-    data = p.get_data("cos")
-    assert data == pytest.approx(cos_data)
+    data1 = numpy.array([4, 5, 6])
+    data2 = numpy.array([2, 5, 2])
 
+    p.add_data({"data1": data1, "data2": data2})
+    vrange = p.get_data_range()
+    assert vrange == [None, None, None]
+
+    p.select_data("data1", "data2")
+    p.select_data("data1", "data2", color="green", symbol="x")
+    vrange = p.get_data_range()
+    assert vrange == [[4, 6], [2, 5], None]
+
+    p.deselect_data("data1", "data2")
+    vrange = p.get_data_range()
+    assert vrange == [None, None, None]
+
+    data = p.get_data("data1")
+    assert data == pytest.approx(data1)
+
+    p.remove_data("data1")
+    data = p.get_data("data1")
+    assert data == []
+
+
+def test_curveplot__bliss_1_9(flint_session):
+    """Check custom plot curve API from BLISS >= 1.9"""
+    flint = plot.get_flint()
+    p = flint.get_plot(plot_class="curve", name="bliss-1.9")
+    p.submit("setRaiseOnException", True)
+
+    y1 = numpy.array([4, 5, 6])
+    y2 = numpy.array([2, 5, 2])
+    x = numpy.array([1, 2, 3])
+
+    # Setup the items
+    p.add_curve_item("x", "y1", legend="item1", color="red", yaxis="left")
+    p.add_curve_item("x", "y2", legend="item2", color="blue", yaxis="right")
+    vrange = p.get_data_range()
+    assert vrange == [None, None, None]
+
+    # Update the data
+    p.set_data(x=x, y1=y1, y2=y2)
+    vrange = p.get_data_range()
+    assert vrange == [[1, 3], [4, 6], [2, 5]]
+
+    # Clear the data
     p.clear_data()
+    vrange = p.get_data_range()
+    assert vrange == [None, None, None]
+
+    # Append the data
+    for i in range(len(x)):
+        p.append_data(x=x[i : i + 1], y1=y1[i : i + 1], y2=y2[i : i + 1])
+    vrange = p.get_data_range()
+    assert vrange == [[1, 3], [4, 6], [2, 5]]
+
+    # Or change the item layout
+    p.remove_item("item2")
+    vrange = p.get_data_range()
+    assert vrange == [[1, 3], [4, 6], None]
+
+    # Check transaction
+    p.clear_data()
+    with p.transaction(resetzoom=False):
+        p.set_data(x=x, y=y1)
+        vrange = p.get_data_range()
+        assert vrange == [None, None, None]
+        p.add_curve_item("x", "y", legend="item")
+        vrange = p.get_data_range()
+        assert vrange == [None, None, None]
+    vrange = p.get_data_range()
+    assert vrange == [[1, 3], [4, 6], None]
 
 
-def test_reuse_custom_plot(flint_session):
+def test_curveplot__reuse_plot(flint_session):
     flint = plot.get_flint()
     p = flint.get_plot(plot_class="curve", unique_name="foo-reuse")
     cos_data = numpy.cos(numpy.linspace(0, 2 * numpy.pi, 10))
@@ -218,9 +313,179 @@ def test_select_shapes__initial_selection(flint_session):
     assert rois[3].name == roi_profile.name
 
 
+def test_plot1d(flint_session):
+    f = plot.get_flint()
+    p = f.get_plot(plot_class="plot1d", name="plot1d")
+
+    # Check the default data setter
+    x = numpy.arange(11) * 2
+    y = numpy.arange(11)
+    y2 = numpy.arange(11) / 2
+    p.add_curve(x=x, y=y, legend="c1", yaxis="left")
+    p.add_curve(x=x, y=y2, legend="c2", yaxis="right")
+    vrange = p.get_data_range()
+    assert vrange == [[0, 20], [0, 10], [0, 5]]
+
+    # Clear the data
+    p.clear_data()
+    vrange = p.get_data_range()
+    assert vrange == [None, None, None]
+
+    # Check deprecated API
+    x = numpy.arange(11) * 2
+    y = numpy.arange(11)
+    y2 = numpy.arange(11) / 2
+    p.add_data(x, field="x")
+    p.add_data(y, field="y")
+    p.add_data(y2, field="y2")
+    p.select_data("x", "y", yaxis="left")
+    p.select_data("x", "y2", yaxis="right")
+    vrange = p.get_data_range()
+    assert vrange == [[0, 20], [0, 10], [0, 5]]
+
+    # Check the default way to clear data
+    p.clear_data()
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [None, None]
+
+
+def test_plot2d(flint_session):
+    f = plot.get_flint()
+    p = f.get_plot(plot_class="plot2d", name="plot2d")
+
+    # Check the default data setter
+    image = numpy.arange(10 * 10)
+    image.shape = 10, 10
+    p.add_image(image)
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [[0, 10], [0, 10]]
+
+    # FIXME: addImage have to support this API
+    # p.set_colormap(lut="viridis", vmin=0, vmax=10)
+
+    # Check the default way to clear data
+    p.clear_data()
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [None, None]
+
+    # Check deprecated API
+    image = numpy.arange(9 * 9)
+    image.shape = 9, 9
+    p.add_data(image, field="image")
+    p.select_data("image")
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [[0, 9], [0, 9]]
+
+    # Check the default way to clear data
+    p.clear_data()
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [None, None]
+
+
+def test_scatter_view(flint_session):
+    f = plot.get_flint()
+    p = f.get_plot(plot_class="scatter", name="scatterview")
+
+    # Check the default data setter
+    x = numpy.arange(11)
+    y = numpy.arange(11)
+    value = numpy.arange(11)
+    p.set_data(x=x, y=y, value=value)
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [[0, 10], [0, 10]]
+
+    # Allow to setup the colormap
+    p.set_colormap(lut="viridis", vmin=0, vmax=10)
+
+    # Set none can be use to clear the data
+    p.set_data(None, None, None)
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [None, None]
+
+    # Check deprecated API
+    x = numpy.arange(9)
+    y = numpy.arange(9)
+    value = numpy.arange(9)
+    p.add_data(x, field="x")
+    p.add_data(y, field="y")
+    p.add_data(value, field="value")
+    p.select_data("x", "y", "value")
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [[0, 8], [0, 8]]
+
+    # Check the default way to clear data
+    p.clear_data()
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [None, None]
+
+
+def test_image_view(flint_session):
+    f = plot.get_flint()
+    p = f.get_plot(plot_class="imageview", name="imageview")
+
+    # Check the default data setter
+    image = numpy.arange(10 * 10)
+    image.shape = 10, 10
+    p.set_data(image)
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [[0, 10], [0, 10]]
+
+    # Allow to setup the colormap
+    p.set_colormap(lut="viridis", vmin=0, vmax=10)
+
+    # Set none can be use to clear the data
+    p.set_data(None)
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [None, None]
+
+    # Check deprecated API
+    image = numpy.arange(9 * 9)
+    image.shape = 9, 9
+    p.add_data(image, field="image")
+    p.select_data("image")
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [[0, 9], [0, 9]]
+
+    # Check the default way to clear data
+    p.clear_data()
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [None, None]
+
+
+def test_image_stack(flint_session):
+    f = plot.get_flint()
+    p = f.get_plot(plot_class="imagestack", name="imagestack")
+
+    cube = numpy.arange(10 * 10 * 10)
+    cube.shape = 10, 10, 10
+
+    # Check the default data setter
+    p.set_data(cube)
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [[0, 10], [0, 10]]
+
+    # Allow to setup the colormap
+    p.set_colormap(lut="viridis", vmin=0, vmax=10)
+
+    # Set none can be use to clear the data
+    p.set_data(None)
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [None, None]
+
+    # Check deprecated API
+    p.add_data(cube, field="cube")
+    p.select_data("cube")
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [[0, 10], [0, 10]]
+
+    # Check the default way to clear data
+    p.clear_data()
+    vrange = p.get_data_range()
+    assert vrange[0:2] == [None, None]
+
+
 def test_curve_stack(flint_session):
     f = plot.get_flint()
-
     p = f.get_plot(plot_class="curvestack", name="curve-stack")
 
     curves = numpy.empty((10, 100))
@@ -243,8 +508,8 @@ def test_time_curve_plot(flint_session):
 
     p = f.get_plot(plot_class="timecurveplot", name="timecurveplot")
 
-    p.select_time_curve("diode1")
-    p.select_time_curve("diode2")
+    p.add_time_curve_item("diode1")
+    p.add_time_curve_item("diode2")
 
     # set_data update the curves
     p.set_data(time=[0, 1, 2], diode1=[0, 1, 1], diode2=[1, 5, 1])

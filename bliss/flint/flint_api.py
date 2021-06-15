@@ -17,13 +17,11 @@ from typing import NamedTuple
 from typing import Optional
 
 import sys
-import types
 import logging
 import importlib
 import itertools
 import functools
 import numpy
-import marshal
 
 from silx.gui import qt
 import bliss
@@ -304,24 +302,24 @@ class FlintApi:
         manager.waitFlintReady()
 
     def run_method(self, plot_id, method, args, kwargs):
-        plot = self._get_plot_widget(plot_id)
-        silxPlot = plot._silxPlot()
-        method = getattr(silxPlot, method)
+        # Patch numpy arrays
+        for i, v in enumerate(args):
+            if isinstance(v, numpy.ndarray):
+                args[i] = _aswritablearray(v)
+        for k, v in kwargs.items():
+            if isinstance(v, numpy.ndarray):
+                kwargs[k] = _aswritablearray(v)
+
+        customPlotHolder = self._get_plot_widget(plot_id)
+        plotWidget = customPlotHolder.widget()
+        if hasattr(plotWidget, method):
+            # Method from the custom plot widget
+            method = getattr(plotWidget, method)
+        else:
+            # Method from PlotWidget class
+            silxPlot = customPlotHolder._silxPlot()
+            method = getattr(silxPlot, method)
         return method(*args, **kwargs)
-
-    def run_custom_method(self, plot_id, method_id, args, kwargs):
-        """Run a registered method from a custom plot.
-        """
-        plot = self._get_plot_widget(plot_id, live_plot=False)
-        return plot.runMethod(method_id, args, kwargs)
-
-    def register_custom_method(self, plot_id, method_id, serialized_method):
-        """Register a method to a custom plot.
-        """
-        plot = self._get_plot_widget(plot_id, live_plot=False)
-        code = marshal.loads(serialized_method)
-        method = types.FunctionType(code, globals(), "deserialized_function")
-        plot.registerMethod(method_id, method)
 
     def ping(self, msg=None, stderr=False):
         """Debug function to check writing on stdout/stderr remotely."""
@@ -955,10 +953,17 @@ class FlintApi:
         Allows to setup the default colormap of a widget.
         """
         widget = self._get_plot_widget(plot_id)
-        if not hasattr(widget, "defaultColormap"):
-            raise TypeError("Widget %s does not expose a colormap" % plot_id)
+        if hasattr(widget, "defaultColormap"):
+            colormap = widget.defaultColormap()
+        elif hasattr(widget, "getColormap"):
+            colormap = widget.getColormap()
+        else:
+            colormap - None
+        if colormap is None:
+            raise TypeError(
+                f"Widget {plot_id} ({type(widget)}) does not expose a colormap"
+            )
 
-        colormap = widget.defaultColormap()
         if lut is not None:
             colormap.setName(lut)
         if vmin is not None:

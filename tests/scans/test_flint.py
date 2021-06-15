@@ -140,11 +140,11 @@ def test_image_display(flint_session, lima_simulator, dummy_acq_device):
 
     # depricated access but kept for compatibilty with older versions...
     p = scan.get_plot(lima_sim.image, plot_type="image", wait=True)
-    assert isinstance(p, plots.ImagePlot)
+    assert isinstance(p, plots.LiveImagePlot)
 
     # new access
     p = plot.get_plot(lima_sim.image, scan=scan, plot_type="image", wait=True)
-    assert isinstance(p, plots.ImagePlot)
+    assert isinstance(p, plots.LiveImagePlot)
 
 
 def test_restart_flint_if_stucked(
@@ -163,11 +163,11 @@ def test_restart_flint_if_stucked(
 
     # depricated access but kept for compatibilty with older versions...
     p = scan.get_plot(lima_sim.image, plot_type="image", wait=True)
-    assert isinstance(p, plots.ImagePlot)
+    assert isinstance(p, plots.LiveImagePlot)
 
     # new access
     p = plot.get_plot(lima_sim.image, scan=scan, plot_type="image", wait=True)
-    assert isinstance(p, plots.ImagePlot)
+    assert isinstance(p, plots.LiveImagePlot)
 
 
 def test_ignore_flint_if_stucked(

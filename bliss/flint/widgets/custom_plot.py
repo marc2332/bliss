@@ -27,8 +27,6 @@ class CustomPlot(qt.QWidget):
         self.__plot = None
         self.__plotId = None
         self.__name = None
-        self.__data = {}
-        self.__methods = {}
 
     def setName(self, name):
         self.__name = name
@@ -49,9 +47,6 @@ class CustomPlot(qt.QWidget):
     def widget(self):
         return self.__plot
 
-    def data(self):
-        return self.__data
-
     def setPlot(self, plot: qt.QWidget):
         """
         Set a plot to this custom plot holder.
@@ -61,25 +56,16 @@ class CustomPlot(qt.QWidget):
         layout.addWidget(plot)
         self.__plot = plot
 
+    def defaultColormap(self):
+        plot = self.__plot
+        if plot is None:
+            return None
+        if hasattr(plot, "getColormap"):
+            return plot.getColormap()
+        return None
+
     def _silxPlot(self):
-        return self.__plot
-
-    def registerMethod(self, method_id, method):
-        if method_id in self.__methods:
-            raise ValueError(f"Method {method_id} already registred")
-        self.__methods[method_id] = method
-
-    def runMethod(self, method_id, args, kwargs):
-        method = self.__methods.get(method_id)
-        if method_id is None:
-            plot_id = self.plotId()
-            raise ValueError(
-                "Method '%s' on plot id '%s' is unknown", method_id, plot_id
-            )
-        return method(self, *args, **kwargs)
-
-    def getData(self, field=None):
-        if field is None:
-            return self.__data
-        else:
-            return self.__data.get(field, [])
+        plot = self.__plot
+        if hasattr(plot, "silxPlot"):
+            return plot.silxPlot()
+        return plot

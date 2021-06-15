@@ -1985,13 +1985,13 @@ class RegPlot:
         self.fig.submit("setGraphGrid", which=True)
 
         # Define the plot content
-        self.fig.select_time_curve("setpoint", color="blue", linestyle="-", z=2)
-        self.fig.select_time_curve("input", color="red", linestyle="-", z=2)
-        self.fig.select_time_curve(
+        self.fig.add_time_curve_item("setpoint", color="blue", linestyle="-", z=2)
+        self.fig.add_time_curve_item("input", color="red", linestyle="-", z=2)
+        self.fig.add_time_curve_item(
             "output", color="green", linestyle="-", yaxis="right", z=2
         )
-        self.fig.select_time_curve("deadband_high", color="blue", linestyle="--", z=2)
-        self.fig.select_time_curve("deadband_low", color="blue", linestyle="--", z=2)
+        self.fig.add_time_curve_item("deadband_high", color="blue", linestyle="--", z=2)
+        self.fig.add_time_curve_item("deadband_low", color="blue", linestyle="--", z=2)
 
     def is_plot_active(self):
         if self.fig is None:

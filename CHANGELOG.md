@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Added a `time-curve-plot` custom plot
     - Added a new API from custom curve plots
     - Rewritten custom plot user documentation including examples
+- scan_info:
+    - Added description for curve plots
 
 ### Changed
 

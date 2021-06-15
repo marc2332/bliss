@@ -399,6 +399,12 @@ def lookupscan(
         counter_args,
         top_master=VariableStepTriggerMaster(*motors_positions),
     )
+
+    # Specify a default plot if it is not already the case
+    if not scan_info.has_default_curve_plot():
+        time_channel = chain.timer.channels[0]
+        scan_info.add_curve_plot(x=time_channel.fullname)
+
     scan = Scan(
         chain,
         scan_info=scan_info,
@@ -493,6 +499,11 @@ def anscan(
         motors_positions.append((mot, numpy.linspace(start, stop, npoints)))
         starts_list.append(start)
         stops_list.append(stop)
+
+    # Specify a default plot if it is not already the case
+    if not scan_info.has_default_curve_plot():
+        mot = motor_tuple_list[0][0]
+        scan_info.add_curve_plot(x=f"axis:{mot.name}")
 
     scan_info["start"] = starts_list
     scan_info["stop"] = stops_list
@@ -1060,6 +1071,13 @@ def timescan(
         "sleep_time": sleep_time,
     }
     chain = DEFAULT_CHAIN.get(scan_params, counter_args)
+
+    # Specify a default plot if it is not already the case
+    if npoints > 1:
+        # No plots are created for ct
+        if not scan_info.has_default_curve_plot():
+            time_channel = chain.timer.channels[0]
+            scan_info.add_curve_plot(x=time_channel.fullname)
 
     scan = Scan(
         chain,

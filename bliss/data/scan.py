@@ -432,31 +432,13 @@ class ScansWatcher:
                             description = event_data.description
                             shape = description.get("shape")
                             dim = len(shape)
-                            is_scalar = dim == 0
-                        else:
-                            is_scalar = False
-
-                        if is_scalar:
-                            try:
-                                observer.on_scalar_data_received(
-                                    scan_db_name=scan_db_name,
-                                    channel_name=fullname,
-                                    index=event_data.first_index,
-                                    data_bunch=event_data.data,
-                                )
-                            except Exception:
-                                sys.excepthook(*sys.exc_info())
-                        else:
-                            if node.type == "lima":
-                                # Lima and only Lima deals with ref for now
-                                # FIXME: It would be good to have a dedicated event type for that
+                            if dim == 0:
                                 try:
-                                    observer.on_lima_ref_received(
+                                    observer.on_scalar_data_received(
                                         scan_db_name=scan_db_name,
                                         channel_name=fullname,
-                                        source_node=node,
-                                        dim=2,
-                                        event_data=event_data,
+                                        index=event_data.first_index,
+                                        data_bunch=event_data.data,
                                     )
                                 except Exception:
                                     sys.excepthook(*sys.exc_info())
@@ -471,6 +453,19 @@ class ScansWatcher:
                                     )
                                 except Exception:
                                     sys.excepthook(*sys.exc_info())
+                        elif node.type == "lima":
+                            # Lima and only Lima deals with ref for now
+                            # FIXME: It would be good to have a dedicated event type for that
+                            try:
+                                observer.on_lima_ref_received(
+                                    scan_db_name=scan_db_name,
+                                    channel_name=fullname,
+                                    source_node=node,
+                                    dim=2,
+                                    event_data=event_data,
+                                )
+                            except Exception:
+                                sys.excepthook(*sys.exc_info())
                 elif event_type == EventType.PREPARED_SCAN:
                     node_type = node.type
                     if self._watch_scan_group or node_type == "scan":

@@ -33,12 +33,10 @@ __all__ = [
 
 import logging
 import numpy
-import types
 import typeguard
 from typing import Optional
 
 from bliss.common.utils import rounder, shorten_signature, typeguardTypeError_to_hint
-from bliss.common.cleanup import cleanup, axis as cleanup_axis
 from bliss.scanning.toolbox import DefaultAcquisitionChain
 from bliss.scanning.scan import Scan, StepScanDataWatch
 from bliss.scanning.acquisition.motor import VariableStepTriggerMaster

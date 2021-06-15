@@ -255,10 +255,6 @@ class PI_E753(pi_gcs.Communication, pi_gcs.Recorder, Controller):
         print("set_closed_loop DISALBED FOR SECURITY ... ")
         # self._set_closed_loop(axis, True)
 
-    @object_attribute_get(type_info="str")
-    def get_model(self, axis):
-        return self.model
-
     def _stop(self, axis):
         print("????????? PI_E753.py received _stop ???")
         self.command("STP")
@@ -266,6 +262,10 @@ class PI_E753(pi_gcs.Communication, pi_gcs.Recorder, Controller):
     """
     ID/INFO
     """
+
+    @object_attribute_get(type_info="str")
+    def get_model(self, axis):
+        return self.model
 
     def get_id(self, axis):
         """

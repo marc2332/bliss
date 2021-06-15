@@ -8,8 +8,6 @@
 """
 Bliss controller for ethernet PI E51X piezo controller.
 Base controller for E517 and E518
-Cyril Guilloud ESRF BLISS
-Thu 13 Feb 2014 15:51:41
 """
 
 import time
@@ -23,8 +21,7 @@ from bliss.common.axis import AxisState
 from bliss.common.logtools import log_info, log_debug
 from bliss import global_map
 
-from bliss.comm.util import TCP
-from bliss.common import event
+from bliss.common.event import connect, disconnect
 from . import pi_gcs
 
 
@@ -52,9 +49,16 @@ class PI_E51X(pi_gcs.Communication, pi_gcs.Recorder, Controller):
     model = None  # defined in inherited classes.
 
     def __init__(self, *args, **kwargs):
+        # Called at session startup
+        # No hardware access
         pi_gcs.Communication.__init__(self)
         pi_gcs.Recorder.__init__(self)
         Controller.__init__(self, *args, **kwargs)
+
+        # Keep cache of: online, closed_loop, auto_gate, low_limit, high_limit
+        # per axis (it cannot be global ones otherwise last axis initialized
+        # is the only winner !!)
+        # To be chganged for BLISS setting ?
         self._axis_online = weakref.WeakKeyDictionary()
         self._axis_closed_loop = weakref.WeakKeyDictionary()
         self._axis_auto_gate = weakref.WeakKeyDictionary()
@@ -84,20 +88,34 @@ class PI_E51X(pi_gcs.Communication, pi_gcs.Recorder, Controller):
     def initialize(self):
         """
         Controller intialization.
-        * 
+        Called at session startup.
+        Called Only once per controller even if more than
+        one axis is declared in config.
         """
-        self.com_initialize()
 
         # acceleration is not mandatory in config
         self.axis_settings.config_setting["acceleration"] = False
 
-        self.comm = pi_gcs.get_pi_comm(self.config, TCP)
-
-        global_map.register(self, children_list=[self.comm])
-
     def close(self):
-        if self.comm is not None:
-            self.comm.close()
+        """
+        Called at session exit. 6 times ???
+        """
+        self.com_close()
+        for axis in self.axes.values():
+            disconnect(axis, "move_done", self.move_done_event_received)
+
+    def initialize_hardware(self):
+        """
+        Called once per controller at first axis use.
+        """
+        # Initialize socket communication.
+        self.com_initialize()
+
+    def initialize_hardware_axis(self, axis):
+        """
+        Called once per axis at first use of the axis
+        """
+        pass
 
     def initialize_axis(self, axis):
         """
@@ -111,6 +129,8 @@ class PI_E51X(pi_gcs.Communication, pi_gcs.Recorder, Controller):
         Returns:
             - None
         """
+        # called at first p1 access (eg: __info__())
+
         axis.channel = axis.config.get("channel", int)
         if axis.channel not in (1, 2, 3):
             raise ValueError("PI_E51X invalid motor channel : can only be 1, 2 or 3")
@@ -138,7 +158,7 @@ class PI_E51X(pi_gcs.Communication, pi_gcs.Recorder, Controller):
         self._axis_auto_gate[axis] = False
 
         # connect move_done for auto_gate mode
-        event.connect(axis, "move_done", self.move_done_event_received)
+        connect(axis, "move_done", self.move_done_event_received)
 
         # keep limits for gate
         self._axis_low_limit[axis] = self._get_low_limit(axis)
@@ -364,15 +384,42 @@ class PI_E51X(pi_gcs.Communication, pi_gcs.Recorder, Controller):
     Voltage commands
     """
 
-    def _get_voltage(self, axis):
+    @object_method(types_info=("None", "float"))
+    def get_voltage(self, axis):
         """
-        Returns Voltage Of Output Signal Channel (VOL? command)
+        Returns Voltage Of Output Signal Channel (SVA? command)
         """
-        _ans = self.command(f"VOL? {axis.channel}")
-        _vol = float(_ans.split("=+")[-1])
+        _ans = self.command(f"SVA? {axis.chan_letter}")
+        _vol = float(_ans)
         return _vol
 
-    """ 
+    @object_method(types_info=("None", "float"))
+    def get_output_voltage(self, axis):
+        """
+        Return output voltage
+        """
+        return float(self.command(f"VOL? {axis.channel}"))
+
+    # Voltage Low  Hard-Limit (ID 0x0B000007)
+    # Voltage High Hard-Limit (ID 0x0B000008)
+    # ("Voltage output high limit  ", "VMA? %s" % axis.channel),
+    # ("Voltage output low limit   ", "VMI? %s" % axis.channel),
+
+    @object_method(types_info=("None", "float"))
+    def get_voltage_high_limit(self, axis):
+        """
+        Return voltage HIGH limit
+        """
+        return float(self.command(f"VMA? {axis.channel}"))
+
+    @object_method(types_info=("None", "float"))
+    def get_voltage_low_limit(self, axis):
+        """
+        Return voltage LOW limit
+        """
+        return float(self.command(f"VMI? {axis.channel}"))
+
+    """
     Closed loop commands
     """
 
@@ -453,6 +500,10 @@ class PI_E51X(pi_gcs.Communication, pi_gcs.Recorder, Controller):
     ID/INFO
     """
 
+    @object_attribute_get(type_info="str")
+    def get_model(self, axis):
+        return self.model
+
     def __info__(self, axis=None):
         if axis is None:
             return self.get_controller_info()
@@ -471,11 +522,11 @@ class PI_E51X(pi_gcs.Communication, pi_gcs.Recorder, Controller):
         _txt = "PI_E51X controller :\n"
         # Reads pre-defined infos (1 line answers)
         for (label, cmd) in _infos:
-            value = self.comm.write_readline(cmd.encode() + b"\n")
-            _txt = _txt + "%s %s\n" % (label, value.decode())
+            value = self.command(cmd)
+            _txt = _txt + "%s %s\n" % (label, value)
 
         # Reads multi-lines infos.
-        _ans = [bs.decode() for bs in self.comm.write_readlines(b"IFC?\n", 6)]
+        _ans = self.command("IFC?", nb_line=6)
         _txt = _txt + "\n%s :\n%s\n" % ("Communication parameters", "\n".join(_ans))
 
         """
@@ -486,7 +537,7 @@ class PI_E51X(pi_gcs.Communication, pi_gcs.Recorder, Controller):
         1 = use DHCP to obtain IP address, if this fails, use IPADR (default);
         """
 
-        _ans = [bs.decode() for bs in self.comm.write_readlines(b"VER?\n", 3)]
+        _ans = self.command("VER?", nb_line=3)
         _txt = _txt + "\n%s :\n%s\n" % ("Firmware version", "\n".join(_ans))
 
         return _txt
@@ -496,6 +547,17 @@ class PI_E51X(pi_gcs.Communication, pi_gcs.Recorder, Controller):
         - Returns a 'str' string.
         """
         return self.command("*IDN?")
+
+    def get_axis_info(self, axis):
+        """
+        Return Controller specific info about <axis>
+        """
+        info_str = "PI AXIS INFO:\n"
+        info_str += f"     voltage (SVA) = {self.get_voltage(axis)}\n"
+        info_str += f"     output voltage (VOL) = {self.get_output_voltage(axis)}\n"
+        info_str += f"     closed loop = {self.get_closed_loop(axis)}\n"
+
+        return info_str
 
     @object_method(types_info=("None", "string"))
     def get_info(self, axis):

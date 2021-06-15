@@ -63,12 +63,11 @@ class PI_E518(PI_E51X):
             - <state> : bool
         Returns:
             - None
-        Raises:
-            ?
         """
 
-        # print "gate %s on axis channel %d  %f" % (state , self.gate_axis.channel, time.time())
-        if state:
+        # TO CHECK: on id16b, signal is inverted.
+        #           Is it hte case always or a config problem ?
+        if not state:
             _cmd = "CTO %d 7 1" % (axis.channel)
         else:
             _cmd = "CTO %d 7 0" % (axis.channel)

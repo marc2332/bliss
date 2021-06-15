@@ -612,6 +612,8 @@ def pytest_addoption(parser):
     parser.addoption("--pepu", help="pepu host name")
     parser.addoption("--ct2", help="ct2 address")
     parser.addoption("--axis-name", help="axis name")
+    parser.addoption("--axis-name2", help="axis name2")
+    parser.addoption("--axis-name3", help="axis name3")
     parser.addoption("--mythen", action="store", help="mythen host name")
     parser.addoption(
         "--wago",

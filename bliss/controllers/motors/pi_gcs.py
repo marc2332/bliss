@@ -12,6 +12,7 @@ This module is a common base for PI controllers:
 * fro Wave generator
 """
 
+import time
 import numpy
 
 from bliss.comm.util import get_comm, get_comm_type, TCP
@@ -435,16 +436,15 @@ class Communication:
         # ???
         connect(self.sock, "connect", self._clear_error)
 
-    def finalize(self):
+    def com_close(self):
         """
         Closes the controller socket.
+        Disconnect error clearing.
         """
-        self.close()
-        disconnect(self.sock, "connect", self._clear_error)
-
-    def close(self):
         if self.sock:
             self.sock.close()
+
+        disconnect(self.sock, "connect", self._clear_error)
 
     def get_error(self):
         _error_number = int(self.sock.write_readline(b"ERR?\n"))

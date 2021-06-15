@@ -650,8 +650,15 @@ def create_plot_model(
 ) -> List[plot_model.Plot]:
     """Create plot models from a scan_info.
 
-    Use the `plots` description or infer the plots from the `acquisition_chain`.
-    Finally update the selection using `_display_extra`.
+    If a `plots` key exists from the `scan_info`, scatter and curve plots will
+    created following this description. Else, plots will be inferred from the
+    acquisition chain.
+
+    Finally the selection is updated using `_display_extra` field. This should
+    be removed a one point.
+
+    Special kind of plots depending on devices and data kind, like Lima, MCAs
+    and 1D data will always be inferred.
     """
     if scan is None:
         scan = create_scan_model(scan_info)
@@ -670,6 +677,11 @@ def create_plot_model(
 
         aq_plots = infer_plot_models(scan)
         for plot in aq_plots:
+            if isinstance(
+                plot, (plot_item_model.CurvePlot, plot_item_model.ScatterPlot)
+            ):
+                # This kind of plots are already constrained by the `plots` key
+                continue
             if not contains_default_plot_kind(plots, plot):
                 plots.append(plot)
     else:

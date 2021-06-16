@@ -16,6 +16,7 @@ import re
 
 from silx.gui import qt
 from silx.gui import icons
+from silx.gui import utils as qtutils
 from silx.gui.plot.tools.roi import RegionOfInterestManager
 from silx.gui.plot.tools.roi import RegionOfInterestTableWidget
 from silx.gui.plot.items.roi import RectangleROI
@@ -78,7 +79,7 @@ class RoiSelectionWidget(qt.QWidget):
         self.roiManager.sigRoiAdded.connect(self.__roiAdded)
         self.roiManager.sigRoiContextMenuRequested.connect(self.roiContextMenuRequested)
         self.roiManager.sigCurrentRoiChanged.connect(self.__currentRoiChanged)
-        self.table = RegionOfInterestTableWidget()
+        self.table = RegionOfInterestTableWidget(self)
 
         self.table.setSelectionBehavior(qt.QAbstractItemView.SelectRows)
         self.table.setSelectionMode(qt.QAbstractItemView.SingleSelection)
@@ -283,7 +284,14 @@ class RoiSelectionWidget(qt.QWidget):
         self.renameRoiRequested(roi)
 
     def clear(self):
-        self.roiManager.clear()
+        roiManager = self.roiManager
+        if len(roiManager.getRois()) > 0:
+            # Weird: At this level self.table can be already deleted in C++ side
+            # The if rois > 0 is a work around
+            selectionModel = self.table.selectionModel()
+            with qtutils.blockSignals(selectionModel):
+                roiManager.clear()
+
         try:
             self.plot.setInteractiveMode(self.__previousMode)
         except Exception:

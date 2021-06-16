@@ -37,7 +37,7 @@ def safe_rpc_server(obj):
             _logger.error("Exception while serving %s", url, exc_info=True)
             raise
         finally:
-            server._rpc_connection.close()
+            server.close()
 
 
 @contextlib.contextmanager

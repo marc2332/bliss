@@ -600,7 +600,7 @@ class DlgWidget:
             body = self.wdata
 
         else:
-            raise NotImplementedError
+            raise NotImplementedError(f"Dialog {type(self.dlg)} have no implementation")
 
         self.body = body
 

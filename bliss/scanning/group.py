@@ -230,7 +230,6 @@ class Sequence:
         self._scan = ScanGroup(chain, self.title, save=True, scan_info=self._scan_info)
         self._scan.add_preset(StatePreset(self))
 
-
     @property
     def scan(self):
         if self._scan is None:

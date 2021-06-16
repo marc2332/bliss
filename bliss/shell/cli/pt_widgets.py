@@ -45,6 +45,7 @@ from prompt_toolkit.styles import Style
 from prompt_toolkit.completion import PathCompleter, WordCompleter
 
 from prompt_toolkit.widgets import Checkbox as Checkbox_Orig
+from prompt_toolkit.widgets import CheckboxList
 from prompt_toolkit.widgets import RadioList  # as RadioList_Orig
 
 
@@ -360,6 +361,45 @@ def checkbox_dialog(
     return _run_dialog(dialog, style, full_screen=full_screen)
 
 
+def checkboxlist_dialog(
+    title="",
+    text="",
+    ok_text: str = "Ok",
+    cancel_text: str = "Cancel",
+    values=None,
+    selection=None,
+    style=None,
+    full_screen=True,
+):
+    """
+    Display a simple list of element the user can choose multiple values amongst.
+
+    Several elements can be selected at a time using Arrow keys and Enter.
+    The focus can be moved between the list and the Ok/Cancel button with tab.
+    """
+    if values is None:
+        values = []
+
+    def ok_handler() -> None:
+        get_app().exit(result=cb_list.current_values)
+
+    cb_list = CheckboxList(values)
+    if selection is not None:
+        cb_list.current_values.extend(selection)
+
+    dialog = Dialog(
+        title=title,
+        body=HSplit([Label(text=text, dont_extend_height=True), cb_list], padding=1),
+        buttons=[
+            Button(text=ok_text, handler=ok_handler),
+            Button(text=cancel_text, handler=_return_none),
+        ],
+        with_background=True,
+    )
+
+    return _run_dialog(dialog, style, full_screen=full_screen)
+
+
 # ===========================================================================================
 
 
@@ -428,6 +468,16 @@ def display(user_dlg, title="", full_screen=True):
 
     elif user_dlg.wtype == "checkbox":
         dlg = checkbox_dialog(
+            title,
+            text,
+            ok_text="Ok",
+            cancel_text="Cancel",
+            style=_ESRF_STYLE,
+            full_screen=full_screen,
+        )
+
+    elif user_dlg.wtype == "checkboxlist":
+        dlg = checkboxlist_dialog(
             title,
             text,
             ok_text="Ok",
@@ -599,6 +649,11 @@ class DlgWidget:
 
             body = self.wdata
 
+        elif self.dlg.wtype == "checkboxlist":
+            self.wdata = CheckboxList(self.dlg.values)
+            self.wdata.current_values.extend(self.dlg.defval)
+            body = self.wdata
+
         else:
             raise NotImplementedError(f"Dialog {type(self.dlg)} have no implementation")
 
@@ -653,6 +708,9 @@ class DlgWidget:
 
         elif self.dlg.wtype == "checkbox":
             return self.wdata.checked
+
+        elif self.dlg.wtype == "checkboxlist":
+            return self.wdata.current_values
 
 
 class BlissDialog(Dialog):

@@ -172,6 +172,20 @@ class UserCheckBox(_UserDlg):
         super().__init__(wtype="checkbox", name=name, label=label, defval=defval)
 
 
+class UserCheckBoxList(_UserDlg):
+    """ Ask the user to enable or disable a set of options.
+
+    Arguments:
+        values: The available values with label for each options: `[("id1", "Coffee")]`.
+        defval: The default selected values
+    """
+
+    def __init__(self, name=None, label="", values=[], defval=[]):
+        super().__init__(
+            wtype="checkboxlist", name=name, label=label, values=values, defval=defval
+        )
+
+
 class Container:
     def __init__(self, user_dlg_list, title=None, border=0, padding=0, splitting="h"):
         self.wtype = "container"

@@ -62,13 +62,6 @@ def configure_parser_arguments(parser: ArgumentParser):
         "segmentation fault with some environment.",
     )
     parser.add_argument(
-        "--enable-simulator",
-        dest="simulator",
-        action="store_true",
-        default=False,
-        help="Enable scan simulation panel",
-    )
-    parser.add_argument(
         "--enable-gevent-poll",
         dest="gevent_poll",
         action="store_true",

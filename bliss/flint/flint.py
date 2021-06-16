@@ -452,18 +452,6 @@ def main():
         functools.partial(save_global_settings, flintModel, options)
     )
 
-    if options.simulator:
-        from bliss.flint.simulator.acquisition import AcquisitionSimulator
-        from bliss.flint.simulator.simulator_widget import SimulatorWidget
-
-        flintWindow = flintModel.mainWindow()
-        display = SimulatorWidget(flintWindow)
-        display.setFlintModel(flintModel)
-        simulator = AcquisitionSimulator(display)
-        simulator.setFlintModel(flintModel)
-        display.setSimulator(simulator)
-        display.show()
-
     sys.excepthook = handle_exception
 
     def close_service(frame, signum):

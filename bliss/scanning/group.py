@@ -140,7 +140,7 @@ class Sequence:
 
     def __init__(self, scan_info=None, title="sequence_of_scans"):
         self.title = title
-        self.scan = None
+        self._scan = None
         self._scan_info = ScanInfo.normalize(scan_info)
         self._scan_info["is-scan-sequence"] = True
         self.custom_channels = dict()
@@ -161,7 +161,6 @@ class Sequence:
 
     @contextmanager
     def sequence_context(self):
-        self._build_scan()
 
         group_scan = gevent.spawn(self.scan.run)
 
@@ -228,8 +227,15 @@ class Sequence:
         else:
             self.group_custom_slave = None
 
-        self.scan = ScanGroup(chain, self.title, save=True, scan_info=self._scan_info)
-        self.scan.add_preset(StatePreset(self))
+        self._scan = ScanGroup(chain, self.title, save=True, scan_info=self._scan_info)
+        self._scan.add_preset(StatePreset(self))
+
+
+    @property
+    def scan(self):
+        if self._scan is None:
+            self._build_scan()
+        return self._scan
 
     @property
     def node(self):
@@ -242,14 +248,14 @@ class Sequence:
         Which is the initial one, or the one published by the scan which publish
         this sequence.
         """
-        if self.scan is None:
+        if self._scan is None:
             return self._scan_info
         else:
             self.scan.scan_info
 
     @property
     def state(self):
-        if self.scan is None:
+        if self._scan is None:
             return ScanState.IDLE
         else:
             return self.scan.state

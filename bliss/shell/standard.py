@@ -1292,6 +1292,7 @@ def menu(obj=None, dialog_type: str = None, *args, **kwargs):
     try:
         return dialog(dialog_type)
     except ValueError as exc:
+        logtools.log_error(dialog, "Error while execution the dialog", exc_info=True)
         return ShellStr(str(exc))
 
 

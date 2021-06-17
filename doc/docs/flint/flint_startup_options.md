@@ -20,7 +20,6 @@ A command line argument use to override over equivalent settings.
   --disable-share-opengl-contexts
                         Disable AA_ShareOpenGLContexts used by Qt in order to
                         prevent segmentation fault with some environment.
-  --enable-simulator    Enable scan simulation panel
   --enable-gevent-poll  Enable system patching of the 'poll' function in order
                         to create a cooperative event loop between Qt and
                         gevent. It processes efficiently events from fast

@@ -583,6 +583,7 @@ class ShapesSelector(Selector):
         plot = self.parent()
         plot.removeDockWidget(self.__dock)
         if self.__roiWidget is not None:
+            self.__roiWidget.selectionFinished.disconnect(self.__selectionFinished)
             self.__roiWidget.clear()
         self.__dock = None
         self.__roiWidget = None
@@ -598,9 +599,9 @@ class ShapesSelector(Selector):
             self.selectionFinished.emit()
 
     def __selectionFinished(self, selection: Sequence[RegionOfInterest]):
-        self.stop()
         shapes = self.__roisFromGui(selection)
         self.__selection = shapes
+        self.stop()
         self.selectionFinished.emit()
 
 

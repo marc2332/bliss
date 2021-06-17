@@ -524,6 +524,7 @@ class FlintClient:
     def get_live_plot(
         self,
         kind: typing.Optional[str] = None,
+        name: str = None,
         image_detector: typing.Optional[str] = None,
         mca_detector: typing.Optional[str] = None,
         onedim_detector: typing.Optional[str] = None,
@@ -540,16 +541,21 @@ class FlintClient:
             onedim_detector: Name of the detector displaying one dim data.
         """
         if kind is not None:
-            if kind == "default-curve":
+            if kind in ("curve", "default-curve"):
                 plot_class = plots.LiveCurvePlot
                 plot_type = "curve"
-            elif kind == "default-scatter":
+            elif kind in ("scatter", "default-scatter"):
                 plot_class = plots.LiveScatterPlot
                 plot_type = "scatter"
             else:
                 raise ValueError(f"Unexpected plot kind '{kind}'.")
 
-            plot_id = self.get_default_live_scan_plot(plot_type)
+            if name is not None:
+                plot_id = self.get_live_scan_plot_by_name(
+                    plot_name=name, plot_type=plot_type
+                )
+            else:
+                plot_id = self.get_default_live_scan_plot(plot_type)
             if plot_id is None:
                 raise ValueError(f"No {plot_type} plot available")
 

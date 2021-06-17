@@ -237,6 +237,22 @@ def test_create_curve_plot_from_motor_scan():
     assert set(expected_curves) == set(curves)
 
 
+def test_create_scan__no_plots():
+    factory = ScanInfoFactory()
+    factory.add_device(root_id="axis", device_id="axis")
+    factory.add_device(root_id="axis", device_id="timer", triggered_by="axis")
+    factory.add_device(root_id="axis", device_id="diode", triggered_by="axis")
+    factory.add_channel(channel_id="axis:roby", dim=0)
+    factory.add_channel(channel_id="timer:elapsed_time", dim=0, unit="s")
+    factory.add_channel(channel_id="diode:diode", dim=0)
+    factory.add_channel(channel_id="diode:diode2", dim=0)
+    scan_info = factory.scan_info()
+    scan_info["plots"] = {}
+
+    plots = scan_info_helper.create_plot_model(scan_info)
+    assert len(plots) == 0
+
+
 def test_amesh_scan_with_image_and_mca():
     factory = ScanInfoFactory()
     factory["data_dim"] = 2
@@ -274,7 +290,6 @@ def test_amesh_scan_with_image_and_mca():
     assert set(result_kinds) == set(
         [
             plot_item_model.ScatterPlot,
-            plot_item_model.CurvePlot,
             plot_item_model.ImagePlot,
             plot_item_model.McaPlot,
         ]
@@ -516,6 +531,62 @@ def test_read_plot_models__scatter_axis():
     assert item.xChannel().name() == "a"
     assert item.yChannel().name() == "b"
     assert item.valueChannel() is None
+
+
+def test_read_plot_models__curve_axis():
+    scan_info = {
+        "plots": [
+            {
+                "name": "plot",
+                "kind": "scatter-plot",
+                "items": [{"kind": "scatter", "x": "a"}],
+            }
+        ]
+    }
+    plots = scan_info_helper.read_plot_models(scan_info)
+    assert len(plots) == 1
+    assert len(plots[0].items()) == 1
+    item = plots[0].items()[0]
+    assert item.xChannel().name() == "a"
+    assert item.yChannel() is None
+
+
+def test_read_plot_models__curve_item():
+    scan_info = {
+        "plots": [
+            {
+                "name": "plot",
+                "kind": "curve-plot",
+                "items": [{"kind": "curve", "x": "a", "y": "b"}],
+            }
+        ]
+    }
+    plots = scan_info_helper.read_plot_models(scan_info)
+    assert len(plots) == 1
+    assert len(plots[0].items()) == 1
+    item = plots[0].items()[0]
+    assert item.xChannel().name() == "a"
+    assert item.yChannel().name() == "b"
+    assert item.yAxis() == "left"
+
+
+def test_read_plot_models__curve_right_item():
+    scan_info = {
+        "plots": [
+            {
+                "name": "plot",
+                "kind": "curve-plot",
+                "items": [{"kind": "curve", "x": "a", "y": "b", "y_axis": "right"}],
+            }
+        ]
+    }
+    plots = scan_info_helper.read_plot_models(scan_info)
+    assert len(plots) == 1
+    assert len(plots[0].items()) == 1
+    item = plots[0].items()[0]
+    assert item.xChannel().name() == "a"
+    assert item.yChannel().name() == "b"
+    assert item.yAxis() == "right"
 
 
 def test_read_scatter_data__different_groups():

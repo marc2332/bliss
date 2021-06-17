@@ -8,6 +8,7 @@ import bliss
 from bliss.common import plot
 from bliss.controllers import simulation_counter
 from bliss.flint.client import plots
+from bliss.scanning.chain import AcquisitionChannel
 from bliss.scanning.scan import Scan
 from bliss.scanning.scan_info import ScanInfo
 from bliss.scanning.scan_display import ScanDisplay
@@ -34,6 +35,10 @@ def test_ascan(test_session_without_flint, lima_simulator):
 
     flint = plot.get_flint()
     flint.wait_end_of_scans()
+
+    # The x-axis range is the range of the motor
+    p = flint.get_live_plot(kind="default-curve")
+    assert p.get_data_range()[0] == [0, 5]
 
     p1_data = flint.get_live_scan_data("axis:roby")
     p2_data = flint.get_live_scan_data(diode.fullname)
@@ -436,6 +441,7 @@ def test_update_user_data(test_session_with_flint):
     logger.disabled = False
     logger.setLevel(logging.INFO)
 
+    plot.plotselect(diode)
     ascan(roby, 0, 5, 2, 0.001, diode, diode2)
 
     # synchronize redis events with flint
@@ -458,6 +464,11 @@ def test_update_user_data(test_session_with_flint):
 
 
 def test_sequence(test_session_with_flint, lima_simulator):
+    """Create a sequence displaying data in a dedicated plot.
+    The child plot uses the default plot widget.
+
+    Check that each plots uses the expected data range
+    """
     session = test_session_with_flint
     lima = session.config.get("lima_simulator")
     ascan = session.env_dict["ascan"]
@@ -467,24 +478,29 @@ def test_sequence(test_session_with_flint, lima_simulator):
     flint = plot.get_flint()
 
     scan_info = ScanInfo()
-    scan_info.add_scatter_plot(x="x", y="y", value="diode")
+    scan_info.add_curve_plot(x="x", yleft=["y"], name="sequence")
 
+    plot.plotselect(diode)
     seq = Sequence(scan_info=scan_info)
+    seq.add_custom_channel(AcquisitionChannel("x", numpy.float, ()))
+    seq.add_custom_channel(AcquisitionChannel("y", numpy.float, ()))
     with seq.sequence_context() as scan_seq:
         s = ascan(roby, 0, 5, 5, 0.001, diode, lima, run=False)
         scan_seq.add(s)
         s.run()
+        seq.custom_channels["x"].emit(numpy.array([1, 2, 3]))
+        seq.custom_channels["y"].emit(numpy.array([4, 5, 6]))
 
     flint.wait_end_of_scans()
+    gevent.sleep(1)  # plot refresh
 
-    p1_data = flint.get_live_scan_data("axis:roby")
-    p2_data = flint.get_live_scan_data(diode.fullname)
-    p3_data = flint.get_live_scan_data(lima.image.fullname)
+    # The sequence plot contain the range from the sequence data
+    p = flint.get_live_plot(name="sequence", kind="curve")
+    assert p.get_data_range()[0:2] == [[1, 3], [4, 6]]
 
-    assert len(p1_data) == 6  # 5 intervals
-    assert len(p2_data) == 6  # 5 intervals
-    assert numpy.allclose(p1_data, numpy.arange(6))
-    assert len(p3_data.shape) == 2
+    # The default plot range is the one from the ascan
+    p = flint.get_live_plot(kind="default-curve")
+    assert p.get_data_range()[0] == [0, 5]
 
 
 def create_1d_controller(device_name, fixed_xarray=False, fixed_xchannel=False):

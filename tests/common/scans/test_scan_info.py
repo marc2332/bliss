@@ -79,3 +79,39 @@ def test_add_scatter_axis():
     factory.add_scatter_plot(x="a", y="b")
     expected = {"kind": "scatter", "x": "a", "y": "b"}
     assert scan_info["plots"][0]["items"] == [expected]
+
+
+def test_add_curve_plot():
+    scan_info = {}
+    factory = ScanInfoFactory(scan_info)
+    factory.add_curve_plot(x="a", yleft=["b"], yright=["c"], name="foo")
+    assert "plots" in scan_info
+    expected = {
+        "kind": "curve-plot",
+        "name": "foo",
+        "items": [
+            {"kind": "curve", "x": "a", "y": "b", "y_axis": "left"},
+            {"kind": "curve", "x": "a", "y": "c", "y_axis": "right"},
+        ],
+    }
+    assert scan_info["plots"] == [expected]
+
+
+def test_add_curve_axis():
+    """It is valid to specify only part of the scatter item"""
+    scan_info = {}
+    factory = ScanInfoFactory(scan_info)
+    factory.add_curve_plot(x="a")
+    expected = {"kind": "curve", "x": "a"}
+    assert scan_info["plots"][0]["items"] == [expected]
+
+
+def test_add_default_curve_plot():
+    scan_info = {}
+    factory = ScanInfoFactory(scan_info)
+    assert factory.has_default_curve_plot() is False
+    factory.add_scatter_plot(x="a", y="b")
+    factory.add_curve_plot(x="a", name="foo2")
+    assert factory.has_default_curve_plot() is False
+    factory.add_curve_plot(x="a", yleft=["b"], yright=["c"])
+    assert factory.has_default_curve_plot() is True

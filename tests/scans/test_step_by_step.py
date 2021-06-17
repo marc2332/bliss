@@ -31,6 +31,10 @@ def test_ascan(session):
     scan_data = s.get_data()
     assert numpy.array_equal(scan_data["sim_ct_gauss"], simul_counter.data)
 
+    # A default plot is expected, displaying the motor as x-axis
+    plot = s.scan_info["plots"][0]
+    assert plot["items"][0]["x"] == "axis:robz2"
+
 
 def test_loopscan_sleep_time(session):
     simul_counter = session.env_dict["sim_ct_gauss"]
@@ -43,6 +47,10 @@ def test_loopscan_sleep_time(session):
     with mock.patch.object(timer, "_sleep", wraps=timer._sleep) as timer_sleep:
         s.run()
         assert timer_sleep.call_count == 1
+
+    # A default plot is expected, displaying the time as x-axis
+    plot = s.scan_info["plots"][0]
+    assert plot["items"][0]["x"] == "timer:elapsed_time"
 
 
 def test_ascan_gauss2(session):
@@ -199,6 +207,10 @@ def test_lookupscan(session):
     scan_data = s.get_data()
     assert numpy.array_equal(scan_data["roby"], (0, 0.1))
     assert numpy.array_equal(scan_data["robz"], (0.1, 0.2))
+
+    # A default plot is expected, displaying the time as x-axis
+    plot = s.scan_info["plots"][0]
+    assert plot["items"][0]["x"] == "timer:elapsed_time"
 
 
 def test_anscan(session):

@@ -272,6 +272,10 @@ class ScanInfo(dict):
                     "A 'stop' position for the channel '%s' should be set", name
                 )
 
+    def add_plots_entry(self):
+        """CReate the main entry for plots description"""
+        self._scan_info.setdefault("plots", [])
+
     @typeguard.typechecked
     def add_scatter_plot(
         self,
@@ -286,8 +290,8 @@ class ScanInfo(dict):
         This can be used as default plot for the scan.
 
         Arguments:
-            name: Unique name for the plot. If not defined a default plot name
-                is used.
+            name: Unique name for the plot. If not defined, it is considered as a
+                "default" plot
             x: Channel name for the x-axis
             y: Channel name for the y-axis
             value: Channel name for the data value
@@ -309,6 +313,70 @@ class ScanInfo(dict):
             items.append(item)
 
         plot = {"kind": "scatter-plot", "items": items}
+        if name is not None:
+            plot["name"] = name
+
+        plots.append(plot)
+
+    def has_default_curve_plot(self) -> bool:
+        """Returns true if a curve plot is already defined"""
+        plots = self._scan_info.get("plots", [])
+        for plot in plots:
+            if plot["kind"] == "curve-plot":
+                if plot.get("name") is None:
+                    return True
+        return False
+
+    @typeguard.typechecked
+    def add_curve_plot(
+        self,
+        name: typing.Optional[str] = None,
+        x: typing.Optional[str] = None,
+        yleft: typing.Union[None, typing.List[str], str] = None,
+        yright: typing.Union[None, typing.List[str], str] = None,
+    ):
+        """
+        Add a curve plot definition to this `scan_info`.
+
+        It is an helper to simplify the creation of many curves.
+
+        This can replace the default plot for the scan.
+
+        Arguments:
+            name: Unique name for the plot. If not defined, it is considered as a
+                "default" plot
+            x: Channel name for the x-axis
+            yleft: Channel names of the curves which have to be displayed in the left y-axis
+            yright: Channel names of the curves which have to be displayed in the right y-axis
+        """
+        plots = self._scan_info.setdefault("plots", [])
+        if not isinstance(plots, list):
+            raise TypeError("The 'plots' metadata is corrupted. A list is expected.")
+
+        items = []
+        if x is not None and yleft is None and yright is None:
+            item = {"kind": "curve", "x": x}
+            items.append(item)
+        if yleft is not None:
+            if isinstance(yleft, str):
+                yleft = [yleft]
+            for y in yleft:
+                item = {"kind": "curve", "y_axis": "left"}
+                if x is not None:
+                    item["x"] = x
+                item["y"] = y
+                items.append(item)
+        if yright is not None:
+            if isinstance(yright, str):
+                yleft = [yright]
+            for y in yright:
+                item = {"kind": "curve", "y_axis": "right"}
+                if x is not None:
+                    item["x"] = x
+                item["y"] = y
+                items.append(item)
+
+        plot = {"kind": "curve-plot", "items": items}
         if name is not None:
             plot["name"] = name
 

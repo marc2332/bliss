@@ -182,6 +182,31 @@ class FlintApi:
         }
         return plot_classes[plot_type]
 
+    def get_live_scan_plot_by_name(self, plot_type, plot_name: str):
+        """Returns the identifier of the default plot according it's type.
+
+        Basically returns the first plot of this kind.
+
+        Returns `None` is nothing found
+        """
+        plot_class = self.__get_plot_class_by_kind(plot_type)
+        workspace = self.__flintModel.workspace()
+        for iwidget, widget in enumerate(workspace.widgets()):
+            if not hasattr(widget, "scan") or not hasattr(widget, "plotModel"):
+                # Skip widgets which does not display scans (like profile)
+                # FIXME: Use interface to flag classes
+                continue
+            plot = widget.plotModel()
+            if plot is None:
+                continue
+            if not isinstance(plot, plot_class):
+                continue
+            if plot.name() != plot_name:
+                continue
+            return f"live:{iwidget}"
+
+        return None
+
     def get_default_live_scan_plot(self, plot_type):
         """Returns the identifier of the default plot according it's type.
 

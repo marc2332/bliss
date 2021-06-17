@@ -19,7 +19,7 @@ The hexapode server is installed using Conda packaging under `bliss` environment
 setting BLISS environment
 Using CONDA Bliss package (use: 'conda list bliss' to know the version)
 
-(bliss) leonardo:~ % conda install tango-hexapode
+(bliss) leonardo:~ % conda install -c http://bcu-ci.esrf.fr/stable tango-hexapode
 Collecting package metadata (current_repodata.json): done
 Solving environment: done
 

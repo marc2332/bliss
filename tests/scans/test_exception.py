@@ -13,6 +13,7 @@ from bliss.scanning.group import Sequence
 
 
 def test_exception_in_reading(session):
+    """Check that exception during controller `read` is catched at scan run"""
     event = gevent.event.Event()
 
     class CntController(SamplingCounterController):

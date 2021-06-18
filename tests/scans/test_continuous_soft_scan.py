@@ -7,7 +7,7 @@
 
 import time
 
-import numpy as np
+import numpy
 import pytest
 import gevent
 from unittest import mock
@@ -101,7 +101,7 @@ def test_iter_software_position_trigger_master(session):
     assert data["robz"] == pytest.approx(data["debug_pos"], abs=0.2)
     assert len(data["debug_time"]) == len(data["robz"])
     assert list(master._positions) == list(
-        np.linspace(24, 30, master._SoftwarePositionTriggerMaster__last_npoints + 1)[
+        numpy.linspace(24, 30, master._SoftwarePositionTriggerMaster__last_npoints + 1)[
             :-1
         ]
     )

@@ -243,8 +243,8 @@ dial    1.000
 OUTPUT_UMV_CALC_MOT2 = """
      calc_mot2[keV]  calc_mot1[keV]       roby     
 
-\x1b[Fuser          4.000           2.000           1.000
-dial          4.000           2.000           1.000\x1b[Fuser          4.000           2.000           1.000
+\x1b[Fuser          0.000           0.000           0.000
+dial          0.000           0.000           0.000\x1b[Fuser          4.000           2.000           1.000
 dial          4.000           2.000           1.000
 """
 
@@ -257,8 +257,6 @@ def test_umv_shell(capfd, default_session):
 
 
 def test_umv_calc_shell(capfd, default_session):
-    roby = default_session.config.get("roby")
-    roby.move(1)
     calc_mot2 = default_session.config.get("calc_mot2")
     try:
         umv(calc_mot2, 4)

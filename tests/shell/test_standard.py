@@ -255,13 +255,18 @@ def test_umv_shell(capfd, default_session):
     output = capfd.readouterr().out
     assert output == OUTPUT_UMV_ROBY
 
-    calc_mot2 = default_session.config.get("calc_mot2")
-    umv(calc_mot2, 4)
-    output = capfd.readouterr().out
-    assert output == OUTPUT_UMV_CALC_MOT2
 
-    default_session.config.get("calc_mot1").controller.close()
-    calc_mot2.controller.close()
+def test_umv_calc_shell(capfd, default_session):
+    roby = default_session.config.get("roby")
+    roby.move(1)
+    calc_mot2 = default_session.config.get("calc_mot2")
+    try:
+        umv(calc_mot2, 4)
+        output = capfd.readouterr().out
+        assert output == OUTPUT_UMV_CALC_MOT2
+    finally:
+        default_session.config.get("calc_mot1").controller.close()
+        calc_mot2.controller.close()
 
 
 def test_open_silx(xvfb):

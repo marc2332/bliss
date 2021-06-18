@@ -135,7 +135,7 @@ class RoiSelectionWidget(qt.QWidget):
 
         self.applyButton = qt.QPushButton(self)
         self.applyButton.setFixedHeight(40)
-        self.applyButton.setText("Apply this ROIs")
+        self.applyButton.setText("Apply these ROIs")
         icon = icons.getQIcon("flint:icons/roi-save")
         self.applyButton.setIcon(icon)
         self.applyButton.clicked.connect(self.on_apply)

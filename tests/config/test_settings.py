@@ -601,7 +601,6 @@ def test_creation_time(session):
     food.switch("default")
     gevent.sleep(1)
     food.creation_date  # access it => will change 'last_accessed'
-    assert food.creation_date == str(creation_date)
     assert food.last_accessed != str(creation_date)
 
 

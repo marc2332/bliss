@@ -950,14 +950,16 @@ def __umove(*args, **kwargs):
             ret_depth = magic_char * row.count("\n")
             return "{}{}".format(ret_depth, row)
 
+        previous_line = None
         while group.is_moving:
-            string = format_group(group)
-            print(string, end="", flush=True)
+            previous_line = format_group(group)
+            print(previous_line, end="", flush=True)
             sleep(0.1)
 
         # print last time for final positions
-        string = format_group(group)
-        print(string, end="", flush=True)
+        last_line = format_group(group)
+        if previous_line != last_line:
+            print(last_line, end="", flush=True)
         print("")
 
     return group, motor_pos

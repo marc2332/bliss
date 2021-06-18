@@ -939,16 +939,11 @@ def __umove(*args, **kwargs):
         def format_group(group):
             positions = group.position_with_reals
             dials = group.dial_with_reals
-            row = "".join(
-                [
-                    "user ",
-                    __row_positions(positions, motors, rfmt, sep="  "),
-                    "\ndial ",
-                    __row_positions(dials, motors, rfmt, sep="  "),
-                ]
-            )
+            user_pos = __row_positions(positions, motors, rfmt, sep="  ")
+            dial_pos = __row_positions(dials, motors, rfmt, sep="  ")
+            row = f"user {user_pos}\ndial {dial_pos}"
             ret_depth = magic_char * row.count("\n")
-            return "{}{}".format(ret_depth, row)
+            return f"{ret_depth}{row}"
 
         previous_line = None
         while group.is_moving:

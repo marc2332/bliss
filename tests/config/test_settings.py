@@ -593,6 +593,8 @@ def test_creation_time(session):
     )
     assert abs(now - last_accessed) < datetime.timedelta(seconds=60)
 
+
+def test_creation_time2(session):
     # an empty Wardrobe has only creation/access info
     food = settings.ParametersWardrobe("food")
     assert len(food.to_dict(export_properties=True)) == 3
@@ -601,7 +603,7 @@ def test_creation_time(session):
     food.switch("default")
     gevent.sleep(1)
     food.creation_date  # access it => will change 'last_accessed'
-    assert food.last_accessed != str(creation_date)
+    assert food.last_accessed != str(food.creation_date)
 
 
 def test_from_dict_ok(session):

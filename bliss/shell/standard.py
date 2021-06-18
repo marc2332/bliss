@@ -936,7 +936,7 @@ def __umove(*args, **kwargs):
         print("")
         magic_char = "\033[F"
 
-        while group.is_moving:
+        def format_group(group):
             positions = group.position_with_reals
             dials = group.dial_with_reals
             row = "".join(
@@ -948,21 +948,16 @@ def __umove(*args, **kwargs):
                 ]
             )
             ret_depth = magic_char * row.count("\n")
-            print("{}{}".format(ret_depth, row), end="", flush=True)
+            return "{}{}".format(ret_depth, row)
+
+        while group.is_moving:
+            string = format_group(group)
+            print(string, end="", flush=True)
             sleep(0.1)
+
         # print last time for final positions
-        positions = group.position_with_reals
-        dials = group.dial_with_reals
-        row = "".join(
-            [
-                "user ",
-                __row_positions(positions, motors, rfmt, sep="  "),
-                "\ndial ",
-                __row_positions(dials, motors, rfmt, sep="  "),
-            ]
-        )
-        ret_depth = magic_char * row.count("\n")
-        print("{}{}".format(ret_depth, row), end="", flush=True)
+        string = format_group(group)
+        print(string, end="", flush=True)
         print("")
 
     return group, motor_pos

@@ -7,7 +7,7 @@
 
 import time
 
-import numpy as np
+import numpy
 import pytest
 import gevent
 from unittest import mock
@@ -83,13 +83,13 @@ def test_software_position_trigger_master(session):
     assert data["debug_time"] == pytest.approx(expected_triggers, abs=0.02)
 
 
-@pytest.mark.flaky(reruns=3)
 def test_iter_software_position_trigger_master(session):
     robz = session.config.get("robz")
     robz.velocity = 100
     chain = AcquisitionChain()
     start_pos = [0, 12, 24]
-    master = SoftwarePositionTriggerMaster(robz, start_pos, 30, 10, time=0.5)
+    end_pos = 30
+    master = SoftwarePositionTriggerMaster(robz, start_pos, end_pos, 10, time=0.5)
     device = DebugMotorMockupAcquisitionSlave("debug", robz)
     chain.add(master, device)
     s = Scan(chain, save=False)
@@ -98,10 +98,16 @@ def test_iter_software_position_trigger_master(session):
 
     data = s.get_data()
     assert len(data["robz"]) == 25
-    assert data["robz"] == pytest.approx(data["debug_pos"], abs=0.2)
+
+    assert data["robz"] == pytest.approx(
+        data["debug_pos"], abs=((end_pos - start_pos[0]) / 10) * 0.5
+    )
+    error = numpy.abs(data["robz"] - data["debug_pos"])
+    assert numpy.median(error) < 0.1, error
+
     assert len(data["debug_time"]) == len(data["robz"])
     assert list(master._positions) == list(
-        np.linspace(24, 30, master._SoftwarePositionTriggerMaster__last_npoints + 1)[
+        numpy.linspace(24, 30, master._SoftwarePositionTriggerMaster__last_npoints + 1)[
             :-1
         ]
     )

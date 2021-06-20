@@ -1,12 +1,10 @@
-import sys
 from contextlib import contextmanager
 from functools import wraps
 
 import asyncio
 import aiogevent
 from gevent import monkey
-from gevent import greenlet, timeout, getcurrent
-from gevent.timeout import string_types
+from gevent import greenlet, timeout
 import gevent
 
 MASKED_GREENLETS = dict()

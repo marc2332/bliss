@@ -13,6 +13,7 @@ from bliss.scanning.group import Sequence
 
 
 def test_exception_in_reading(session):
+    """Check that exception during controller `read` is catched at scan run"""
     event = gevent.event.Event()
 
     class CntController(SamplingCounterController):
@@ -38,14 +39,11 @@ def test_exception_in_reading(session):
     c = Cnt(10)
     s = scans.timescan(0, c, npoints=10, save=False, run=False)
 
-    try:
-        with gevent.Timeout(1):
-            s.run()
-    except RuntimeError:
-        if not event.is_set():
-            raise
-    except gevent.Timeout:
-        assert False
+    with pytest.raises(RuntimeError):
+        s.run()
+
+    if not event.is_set():
+        assert False, "RuntimeError was not raised from the right place"
 
     assert s.state == ScanState.KILLED
     assert s.node.info["state"] == ScanState.KILLED

@@ -7,8 +7,8 @@
 
 import gevent
 import pytest
-import numpy
 import re
+from collections import Counter
 
 from bliss.scanning.group import Sequence, Group, ScanSequenceError
 from bliss.common import scans
@@ -263,25 +263,47 @@ def test_sequence_events(session):
             seq_context.add(s2)
 
     event_dump = list()
-    nexpectedevents = 74
+    nondataevents = Counter()
+    datapoints = Counter()
+    expected_nondataevents = {"NEW_NODE": 30, "PREPARED_SCAN": 4, "END_SCAN": 4}
+    expected_datapoints = {
+        "timer:elapsed_time": 11,
+        "timer:epoch": 11,
+        "simulation_diode_sampling_controller:diode": 11,
+        "axis:robz": 8,
+        "scan_numbers": 3,
+        "scans": 3,
+    }
+
     started_event = gevent.event.Event()
     finished_event = gevent.event.Event()
 
     def my_listener(session_node, event_dump):
         try:
-            nevents = 0
             it = session_node.walk_events(started_event=started_event)
             for i, (eventtype, node, data) in enumerate(it):
+                if eventtype.name == "NEW_DATA":
+                    try:
+                        npoints = len(data.data)
+                    except TypeError:
+                        npoints = 1
+                    datapoints[node.name] += npoints
+                else:
+                    npoints = None
+                    nondataevents[eventtype.name] += 1
                 event = (
                     eventtype.name,
                     node.type,
                     re.split(r"test_sequence_events[0-9,_]*:", node.db_name)[-1],
                 )
-                print(i, event)
+                print(i, "#points", npoints, event)
                 event_dump.append(event)
-                nevents += 1
-                if nevents == nexpectedevents:
+                if (
+                    datapoints == expected_datapoints
+                    and nondataevents == expected_nondataevents
+                ):
                     break
+
         finally:
             del it  # stop DataStreamReader, don't wait for garbage collection
             finished_event.set()
@@ -296,7 +318,13 @@ def test_sequence_events(session):
     # were recieved
     g_seq = gevent.spawn(my_seq, diode, robz)
     g_seq.join()
-    assert finished_event.wait(timeout=5)
+    try:
+        assert finished_event.wait(timeout=5)
+    except AssertionError:
+        assert nondataevents == expected_nondataevents
+        assert datapoints == expected_datapoints
+        raise
+
     g_lis.kill()
 
     start_1_loopscan = event_dump.index(("NEW_NODE", "scan", "1_loopscan"))

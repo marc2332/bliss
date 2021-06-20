@@ -613,6 +613,9 @@ class RpcConnection:
     def _call__(self, code, args, kwargs, retry_on_disconnect=True):
         log_debug(self, f"rpc client ({self._address}): '{code}' args={args}")
 
+        if self._socket is None:
+            self.connect()
+
         # Check if already return a sub client
         method_name = args[0] if args else ""
         value = self._subclient.get((code, method_name))
@@ -719,7 +722,7 @@ class Client(proxy.Proxy):
         rpc_connection = RpcConnection(address, disconnect_callback, timeout)
         object.__setattr__(self, "_rpc_connection", rpc_connection)
         object.__setattr__(self, "_Client__class", None)
-        super().__init__(lambda: rpc_connection._proxy)
+        super().__init__(lambda: rpc_connection._proxy, init_once=True)
 
     @property
     def __class__(self):

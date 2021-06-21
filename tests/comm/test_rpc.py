@@ -435,3 +435,35 @@ def test_nonexisting_host(beacon):
                 raise CommunicationError(str(eee)) from eee
 
     client._rpc_connection.close()
+
+
+def test_disconnect_event_with_closed_server():
+
+    url = "tcp://127.0.0.1:12345"
+    results = gevent.queue.Queue()
+
+    def callback(*args):
+        results.put(args)
+
+    with rpc_server(url) as (server, car):
+        client_car = Client(url)
+        client_car._rpc_connection.connect()
+
+        event.connect(client_car, "test", callback)
+        event.send(car, "test", 3)
+        assert results.get() == (3,)
+
+    gevent.sleep(0.4)
+    event.disconnect(client_car, "test", callback)
+
+    with rpc_server(url) as (server, car):
+        # Synchronize
+        client_car.position
+
+        event.send(car, "test", 4)
+        # the previous event should not update 'results' since
+        # the event is disconnected
+        assert len(results) == 0
+
+    # close client
+    client_car._rpc_connection.close()

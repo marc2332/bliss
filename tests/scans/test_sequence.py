@@ -19,6 +19,7 @@ from bliss.scanning.chain import AcquisitionChannel
 from bliss.data.node import get_session_node
 from bliss import current_session
 from bliss.scanning.scan import ScanState
+from bliss.scanning.acquisition.calc import CalcChannelAcquisitionSlave
 
 
 def test_sequence_terminated_scans(session):
@@ -443,3 +444,27 @@ def test_sequence_issue_2752(session, scan_meta):
         with seq.sequence_context() as ctx:
             pass
     assert "Failed to prepare scan sequence" in str(excinfo)
+
+
+def test_sequence_create_scan_before_running(session):
+
+    diode = session.config.get("diode")
+
+    seq = Sequence()
+    scan = seq.scan
+    calc = CalcChannelAcquisitionSlave("", [], None, [])
+    scan.acq_chain.add(seq.group_acq_master, calc)
+
+    nodes_before_running = scan.acq_chain.nodes_list
+
+    with seq.sequence_context() as seq_context:
+        s1 = scans.loopscan(20, .1, diode, run=False)
+        seq_context.add(s1)
+        g1 = gevent.spawn(s1.run)
+
+        gevent.joinall([g1], raise_error=True)
+
+    nodes_after_running = seq.scan.acq_chain.nodes_list
+
+    # check that scan sequence does not have been recreated with sequence context
+    assert nodes_before_running == nodes_after_running

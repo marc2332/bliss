@@ -53,7 +53,7 @@ class Loop(RegulationLoop):
             f"setpoint: {self.setpoint} {self.input.config.get('unit', 'N/A')}"
         )
         lines.append(
-            f"ramprate: {self.ramprate} {self.input.config.get('unit', 'N/A')}/{self.controller.ramprate_unit}"
+            f"ramprate: {self.ramprate} {self.input.config.get('unit', 'N/A')}/{self.controller.get_ramprate_unit(self)}"
         )
         lines.append(f"ramping: {self.is_ramping()}")
         lines.append("\n=== PID ===")
@@ -73,10 +73,10 @@ class Eurotherm2000(Controller):
         super().__init__(config)
 
         self._hw_controller = None
-        self._setpoint = None
+        self._setpoint = {}
 
     def __info__(self):
-        return self.hw_controller.status
+        return self.hw_controller.show_status()
 
     def dump_all_cmds(self):
         return self.hw_controller.dump_all_cmds()
@@ -121,18 +121,6 @@ class Eurotherm2000(Controller):
         self.hw_controller.show_status()
 
     @property
-    def ramprate_unit(self):
-        return self.hw_controller.ramprate_units
-
-    # @ramprate_unit.setter
-    # def ramprate_unit(self, value):
-    #     self.hw_controller.ramprate_units = value
-
-    @property
-    def sensor_type(self):
-        return self.hw_controller.sensor_type
-
-    @property
     def model(self):
         return self.hw_controller.model
 
@@ -159,17 +147,7 @@ class Eurotherm2000(Controller):
         Args:
            tinput:  Input class type object          
         """
-
         log_debug(self, "initialize_input")
-        # if "type" not in tinput.config:
-        #     tinput.config["type"] = "pv"
-        # else:
-        #     if tinput.config["type"] not in self.INPUT_TYPES:
-        #         raise ValueError(
-        #             "Invalid input type [{0}]. Should one of {1}.".format(
-        #                 tinput.config["type"], self.INPUT_TYPES
-        #             )
-        #         )
 
     def initialize_output(self, toutput):
         """
@@ -179,15 +157,6 @@ class Eurotherm2000(Controller):
            toutput:  Output class type object          
         """
         log_debug(self, "initialize_output")
-        # if "type" not in toutput.config:
-        #     toutput.config["type"] = "sp"
-        # else:
-        #     if toutput.config["type"] not in self.OUTPUT_TYPES:
-        #         raise ValueError(
-        #             "Invalid input type [{0}]. Should one of {1}.".format(
-        #                 toutput.config["type"], self.OUTPUT_TYPES
-        #             )
-        #         )
 
     def initialize_loop(self, tloop):
         """
@@ -196,7 +165,12 @@ class Eurotherm2000(Controller):
         Args:
            tloop:  Loop class type object          
         """
-        pass
+        if tloop.channel is None:
+            tloop._channel = 1
+
+        # Force input and output to share the same channel as their associated loop
+        tloop.input._channel = tloop.channel
+        tloop.output._channel = tloop.channel
 
     # ------ get methods ------------------------
 
@@ -212,7 +186,7 @@ class Eurotherm2000(Controller):
            read value  (in input unit)    
         """
         log_info(self, "Controller:read_input: %s" % (tinput))
-        return self.hw_controller.pv
+        return self.hw_controller.send_cmd("process_variable", channel=tinput.channel)
 
     def read_output(self, toutput):
         """
@@ -226,7 +200,7 @@ class Eurotherm2000(Controller):
            read value (in output unit)         
         """
         log_info(self, "Controller:read_output: %s" % (toutput))
-        return self.hw_controller.op
+        return self.hw_controller.send_cmd("pc_output_power", channel=toutput.channel)
 
     def state_input(self, tinput):
         """
@@ -240,7 +214,7 @@ class Eurotherm2000(Controller):
            object state string. This is one of READY/RUNNING/ALARM/FAULT
         """
         log_info(self, "Controller:state_input: %s" % (tinput))
-        return self.status
+        return self.state
 
     def state_output(self, toutput):
         """
@@ -254,7 +228,7 @@ class Eurotherm2000(Controller):
            object state string. This is one of READY/RUNNING/ALARM/FAULT
         """
         log_info(self, "Controller:state_output: %s" % (toutput))
-        return self.status
+        return self.state
 
     # ------ PID methods ------------------------
 
@@ -268,7 +242,7 @@ class Eurotherm2000(Controller):
            kp: the kp value
         """
         log_info(self, "Controller:set_kp: %s %s" % (tloop, kp))
-        self.hw_controller.kp = kp
+        self.hw_controller.send_cmd("proportional_band_pid1", kp, channel=tloop.channel)
 
     def get_kp(self, tloop):
         """
@@ -282,7 +256,9 @@ class Eurotherm2000(Controller):
            kp value
         """
         log_info(self, "Controller:get_kp: %s" % (tloop))
-        return self.hw_controller.kp
+        return self.hw_controller.send_cmd(
+            "proportional_band_pid1", channel=tloop.channel
+        )
 
     def set_ki(self, tloop, ki):
         """
@@ -294,7 +270,7 @@ class Eurotherm2000(Controller):
            ki: the ki value
         """
         log_info(self, "Controller:set_ki: %s %s" % (tloop, ki))
-        self.hw_controller.ki = ki
+        self.hw_controller.send_cmd("integral_time_pid1", ki, channel=tloop.channel)
 
     def get_ki(self, tloop):
         """
@@ -308,7 +284,7 @@ class Eurotherm2000(Controller):
            ki value
         """
         log_info(self, "Controller:get_ki: %s" % (tloop))
-        return self.hw_controller.ki
+        return self.hw_controller.send_cmd("integral_time_pid1", channel=tloop.channel)
 
     def set_kd(self, tloop, kd):
         """
@@ -320,7 +296,7 @@ class Eurotherm2000(Controller):
            kd: the kd value
         """
         log_info(self, "Controller:set_kd: %s %s" % (tloop, kd))
-        self.hw_controller.kd = kd
+        self.hw_controller.send_cmd("derivative_time_pid1", kd, channel=tloop.channel)
 
     def get_kd(self, tloop):
         """
@@ -334,7 +310,9 @@ class Eurotherm2000(Controller):
            kd value
         """
         log_info(self, "Controller:get_kd: %s" % (tloop))
-        return self.hw_controller.kd
+        return self.hw_controller.send_cmd(
+            "derivative_time_pid1", channel=tloop.channel
+        )
 
     def start_regulation(self, tloop):
         """
@@ -388,9 +366,11 @@ class Eurotherm2000(Controller):
            (float) setpoint value (in tloop.input unit).
         """
         log_info(self, "Controller:get_setpoint: %s" % (tloop))
-        if self._setpoint is None:
-            self._setpoint = self.hw_controller.sp
-        return self._setpoint
+        if self._setpoint.get(tloop.channel) is None:
+            self._setpoint[tloop.channel] = self.hw_controller.send_cmd(
+                "target_setpoint", channel=tloop.channel
+            )
+        return self._setpoint[tloop.channel]
 
     def get_working_setpoint(self, tloop):
         """
@@ -404,7 +384,7 @@ class Eurotherm2000(Controller):
            (float) working setpoint value (in tloop.input unit).
         """
         log_info(self, "Controller:get_working_setpoint: %s" % (tloop))
-        return self.hw_controller.wsp
+        return self.hw_controller.send_cmd("working_set_point", channel=tloop.channel)
 
     # ------ setpoint ramping methods (optional) ------------------------
 
@@ -423,8 +403,8 @@ class Eurotherm2000(Controller):
            **kwargs: auxilliary arguments
         """
         log_info(self, "Controller:start_ramp: %s %s" % (tloop, sp))
-        self.hw_controller.sp = sp
-        self._setpoint = sp
+        self.hw_controller.send_cmd("target_setpoint", sp, channel=tloop.channel)
+        self._setpoint[tloop.channel] = sp
 
     def stop_ramp(self, tloop):
         """
@@ -436,9 +416,9 @@ class Eurotherm2000(Controller):
            tloop:  Loop class type object
         """
         log_info(self, "Controller:stop_ramp: %s" % (tloop))
-        sp = self.hw_controller.pv
-        self.hw_controller.sp = sp
-        self._setpoint = sp
+        sp = self.read_input(tloop.input)
+        self.hw_controller.send_cmd("target_setpoint", sp, channel=tloop.channel)
+        self._setpoint[tloop.channel] = sp
 
     def is_ramping(self, tloop):
         """
@@ -452,7 +432,14 @@ class Eurotherm2000(Controller):
            (bool) True if ramping, else False.
         """
         log_info(self, "Controller:is_ramping: %s" % (tloop))
-        return self.hw_controller.is_ramping()
+
+        wsp = self.hw_controller.send_cmd("working_set_point", channel=tloop.channel)
+        sp = self.hw_controller.send_cmd("target_setpoint", channel=tloop.channel)
+
+        if sp != wsp:
+            return True
+        else:
+            return False
 
     def set_ramprate(self, tloop, rate):
         """Set the ramp rate
@@ -460,7 +447,7 @@ class Eurotherm2000(Controller):
               toutput (object): Output class type object
               rate (float): The ramp rate [degC/unit]
         """
-        self.hw_controller.ramprate = rate
+        self.hw_controller.send_cmd("setpoint_rate_limit", rate, channel=tloop.channel)
 
     def get_ramprate(self, tloop):
         """
@@ -474,7 +461,11 @@ class Eurotherm2000(Controller):
            ramp rate (in input unit per second)
         """
         log_info(self, "Controller:get_ramprate: %s" % (tloop))
-        return self.hw_controller.ramprate
+        return self.hw_controller.send_cmd("setpoint_rate_limit", channel=tloop.channel)
+
+    def get_ramprate_unit(self, tloop):
+        log_info(self, "Controller:get_ramprate_unit: %s" % (tloop))
+        return self.hw_controller.get_ramprate_unit(channel=tloop.channel)
 
 
 class Eurotherm2000Device:
@@ -550,6 +541,26 @@ class Eurotherm2000Device:
             self, parents_list=["comms"], children_list=[self.comm]
         )  # twice to attach child
 
+    def initialize(self):
+        """Get the model, the firmware version and the resolution of the module.
+        """
+        log_debug(self, "initialize")
+        # self.flush()
+
+        # get a copy of cmds dict in case it needs to be modified regarding the controller model
+        # get the 2400 series cmds
+        self._CMDS_MAPPING = self._DEFAULT_CMDS_MAPPING[4].copy()
+
+        self._read_identification()
+        self._update_cmd_registers()
+        self._read_version()
+        self._load_cmds()
+
+        log_info(
+            self,
+            f"Eurotherm2000 {self._ident:02X} (firmware: {self._version:02X}) (comm: {self.comm!s})",
+        )
+
     def _read_identification(self):
         """ Ident contains a number in hex format which will identify
         your controller in format >ABCD (hex):
@@ -560,20 +571,16 @@ class Eurotherm2000Device:
           4: 1/4 din
         """
         ident = self.send_cmd("instrument_ident")
-        if ident >> 12 == 2:
-            log_debug(self, "Connected to Eurotherm model 2XXX ident code = %x" % ident)
-            self._ident = ident
-            self._model = (ident & 0xf00) >> 8
-        else:
-            log_debug(self, "Connected to Eurotherm model ident code = %x" % ident)
-            self._ident = ident
-            self._model = (ident & 0xf00) >> 8
+        log_debug(self, "Connected to Eurotherm model ident code = %x" % ident)
+        self._ident = ident
+        self._model = (ident & 0xf00) >> 8
 
     def _update_cmd_registers(self):
         # The default cmds register values are for 2400 series
         # Update cmds register values for other models
         if self._model == 4:
             pass
+
         elif self._model in self._DEFAULT_CMDS_MAPPING.keys():
 
             # for k in self._DEFAULT_CMDS_MAPPING[self._model].keys():
@@ -622,31 +629,29 @@ class Eurotherm2000Device:
         log_debug(self, "get the floating point data format")
         self._floating_point_format = self.send_cmd("aa_comms_resolution")
 
-    def initialize(self):
-        """Get the model, the firmware version and the resolution of the module.
-        """
-        log_debug(self, "initialize")
-        # self.flush()
-
-        # get a copy of cmds dict in case it needs to be modified regarding the controller model
-        # get the 2400 series cmds
-        self._CMDS_MAPPING = self._DEFAULT_CMDS_MAPPING[4].copy()
-
-        self._read_identification()
-        self._update_cmd_registers()
-        self._read_version()
-        self._load_cmds()
-
-        log_info(
-            self,
-            f"Eurotherm2000 {self._ident:02X} (firmware: {self._version:02X}) (comm: {self.comm!s})",
-        )
-
     def flush(self):
         self.comm._serial.flush()
 
-    def send_cmd(self, cmd, value=None):
-        reg, dtype = self._CMDS_MAPPING[cmd]
+    def send_cmd(self, cmd, value=None, channel=None):
+        """
+            Send commands to the hardware controller.
+            Args:
+              - cmd: a string or a tuple (register, dtype) with dtype in ['H', 'f', 'i']
+                See 'self._CMDS_MAPPING' for all commands and associated register.
+              - value: if None, the register is read else it set to this value.
+              - channel: some commands can be sent to one of the 3 loops (2700 models).
+                If channel value is in [2, 3] the value of the register that will be read is augmented by '(channel-1)*1024'.
+        """
+
+        if isinstance(cmd, (tuple, list)):
+            reg, dtype = cmd[0:2]
+        else:
+            reg, dtype = self._CMDS_MAPPING[cmd]
+
+        # Handle multiple loops of 2704 model
+        if channel in [2, 3]:
+            reg += (channel - 1) * 1024
+
         if dtype in ["f", "i"]:
             reg = 2 * reg + 0x8000
         elif dtype != "H":
@@ -739,17 +744,15 @@ class Eurotherm2000Device:
     def ramprate(self, value):
         self.send_cmd("setpoint_rate_limit", value)
 
-    @property
-    def ramprate_units(self):
+    def get_ramprate_unit(self, channel=None):
         """ Get the ramprate time unit.
             Returns:
               (str): Time unit - 'sec', 'min' or 'hour'
         """
-        value = self.send_cmd("setpoint_rate_limit_units")
+        value = self.send_cmd("setpoint_rate_limit_units", channel=channel)
         return self.RAMP_RATE_UNITS[value]
 
-    @ramprate_units.setter
-    def ramprate_units(self, value):
+    def set_ramprate_unit(self, value, channel=None):
         """ Set the ramprate time unit
             Args:
               value (str): Time unit - 'sec', 'min' or 'hour'
@@ -760,7 +763,11 @@ class Eurotherm2000Device:
             )
 
         # self.send_cmd("instrument_mode", 2)
-        self.send_cmd("setpoint_rate_limit_units", self.RAMP_RATE_UNITS.index(value))
+        self.send_cmd(
+            "setpoint_rate_limit_units",
+            self.RAMP_RATE_UNITS.index(value),
+            channel=channel,
+        )
         # self.send_cmd("instrument_mode", 0)
 
     @property
@@ -814,7 +821,10 @@ class Eurotherm2000Device:
     @property
     def sensor_type(self):
         sensor = self.send_cmd("input_type")
-        return self.SENSOR_TYPES[sensor]
+        try:
+            return self.SENSOR_TYPES[sensor]
+        except IndexError:
+            return f"Unknown sensor type:{sensor}"
 
     @sensor_type.setter
     def sensor_type(self, stype):

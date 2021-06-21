@@ -101,6 +101,11 @@ class NewportXPS(Controller):
     def finalize_axis(self):
         log_debug(self, "finalize_axis() called")
 
+    def _get_axis_from_group(self, group, channel):
+        for axis in self.axes.values():
+            if axis.group == group and axis.channel == str(channel):
+                return axis
+
     def initialize_encoder(self, encoder):
         log_debug(self, "initialize_encoder() called")
 
@@ -183,12 +188,20 @@ class NewportXPS(Controller):
         if len(motion_list) == 1:
             self.start_one(motion_list[0])
         else:
-            target_positions = [0, 0]
+            group = motion_list[0].axis.group
+            target_positions = [None] * self.__nbAxesPerGroup[group]
             for motion in motion_list:
+                # if motors are not from the same group, fallback to start_one
+                if motion.axis.group != group:
+                    raise NotImplementedError
                 target_positions[int(motion.axis.channel) - 1] = motion.target_pos
-            error, reply = self.__xps.GroupMoveAbsolute(
-                motion.axis.group, target_positions
-            )
+            for i, target in enumerate(target_positions):
+                # fill missing target positions in the group with current positions
+                if target is None:
+                    target_positions[i] = self._get_axis_from_group(
+                        group, i + 1
+                    ).position
+            error, reply = self.__xps.GroupMoveAbsolute(group, target_positions)
             if error != 0:
                 log_error(self, "NewportXPS Error: " + reply)
 

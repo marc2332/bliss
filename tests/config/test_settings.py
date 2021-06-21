@@ -585,22 +585,28 @@ def test_creation_time(session):
 
     assert "wine" not in drinks.instances
     drinks.switch("wine")
-    # get current time
+
+    def str2datetime(string):
+        return datetime.datetime.strptime(string, "%Y-%m-%d %H:%M:%S")
+
+    # epsilon time bellow which time comparison is considered to be the same
+    # This value is pretty big to make sure the CI machine is fast enough
+    epsilon = datetime.timedelta(seconds=2).total_seconds()
+
+    # creation and last access was done now
     now = datetime.datetime.now()
+    creation_date = str2datetime(drinks.creation_date)
+    assert creation_date.timestamp() == pytest.approx(now.timestamp(), abs=epsilon)
+    last_accessed = str2datetime(drinks.last_accessed)
+    assert last_accessed.timestamp() == pytest.approx(now.timestamp(), abs=epsilon)
 
-    # convert string to datetime obj
-    creation_date = datetime.datetime.strptime(
-        drinks.creation_date, "%Y-%m-%d %H:%M:%S"
-    )
-    assert abs(now - creation_date) < datetime.timedelta(seconds=1)
-    last_accessed = datetime.datetime.strptime(
-        drinks.last_accessed, "%Y-%m-%d %H:%M:%S"
-    )
-    assert abs(now - last_accessed) < datetime.timedelta(seconds=2)
-
+    # a later access update the last access time
     gevent.sleep(1)
     drinks.creation_date  # access it => will change 'last_accessed'
-    assert drinks.last_accessed != str(drinks.creation_date)
+    now = datetime.datetime.now()
+    last_accessed2 = str2datetime(drinks.last_accessed)
+    assert last_accessed != last_accessed2, "last_accessed was not updated"
+    assert last_accessed2.timestamp() == pytest.approx(now.timestamp(), abs=epsilon)
 
 
 def test_from_dict_ok(session):

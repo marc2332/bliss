@@ -936,33 +936,25 @@ def __umove(*args, **kwargs):
         print("")
         magic_char = "\033[F"
 
-        while group.is_moving:
+        def format_group(group):
             positions = group.position_with_reals
             dials = group.dial_with_reals
-            row = "".join(
-                [
-                    "user ",
-                    __row_positions(positions, motors, rfmt, sep="  "),
-                    "\ndial ",
-                    __row_positions(dials, motors, rfmt, sep="  "),
-                ]
-            )
+            user_pos = __row_positions(positions, motors, rfmt, sep="  ")
+            dial_pos = __row_positions(dials, motors, rfmt, sep="  ")
+            row = f"user {user_pos}\ndial {dial_pos}"
             ret_depth = magic_char * row.count("\n")
-            print("{}{}".format(ret_depth, row), end="", flush=True)
+            return f"{ret_depth}{row}"
+
+        previous_line = None
+        while group.is_moving:
+            previous_line = format_group(group)
+            print(previous_line, end="", flush=True)
             sleep(0.1)
+
         # print last time for final positions
-        positions = group.position_with_reals
-        dials = group.dial_with_reals
-        row = "".join(
-            [
-                "user ",
-                __row_positions(positions, motors, rfmt, sep="  "),
-                "\ndial ",
-                __row_positions(dials, motors, rfmt, sep="  "),
-            ]
-        )
-        ret_depth = magic_char * row.count("\n")
-        print("{}{}".format(ret_depth, row), end="", flush=True)
+        last_line = format_group(group)
+        if previous_line != last_line:
+            print(last_line, end="", flush=True)
         print("")
 
     return group, motor_pos

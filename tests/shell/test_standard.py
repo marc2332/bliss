@@ -243,8 +243,8 @@ dial    1.000
 OUTPUT_UMV_CALC_MOT2 = """
      calc_mot2[keV]  calc_mot1[keV]       roby     
 
-\x1b[Fuser          4.000           2.000           1.000
-dial          4.000           2.000           1.000\x1b[Fuser          4.000           2.000           1.000
+\x1b[Fuser          0.000           0.000           0.000
+dial          0.000           0.000           0.000\x1b[Fuser          4.000           2.000           1.000
 dial          4.000           2.000           1.000
 """
 
@@ -255,13 +255,16 @@ def test_umv_shell(capfd, default_session):
     output = capfd.readouterr().out
     assert output == OUTPUT_UMV_ROBY
 
-    calc_mot2 = default_session.config.get("calc_mot2")
-    umv(calc_mot2, 4)
-    output = capfd.readouterr().out
-    assert output == OUTPUT_UMV_CALC_MOT2
 
-    default_session.config.get("calc_mot1").controller.close()
-    calc_mot2.controller.close()
+def test_umv_calc_shell(capfd, default_session):
+    calc_mot2 = default_session.config.get("calc_mot2")
+    try:
+        umv(calc_mot2, 4)
+        output = capfd.readouterr().out
+        assert output == OUTPUT_UMV_CALC_MOT2
+    finally:
+        default_session.config.get("calc_mot1").controller.close()
+        calc_mot2.controller.close()
 
 
 def test_open_silx(xvfb):

@@ -403,9 +403,11 @@ class PM600(Controller):
         This command will reset the tracking abort, stall abort,
         time out abort or user(command) abort conditions and
         re-enable the servo control loop. It will also set the
-        Command position to be equal to the Actual position
+        Command position to be equal to the Actual position.
+        It also clears trajectory_prog.
         """
         self.io_command("RS", axis.channel)
+        self.trajectory_prog.clear()
 
     @object_method(types_info=("None", "float"))
     def get_deceleration(self, axis):

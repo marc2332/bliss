@@ -120,7 +120,9 @@ class BCMockup(BlissController):
             elif self._COUNTER_TAGS[tag][1] == "icc":
                 return "IntegratingCounter"
 
-    def _create_subitem_from_config(self, name, cfg, parent_key, item_class):
+    def _create_subitem_from_config(
+        self, name, cfg, parent_key, item_class, item_obj=None
+    ):
         if parent_key == "counters":
             name = cfg["name"]
             tag = cfg["tag"]
@@ -150,8 +152,7 @@ class BCMockup(BlissController):
 
         elif parent_key == "axes":
             if item_class is None:  # mean it is a referenced axis (i.e external axis)
-                axis = name  # the axis instance
-                name = axis.name  # the axis name
+                axis = item_obj
                 tag = cfg[
                     "tag"
                 ]  # ask for a tag which only concerns this ctrl (local tag)
@@ -296,9 +297,13 @@ class Operator:
 
 
 class TestBCMockup(BCMockup):
-    def _create_subitem_from_config(self, name, cfg, parent_key, item_class):
+    def _create_subitem_from_config(
+        self, name, cfg, parent_key, item_class, item_obj=None
+    ):
 
-        item = super()._create_subitem_from_config(name, cfg, parent_key, item_class)
+        item = super()._create_subitem_from_config(
+            name, cfg, parent_key, item_class, item_obj
+        )
 
         if item is None:
             if parent_key in ["fakeitems", "subsection"]:

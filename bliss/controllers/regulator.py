@@ -106,7 +106,9 @@ class Controller(BlissController):
         item_classes = {"inputs": "Input", "outputs": "Output", "ctrl_loops": "Loop"}
         return item_classes[parent_key]
 
-    def _create_subitem_from_config(self, name, cfg, parent_key, item_class):
+    def _create_subitem_from_config(
+        self, name, cfg, parent_key, item_class, item_obj=None
+    ):
         item = item_class(self, cfg)
         # --- For custom attributes and commands.
         set_custom_members(self, item, self.init_obj)  # really needed ???????

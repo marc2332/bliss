@@ -5,6 +5,7 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+from os import name
 import numpy
 import functools
 from gevent import lock
@@ -61,7 +62,14 @@ class Controller(BlissController):
     Motor controller base class
     """
 
-    def __init__(self, config):
+    def __init__(self, *args, **kwargs):  # config
+
+        if len(args) == 1:
+            config = args[0]
+        else:
+            # handle old signature: args = [ name, config, axes, encoders, shutters, switches ]
+            config = args[1]
+
         super().__init__(config)
 
         self.__motor_config = MotorConfig(config)
@@ -125,12 +133,13 @@ class Controller(BlissController):
             return "Switch"
 
     @check_disabled
-    def _create_subitem_from_config(self, name, cfg, parent_key, item_class):
+    def _create_subitem_from_config(
+        self, name, cfg, parent_key, item_class, item_obj=None
+    ):
 
         if parent_key == "axes":
-            if item_class is None:  # it is a reference and name is the object
-                axis = name
-                name = axis.name
+            if item_class is None:  # it is a reference
+                axis = item_obj
             else:
                 axis = item_class(name, self, cfg)
 

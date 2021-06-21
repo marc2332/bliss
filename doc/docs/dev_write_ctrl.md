@@ -189,19 +189,19 @@ To be able to decide which instance should be created, the method receives 4 arg
 - `cfg`: subitem config
 - `parent_key`: name of the subsection where the item was found (in controller's config)
 - `item_class`: class for the subitem (see [BlissController and sub-items](dev_write_ctrl.md#BlissController-and-subitems) ).
-If `None` then the subitem is a reference and the object exist already and is contained in `name`.
+- `item_obj`: the object instance for item as a reference (None if not a reference)
+If `item_class` is `None` then the subitem is a reference and the object exist already and is contained in `item_obj`.
   
 
 Examples:
 
 ```python
 @check_disabled
-def _create_subitem_from_config(self, name, cfg, parent_key, item_class):
+def _create_subitem_from_config(self, name, cfg, parent_key, item_class, item_obj=None):
 
     if parent_key == "axes":
-        if item_class is None:  # it is a reference and name is the object
-            axis = name
-            name = axis.name
+        if item_class is None:  # it is a reference
+            axis = item_obj
         else:
             axis = item_class(name, self, cfg)
 
@@ -239,7 +239,7 @@ or
 
 ```python
 
-def _create_subitem_from_config(self, name, cfg, parent_key, item_class):
+def _create_subitem_from_config(self, name, cfg, parent_key, item_class, item_obj=None):
     if parent_key == "counters":
         name = cfg["name"]
         tag = cfg["tag"]
@@ -268,9 +268,8 @@ def _create_subitem_from_config(self, name, cfg, parent_key, item_class):
         return item_class(cfg)
 
     elif parent_key == "axes":
-        if item_class is None:  # mean it is a referenced axis (i.e external axis)
-            axis = name  # the axis instance
-            name = axis.name  # the axis name
+        if item_class is None:  # it is a referenced axis (i.e external axis)
+            axis = item_obj  # the axis instance
             tag = cfg[
                 "tag"
             ]  # ask for a tag which only concerns this ctrl (local tag)

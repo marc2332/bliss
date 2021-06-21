@@ -1025,6 +1025,10 @@ class Config(metaclass=Singleton):
             module_name = config_node.plugin
             if module_name is None:
                 module_name = "default"
+
+            if module_name in ["emotion", "regulation", "diffractometer"]:
+                module_name = "bliss_controller"
+
             m = __import__("bliss.config.plugins.%s" % (module_name), fromlist=[None])
             if hasattr(m, "create_object_from_cache"):
                 cache_object = self._name2cache.pop(

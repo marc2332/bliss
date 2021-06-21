@@ -227,10 +227,15 @@ class BlissController(CounterContainer):
 
         if isinstance(cfg_name, str):
             item_class = self.__find_item_class(cfg, pkey)
+            item_obj = None
         else:  # its a referenced object (cfg_name contains the object instance)
             item_class = None
+            item_obj = cfg_name
+            cfg_name = item_obj.name
 
-        item = self._create_subitem_from_config(cfg_name, cfg, pkey, item_class)
+        item = self._create_subitem_from_config(
+            cfg_name, cfg, pkey, item_class, item_obj
+        )
         if item is None:
             msg = f"\nUnable to obtain item {cfg_name} from {self.name} with:\n"
             msg += f"  class: {item_class}\n"
@@ -392,16 +397,19 @@ class BlissController(CounterContainer):
 
         raise NotImplementedError
 
-    def _create_subitem_from_config(self, name, cfg, parent_key, item_class):
+    def _create_subitem_from_config(
+        self, name, cfg, parent_key, item_class, item_obj=None
+    ):
         # Called when a new subitem is created (i.e accessed for the first time via self._get_subitem)
         """ 
             Return the instance of a new item owned by this controller.
 
             args:
-                name: item name  (or instance of a referenced object if item_class is None)
+                name: item name
                 cfg : item config
                 parent_key: the config key under which the item was found (ex: 'counters').
-                item_class: a class to instantiate the item (=None for referenced item)
+                item_class: a class to instantiate the item (None if item is a reference)
+                item_obj: the item instance (None if item is NOT a reference)
 
             return: item instance
                 

@@ -128,9 +128,9 @@ def test_broken_controller_init(default_session):
 
         # === now config._name2instance is still empty because _controller_init() has failed and roby was not instanciated
         # === config._name2cache is also empty because cacheditems have been removed when _controller_init() has failed
-        print("=== match=FAILED TO INITIALIZE")
-        print("=== name2instance:", list(config._name2instance.keys()))
-        print("=== name2cache:", list(config._name2cache.keys()))
+        # print("=== match=FAILED TO INITIALIZE")
+        # print("=== name2instance:", list(config._name2instance.keys()))
+        # print("=== name2cache:", list(config._name2cache.keys()))
         assert list(config._name2instance.keys()) == []
         assert list(config._name2cache.keys()) == []
 
@@ -142,9 +142,9 @@ def test_broken_controller_init(default_session):
 
         # === now config._name2instance is still empty because _controller_init() has failed and roby was not instanciated
         # === config._name2cache is also empty because cacheditems have been removed when _controller_init() has failed
-        print("=== match=FAILED TO INITIALIZE")
-        print("=== name2instance:", list(config._name2instance.keys()))
-        print("=== name2cache:", list(config._name2cache.keys()))
+        # print("=== match=FAILED TO INITIALIZE")
+        # print("=== name2instance:", list(config._name2instance.keys()))
+        # print("=== name2cache:", list(config._name2cache.keys()))
         assert list(config._name2instance.keys()) == []
         assert list(config._name2cache.keys()) == []
 
@@ -161,10 +161,10 @@ def test_broken_controller_init(default_session):
         assert (
             roby.controller._disabled == False
         )  # not yet disabled because of lasy hardware init
-        print("=== assert roby True")
-        print("=== name2instance:", list(config._name2instance.keys()))
-        print("=== name2cache:", list(config._name2cache.keys()))
-        assert "roby" in list(config._name2instance.keys())
+        # print("=== assert roby True")
+        # print("=== name2instance:", list(config._name2instance.keys()))
+        # print("=== name2cache:", list(config._name2cache.keys()))
+        # assert "roby" in list(config._name2instance.keys())
         assert "roby" not in list(
             config._name2cache.keys()
         )  # roby has been has been initialized and the removed from config cached items

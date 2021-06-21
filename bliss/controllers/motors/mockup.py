@@ -72,8 +72,8 @@ class MockupAxis(Axis):
 
 
 class Mockup(Controller):
-    def __init__(self, config):
-        super().__init__(config)
+    def __init__(self, *args, **kwargs):  # config
+        super().__init__(*args, **kwargs)
 
         self._axis_moves = {}
         self.__encoders = {}
@@ -89,14 +89,16 @@ class Mockup(Controller):
 
         self._hw_state.create_state("PARKED", "mot au parking")
 
-    def _create_subitem_from_config(self, name, cfg, parent_key, item_class):
+    def _create_subitem_from_config(
+        self, name, cfg, parent_key, item_class, item_obj=None
+    ):
         if parent_key == "switches":
             switch = item_class(name, self, cfg)
             self._switches[name] = switch
             return switch
         else:
             return super()._create_subitem_from_config(
-                name, cfg, parent_key, item_class
+                name, cfg, parent_key, item_class, item_obj
             )
 
     def steps_position_precision(self, axis):

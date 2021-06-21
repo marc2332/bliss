@@ -7,9 +7,7 @@
 
 from __future__ import absolute_import
 
-import os
 import sys
-import operator
 import functools
 
 import numpy
@@ -22,7 +20,6 @@ else:
     xpc = None
     ffi = None
 
-from ._cffi import xpc, ffi
 
 DEFAULT_SPEEDGOAT_PORT = 22222
 

@@ -8,10 +8,20 @@
 from __future__ import absolute_import
 
 import os
+import sys
 import operator
 import functools
 
 import numpy
+
+if sys.platform == "win32":
+    # Import only on Windows (server-side) to avoid
+    # loading of .dll
+    from ._cffi import xpc, ffi
+else:
+    xpc = None
+    ffi = None
+
 from ._cffi import xpc, ffi
 
 DEFAULT_SPEEDGOAT_PORT = 22222

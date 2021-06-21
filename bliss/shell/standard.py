@@ -934,7 +934,7 @@ def __umove(*args, **kwargs):
         row_len = len(first_row)
         print(first_row.rjust(row_len + 5))
         print("")
-        magic_char = "\033[F"
+        magic_char = "\033[F"  # "back to previous line" character
 
         def format_group(group):
             positions = group.position_with_reals

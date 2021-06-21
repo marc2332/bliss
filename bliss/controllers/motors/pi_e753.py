@@ -11,10 +11,11 @@ from bliss.controllers.motor import Controller
 from bliss.common.utils import object_attribute_get, object_attribute_set, object_method
 from bliss.common.axis import AxisState
 from bliss.common import axis as axis_module
-from bliss.common.logtools import log_debug, log_info
+from bliss.common.logtools import log_debug, log_error, log_info
+
+import gevent
 
 from . import pi_gcs
-import gevent.lock
 
 
 """
@@ -35,16 +36,24 @@ responses to them are).
 
 
 class PI_E753(pi_gcs.Communication, pi_gcs.Recorder, Controller):
+    """
+    Bliss controller for ethernet PI E753 / E754  piezo controllers.
+    """
+
     def __init__(self, *args, **kwargs):
         pi_gcs.Communication.__init__(self)
         pi_gcs.Recorder.__init__(self)
         Controller.__init__(self, *args, **kwargs)
 
+        self.model = None
+
     # Init of controller.
     def initialize(self):
         """
         Controller intialization.
-        * 
+        Called at session startup.
+        Called Only once per controller even if more than
+        one axis is declared in config.
         """
         self.com_initialize()
 
@@ -87,7 +96,9 @@ class PI_E753(pi_gcs.Communication, pi_gcs.Recorder, Controller):
     def set_off(self, axis):
         pass
 
-    """ Position """
+    """
+    POSITION
+    """
 
     def read_position(self, axis):
         _ans = self._get_target_pos(axis)
@@ -97,12 +108,12 @@ class PI_E753(pi_gcs.Communication, pi_gcs.Recorder, Controller):
     def read_encoder(self, encoder):
         _ans = self._get_pos()
 
-        # log_info(self, "read encodeer")
-        # log_warning(self, "read encod")
         log_debug(self, "read_position measured = %f" % _ans)
         return _ans
 
-    """ VELOCITY """
+    """
+    VELOCITY
+    """
 
     def read_velocity(self, axis):
         return self._get_velocity(axis)
@@ -116,7 +127,9 @@ class PI_E753(pi_gcs.Communication, pi_gcs.Recorder, Controller):
 
         return self.read_velocity(axis)
 
-    """ STATE """
+    """
+    STATE
+    """
 
     def state(self, axis):
         # check if WAV motion is active  #9
@@ -135,7 +148,9 @@ class PI_E753(pi_gcs.Communication, pi_gcs.Recorder, Controller):
     def check_ready_to_move(self, axis, state):
         return True  # Can always move
 
-    """ MOVEMENTS """
+    """
+    MOVEMENTS
+    """
 
     def prepare_move(self, motion):
         pass
@@ -160,7 +175,7 @@ class PI_E753(pi_gcs.Communication, pi_gcs.Recorder, Controller):
     def stop(self, axis):
         """
         * STP -> stop asap
-        * 24    -> stop asap
+        * 24  -> stop asap
         * to check : copy of current position into target position ???
         * NB: 'HLT' command does not exist for pi e-753
         """
@@ -200,6 +215,10 @@ class PI_E753(pi_gcs.Communication, pi_gcs.Recorder, Controller):
         """
         return float(self.command("POS? 1"))
 
+    """
+    CLOSED LOOP
+    """
+
     def _get_target_pos(self, axis):
         """
         Return last target position (MOV?/SVA?/VOL? command) (setpoint value).
@@ -220,8 +239,6 @@ class PI_E753(pi_gcs.Communication, pi_gcs.Recorder, Controller):
             return False
         else:
             return -1
-
-    """ CLOSED LOOP"""
 
     def _get_closed_loop_status(self, axis):
         _status = self.command("SVO? 1")
@@ -274,7 +291,8 @@ class PI_E753(pi_gcs.Communication, pi_gcs.Recorder, Controller):
         return self.command("*IDN?")
 
     def get_axis_info(self, axis):
-        """Return Controller specific info about <axis>
+        """
+        Return Controller specific info about <axis>
         """
         info_str = "PI AXIS INFO:\n"
         info_str += f"     voltage (SVA) = {self.get_voltage(axis)}\n"

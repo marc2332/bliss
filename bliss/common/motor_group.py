@@ -126,6 +126,9 @@ class _Group(object):
 
     @property
     def position_with_reals(self):
+        """
+        ???
+        """
         return self._dial_or_position("position", with_reals=True)
 
     @property
@@ -133,6 +136,9 @@ class _Group(object):
         return self._dial_or_position("dial", with_reals=True)
 
     def _dial_or_position(self, attr, with_reals=False):
+        """
+        ???
+        """
         positions_dict = dict()
 
         if with_reals:

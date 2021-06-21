@@ -6,13 +6,13 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """
-PI E-51x: E-517 E-518 piezo controllers hardware test.
+PI E-727 piezo controller hardware test.
 
 Run with:
     $ pytest --axis-name <axis-name> --axis-name2 <axis-name2>
-             --axis-name3 <axis-name3> ..../test_PI_E517.py
+             --axis-name3 <axis-name3> ..../test_PI_E727.py
 
-  ex : pytest --axis-name pb2 --axis-name2 pt2 --axis-name3 pcam tests/controllers_hw/test_PI_E517.py
+  ex : pytest --axis-name pb2 --axis-name2 pt2 --axis-name3 pcam tests/controllers_hw/test_PI_E727.py
 
 """
 import time
@@ -102,7 +102,7 @@ def test_hw_read_values(axis):
         cl_st = axis.get_closed_loop()
         model = axis.get_model()
 
-        #        ans = axis.controller.command("SPA? 1 0x07000000")
+        #        ans = axis.controller.command("SPA? 1 0x7000000")
         ans = axis.controller.command("*IDN?")
 
         # Voltage Low Limit
@@ -110,7 +110,7 @@ def test_hw_read_values(axis):
         # Voltage High Limit
         #        ans = axis.controller.get_voltage_high_limit(axis)
 
-        pos2 = axis.controller._get_pos()
+        pos2 = axis.controller._get_pos(axis)
 
         axis_id = axis.controller.get_id(axis)
         axis_info = axis.controller.get_axis_info(axis)

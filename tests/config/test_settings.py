@@ -579,31 +579,28 @@ def test_wardrobe_get_current_instance(session):
 
 def test_creation_time(session):
     drinks = settings.ParametersWardrobe("drinks")
+
+    # an empty Wardrobe has only creation/access info
+    assert len(drinks.to_dict(export_properties=True)) == 3
+
     assert "wine" not in drinks.instances
     drinks.switch("wine")
     # get current time
     now = datetime.datetime.now()
+
     # convert string to datetime obj
     creation_date = datetime.datetime.strptime(
         drinks.creation_date, "%Y-%m-%d %H:%M:%S"
     )
-    assert abs(now - creation_date) < datetime.timedelta(seconds=60)
+    assert abs(now - creation_date) < datetime.timedelta(seconds=1)
     last_accessed = datetime.datetime.strptime(
         drinks.last_accessed, "%Y-%m-%d %H:%M:%S"
     )
-    assert abs(now - last_accessed) < datetime.timedelta(seconds=60)
+    assert abs(now - last_accessed) < datetime.timedelta(seconds=2)
 
-
-def test_creation_time2(session):
-    # an empty Wardrobe has only creation/access info
-    food = settings.ParametersWardrobe("food")
-    assert len(food.to_dict(export_properties=True)) == 3
-
-    food.switch("first")
-    food.switch("default")
     gevent.sleep(1)
-    food.creation_date  # access it => will change 'last_accessed'
-    assert food.last_accessed != str(food.creation_date)
+    drinks.creation_date  # access it => will change 'last_accessed'
+    assert drinks.last_accessed != str(drinks.creation_date)
 
 
 def test_from_dict_ok(session):

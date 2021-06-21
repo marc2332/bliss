@@ -63,7 +63,8 @@ def mockup_regulation(loop):
     assert x.is_ramping() is True
     gevent.sleep(0.1)
     assert x.is_ramping() is True
-    with gevent.Timeout(2.0):
+    with gevent.Timeout(3.0):
+        # Takes approx. 1 seconds
         while x.is_ramping():
             gevent.sleep(0.01)
     assert x.setpoint == sp
@@ -94,7 +95,8 @@ def mockup_regulation(loop):
     sp = x.input.read() + 0.1
     x.axis_move(sp)
 
-    with gevent.Timeout(5.0):
+    with gevent.Timeout(10.0):
+        # Takes approx. 5 seconds
         while x.axis_state() != "READY":
             gevent.sleep(0.01)
 

@@ -37,7 +37,7 @@ def create_objects_from_config_node(cfg_obj, cfg_node):
     # always create the bliss controller first
     bctrl = klass(ctrl_node)
 
-    print(f"\n=== From config: {item_name} from {bctrl.name}")
+    # print(f"\n=== From config: {item_name} from {bctrl.name}")
 
     if isinstance(bctrl, BlissController):
 
@@ -83,7 +83,7 @@ def create_objects_from_config_node(cfg_obj, cfg_node):
 
 
 def create_object_from_cache(config, name, bctrl):
-    print(f"\n=== From cache: {name} from {bctrl.name}")
+    # print(f"\n=== From cache: {name} from {bctrl.name}")
 
     try:
         return bctrl._get_subitem(name)

@@ -7,17 +7,18 @@ class Moco(Controller):
     bliss.controllers.motor.Controller
     """
 
-    def __init__(self, name, config, axes, *args):
+    def _load_config(self):
 
-        if len(axes) > 1:
+        super()._load_config()
+
+        axnum = len(self.config.get("axes"))
+        if axnum > 1:
             raise RuntimeError(
-                f"moco: only 1 motor is allowed, but {len(axes)} are configured."
+                f"moco: only 1 motor is allowed, but {axnum} are configured."
             )
 
-        self.moco = config.get("moco")
-
-        super().__init__(self.moco.name + "_motor", config, axes, *args)
-
+        self.moco = self.config.get("moco")
+        self._name = self.moco.name + "_motor"
         self.moco.motor = self
 
     def initialize(self):

@@ -23,13 +23,11 @@ computer.
 
 
 class TangoEMot(Controller):
-    def __init__(self, *args, **kwargs):
-        Controller.__init__(self, *args, **kwargs)
+    def _load_config(self):
+        super()._load_config()
 
         # Gets DS name from xml config.
         self.ds_name = self.config.get("ds_name")
-
-        # tests if DS is responding.
 
     def initialize(self):
         pass

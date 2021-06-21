@@ -39,27 +39,17 @@ _log = logging.getLogger("bliss.controllers.motors.spec")
 
 
 class Spec(Controller):
-    def __init__(self, name, config, axes, *args, **kwargs):
-        new_axes = {}
+    def _load_config(self):
+        super()._load_config()
+        for ax_cfg in self.config.get("axes", []):
+            if ax_cfg.get("steps_per_unit") != 1:
+                raise ValueError(f"steps_per_unit must be defined and equal to 1")
 
-        # _log.warning(f"axes[{axes}]")
-
-        for axis_name, axis_cfg in axes.items():
-            axis_cfg = list(axis_cfg)
-
-            # change class name for axes created by this controller
-            # to NoSettingsAxis: no settings will be stored in redis,
-            # thus forcing to ask spec every time (no cache)
-            axis_cfg[0] = NoSettingsAxis
-
-            # make sure steps per unit is 1, to avoid conversions
-            # between spec units and Bliss units
-            assert (
-                axis_cfg[1].get("steps_per_unit", int) == 1
-            ), "steps_per_unit must be defined and equal to 1"
-            new_axes[axis_name] = axis_cfg
-
-        Controller.__init__(self, name, config, new_axes, *args, **kwargs)
+    def _get_subitem_default_class_name(self, cfg, parent_key):
+        if parent_key == "axes":
+            return "NoSettingsAxis"
+        else:
+            return super()._get_subitem_default_class_name(cfg, parent_key)
 
     def initialize(self):
         self.connection = SpecConnection(self.config.get("spec"))

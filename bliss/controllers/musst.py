@@ -13,9 +13,10 @@ import functools
 import numpy
 import gevent
 
+from itertools import chain
+
 from bliss import global_map
 from bliss.comm import get_comm
-from bliss.common.protocols import CounterContainer
 from bliss.common.utils import autocomplete_property
 from bliss.common.greenlet_utils import KillMask, protect_from_kill
 from bliss.config.channels import Cache
@@ -25,6 +26,7 @@ from bliss.controllers.counter import CounterController
 from bliss.scanning.acquisition.musst import MusstDefaultAcquisitionMaster
 from bliss.common.counter import Counter, SamplingCounter
 from bliss.controllers.counter import SamplingCounterController, counter_namespace
+from bliss.controllers.bliss_controller import BlissController
 
 
 def _get_simple_property(command_name, doc_sring):
@@ -67,34 +69,31 @@ def _reset_cmd():
 def lazy_init(func):
     @functools.wraps(func)
     def f(self, *args, **kwargs):
-        self._init()
+        if self._channels is None:
+            self._channels_init(self.config)
         return func(self, *args, **kwargs)
 
     return f
 
 
 class MusstSamplingCounter(SamplingCounter):
-    def __init__(self, name, channel, convert, controller):
-        SamplingCounter.__init__(self, name, controller)
+    def __init__(self, name, channel, convert, controller, **kwargs):
+        SamplingCounter.__init__(self, name, controller, **kwargs)
         self.channel = channel
         self.convert = convert
 
 
 class MusstIntegratingCounter(Counter):
-    def __init__(self, name, channel, convert, controller):
-        super().__init__(name, controller)
+    def __init__(self, name, channel, convert, controller, **kwargs):
+        super().__init__(name, controller, **kwargs)
         self.channel = channel
         self.convert = convert
-        # Hack to not references counters
-        self._counters = weakref.WeakValueDictionary()
 
 
 class MusstSamplingCounterController(SamplingCounterController):
     def __init__(self, musst):
         super().__init__(musst.name, register_counters=False)
         self.musst_ctrl = musst
-        # Hack to not references counters
-        self._counters = weakref.WeakValueDictionary()
         # High frequency acquisition loop
         self.max_sampling_frequency = None
 
@@ -119,7 +118,7 @@ class MusstIntegratingCounterController(CounterController):
         return {"count_time": acq_params.get("count_time", scan_params["count_time"])}
 
 
-class musst(CounterContainer):
+class musst(BlissController):
     class channel(object):
         COUNTER, ENCODER, SSI, ADC10, ADC5, SWITCH = list(range(6))
 
@@ -296,11 +295,10 @@ class musst(CounterContainer):
     # FREQUENCY TIMEBASE
     F_1KHZ, F_10KHZ, F_100KHZ, F_1MHZ, F_10MHZ, F_50MHZ = list(range(6))
 
-    def __init__(self, name, config_tree):
+    def __init__(self, config):
         """Base Musst controller.
 
-        name             -- the controller's name
-        config_tree      -- controller configuration, in this dictionary we need to have:
+        config           -- controller configuration
           url            -- url of the gpib controller i.s:enet://gpib0.esrf.fr
           pad            -- primary address of the musst controller
           timeout        -- communication timeout in seconds, default is 1s
@@ -315,19 +313,7 @@ class musst(CounterContainer):
           name:               -- use to reference an external switch
         """
 
-        gpib = config_tree.get("gpib")
-        comm_opts = dict()
-        if gpib:
-            gpib["eol"] = ""
-            comm_opts["timeout"] = 5
-            self._txterm = b""
-            self._rxterm = b"\n"
-            self._binary_data_read = True
-        else:
-            self._txterm = b"\r"
-            self._rxterm = b"\r\n"
-            self._binary_data_read = False
-        self._cnx = get_comm(config_tree, **comm_opts)
+        super().__init__(config)
 
         self._string2state = {
             "NOPROG": self.NOPROG_STATE,
@@ -353,42 +339,52 @@ class musst(CounterContainer):
             "10MHZ": self.F_10MHZ,
             "50MHZ": self.F_50MHZ,
         }
-        self.name = name
-        self.__last_md5 = Cache(self, "last__md5")
-        self.__event_buffer_size = Cache(self, "event_buffer_size")
-        self.__prg_root = config_tree.get("musst_prg_root")
-        self.__block_size = config_tree.get("block_size", 8 * 1024)
-        self.__one_line_programing = config_tree.get(
-            "one_line_programing", "serial_url" in config_tree
-        )
-
-        self.sampling_counters = MusstSamplingCounterController(self)
-        self.integrating_counters = MusstIntegratingCounterController(self)
-
-        max_freq = config_tree.get("max_sampling_frequency")
-        self.sampling_counters.max_sampling_frequency = max_freq
 
         self._channels = None
         self._timer_factor = None
-        self._counters = []
 
-        # this function will be used by lazy_init
-        def init():
-            if self._channels is None:
-                self._channels_init(config_tree)
-
-        self._init = init
         self._last_run = time.time()
         global_map.register(self, parents_list=["counters"])
 
-    def __getattr__(self, name):
-        return getattr(self.integrating_counters, name)
+    def _load_config(self):
+        gpib = self.config.get("gpib")
+        comm_opts = dict()
+        if gpib:
+            gpib["eol"] = ""
+            comm_opts["timeout"] = 5
+            self._txterm = b""
+            self._rxterm = b"\n"
+            self._binary_data_read = True
+        else:
+            self._txterm = b"\r"
+            self._rxterm = b"\r\n"
+            self._binary_data_read = False
 
-    def _channels_init(self, config_tree):
+        self._cnx = get_comm(self.config, **comm_opts)
+
+        self.__last_md5 = Cache(self, "last__md5")
+        self.__event_buffer_size = Cache(self, "event_buffer_size")
+        self.__prg_root = self.config.get("musst_prg_root")
+        self.__block_size = self.config.get("block_size", 8 * 1024)
+        self.__one_line_programing = self.config.get(
+            "one_line_programing", "serial_url" in self.config
+        )
+
+        self._counter_controllers = {}
+        self._counter_controllers["scc"] = MusstSamplingCounterController(self)
+        self._counter_controllers["icc"] = MusstIntegratingCounterController(self)
+
+        max_freq = self.config.get("max_sampling_frequency")
+        self._counter_controllers["scc"].max_sampling_frequency = max_freq
+
+    def _get_default_chain_counter_controller(self):
+        return self._counter_controllers["icc"]
+
+    def _channels_init(self, config):
         """ Handle configured channels """
 
         self._channels = dict()
-        channels_list = config_tree.get("channels", list())
+        channels_list = config.get("channels", list())
         for channel_config in channels_list:
             channel_number = channel_config.get("channel")
             channel = None
@@ -460,20 +456,20 @@ class musst(CounterContainer):
 
                     else:
                         convert = channel._convert
+
                 if channel_type == self.channel.COUNTER:
-                    self._counters.append(
-                        MusstIntegratingCounter(
-                            cnt_name, cnt_channel, convert, self.integrating_counters
-                        )
+                    self._counter_controllers["icc"].create_counter(
+                        MusstIntegratingCounter, cnt_name, cnt_channel, convert
                     )
                 else:
-                    cnt = MusstSamplingCounter(
-                        cnt_name, cnt_channel, convert, self.sampling_counters
+                    cnt_mode = channel_config.get("counter_mode", "MEAN")
+                    self._counter_controllers["scc"].create_counter(
+                        MusstIntegratingCounter,
+                        cnt_name,
+                        cnt_channel,
+                        convert,
+                        mode=cnt_mode,
                     )
-                    cnt_mode = channel_config.get("counter_mode")
-                    if cnt_mode:
-                        cnt.mode = cnt_mode
-                    self._counters.append(cnt)
 
     @lazy_init
     def __info__(self):
@@ -878,12 +874,11 @@ class musst(CounterContainer):
     @autocomplete_property
     @lazy_init
     def counters(self):
-        return counter_namespace(self._counters)
+        cnts = [ctrl.counters for ctrl in self._counter_controllers.values()]
+        return counter_namespace(chain(*cnts))
 
 
 # Musst switch
-
-
 class Switch(BaseSwitch):
     """
     This class wrapped musst command to emulate a switch.

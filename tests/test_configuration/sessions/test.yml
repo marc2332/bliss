@@ -7,12 +7,6 @@
   - m2
 
 - class: Session
-  name: empty
-  setup-file: ./test_setup.py
-  icat-mapping: icat
-  config-objects: []
-
-- class: Session
   name: test_session
   setup-file: ./test_setup.py
   icat-mapping: icat

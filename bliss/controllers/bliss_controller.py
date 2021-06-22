@@ -369,6 +369,10 @@ class BlissController(CounterContainer):
         """ return the low level hardware controller interface """
         raise NotImplementedError
 
+    def _get_default_chain_counter_controller(self):
+        """ return the counter controller that shoud be used with the DefaultAcquisitionChain (i.e for standard step by step scans) """
+        raise NotImplementedError
+
     def _get_subitem_default_class_name(self, cfg, parent_key):
         # Called when the class key cannot be found in the item_config.
         # Then a default class must be returned. The choice of the item_class is usually made from the parent_key value.

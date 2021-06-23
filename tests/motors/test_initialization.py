@@ -157,9 +157,9 @@ def test_broken_controller_init(default_session):
         # === and roby will be initialized too (because with the lazy init faulty hardware is not seen yet)
         roby = default_session.config.get("roby")
         assert roby
-        assert roby._disabled == False  # not yet disabled because of lasy hardware init
+        assert roby._disabled is False  # not yet disabled because of lasy hardware init
         assert (
-            roby.controller._disabled == False
+            roby.controller._disabled is False
         )  # not yet disabled because of lasy hardware init
         # print("=== assert roby True")
         # print("=== name2instance:", list(config._name2instance.keys()))
@@ -174,8 +174,8 @@ def test_broken_controller_init(default_session):
         with pytest.raises(RuntimeError, match="FAILED TO INITIALIZE"):
             roby.position  # will call initialize_hardware => will fail
         # axis roby and controller are now disabled
-        assert roby._disabled == True
-        assert roby.controller._disabled == True
+        assert roby._disabled is True
+        assert roby.controller._disabled is True
 
     # roby and robu are on the same controller ;
     # controller is disabled because hardware init has failed
@@ -191,22 +191,22 @@ def test_broken_controller_init(default_session):
     with pytest.raises(RuntimeError, match="Axis roby is disabled"):
         # axis is already disabled
         roby.position
-    assert roby._disabled == True
-    assert roby.controller._disabled == True
+    assert roby._disabled is True
+    assert roby.controller._disabled is True
 
     with pytest.raises(RuntimeError, match="Controller is disabled"):
         roby.enable()
-    assert roby._disabled == True
-    assert roby.controller._disabled == True
+    assert roby._disabled is True
+    assert roby.controller._disabled is True
 
     # === call _init() to re-enable the controller
     roby.controller._init()
-    assert roby.controller._disabled == False
+    assert roby.controller._disabled is False
     roby2 = default_session.config.get("roby")
     assert roby is roby2
 
     roby.enable()
-    assert roby._disabled == False
+    assert roby._disabled is False
 
     roby.position
 

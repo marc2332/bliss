@@ -7,23 +7,19 @@
 
 from time import perf_counter, sleep
 from itertools import chain
-from collections import ChainMap
 from gevent import event, sleep as gsleep
 
 from bliss import global_map
-from bliss.common.counter import (
-    SamplingCounter
-)  # make it available at ctrl level for plugin and tests
+from bliss.common.counter import SamplingCounter
 from bliss.common.protocols import counter_namespace, IterableNamespace
 from bliss.common.utils import autocomplete_property
 from bliss.comm.util import get_comm
 from bliss.controllers.counter import CounterController, SamplingCounterController
 from bliss.scanning.acquisition.counter import BaseCounterAcquisitionSlave
 
-from bliss.common.logtools import log_info, log_debug, log_debug_data, log_warning
+from bliss.common.logtools import log_info
 
-from bliss.controllers.bliss_controller import BlissController, from_config_dict
-from bliss.controllers.motors.mockup import Mockup, calc_motor_mockup
+from bliss.controllers.bliss_controller import BlissController
 
 
 class HardwareController:
@@ -128,7 +124,6 @@ class BCMockup(BlissController):
             tag = cfg["tag"]
             mode = cfg.get("mode")
             unit = cfg.get("unit")
-            convfunc = cfg.get("convfunc")
 
             if self._COUNTER_TAGS[tag][1] == "scc":
                 cnt = self._counter_controllers["scc"].create_counter(
@@ -208,6 +203,10 @@ class BCMockup(BlissController):
         if self._calc_mot is None:
             self._calc_mot = self.config.get("calc_controller")
         return self._calc_mot
+
+
+class CustomSamplingCounter(SamplingCounter):
+    pass
 
 
 class BCSCC(SamplingCounterController):

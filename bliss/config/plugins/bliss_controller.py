@@ -5,7 +5,6 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from unittest.mock import Base
 from bliss.config.plugins.utils import find_top_class_and_node
 from bliss.controllers.bliss_controller import BlissController
 

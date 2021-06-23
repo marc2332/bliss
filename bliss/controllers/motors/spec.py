@@ -43,7 +43,7 @@ class Spec(Controller):
         super()._load_config()
         for ax_cfg in self.config.get("axes", []):
             if ax_cfg.get("steps_per_unit") != 1:
-                raise ValueError(f"steps_per_unit must be defined and equal to 1")
+                raise ValueError("steps_per_unit must be defined and equal to 1")
 
     def _get_subitem_default_class_name(self, cfg, parent_key):
         if parent_key == "axes":

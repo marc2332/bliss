@@ -62,7 +62,7 @@ def find_sub_names_config(config, selection=None, level=0, parent_key=None):
 
 def from_config_dict(ctrl_class, cfg_dict):
     """ Helper to instanciate a BlissController object from a configuration dictionary """
-    if not BlissController in ctrl_class.mro():
+    if BlissController not in ctrl_class.mro():
         raise TypeError(f"{ctrl_class} is not a BlissController class")
     bctrl = ctrl_class(cfg_dict)
     bctrl._controller_init()
@@ -241,7 +241,7 @@ class BlissController(CounterContainer):
             msg += f"  class: {item_class}\n"
             msg += f"  parent_key: '{pkey}'\n"
             msg += f"  config: {cfg}\n"
-            msg += f"Check item config is supported by this controller"
+            msg += "Check item config is supported by this controller"
             raise RuntimeError(msg)
 
         self._subitems[name] = item
@@ -267,7 +267,7 @@ class BlissController(CounterContainer):
                 msg = f"\nUnable to obtain default_class_name from {self.name} with:\n"
                 msg += f"  parent_key: '{pkey}'\n"
                 msg += f"  config: {cfg}\n"
-                msg += f"Check item config is supported by this controller\n"
+                msg += "Check item config is supported by this controller\n"
                 raise RuntimeError(msg)
 
         if "." in class_name:  # from absolute path
@@ -288,7 +288,7 @@ class BlissController(CounterContainer):
                     msg += f"  class_name: {class_name}\n"
                     msg += f"  parent_key: '{pkey}'\n"
                     msg += f"  config: {cfg}\n"
-                    msg += f"Check item config is supported by this controller\n"
+                    msg += "Check item config is supported by this controller\n"
                     raise RuntimeError(msg)
                 module = import_module(module_name)
                 if hasattr(module, class_name):

@@ -471,7 +471,7 @@ def test_default_chain_with_bad_device(default_session, lima_simulator):
         DEFAULT_CHAIN.set_settings(defch_settings)
         assert False  # it should have failed the line above
     except ValueError as exc:
-        assert "must be a CounterController or a Counter" in str(exc)
+        assert "must be a CounterController, a Counter or a BlissController" in str(exc)
     finally:
         DEFAULT_CHAIN.set_settings([])
 

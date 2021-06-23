@@ -347,20 +347,6 @@ class musst(BlissController):
         global_map.register(self, parents_list=["counters"])
 
     def _load_config(self):
-        gpib = self.config.get("gpib")
-        comm_opts = dict()
-        if gpib:
-            gpib["eol"] = ""
-            comm_opts["timeout"] = 5
-            self._txterm = b""
-            self._rxterm = b"\n"
-            self._binary_data_read = True
-        else:
-            self._txterm = b"\r"
-            self._rxterm = b"\r\n"
-            self._binary_data_read = False
-
-        self._cnx = get_comm(self.config, **comm_opts)
 
         self.__last_md5 = Cache(self, "last__md5")
         self.__event_buffer_size = Cache(self, "event_buffer_size")
@@ -376,6 +362,27 @@ class musst(BlissController):
 
         max_freq = self.config.get("max_sampling_frequency")
         self._counter_controllers["scc"].max_sampling_frequency = max_freq
+
+    def _init(self):
+        # Called by bliss_controller plugin (just after self._load_config)
+
+        """
+            Place holder for any action to perform after the configuration has been loaded.
+        """
+        gpib = self.config.get("gpib")
+        comm_opts = dict()
+        if gpib:
+            gpib["eol"] = ""
+            comm_opts["timeout"] = 5
+            self._txterm = b""
+            self._rxterm = b"\n"
+            self._binary_data_read = True
+        else:
+            self._txterm = b"\r"
+            self._rxterm = b"\r\n"
+            self._binary_data_read = False
+
+        self._cnx = get_comm(self.config, **comm_opts)
 
     def _get_default_chain_counter_controller(self):
         return self._counter_controllers["icc"]
@@ -491,7 +498,7 @@ class musst(BlissController):
                 else:
                     cnt_mode = channel_config.get("counter_mode", "MEAN")
                     self._counter_controllers["scc"].create_counter(
-                        MusstIntegratingCounter,
+                        MusstSamplingCounter,
                         cnt_name,
                         cnt_channel,
                         convert,
@@ -961,3 +968,81 @@ class Switch(BaseSwitch):
 
     def _states_list(self):
         return list(self.__states.keys())
+
+
+class MusstMock(musst):
+    class FakeCnx:
+        def __init__(self):
+            self._lock = gevent.lock.RLock()
+            self.last_cmd = None
+
+        def __info__(self):
+            return "fake connection to a musst card"
+
+        def open(self):
+            pass
+
+        def _readline(self, rxterm):
+            cmd = self.last_cmd
+            self.last_cmd = None
+            # print(cmd)
+            if cmd.startswith("?"):
+                if cmd.startswith("?TMRCFG"):
+                    return b"10KHZ"
+
+                elif cmd.startswith("?HSIZE"):
+                    return b"0 0"
+
+                elif cmd.startswith("?ESIZE"):
+                    return b"0 0"
+
+                elif cmd.startswith("?VAR"):
+                    return b"0"
+
+                elif cmd.startswith("?LIST ERR"):
+                    return b"".encode()
+
+                elif cmd.startswith("?EDAT"):
+                    return b"0 0 0 0 0 0 0 0 0 0 0"
+
+                elif cmd.startswith("?VAL"):
+                    return b"0 0 0 0 0 0 0 0 0 0 0"
+
+                elif cmd.startswith("?VER"):
+                    return b"fake card"
+
+                elif cmd.startswith("?CHCFG"):
+                    return b""
+
+                elif cmd.startswith("?CH"):
+                    h, v = cmd.split()
+                    ch = int(v[2:])
+                    return f"{ch} OK".encode()
+
+                else:
+                    return b"XX XX"
+            else:
+                return b"OK"
+
+        def _write(self, bcmd):
+            self.last_cmd = bcmd.decode().strip()
+
+        def raw_read(self):
+            return b""
+
+    def _init(self):
+
+        gpib = self.config.get("gpib")
+        comm_opts = dict()
+        if gpib:
+            gpib["eol"] = ""
+            comm_opts["timeout"] = 5
+            self._txterm = b""
+            self._rxterm = b"\n"
+            self._binary_data_read = True
+        else:
+            self._txterm = b"\r"
+            self._rxterm = b"\r\n"
+            self._binary_data_read = False
+
+        self._cnx = self.FakeCnx()

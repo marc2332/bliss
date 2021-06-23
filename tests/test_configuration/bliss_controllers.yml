@@ -82,6 +82,23 @@ mockup_controller:
     - name: bccalcmot # a calc axis
       tags: calc_mot
 
+
+- name: musst
+  class: MusstMock
+  module: musst
+  plugin: bliss_controller
+  channels:
+    - type: cnt
+      channel: timer
+      label: "lab_musst_timer"
+      counter_name: musst_timer  # declare a counter associated to that channel
+    - type: encoder              
+      channel: 1                 
+      label: "lab_enc_samy"      
+      counter_name: enc_samy     # declare a counter
+      counter_mode: SINGLE       # declare a mode for that counter
+
+
 foo1:
 
 - name: bcmock1

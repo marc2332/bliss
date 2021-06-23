@@ -373,8 +373,8 @@ def fast_and_monitor(motor,start,stop,npoints,count_time,*counters,
     #creation of musst master which will be trigger by the motor master
     musst_master = MusstAcquisitionMaster(setup_globals.musst,
                                           program="my_fast_scan_prog"
-                                          vars={"START_POS":int(start*motor.step_per_unit),
-                                                "STOP_POS":int(stop*motor.step_per_unit),
+                                          vars={"START_POS":int(start*motor.steps_per_unit),
+                                                "STOP_POS":int(stop*motor.steps_per_unit),
                                                 "NPOINTS":npoints})
     #Add them to the acquisition chain
     chain.add(fast_top_master,musst_master)

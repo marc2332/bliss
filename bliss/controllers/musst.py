@@ -380,6 +380,33 @@ class musst(BlissController):
     def _get_default_chain_counter_controller(self):
         return self._counter_controllers["icc"]
 
+    def _create_subitem_from_config(
+        self, name, cfg, parent_key, item_class, item_obj=None
+    ):
+        # Called when a new subitem is created (i.e accessed for the first time via self._get_subitem)
+        """ 
+            Return the instance of a new item owned by this controller.
+
+            args:
+                name: item name
+                cfg : item config
+                parent_key: the config key under which the item was found (ex: 'counters').
+                item_class: a class to instantiate the item (None if item is a reference)
+                item_obj: the item instance (None if item is NOT a reference)
+
+            return: item instance
+                
+        """
+
+        # currently the only subitem of the musst with a name in config
+        # would be a channel of type switch which is expected to be a reference
+        # so item_class should be None and item_obj should be the switch instance
+        if parent_key == "channels":
+            if cfg.get("type") == "switch":
+                return item_obj
+
+        raise NotImplementedError
+
     def _channels_init(self, config):
         """ Handle configured channels """
 

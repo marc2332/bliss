@@ -32,7 +32,7 @@ def SoftAxis(
         config["unit"] = unit
 
     controller = SoftController(name, obj, config, position, move, stop, state)
-    controller._controller_init()
+    controller._initialize_config()
 
     axis = controller.get_axis(name)
     axis._positioner = False

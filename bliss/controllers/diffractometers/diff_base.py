@@ -202,7 +202,7 @@ class Diffractometer(BlissController):
         pass
 
     def _init(self):
-        self._motor_calc._controller_init()
+        self._motor_calc._initialize_config()
         self.calc_controller = self._motor_calc
 
     def __info__(self):

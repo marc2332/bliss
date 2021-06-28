@@ -35,7 +35,7 @@ def test_motion_hook_init(beacon):
 
     cfg = {"axes": [config_node]}
     mockup_controller = Mockup(cfg)
-    mockup_controller._controller_init()
+    mockup_controller._initialize_config()
 
     test_mh = None
 

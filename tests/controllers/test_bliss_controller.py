@@ -82,7 +82,7 @@ def test_plugin_get_items_from_config(default_session):
     assert isinstance(fakeop1, Operator)
 
     # check that a subitem of a none-bliss_controller cannot be loaded
-    with pytest.raises(TypeError, match="is not a BlissController object"):
+    with pytest.raises(TypeError, match=" must be a ConfigItemContainer object"):
         default_session.config.get("not_allowed_item")
 
 

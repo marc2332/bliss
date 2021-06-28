@@ -122,26 +122,26 @@ def test_broken_controller_init(default_session):
     with mock.patch(
         "bliss.controllers.motors.mockup.Mockup.initialize", wraps=faulty_initialize
     ):
-        # === expecting failure during plugin.from_config => BlissController._controller_init()
+        # === expecting failure during plugin.from_config => BlissController._initialize_config()
         with pytest.raises(RuntimeError, match="FAILED TO INITIALIZE"):
             default_session.config.get("roby")
 
-        # === now config._name2instance is still empty because _controller_init() has failed and roby was not instanciated
-        # === config._name2cache is also empty because cacheditems have been removed when _controller_init() has failed
+        # === now config._name2instance is still empty because _initialize_config() has failed and roby was not instanciated
+        # === config._name2cache is also empty because cacheditems have been removed when _initialize_config() has failed
         # print("=== match=FAILED TO INITIALIZE")
         # print("=== name2instance:", list(config._name2instance.keys()))
         # print("=== name2cache:", list(config._name2cache.keys()))
         assert list(config._name2instance.keys()) == []
         assert list(config._name2cache.keys()) == []
 
-        # === expecting same failure during plugin.from_config => BlissController._controller_init()
+        # === expecting same failure during plugin.from_config => BlissController._initialize_config()
         with pytest.raises(
             RuntimeError, match="FAILED TO INITIALIZE"
         ):  # Controller is disabled
             default_session.config.get("roby")
 
-        # === now config._name2instance is still empty because _controller_init() has failed and roby was not instanciated
-        # === config._name2cache is also empty because cacheditems have been removed when _controller_init() has failed
+        # === now config._name2instance is still empty because _initialize_config() has failed and roby was not instanciated
+        # === config._name2cache is also empty because cacheditems have been removed when _initialize_config() has failed
         # print("=== match=FAILED TO INITIALIZE")
         # print("=== name2instance:", list(config._name2instance.keys()))
         # print("=== name2cache:", list(config._name2cache.keys()))

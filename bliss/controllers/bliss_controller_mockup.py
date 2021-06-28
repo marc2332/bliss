@@ -143,7 +143,7 @@ class BCMockup(BlissController):
             return cnt
 
         elif parent_key == "operators":
-            return item_class(cfg)
+            return item_class(name, cfg)
 
         elif parent_key == "axes":
             if item_class is None:  # mean it is a referenced axis (i.e external axis)
@@ -288,7 +288,7 @@ class FakeItem:
 
 
 class Operator:
-    def __init__(self, cfg):
+    def __init__(self, name, cfg):
         self.name = cfg["name"]
         self.tag = cfg.get("tag")
         self.factor = cfg["factor"]

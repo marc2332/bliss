@@ -1026,7 +1026,7 @@ class Config(metaclass=Singleton):
             if module_name is None:
                 module_name = "default"
 
-            if module_name in ["emotion", "regulation", "diffractometer"]:
+            if module_name in ["emotion", "regulation", "diffractometer"]:  # , "bliss"
                 module_name = "bliss_controller"
 
             m = __import__("bliss.config.plugins.%s" % (module_name), fromlist=[None])

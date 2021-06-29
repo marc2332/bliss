@@ -497,37 +497,44 @@ def create_objects_from_config_node(cfg_obj, cfg_node):
             f"Object with subitems in config must be a ConfigItemContainer object"
         )
 
-    else:  # act as the older Bliss plugin
+    # elif cfg_node.plugin == "bliss":  # act as the older Bliss plugin
 
-        klass, node = find_class_and_node(cfg_node)
+    #     klass, node = find_class_and_node(cfg_node)
 
-        if node.get("name") != item_name:
-            cfg_node = ConfigNode.indexed_nodes[item_name]
-        else:
-            cfg_node = node
+    #     if node.get("name") != item_name:
+    #         cfg_node = ConfigNode.indexed_nodes[item_name]
+    #     else:
+    #         cfg_node = node
 
-        o = klass(item_name, cfg_node.clone())
+    #     o = klass(item_name, cfg_node.clone())
 
-        for key, value in cfg_node.items():
-            if isinstance(cfg_node.raw_get(key), ConfigReference):
-                if hasattr(o, key):
-                    continue
-                else:
-                    setattr(o, key, value)
+    #     for key, value in cfg_node.items():
+    #         if isinstance(cfg_node.raw_get(key), ConfigReference):
+    #             if hasattr(o, key):
+    #                 continue
+    #             else:
+    #                 setattr(o, key, value)
 
-        yield {item_name: o}
-        return
+    #     yield {item_name: o}
+    #     return
 
     # else:
     #     bctrl = klass(ctrl_node)
-    #     # print(f"\n=== From config: {item_name} from {bctrl.name}")
-    #     if (
-    #         item_name == ctrl_name
-    #     ):  # allow instantiation of top object which is not a ConfigItemContainer
-    #         yield {ctrl_name: bctrl}
-    #         return
-    #     else:  # prevent instantiation of an item comming from a top object that is not a ConfigItemContainer
-    #         raise TypeError(f"{bctrl} is not a ConfigItemContainer object!")
+    #     yield {ctrl_name: bctrl}
+    #     return
+
+    else:
+        bctrl = klass(ctrl_node)
+        # print(f"\n=== From config: {item_name} from {bctrl.name}")
+        if (
+            item_name == ctrl_name
+        ):  # allow instantiation of top object which is not a ConfigItemContainer
+            yield {ctrl_name: bctrl}
+            return
+        else:  # prevent instantiation of an item comming from a top object that is not a ConfigItemContainer
+            raise TypeError(
+                "Object with subitems in config must be a ConfigItemContainer object"
+            )
 
 
 def create_object_from_cache(config, name, bctrl):

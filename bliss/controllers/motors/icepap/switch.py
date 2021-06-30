@@ -51,7 +51,7 @@ class Switch(BaseSwitch):
         include_rack = config.get("include-rack")
         if include_rack is None:  # All
             include_rack = set()
-            for axis_class, axis_config in self.__controller._axes_config.values():
+            for axis_config in self.__controller._axes_config.values():
                 address = axis_config.get("address", None)
                 if not isinstance(address, int):
                     continue
@@ -67,10 +67,7 @@ class Switch(BaseSwitch):
 
         managed_rack = include_rack - exclude_rack
         self.__addresses = dict()
-        for (
-            axis_name,
-            (axis_class, axis_config),
-        ) in self.__controller._axes_config.items():
+        for axis_name, axis_config in self.__controller._axes_config.items():
             address = axis_config.get("address", None)
             if not isinstance(address, int):
                 continue

@@ -171,6 +171,16 @@ class Controller(BlissController):
             self.__initialized_encoder[encoder] = False
             return encoder
 
+        elif parent_key == "switches":
+            switch = item_class(name, cfg)
+            self._switches[name] = switch
+            return switch
+
+        elif parent_key == "shutters":
+            shutter = item_class(name, cfg)
+            self._shutters[name] = shutter
+            return shutter
+
     def _init(self):
         try:
             self.initialize()

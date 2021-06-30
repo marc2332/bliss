@@ -14,9 +14,7 @@ import numpy as np
 from bliss.physics.trajectory import LinearTrajectory
 from bliss.controllers.motor import Controller, CalcController
 from bliss.common.axis import Axis, AxisState
-from bliss.common.switch import Switch as BaseSwitch
 from bliss.common import event
-from bliss.config.static import get_config
 from bliss.config.settings import SimpleSetting
 from bliss.common.hook import MotionHook
 from bliss.common.utils import object_method
@@ -47,11 +45,6 @@ class Motion:
         if pf < low_limit:
             pf = low_limit
         self.trajectory = LinearTrajectory(pi, pf, velocity, acceleration, ti)
-
-
-class Switch(BaseSwitch):
-    def __init__(self, name, controller, config):
-        super().__init__(name, config)
 
 
 class MockupAxis(Axis):
@@ -88,18 +81,6 @@ class Mockup(Controller):
         self.__hw_limit = float("-inf"), float("+inf")
 
         self._hw_state.create_state("PARKED", "mot au parking")
-
-    def _create_subitem_from_config(
-        self, name, cfg, parent_key, item_class, item_obj=None
-    ):
-        if parent_key == "switches":
-            switch = item_class(name, self, cfg)
-            self._switches[name] = switch
-            return switch
-        else:
-            return super()._create_subitem_from_config(
-                name, cfg, parent_key, item_class, item_obj
-            )
 
     def steps_position_precision(self, axis):
         """Mockup is really a stepper motor controller"""

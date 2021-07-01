@@ -44,7 +44,7 @@ def find_sub_names_config(config, selection=None, level=0, parent_key=None):
     if isinstance(config, ConfigNode):
         cfg_items = (
             config.raw_items()
-        )  # !!! raw_items to avoid cyclic import while resloving reference !!!
+        )  # !!! raw_items to avoid cyclic import while resolving reference !!!
     else:
         cfg_items = config.items()
 
@@ -53,7 +53,13 @@ def find_sub_names_config(config, selection=None, level=0, parent_key=None):
             find_sub_names_config(v, selection, level + 1, k)
 
         elif isinstance(v, (ConfigList, list)):
-            for i in v:
+            
+            if isinstance(v, ConfigList):
+                rv = v.raw_list # !!! raw_items to avoid cyclic import while resolving reference !!!
+            else:
+                rv = v
+
+            for i in rv:
                 if isinstance(i, (ConfigNode, dict)):
                     find_sub_names_config(i, selection, level + 1, k)
 
@@ -446,99 +452,89 @@ def create_objects_from_config_node(cfg_obj, cfg_node):
             tuple: (created_items, cached_items)
     """
 
-    # search the 'class' key in cfg_node or at a upper node level
-    # then return the class and the associated config node
-    klass, ctrl_node = find_top_class_and_node(cfg_node)
-    ctrl_name = ctrl_node.get("name")  # container could have a name in config
     item_name = cfg_node["name"]  # name of the item that should be created and returned
+    
+    if cfg_node.plugin == "bliss": # act as the older Bliss plugin
 
-    if issubclass(klass, ConfigItemContainer):
+        klass, node = find_class_and_node(cfg_node)
 
-        # always create the container first
-        bctrl = klass(ctrl_node)
-        # print(f"\n=== From config: {item_name} from {bctrl.name}")
+        if node.get("name") != item_name:
+            cfg_node = ConfigNode.indexed_nodes[item_name]
+        else:
+            cfg_node = node
 
-        # prepare subitems configs and cache item's container.
-        # the container decides which item should be cached and which container
-        # is associated to the cached item (in case the cached item is owned by a sub-container of this container)
-        cacheditemnames2ctrl = bctrl._prepare_subitems_configs()
-        # print(f"\n=== Caching: {list(cacheditemnames2ctrl.keys())} from {bctrl.name}")
+        bctrl = klass(item_name, cfg_node.clone())
+        # print(f"=== From config: {item_name} from {bctrl.name}")
 
-        # --- add the container to registered items (if it has a name)
-        name2items = {}
-        if ctrl_name:
-            name2items[ctrl_name] = bctrl
+        for key, value in cfg_node.items():
+            if isinstance(cfg_node.raw_get(key), ConfigReference):
+                if hasattr(bctrl, key):
+                    continue
+                else:
+                    setattr(bctrl, key, value)
 
-        # update the config cache dict now to avoid cyclic instantiation with internal references
-        # an internal reference occurs when a subitem config uses a reference to another subitem owned by the same container.
-        yield name2items, cacheditemnames2ctrl
-
-        # load config and initialize
-        try:
-            bctrl._initialize_config()
-        except BaseException:
-            # remove cached obj if container initialization fails (to avoid items with different instances of the same container)
-            for iname in cacheditemnames2ctrl.keys():
-                cfg_obj._name2cache.pop(iname, None)
-            raise
-
-        # --- don't forget to instantiate the object for which this function has been called (if not a container)
-        if item_name != ctrl_name:
-            obj = cfg_obj.get(item_name)
-            yield {item_name: obj}
-
-        # --- Now any new object_name going through 'config.get( obj_name )' should call 'create_object_from_cache' only.
-        # --- 'create_objects_from_config_node' should never be called again for any object related to the container instantiated here (see config.get code)
-
-    elif (
-        item_name != ctrl_name
-    ):  # prevent instantiation of an item comming from a top object that is not a ConfigItemContainer
-        raise TypeError(
-            f"Object with subitems in config must be a ConfigItemContainer object"
-        )
-
-    # elif cfg_node.plugin == "bliss":  # act as the older Bliss plugin
-
-    #     klass, node = find_class_and_node(cfg_node)
-
-    #     if node.get("name") != item_name:
-    #         cfg_node = ConfigNode.indexed_nodes[item_name]
-    #     else:
-    #         cfg_node = node
-
-    #     o = klass(item_name, cfg_node.clone())
-
-    #     for key, value in cfg_node.items():
-    #         if isinstance(cfg_node.raw_get(key), ConfigReference):
-    #             if hasattr(o, key):
-    #                 continue
-    #             else:
-    #                 setattr(o, key, value)
-
-    #     yield {item_name: o}
-    #     return
-
-    # else:
-    #     bctrl = klass(ctrl_node)
-    #     yield {ctrl_name: bctrl}
-    #     return
+        yield {item_name: bctrl}
+        return
 
     else:
-        bctrl = klass(ctrl_node)
-        # print(f"\n=== From config: {item_name} from {bctrl.name}")
-        if (
-            item_name == ctrl_name
-        ):  # allow instantiation of top object which is not a ConfigItemContainer
+
+        # search the 'class' key in cfg_node or at a upper node level
+        # then return the class and the associated config node
+        klass, ctrl_node = find_top_class_and_node(cfg_node)
+        ctrl_name = ctrl_node.get("name")  # container could have a name in config
+
+        if issubclass(klass, ConfigItemContainer):
+
+            # always create the container first
+            bctrl = klass(ctrl_node)
+            # print(f"=== From config: {item_name} from {bctrl.name}")
+
+            # prepare subitems configs and cache item's container.
+            # the container decides which item should be cached and which container
+            # is associated to the cached item (in case the cached item is owned by a sub-container of this container)
+            cacheditemnames2ctrl = bctrl._prepare_subitems_configs()
+            # print(f"\n=== Caching: {list(cacheditemnames2ctrl.keys())} from {bctrl.name}")
+
+            # --- add the container to registered items (if it has a name)
+            name2items = {}
+            if ctrl_name:
+                name2items[ctrl_name] = bctrl
+
+            # update the config cache dict now to avoid cyclic instantiation with internal references
+            # an internal reference occurs when a subitem config uses a reference to another subitem owned by the same container.
+            yield name2items, cacheditemnames2ctrl
+
+            # load config and initialize
+            try:
+                bctrl._initialize_config()
+            except BaseException:
+                # remove cached obj if container initialization fails (to avoid items with different instances of the same container)
+                for iname in cacheditemnames2ctrl.keys():
+                    cfg_obj._name2cache.pop(iname, None)
+                raise
+
+            # --- don't forget to instantiate the object for which this function has been called (if not a container)
+            if item_name != ctrl_name:
+                obj = cfg_obj.get(item_name)
+                yield {item_name: obj}
+
+            # --- Now any new object_name going through 'config.get( obj_name )' should call 'create_object_from_cache' only.
+            # --- 'create_objects_from_config_node' should never be called again for any object related to the container instantiated here (see config.get code)
+
+        elif item_name == ctrl_name:  # allow instantiation of top object which is not a ConfigItemContainer
+            bctrl = klass(ctrl_node)
+            # print(f"=== From config: {item_name} from {bctrl.name} (NOT ConfigItemContainer)")
             yield {ctrl_name: bctrl}
             return
+
         else:  # prevent instantiation of an item comming from a top object that is not a ConfigItemContainer
             raise TypeError(
-                "Object with subitems in config must be a ConfigItemContainer object"
+                f"Object with subitems in config must be a ConfigItemContainer object"
             )
 
 
 def create_object_from_cache(config, name, bctrl):
-    # print(f"\n=== From cache: {name} from {bctrl.name}")
+    # print(f"=== From cache: {name} from {bctrl.name}")
 
     try:
         return bctrl._get_subitem(name)

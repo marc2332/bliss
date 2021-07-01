@@ -8,7 +8,6 @@
 from importlib import import_module
 from bliss.config.plugins.utils import find_top_class_and_node, find_class_and_node
 from bliss.config.static import ConfigReference, ConfigNode, ConfigList
-from bliss.common.utils import autocomplete_property
 
 
 def find_sub_names_config(config, selection=None, level=0, parent_key=None):
@@ -533,7 +532,7 @@ def create_objects_from_config_node(cfg_obj, cfg_node):
 
         else:  # prevent instantiation of an item comming from a top object that is not a ConfigItemContainer
             raise TypeError(
-                f"Object with subitems in config must be a ConfigItemContainer object"
+                "Object with subitems in config must be a ConfigItemContainer object"
             )
 
 

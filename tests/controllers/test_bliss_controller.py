@@ -435,8 +435,8 @@ def test_plugin_items_initialized_only_once(default_session):
             for objname in obj_list:
                 default_session.config.get(objname)
 
-            print(from_config_counts)
-            print(from_cache_counts)
+            # print(from_config_counts)
+            # print(from_cache_counts)
 
 
 def test_bliss_controller(default_session):

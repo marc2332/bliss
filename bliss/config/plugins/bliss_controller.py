@@ -53,9 +53,11 @@ def find_sub_names_config(config, selection=None, level=0, parent_key=None):
             find_sub_names_config(v, selection, level + 1, k)
 
         elif isinstance(v, (ConfigList, list)):
-            
+
             if isinstance(v, ConfigList):
-                rv = v.raw_list # !!! raw_items to avoid cyclic import while resolving reference !!!
+                rv = (
+                    v.raw_list
+                )  # !!! raw_items to avoid cyclic import while resolving reference !!!
             else:
                 rv = v
 
@@ -453,8 +455,8 @@ def create_objects_from_config_node(cfg_obj, cfg_node):
     """
 
     item_name = cfg_node["name"]  # name of the item that should be created and returned
-    
-    if cfg_node.plugin == "bliss": # act as the older Bliss plugin
+
+    if cfg_node.plugin == "bliss":  # act as the older Bliss plugin
 
         klass, node = find_class_and_node(cfg_node)
 
@@ -521,7 +523,9 @@ def create_objects_from_config_node(cfg_obj, cfg_node):
             # --- Now any new object_name going through 'config.get( obj_name )' should call 'create_object_from_cache' only.
             # --- 'create_objects_from_config_node' should never be called again for any object related to the container instantiated here (see config.get code)
 
-        elif item_name == ctrl_name:  # allow instantiation of top object which is not a ConfigItemContainer
+        elif (
+            item_name == ctrl_name
+        ):  # allow instantiation of top object which is not a ConfigItemContainer
             bctrl = klass(ctrl_node)
             # print(f"=== From config: {item_name} from {bctrl.name} (NOT ConfigItemContainer)")
             yield {ctrl_name: bctrl}

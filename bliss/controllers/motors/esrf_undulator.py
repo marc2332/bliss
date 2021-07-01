@@ -109,34 +109,41 @@ class ESRF_Undulator(Controller):
 
         alpha = axis.config.get("alpha", float, 0.0)
         period = axis.config.get("period", float, 0.0)
-
         log_debug(self, f"alpha={alpha}  period={period}")
 
+        # Try to read undu_prefix or undulator_prefix in config
         undu_prefix = axis.config.get("undu_prefix", str)
-
         if undu_prefix is None:
             undu_prefix = axis.config.get("undulator_prefix", str)
-            if undu_prefix is None:
-                log_debug(self, "'undu_prefix' not specified in config")
-                if attr_pos_name == "Position":
-                    raise RuntimeError("'undu_prefix' must be specified in config")
-                else:
-                    undu_prefix = ""
-            else:
-                attr_pos_name = undu_prefix + attr_pos_name
-                attr_vel_name = undu_prefix + attr_vel_name
-                attr_fvel_name = undu_prefix + attr_fvel_name
-                attr_acc_name = undu_prefix + attr_acc_name
+        log_debug(self, f"(1) 'undu(lator)_prefix' in config: {undu_prefix}")
+
+        if undu_prefix is None:
+            # Ensure all attribute_position is defined in config.
+            # ie: attr_pos_name =/= "Position"
+            if attr_pos_name == "Position":
+                raise RuntimeError("'undu_prefix' must be specified in config")
+            undu_prefix = ""
+        else:
+            # Forge tango attributes: undu_prefix + attribute_name
+            # undu_prefix must have "_" at end.
+            log_debug(self, "(4) 'undu_prefix' in config is: %s", undu_prefix)
+            attr_pos_name = undu_prefix + attr_pos_name
+            attr_vel_name = undu_prefix + attr_vel_name
+            attr_fvel_name = undu_prefix + attr_fvel_name
+            attr_acc_name = undu_prefix + attr_acc_name
 
         # check for revolver undulator
         is_revolver = False
         undulator_index = None
 
+        # Extract undulator name
+        # U32A_GAP_position -> u32a
         pos = attr_pos_name.find("_")
         log_debug(self, f"attr_pos_name={attr_pos_name}   pos={pos}")
         uname = attr_pos_name[0:pos]
-        log_debug(self, f"uname={uname}")
         uname = uname.lower()
+        log_debug(self, f"uname={uname}")
+
         # NB: "UndulatorNames" return list of names but not indexed properly :(
         uname_list = [item.lower() for item in self.device.UndulatorNames]
         log_debug(self, f"uname_list={uname_list}")

@@ -6,8 +6,8 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import time
-import numpy
 import functools
+import numpy
 
 from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState, NoSettingsAxis
@@ -28,11 +28,15 @@ def lazy_init(func):
 
 
 class UndulatorAxis(NoSettingsAxis):
+    """
+    Settings of undulators axes are maneged by tango device serve.
+    """
+
     def sync_hard(self):
-        st = self.hw_state
-        if "DISABLED" in st:
-            self.settings.set("state", st)
-            user_warning(f"undulator {self.name} is disabled, no position update")
+        state = self.hw_state
+        if "DISABLED" in state:
+            self.settings.set("state", state)
+            user_warning("undulator %s is disabled, no position update", self.name)
         else:
             super().sync_hard()
 
@@ -43,7 +47,8 @@ Axis = UndulatorAxis
 
 
 def get_all():
-    """Return a list of all insertion device sevice server found in the
+    """
+    Return a list of all insertion device sevice server found in the
     global env.
     """
     try:
@@ -60,6 +65,7 @@ class ESRF_Undulator(Controller):
         global_map.register(self, parents_list=["undulators"])
 
         self.axis_info = {}
+        self.device = None
 
         try:
             self.ds_name = self.config.get("ds_name")
@@ -67,10 +73,6 @@ class ESRF_Undulator(Controller):
             log_debug(
                 self, "no 'ds_name' defined in config for %s" % self.config.get("name")
             )
-
-    """
-    Controller initialization actions.
-    """
 
     def initialize(self):
         # velocity and acceleration are not mandatory in config
@@ -83,18 +85,13 @@ class ESRF_Undulator(Controller):
             self, parents_list=["undulators"], children_list=[self.device]
         )
 
-    """
-    Axes initialization actions.
-    """
-
     def initialize_axis(self, axis):
         """
         Read configuration to forge tango attributes names.
         """
 
         attr_pos_name = axis.config.get("attribute_position", str, "Position")
-
-        log_debug(self, f"attr_pos_name={attr_pos_name}")
+        log_debug(self, f"intialize_axis({axis.name})\nattr_pos_name={attr_pos_name}")
 
         attr_vel_name = axis.config.get("attribute_velocity", str, "Velocity")
         log_debug(self, f"attr_vel_name={attr_vel_name}")
@@ -109,34 +106,41 @@ class ESRF_Undulator(Controller):
 
         alpha = axis.config.get("alpha", float, 0.0)
         period = axis.config.get("period", float, 0.0)
-
         log_debug(self, f"alpha={alpha}  period={period}")
 
+        # Try to read undu_prefix or undulator_prefix in config
         undu_prefix = axis.config.get("undu_prefix", str)
-
         if undu_prefix is None:
             undu_prefix = axis.config.get("undulator_prefix", str)
-            if undu_prefix is None:
-                log_debug(self, "'undu_prefix' not specified in config")
-                if attr_pos_name == "Position":
-                    raise RuntimeError("'undu_prefix' must be specified in config")
-                else:
-                    undu_prefix = ""
-            else:
-                attr_pos_name = undu_prefix + attr_pos_name
-                attr_vel_name = undu_prefix + attr_vel_name
-                attr_fvel_name = undu_prefix + attr_fvel_name
-                attr_acc_name = undu_prefix + attr_acc_name
+        log_debug(self, f"(1) 'undu(lator)_prefix' in config: {undu_prefix}")
+
+        if undu_prefix is None:
+            # Ensure all attribute_position is defined in config.
+            # ie: attr_pos_name =/= "Position"
+            if attr_pos_name == "Position":
+                raise RuntimeError("'undu_prefix' must be specified in config")
+            undu_prefix = ""
+        else:
+            # Forge tango attributes: undu_prefix + attribute_name
+            # undu_prefix must have "_" at end.
+            log_debug(self, "(4) 'undu_prefix' in config is: %s", undu_prefix)
+            attr_pos_name = undu_prefix + attr_pos_name
+            attr_vel_name = undu_prefix + attr_vel_name
+            attr_fvel_name = undu_prefix + attr_fvel_name
+            attr_acc_name = undu_prefix + attr_acc_name
 
         # check for revolver undulator
         is_revolver = False
         undulator_index = None
 
+        # Extract undulator name
+        # U32A_GAP_position -> u32a
         pos = attr_pos_name.find("_")
         log_debug(self, f"attr_pos_name={attr_pos_name}   pos={pos}")
         uname = attr_pos_name[0:pos]
-        log_debug(self, f"uname={uname}")
         uname = uname.lower()
+        log_debug(self, f"uname={uname}")
+
         # NB: "UndulatorNames" return list of names but not indexed properly :(
         uname_list = [item.lower() for item in self.device.UndulatorNames]
         log_debug(self, f"uname_list={uname_list}")
@@ -159,10 +163,6 @@ class ESRF_Undulator(Controller):
 
         log_debug(self, "OK: axis well initialized")
 
-    """
-    Actions to perform at controller closing.
-    """
-
     def finalize(self):
         pass
 
@@ -170,16 +170,14 @@ class ESRF_Undulator(Controller):
         if "DISABLED" in self.state(axis):
             if self.axis_info[axis]["is_revolver"]:
                 raise RuntimeError("Revolver axis is disabled.")
-            else:
-                raise RuntimeError("Undulator is disabled.")
+            raise RuntimeError("Undulator is disabled.")
         self.device.write_attribute(self.axis_info[axis][attribute_name], value)
 
     def _get_attribute(self, axis, attribute_name):
         if "DISABLED" in self.state(axis):
             if self.axis_info[axis]["is_revolver"]:
                 raise RuntimeError("Revolver axis is disabled.")
-            else:
-                raise RuntimeError("Undulator is disabled.")
+            raise RuntimeError("Undulator is disabled.")
         return self.device.read_attribute(self.axis_info[axis][attribute_name]).value
 
     def start_one(self, motion, t0=None):

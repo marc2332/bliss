@@ -366,6 +366,7 @@ class TangoShutter(BaseShutter):
             while self.state != state:
                 sleep(1)
             self._state_changed(self.state)
+            self._state_channel.value = self.state
 
     def _wait_mode(self, mode, timeout=3):
         """

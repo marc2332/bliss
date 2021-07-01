@@ -11,11 +11,9 @@ from unittest import mock
 from bliss.controllers.bliss_controller import BlissController
 from bliss.controllers.bliss_controller_mockup import BCMockup, Operator, FakeItem
 
-from bliss.config.plugins.bliss_controller import create_objects_from_config_node
-from bliss.config.plugins.bliss_controller import create_object_from_cache
-from bliss.config.plugins.bliss_controller import find_top_class_and_node
-
-# test if no class specified at controller level !
+from bliss.config.plugins.generic import create_objects_from_config_node
+from bliss.config.plugins.generic import create_object_from_cache
+from bliss.config.plugins.generic import find_top_class_and_node
 
 
 def test_plugin_get_items_from_config(default_session):
@@ -184,11 +182,11 @@ def test_plugin_items_loading_order(default_session):
         return create_object_from_cache(*args, **kwargs)
 
     with mock.patch(
-        "bliss.config.plugins.bliss_controller.create_objects_from_config_node",
+        "bliss.config.plugins.generic.create_objects_from_config_node",
         wraps=wrap_create_objects_from_config_node,
     ):
         with mock.patch(
-            "bliss.config.plugins.bliss_controller.create_object_from_cache",
+            "bliss.config.plugins.generic.create_object_from_cache",
             wraps=wrap_create_object_from_cache,
         ):
 
@@ -333,7 +331,7 @@ def test_plugin_items_loading_order(default_session):
 
 def test_plugin_items_initialized_only_once(default_session):
     """ load all test session objects and check that those going through
-        bliss controller plugin are never created twice.
+        the generic plugin are never created twice.
         (see FromConfig for the controllers and FromCache for the subitems)   
     """
 
@@ -367,11 +365,11 @@ def test_plugin_items_initialized_only_once(default_session):
         return create_object_from_cache(config, name, bctrl)
 
     with mock.patch(
-        "bliss.config.plugins.bliss_controller.create_objects_from_config_node",
+        "bliss.config.plugins.generic.create_objects_from_config_node",
         wraps=wrap_create_objects_from_config_node,
     ):
         with mock.patch(
-            "bliss.config.plugins.bliss_controller.create_object_from_cache",
+            "bliss.config.plugins.generic.create_object_from_cache",
             wraps=wrap_create_object_from_cache,
         ):
 

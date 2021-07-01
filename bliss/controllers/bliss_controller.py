@@ -7,7 +7,7 @@
 
 from bliss.common.protocols import CounterContainer
 from bliss.common.utils import autocomplete_property
-from bliss.config.plugins.bliss_controller import ConfigItemContainer
+from bliss.config.plugins.generic import ConfigItemContainer
 
 
 class BlissController(CounterContainer, ConfigItemContainer):
@@ -25,7 +25,7 @@ class BlissController(CounterContainer, ConfigItemContainer):
         
         # --- Plugin ---
 
-        BlissController objects are created from the yml config using the bliss_controller plugin.
+        BlissController objects are created from the yml config using the generic plugin.
         Any subitem with a name can be imported in a Bliss session with config.get('name').
         The plugin ensures that the controller and subitems are only created once.
         The bliss controller itself can have a name (optional) and can be imported in the session.
@@ -71,7 +71,7 @@ class BlissController(CounterContainer, ConfigItemContainer):
         
         # --- yml config example ---
 
-        - plugin: bliss_controller    <== use the dedicated bliss controller plugin
+        - plugin: generic             <== use the dedicated generic plugin
           module: custom_module       <== module of the custom bliss controller
           class: BCMockup             <== class of the custom bliss controller
           name: bcmock                <== name of the custom bliss controller  (optional)
@@ -112,6 +112,12 @@ class BlissController(CounterContainer, ConfigItemContainer):
         return self._hw_controller
 
     # ========== ABSTRACT METHODS ====================
+
+    def _get_default_chain_counter_controller(self):
+        """ return the default counter controller that should be used 
+            when this controller is added to the DEFAULT_CHAIN
+        """
+        raise NotImplementedError
 
     def _create_hardware(self):
         """ return the low level hardware controller interface """

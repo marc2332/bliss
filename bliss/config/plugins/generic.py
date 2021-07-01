@@ -78,7 +78,7 @@ class ConfigItemContainer:
 
         # --- Plugin ---
 
-        ConfigItemContainer objects are created from the yml config using the bliss plugin.
+        ConfigItemContainer objects are created from the yml config using the generic plugin.
         Any subitem with a name can be imported in a Bliss session with config.get('name').
         The plugin ensures that the top object and its subitems are only created once.
         The ConfigItemContainer itself can have a name (optional) and can be imported in the session.
@@ -124,7 +124,7 @@ class ConfigItemContainer:
         
         # --- yml config example ---
 
-        - plugin: bliss               <== use the dedicated bliss plugin
+        - plugin: generic             <== use the dedicated generic plugin
           module: custom_module       <== module of the custom bliss controller
           class: BCMockup             <== class of the custom bliss controller
           name: bcmock                <== name of the custom bliss controller  (optional)

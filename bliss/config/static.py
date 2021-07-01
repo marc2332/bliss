@@ -1026,13 +1026,8 @@ class Config(metaclass=Singleton):
             if module_name is None:
                 module_name = "default"
 
-            if module_name in [
-                "emotion",
-                "regulation",
-                "diffractometer",
-                "bliss",
-            ]:  # , "bliss"
-                module_name = "bliss_controller"
+            if module_name in ["emotion", "regulation", "diffractometer", "bliss"]:
+                module_name = "generic"
 
             m = __import__("bliss.config.plugins.%s" % (module_name), fromlist=[None])
             if hasattr(m, "create_object_from_cache"):

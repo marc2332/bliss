@@ -1136,10 +1136,9 @@ def get_server_axis_names(instance_name=None):
     result = []
     for item_name in cfg.names_list:
         item_cfg = cfg.get_config(item_name)
-        if item_cfg.plugin in [
-            "bliss_controller",
-            "emotion",
-        ] and instance_name in item_cfg.get("tango_server", ()):
+        if item_cfg.plugin == "emotion" and instance_name in item_cfg.get(
+            "tango_server", ()
+        ):
             result.append(item_name)
     return result
 
@@ -1352,7 +1351,7 @@ def initialize_bliss(info, db=None):
         # if tango_server is defined it means it is manually added
         if "tango_server" in obj_cfg:
             continue
-        if obj_cfg.plugin in ["bliss_controller", "emotion"]:
+        if obj_cfg.plugin == "emotion":
             try:
                 if name in [x["name"] for x in obj_cfg.parent["axes"]]:
                     axis_names.append(name)

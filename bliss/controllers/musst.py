@@ -364,8 +364,6 @@ class musst(BlissController):
         self._counter_controllers["scc"].max_sampling_frequency = max_freq
 
     def _init(self):
-        # Called by bliss_controller plugin (just after self._load_config)
-
         """
             Place holder for any action to perform after the configuration has been loaded.
         """

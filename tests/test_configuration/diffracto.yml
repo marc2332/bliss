@@ -1,6 +1,8 @@
+plugin: generic
+
 diffractometers:
+
   - name: d4ch
-    plugin: bliss_controller
     module: diffractometers.diff_fourc
     class: DiffE4CH
     geometry: E4CH
@@ -27,8 +29,7 @@ diffractometers:
         tags: q_q
     
 
-  - name: zaxis 
-    plugin: bliss_controller
+  - name: zaxis
     module: diffractometers.diff_zaxis
     class: DiffZAXIS
     geometry: ZAXIS

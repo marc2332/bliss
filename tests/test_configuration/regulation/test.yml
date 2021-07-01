@@ -1,146 +1,128 @@
 #============= SOFTWARE REGULATION OBJECTS ==============================================================
-- 
-    class: MyDevice     # <== any kind of object (usually declared in another YML file)
-    package: bliss.controllers.regulation.temperature.mockup
-    #module: regulation.temperature.mockup
-    plugin: bliss
-    name: my_device
-
--   
-    class: MyCustomInput   # <== a custom input defined by the user, inheriting from the ExternalInput class
-    package: bliss.controllers.regulation.temperature.mockup
-    #module: regulation.temperature.mockup
-    plugin: bliss
-    name: custom_input
-    device: $my_device     # <== any kind of object reference (pointing to an object declared somewhere else in a YML config file)
-    unit: deg
+- name: my_device
+  class: MyDevice     # <== any kind of object (usually declared in another YML file)
+  package: bliss.controllers.regulation.temperature.mockup
+  #module: regulation.temperature.mockup
+  plugin: bliss
+  
+- name: custom_input
+  class: MyCustomInput   # <== a custom input defined by the user, inheriting from the ExternalInput class
+  package: bliss.controllers.regulation.temperature.mockup
+  #module: regulation.temperature.mockup
+  plugin: bliss
+  device: $my_device     # <== any kind of object reference (pointing to an object declared somewhere else in a YML config file)
+  unit: deg
     
-    
--   
-    class: MySensorBindToAxis   # <== a custom input which returns a value modified by the position of an axis ('linked_axis')
-    package: bliss.controllers.regulation.temperature.mockup
-    #module: regulation.temperature.mockup
-    plugin: bliss
-    name: bound_input
-    device: $my_device     # <== any kind of object reference (pointing to an object declared somewhere else in a YML config file)
-    unit: deg
-    linked_axis: $robz 
+- name: bound_input
+  class: MySensorBindToAxis   # <== a custom input which returns a value modified by the position of an axis ('linked_axis')
+  package: bliss.controllers.regulation.temperature.mockup
+  #module: regulation.temperature.mockup
+  plugin: bliss
+  device: $my_device     # <== any kind of object reference (pointing to an object declared somewhere else in a YML config file)
+  unit: deg
+  linked_axis: $robz 
 
+- name: custom_output
+  class: MyCustomOutput    # <== a custom output defined by the user, inheriting from the ExternalOutput class
+  package: bliss.controllers.regulation.temperature.mockup
+  #module: regulation.temperature.mockup
+  plugin: bliss
+  device: $my_device       # <== any kind of object reference (pointing to an object declared somewhere else in a YML config file)
+  unit: W
+  low_limit: 0.0           # <== minimum device value [unit]
+  high_limit: 100.0        # <== maximum device value [unit]
+  ramprate: 0.0            # <== ramprate to reach the output value [unit/s]. 
 
--   
-    class: MyCustomOutput    # <== a custom output defined by the user, inheriting from the ExternalOutput class
-    package: bliss.controllers.regulation.temperature.mockup
-    #module: regulation.temperature.mockup
-    plugin: bliss
-    name: custom_output
-    device: $my_device       # <== any kind of object reference (pointing to an object declared somewhere else in a YML config file)
-    unit: W
-    low_limit: 0.0           # <== minimum device value [unit]
-    high_limit: 100.0        # <== maximum device value [unit]
-    ramprate: 0.0            # <== ramprate to reach the output value [unit/s]. 
+- name: diode_input
+  class: ExternalInput      # <== declare an 'ExternalInput' object
+  package: bliss.common.regulation       
+  device: $diode            # <== a SamplingCounter object reference (pointing to a counter declared somewhere else in a YML config file)
+  unit: N/A
 
+- name: robz_output
+  class: ExternalOutput    # <== declare an 'ExternalOutput' object
+  package: bliss.common.regulation
+          
+  device: $robz            # <== an axis object reference (pointing to an object declared somewhere else in a YML config file)
+  unit: mm
+  low_limit: -1.0          # <== minimum device value [unit]
+  high_limit: 1.0          # <== maximum device value [unit]
+  ramprate: 0.0            # <== ramprate to reach the output value [unit/s].
+  mode: relative           # <== the axis will perform relative moves (use 'absolute' for absolute moves)
 
-- 
-    class: ExternalInput      # <== declare an 'ExternalInput' object
-    package: bliss.common.regulation
-    name: diode_input          
-    device: $diode            # <== a SamplingCounter object reference (pointing to a counter declared somewhere else in a YML config file)
-    unit: N/A
+- name: soft_regul
+  class: SoftLoop          # <== declare a 'SoftLoop' object
+  package: bliss.common.regulation
+  input: $custom_input
+  output: $custom_output
+  P: 0.05
+  I: 0.1
+  D: 0.0
+  low_limit: 0.0          # <== low limit of the PID output value. Usaually equal to 0 or -1.
+  high_limit: 1.0          # <== high limit of the PID output value. Usaually equal to 1.
+  frequency: 10.0
+  deadband: 0.1
+  deadband_time: 3.0
+  ramprate: 1.0     
+  wait_mode: deadband  
+  max_attempts_before_failure: 3     
 
-
--
-    class: ExternalOutput    # <== declare an 'ExternalOutput' object
-    package: bliss.common.regulation
-    name: robz_output        
-    device: $robz            # <== an axis object reference (pointing to an object declared somewhere else in a YML config file)
-    unit: mm
-    low_limit: -1.0          # <== minimum device value [unit]
-    high_limit: 1.0          # <== maximum device value [unit]
-    ramprate: 0.0            # <== ramprate to reach the output value [unit/s].
-    mode: relative           # <== the axis will perform relative moves (use 'absolute' for absolute moves)
-    
-
-- 
-    class: SoftLoop          # <== declare a 'SoftLoop' object
-    package: bliss.common.regulation
-    name: soft_regul
-    input: $custom_input
-    output: $custom_output
-    P: 0.05
-    I: 0.1
-    D: 0.0
-    low_limit: 0.0          # <== low limit of the PID output value. Usaually equal to 0 or -1.
-    high_limit: 1.0          # <== high limit of the PID output value. Usaually equal to 1.
-    frequency: 10.0
-    deadband: 0.1
-    deadband_time: 3.0
-    ramprate: 1.0     
-    wait_mode: deadband  
-    max_attempts_before_failure: 3     
-
-- 
-    class: SoftLoop          # <== declare a 'SoftLoop' object
-    package: bliss.common.regulation
-    name: soft_regul2
-    input: $bound_input
-    output: $robz_output
-    P: 2.0
-    I: 10.0
-    D: 10.0
-    low_limit: -1.0          # <== low limit of the PID output value. Usaually equal to 0 or -1.
-    high_limit: 1.0          # <== high limit of the PID output value. Usaually equal to 1.
-    frequency: 10.0
-    deadband: 0.1
-    deadband_time: 3.0
-    ramprate: 1.0  
-    wait_mode: deadband
+- name: soft_regul2
+  class: SoftLoop          # <== declare a 'SoftLoop' object
+  package: bliss.common.regulation
+  input: $bound_input
+  output: $robz_output
+  P: 2.0
+  I: 10.0
+  D: 10.0
+  low_limit: -1.0          # <== low limit of the PID output value. Usaually equal to 0 or -1.
+  high_limit: 1.0          # <== high limit of the PID output value. Usaually equal to 1.
+  frequency: 10.0
+  deadband: 0.1
+  deadband_time: 3.0
+  ramprate: 1.0  
+  wait_mode: deadband
 
 
 #============= HARDWARE REGULATION OBJECTS (A CONTROLLER WITH ITS INPUTS, OUTPUTS AND LOOPS) ==============================================================
 
--   
-    class: RegulMockup
-    # plugin: bliss_controller
-    module: regulation.temperature.mockup
-    host: lid42
-    inputs:
-        - 
-            name: thermo_sample_new
-            channel: A
-            unit: deg
-            cooling_rate: 1.0       # <== special parameter for mockup inputs: defines the rate of the simulated cooling of the associated temperature [unit/s].
-            tango_server: temp1
-        - 
-            name: sensor_new
-            channel: B
-            cooling_rate: 2.0       # <== special parameter for mockup inputs: defines the rate of the simulated cooling of the associated temperature [unit/s].
-            tango_server: temp1
+- class: RegulMockup
+  module: regulation.temperature.mockup
+  host: lid42
+  inputs:
+    - name: thermo_sample_new
+      channel: A
+      unit: deg
+      cooling_rate: 1.0       # <== special parameter for mockup inputs: defines the rate of the simulated cooling of the associated temperature [unit/s].
+      tango_server: temp1
+    - name: sensor_new
+      channel: B
+      cooling_rate: 2.0       # <== special parameter for mockup inputs: defines the rate of the simulated cooling of the associated temperature [unit/s].
+      tango_server: temp1
 
-    outputs: 
-        -
-            name: heater_new
-            channel: A 
-            unit: Volt
-            low_limit:  0.0          # <== minimum device value [unit]
-            high_limit: 100.0        # <== maximum device value [unit]
-            ramprate: 0.0            # <== ramprate to reach the output value [unit/s].
-            heating_rate: 10.0       # <== special parameter for mockup outputs: heating capability of the device at 100% of its power [deg/s].
-            tango_server: temp1
+  outputs: 
+    - name: heater_new
+      channel: A 
+      unit: Volt
+      low_limit:  0.0          # <== minimum device value [unit]
+      high_limit: 100.0        # <== maximum device value [unit]
+      ramprate: 0.0            # <== ramprate to reach the output value [unit/s].
+      heating_rate: 10.0       # <== special parameter for mockup outputs: heating capability of the device at 100% of its power [deg/s].
+      tango_server: temp1
 
-    ctrl_loops:
-        -
-            name: sample_regulation_new
-            input: $thermo_sample_new
-            output: $heater_new
-            P: 0.5
-            I: 0.2
-            D: 0.0
-            low_limit: 0.0           # <==  low limit of the PID output value. Usaually equal to 0 or -1.
-            high_limit: 1.0          # <== high limit of the PID output value. Usaually equal to 1.
-            frequency: 10.0
-            deadband: 0.05
-            deadband_time: 1.5
-            ramprate: 1.0            # <== ramprate to reach the setpoint value [input_unit/s]
-            wait_mode: deadband
-            tango_server: temp1
+  ctrl_loops:
+    - name: sample_regulation_new
+      input: $thermo_sample_new
+      output: $heater_new
+      P: 0.5
+      I: 0.2
+      D: 0.0
+      low_limit: 0.0           # <==  low limit of the PID output value. Usaually equal to 0 or -1.
+      high_limit: 1.0          # <== high limit of the PID output value. Usaually equal to 1.
+      frequency: 10.0
+      deadband: 0.05
+      deadband_time: 1.5
+      ramprate: 1.0            # <== ramprate to reach the setpoint value [input_unit/s]
+      wait_mode: deadband
+      tango_server: temp1
         

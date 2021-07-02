@@ -103,6 +103,10 @@ class BlissController(CounterContainer, ConfigItemContainer):
               something: value
     """
 
+    # ========== SIGNATURE ======================================
+    # def __init__(self, config):
+    #     super().__init__(config)
+
     # ========== STANDARD PROPERTIES ============================
 
     @autocomplete_property
@@ -115,7 +119,7 @@ class BlissController(CounterContainer, ConfigItemContainer):
 
     def _get_default_chain_counter_controller(self):
         """ return the default counter controller that should be used 
-            when this controller is added to the DEFAULT_CHAIN
+            when this controller is used to customize the DEFAULT_CHAIN
         """
         raise NotImplementedError
 
@@ -130,3 +134,12 @@ class BlissController(CounterContainer, ConfigItemContainer):
     @autocomplete_property
     def axes(self):
         raise NotImplementedError
+
+    # ========== CUSTOMIZABLE METHODS ==================
+
+    def __info__(self):
+        """ Return controller info as a string """
+
+        info_str = f"Controller: {self.name} ({self.__class__.__name__})\n"
+
+        return info_str

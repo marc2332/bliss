@@ -298,19 +298,28 @@ class musst(BlissController):
     def __init__(self, config):
         """Base Musst controller.
 
-        config           -- controller configuration
-          url            -- url of the gpib controller i.s:enet://gpib0.esrf.fr
-          pad            -- primary address of the musst controller
-          timeout        -- communication timeout in seconds, default is 1s
-          eos            -- end of line termination
-        musst_prg_root      -- default path for musst programs
-        block_size          -- default is 8k but can be lowered to 512 depend on gpib.
-        one_line_programing -- default is False we send several lines to program the musst
-        channels:           -- list of configured channels in this dictionary we need to have:
-          label:              -- the name alias for the channels
-          type:               -- channel type (cnt,encoder,ssi,adc5,adc10 and switch)
-          channel:            -- channel number
-          name:               -- use to reference an external switch
+            args: 
+                config: controller configuration as ConfigNode or dict
+
+            config keywords:
+
+                musst_prg_root      -- default path for musst programs
+                block_size          -- default is 8k but can be lowered to 512 depend on gpib.
+                one_line_programing -- default is False we send several lines to program the musst
+              
+                gpib:
+                    url             -- url of the gpib controller i.s:enet://gpib0.esrf.fr
+                    pad             -- primary address of the musst controller
+                    timeout         -- communication timeout in seconds, default is 1s
+                    eos             -- end of line termination
+                
+                channels:           -- list of configured channels
+                    label:          -- name alias for a channel
+                    type:           -- channel type (cnt, encoder, ssi, adc5, adc10 and switch)
+                    channel:        -- channel number
+                    name:           -- use to reference an external switch
+                    counter_name:   -- associate a counter to that channel (optional) 
+                    counter_mode:   -- sampling counter mode (optional)
         """
 
         super().__init__(config)
@@ -344,6 +353,12 @@ class musst(BlissController):
         self._timer_factor = None
 
         self._last_run = time.time()
+
+        # === CounterControllers
+        self._counter_controllers = {}
+        self._counter_controllers["scc"] = MusstSamplingCounterController(self)
+        self._counter_controllers["icc"] = MusstIntegratingCounterController(self)
+
         global_map.register(self, parents_list=["counters"])
 
     def _load_config(self):
@@ -355,10 +370,6 @@ class musst(BlissController):
         self.__one_line_programing = self.config.get(
             "one_line_programing", "serial_url" in self.config
         )
-
-        self._counter_controllers = {}
-        self._counter_controllers["scc"] = MusstSamplingCounterController(self)
-        self._counter_controllers["icc"] = MusstIntegratingCounterController(self)
 
         max_freq = self.config.get("max_sampling_frequency")
         self._counter_controllers["scc"].max_sampling_frequency = max_freq

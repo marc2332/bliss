@@ -23,7 +23,7 @@ Example of the YML structure:
 
 ```yml
 
-- plugin: bliss_controller <== the dedicated BlissController plugin
+- plugin: generic          <== BlissController works with generic plugin
   module: custom_module    <== module of the custom bliss controller
   class: BCMockup          <== class of the custom bliss controller
   name: bcmock             <== name of the custom bliss controller  (optional)
@@ -102,7 +102,7 @@ def _get_subitem_default_class_name(self, cfg, parent_key):
 The default subitem class can be overridden by specifing the `class` key in its configuration.
 The class can be given as an absolute path or as a class name. 
 
-If providing a class name the controller first look at its module level to find the item class, else it uses a default path defined by the controller (see `BlissController._get_subitem_default_module`).
+If providing a class name the controller tries to find the item class first at its module level, else it uses a default path defined by the controller (see `BlissController._get_subitem_default_module`).
 
 Examples:
 
@@ -131,7 +131,9 @@ def _get_subitem_default_module(self, class_name, cfg, parent_key):
 
 ### Bliss controller plugin
 
-`BlissControllers` are created from the yml configuration using the `bliss_controller` plugin.
+`BlissControllers` are created from the yml configuration using the `generic` plugin. 
+
+The controlelr class is based on the `ConfigItemContainer` base class which deals with all the mechanisms of the `generic` plugin.
 
 Any subitem can be imported in a Bliss session with the command `config.get('name')`.
 
@@ -141,14 +143,14 @@ The plugin ensures that the controller and subitems are only created once.
 
 The effective creation of subitems is performed by the `BlissController` itself and the plugin just ensures that the controller is always created before subitems and only once.
 
-The `bliss_controller` plugin will also manage the resolution order of the references to other objects within the `BlissController` configuration. It handles external and internal references and allows to use a reference for a subitem name.
+The `generic` plugin will also manage the resolution order of the references to other objects within the `BlissController` configuration. It handles external and internal references and allows to use a reference for a subitem name.
 
 
 Example of an advanced configuration using different kind of references:
 
 ```yml
 
-- plugin: bliss_controller    
+- plugin: generic
   module: custom_module       
   class: BCMockup             
   name: bcmock                
@@ -188,9 +190,11 @@ To be able to decide which instance should be created, the method receives 4 arg
 - `name`: subitem name
 - `cfg`: subitem config
 - `parent_key`: name of the subsection where the item was found (in controller's config)
-- `item_class`: class for the subitem (see [BlissController and sub-items](dev_write_ctrl.md#BlissController-and-subitems) ).
-- `item_obj`: the object instance for item as a reference (None if not a reference)
-If `item_class` is `None` then the subitem is a reference and the object exist already and is contained in `item_obj`.
+- `item_class`: class of the subitem (see [BlissController and sub-items](dev_write_ctrl.md#blisscontroller-and-subitems) ).
+- `item_obj`: the object instance of an item referenced in the config (None if not a reference)
+
+If `item_class` is `None` it means that the subitem was given as a reference. 
+In that case the object is already instantiated and is contained in `item_obj`.
   
 
 Examples:
@@ -200,12 +204,14 @@ Examples:
 def _create_subitem_from_config(self, name, cfg, parent_key, item_class, item_obj=None):
 
     if parent_key == "axes":
-        if item_class is None:  # it is a reference
-            axis = item_obj
+        if item_class is None:  # it means that item was referenced in config, 
+            axis = item_obj     # so just grab the item object provided by 'item_obj'
         else:
-            axis = item_class(name, self, cfg)
+            axis = item_class(name, self, cfg) # instantiate the item using the given class and decide the correct signature
 
-        self._axes[name] = axis
+        # === do anything custom here ================
+
+        self._axes[name] = axis 
 
         axis_tags = cfg.get("tags")
         if axis_tags:
@@ -224,14 +230,20 @@ def _create_subitem_from_config(self, name, cfg, parent_key, item_class, item_ob
             self.__initialized_axis[axis] = False
 
         self._add_axis(axis)
-        return axis
 
-    elif parent_key == "encoders":
+        # ====================================================
+
+        return axis   # return the created item
+
+    elif parent_key == "encoders":  # deal with an other kind of items
+
         encoder = self._encoder_counter_controller.create_counter(
             item_class, name, motor_controller=self, config=cfg
         )
+        
         self._encoders[name] = encoder
         self.__initialized_encoder[encoder] = False
+
         return encoder
 ```
 
@@ -302,7 +314,7 @@ Consider a top-bliss-controller which has internally another sub-bliss-controlle
 
 ```yml
 
-- plugin: bliss_controller    
+- plugin: generic    
   module: custom_module       
   class: BCMockup             
   name: bcmock                
@@ -323,7 +335,7 @@ Consider a top-bliss-controller which has internally another sub-bliss-controlle
  
 The top-bliss-controller configuration declares the axes subitems but those items are in fact managed by the motors controller (`self._motor_controller`).
 
-In that case, developers must override the `self._get_item_owner` method to specify the subitems that are managed by `self._motor_controller` instead of `self`.
+In that case, developers can override the `self._get_item_owner` method to specify the subitems that are managed by `self._motor_controller` instead of `self`.
 
 ```python
 def _get_item_owner(self, name, cfg, pkey):
@@ -341,16 +353,29 @@ def _get_item_owner(self, name, cfg, pkey):
 
 The method receives the item name and the `parent_key`. So `self._motor_controller` can be associated to all subitems under the `axes` parent_key (instead of doing it for each subitem name).
 
+Note: it would have been possible to not override `self._get_item_owner` and handle the `axes` items in the top-controller methods but it is not recommended as the code is already in the sub-bliss-controller that handles motors.
+
+
 
 ### Direct instantiation 
 
 A BlissController can be instantiated directly (i.e. not instantiated by the plugin) providing a configuration as a dictionary.
 
-In that case, users must call the method `self._controller_init()` just after the controller instantiation to ensure that the controller is initialized in the same way as the plugin does.
+In that case, users must call the method `self._initialize_config()` just after the controller instantiation to ensure that the controller is initialized in the same way as the plugin does.
 
 The config dictionary should be structured like a YML file (i.e: nested dict and list) and references replaced by their corresponding object instances.
 
-Example: `bctrl = BlissController( config_dict )` => `bctrl._controller_init()`
+Example: `bctrl = BlissController( config_dict )` => `bctrl._initialize_config()`
+
+
+### BlissController and default chain
+
+The `DEFAULT_CHAIN` can be customized with `DEFAULT_CHAIN.set_settings` (see [Default chain](scan_default.md#default-chain)).
+
+The devices introduced in the chain must be of the type `Counter`, `CounterController` or `BlissController`.
+
+While introducing a `BlissController` in the default chain, the method `BlissController._get_default_chain_counter_controller` is called to obtain the `CounterController` object that should be used. By default this method is not implemented.
+
 
 
 ## Other tips

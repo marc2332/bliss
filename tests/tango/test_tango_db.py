@@ -5,7 +5,7 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-
+from bliss.config.conductor import client
 from bliss.common.tango import Database
 
 
@@ -201,3 +201,29 @@ def test_tangodb_setters(beacon, dummy_tango_server):
     # db.delete_class_property(class_name, "dummy_cls_property1")
     # result = db.get_class_property(class_name, "dummy_cls_property1")
     # assert not result["dummy_cls_property1"]
+
+
+def test_issue2845(beacon, beacon_directory, dummy_tango_server2):
+    device_fqdn, dev_proxy = dummy_tango_server2
+    db = Database()
+
+    # Dummy device info
+    domain = "id00"
+    family = "tango"
+    name = "dummy2"
+    obj_name = f"{domain}/{family}/{name}"
+
+    assert not db.get_device_property(obj_name, "dummy_property1")["dummy_property1"]
+    test_file_contents = client.get_text_file("tango/dummy.yml")
+    assert test_file_contents.endswith(
+        "tango_name: id00/tango/dummy2\n    properties:\n  personal_name: dummy2\n  server: dummy_tg_server\n"
+    )
+
+    db.put_device_property(obj_name, {"dummy_property1": "test"})
+    result = db.get_device_property(obj_name, "dummy_property1")
+    assert list(result["dummy_property1"]) == ["test"]
+
+    test_file_contents = client.get_text_file("tango/dummy.yml")
+    assert test_file_contents.endswith(
+        "tango_name: id00/tango/dummy2\n    properties:\n      dummy_property1: test\n  personal_name: dummy2\n  server: dummy_tg_server\n"
+    )

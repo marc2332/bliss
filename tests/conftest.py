@@ -1019,7 +1019,7 @@ def jolokia_server():
     p = subprocess.Popen([sys.executable, "-u", script_path, f"--port={port}"])
     wait_tcp_online("localhost", port)
     try:
-        yield ("localhost", port)
+        yield "localhost", port
     finally:
         wait_terminate(p)
 
@@ -1077,7 +1077,7 @@ def icat_logbook_subscriber(elogbook_enabled, icat_logbook_server):
     _, messages = icat_logbook_server
     try:
         yield messages
-        assert len(messages) == 0, "not all messages have been validated"
+        assert messages.empty(), "not all messages have been validated"
     finally:
         messages.put(StopIteration)
         for msg in messages:

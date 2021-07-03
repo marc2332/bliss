@@ -1,4 +1,4 @@
-def expected_icat_mq_message(scan_saving, dataset=False):
+def expected_icat_mq_message(scan_saving, dataset=False, tango=False):
     """Information expected to be received by ICAT message queue
     """
     url = "http://www.esrf.fr/icat"
@@ -15,14 +15,16 @@ def expected_icat_mq_message(scan_saving, dataset=False):
     info = {"start": start, "end": end, "proposal": proposal, "beamline": beamline}
     if dataset:
         info["dataset"] = f"<tns:name>{scan_saving.dataset_name}</tns:name>"
-        info[
-            "sample"
-        ] = f'<tns:sample xmlns:tns="{url}"><tns:name>{scan_saving.collection_name}</tns:name></tns:sample>'
+        if tango:
+            sample = f'<tns:sample xmlns:tns="{url}"><tns:name>{scan_saving.collection_name}</tns:name></tns:sample>'
+        else:
+            sample = f"<tns:sample><tns:name>{scan_saving.collection_name}</tns:name></tns:sample>"
+        info["sample"] = sample
         info["path"] = f"<tns:location>{scan_saving.icat_root_path}</tns:location>"
     return info
 
 
-def assert_icat_received(icat_subscriber, expected_message, dataset=None, timeout=10):
+def assert_icat_received(icat_subscriber, expected_message, timeout=10):
     """Check whether ICAT received the correct information
     """
     print("\nWaiting for ICAT message ...")
@@ -66,10 +68,7 @@ def assert_logbook_received(
     if scan_saving is not None:
         assert logbook_received["investigation"] == scan_saving.proposal_name
         assert logbook_received["instrument"] == scan_saving.beamline
-        # Due to the "atomic datasets" the server is always
-        # STANDBY (no dataset name specified):
-        assert logbook_received["datasetName"] is None
-        # assert logbook_received["datasetName"] == scan_saving.dataset_name
+        assert logbook_received["datasetName"] == scan_saving.dataset_name
 
     content = logbook_received["content"]
     if isinstance(messages, str):

@@ -11,9 +11,8 @@ import gevent
 import os
 import itertools
 import numpy
-from bliss.common.standard import loopscan, mv
-from bliss.common.utils import rounder
-from bliss.common.tango import DevFailed
+
+from bliss.common.standard import loopscan
 from bliss.common.session import set_current_session
 from bliss.scanning.scan_saving import ESRFDataPolicyEvent, ScanSaving
 from bliss.config import channels
@@ -32,6 +31,7 @@ from bliss.icat.definitions import Definitions
 from bliss.scanning.scan import Scan
 from bliss.icat.dataset import Dataset
 from bliss.icat.nexus import IcatToNexus, nxcharUnicode
+
 from ..conftest import deep_compare
 from . import icat_test_utils
 
@@ -42,7 +42,7 @@ def test_stomp(icat_publisher, icat_subscriber):
     assert icat_subscriber.get(timeout=5) == "MYMESSAGE2"
 
 
-def test_jolokia_server(jolokia_server):
+def test_activemq_rest_server(activemq_rest_server):
     # TODO: send test request
     pass
 
@@ -110,7 +110,6 @@ def test_visitor_scan_saving(session, icat_subscriber, esrf_data_policy):
 
     scan_saving.mount_point = "fs1"
     scan_saving_config = esrf_data_policy
-    p = scan_saving.icat_proxy.metadata_manager.proxy
     scan_saving.proposal_name = "mx415"
     assert scan_saving.base_path == scan_saving_config["visitor_data_root"]["fs1"]
     assert scan_saving.icat_base_path == scan_saving_config["visitor_data_root"]["fs1"]
@@ -236,115 +235,6 @@ def test_close_dataset(
     )
     user_action(None)
     icat_test_utils.assert_icat_received(icat_subscriber, expected_dataset)
-
-
-def test_data_policy_scan_check_servers(
-    session,
-    icat_subscriber,
-    esrf_data_policy,
-    metaexp_with_backend,
-    metamgr_with_backend,
-):
-    scan_saving = session.scan_saving
-    icat_test_utils.assert_icat_received_current_proposal(scan_saving, icat_subscriber)
-
-    mdexp_dev_fqdn, mdexp_dev = metaexp_with_backend
-    mdmgr_dev_fqdn, mdmgr_dev = metamgr_with_backend
-    diode = session.env_dict["diode"]
-    default_proposal = f"{scan_saving.beamline}{time.strftime('%y%m')}"
-
-    expected = {
-        "proposal": default_proposal,
-        "sample": None,
-        "dataset": None,
-        "path": None,
-        "state": "STANDBY",
-    }
-    assert_servers(mdexp_dev, mdmgr_dev, **expected)
-
-    scan_saving.proposal_name = "proposal1"
-    icat_test_utils.assert_icat_received_current_proposal(scan_saving, icat_subscriber)
-    expected["proposal"] = "proposal1"
-    expected["state"] = "STANDBY"
-    assert_servers(mdexp_dev, mdmgr_dev, **expected)
-
-    scan_saving.collection_name = "sample1"
-    assert_servers(mdexp_dev, mdmgr_dev, **expected)
-
-    scan_saving.dataset_name = "dataset1"
-    assert_servers(mdexp_dev, mdmgr_dev, **expected)
-
-    create_dataset(scan_saving)
-    assert_servers(mdexp_dev, mdmgr_dev, **expected)
-    expected_dataset = icat_test_utils.expected_icat_mq_message(
-        scan_saving, dataset=True
-    )
-
-    expected["path"] = session.scan_saving.icat_root_path
-    scan_saving.dataset_name = "dataset2"
-    icat_test_utils.assert_icat_received(icat_subscriber, expected_dataset)
-    expected["sample"] = "sample1"
-    expected["dataset"] = ""
-    assert_servers(mdexp_dev, mdmgr_dev, **expected)
-
-    scan_saving.dataset_name = "dataset2"
-    assert_servers(mdexp_dev, mdmgr_dev, **expected)
-
-    scan_saving.dataset_name = "dataset3"
-    assert_servers(mdexp_dev, mdmgr_dev, **expected)
-
-    scan_saving.collection_name = "sample2"
-    assert_servers(mdexp_dev, mdmgr_dev, **expected)
-
-    create_dataset(scan_saving)
-    assert_servers(mdexp_dev, mdmgr_dev, **expected)
-    expected_dataset = icat_test_utils.expected_icat_mq_message(
-        scan_saving, dataset=True
-    )
-
-    expected["sample"] = "sample2"
-    expected["path"] = scan_saving.icat_root_path
-    scan_saving.dataset_name = ""
-    icat_test_utils.assert_icat_received(icat_subscriber, expected_dataset)
-    assert_servers(mdexp_dev, mdmgr_dev, **expected)
-
-    scan_saving.proposal_name = "proposal2"
-    icat_test_utils.assert_icat_received_current_proposal(scan_saving, icat_subscriber)
-    expected["proposal"] = "proposal2"
-    expected["path"] = None
-    expected["sample"] = None
-    expected["dataset"] = None
-    assert_servers(mdexp_dev, mdmgr_dev, **expected)
-
-
-def assert_servers(
-    mdexp_dev,
-    mdmgr_dev,
-    proposal=None,
-    sample=None,
-    dataset=None,
-    path=None,
-    state=None,
-):
-    if sample is None:
-        if proposal:
-            sample = "please enter"
-        else:
-            sample = ""
-    if path is None:
-        if proposal:
-            path = "/data/visitor"
-        else:
-            path = "{dataRoot}"
-    assert mdexp_dev.proposal == proposal
-    assert mdexp_dev.sample == sample
-    if dataset is None:
-        with pytest.raises(DevFailed):
-            mdmgr_dev.datasetName
-    else:
-        assert mdmgr_dev.datasetName == dataset
-    assert str(mdmgr_dev.state()) == state
-    assert mdmgr_dev.dataFolder == path
 
 
 def test_data_policy_objects(session, icat_subscriber, esrf_data_policy):
@@ -561,6 +451,7 @@ def test_icat_metadata_custom(session, icat_subscriber, esrf_data_policy):
 
     # close the custom dataset
     scan_saving.enddataset()
+    icat_test_utils.assert_icat_received_current_proposal(scan_saving, icat_subscriber)
 
     # do another scan in the 'normal' dataset
     loopscan(3, .1, diode)
@@ -868,7 +759,9 @@ def test_data_policy_user_functions(
     assert scan_saving.dataset_name == "0004"
     create_dataset(scan_saving)
 
+    expected_proposal = icat_test_utils.expected_icat_mq_message(scan_saving)
     newproposal("toto")
+    icat_test_utils.assert_icat_received(icat_subscriber, expected_proposal)
     icat_test_utils.assert_logbook_received(
         icat_logbook_subscriber, "toto", category="info"
     )
@@ -1002,7 +895,7 @@ def test_session_scan_saving_clone(session, esrf_data_policy):
     scan_saving = session.scan_saving
 
     # just to create a tango dev proxy in scan saving
-    scan_saving.icat_proxy
+    scan_saving.icat_client
 
     # create a clone
     scan_saving2 = scan_saving.clone()
@@ -1010,8 +903,8 @@ def test_session_scan_saving_clone(session, esrf_data_policy):
     # check that the clone is a clone
     # and that the SLOTS are the same (shallow copy)
     assert id(scan_saving) != id(scan_saving2)
-    assert scan_saving2._icat_proxy is not None
-    assert id(scan_saving._icat_proxy) == id(scan_saving2._icat_proxy)
+    assert scan_saving2._icat_client is not None
+    assert id(scan_saving._icat_client) == id(scan_saving2._icat_client)
 
     # check that the same redis structure is used by the clone
     scan_saving.proposal_name = "toto"

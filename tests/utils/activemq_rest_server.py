@@ -15,7 +15,7 @@ import logging
 sys.path.append(os.path.join(os.path.dirname(__file__)))
 from log_utils import basic_config
 
-logger = logging.getLogger("JOLOKIA SERVER")
+logger = logging.getLogger("ACTIVEMQ REST SERVER")
 basic_config(
     logger=logger,
     level=logging.DEBUG,
@@ -72,9 +72,7 @@ def main(port=8778):
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="TCP server which supports Jolokia (JSON over HTTP)"
-    )
+    parser = argparse.ArgumentParser(description="ActiveMQ REST server")
     parser.add_argument("--port", default=8778, type=int, help="server port")
     args = parser.parse_args()
     main(port=args.port)

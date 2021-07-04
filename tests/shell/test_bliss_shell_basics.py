@@ -545,26 +545,31 @@ def test_getattribute_evaluation():
         result, cli, _ = _feed_cli_with_input("a.foo()\r", local_globals={"a": a})
 
 
-def test_excepthook(default_session):
+@pytest.fixture
+def shell_excepthook():
+    orig_excepthook = sys.excepthook
+    try:
+        install_excepthook()
+        yield
+    finally:
+        sys.excepthook = orig_excepthook
+
+
+def test_excepthook(shell_excepthook, default_session):
     print_output = []
 
     def test_print(*msg, **kw):
         print_output.append("\n".join(msg))
 
-    orig_excepthook = sys.excepthook
-    try:
-        install_excepthook()
-        logging.getLogger("exceptions").setLevel(
-            1000
-        )  # this is to silent exception logging via logger (which also calls 'print')
+    logging.getLogger("exceptions").setLevel(
+        1000
+    )  # this is to silent exception logging via logger (which also calls 'print')
 
-        with mock.patch("builtins.print", test_print):
-            try:
-                raise RuntimeError("excepthook test")
-            except RuntimeError:
-                sys.excepthook(*sys.exc_info())
-    finally:
-        sys.excepthook = orig_excepthook
+    with mock.patch("builtins.print", test_print):
+        try:
+            raise RuntimeError("excepthook test")
+        except RuntimeError:
+            sys.excepthook(*sys.exc_info())
 
     assert (
         "".join(print_output)

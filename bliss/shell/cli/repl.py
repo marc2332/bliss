@@ -357,6 +357,15 @@ class BlissRepl(NoThreadPythonRepl, metaclass=Singleton):
     ##
     # NB: next methods are overloaded
     ##
+    def eval(self, text):
+        logging.getLogger("user_input").info(text)
+        elogbook.command(text)
+        with self.app.output.capture_stdout:
+            result = super().eval(text)
+            if result is None:
+                self.app.output.acknowledge_output()
+            return result
+
     async def eval_async(self, text):
         logging.getLogger("user_input").info(text)
         elogbook.command(text)

@@ -358,6 +358,8 @@ class BlissRepl(NoThreadPythonRepl, metaclass=Singleton):
     # NB: next methods are overloaded
     ##
     async def eval_async(self, text):
+        logging.getLogger("user_input").info(text)
+        elogbook.command(text)
         with self.app.output.capture_stdout:
             result = await super().eval_async(text)
             if result is None:
@@ -368,8 +370,6 @@ class BlissRepl(NoThreadPythonRepl, metaclass=Singleton):
         try:
             if hasattr(result, "__info__"):
                 result = Info(result)
-            logging.getLogger("user_input").info(result)
-            elogbook.command(result)
         except BaseException:
             # display exception, but do not propagate and make shell to die
             sys.excepthook(*sys.exc_info())

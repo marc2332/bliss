@@ -152,7 +152,7 @@ class MyCustomOutput(ExternalOutput):
         self.device.set_heating_rate(value)
 
 
-class Mockup(Controller):
+class RegulMockup(Controller):
     """ Simulate a regulation controller. 
         The PID regulation is handled by the controller hardware (simulated).
 
@@ -166,9 +166,6 @@ class Mockup(Controller):
     """
 
     def __init__(self, config):
-
-        super().__init__(config)
-
         # attributes to simulate the behaviour of the controller hardware
 
         self._cool_down_tasks = {}
@@ -183,6 +180,8 @@ class Mockup(Controller):
         self.dummy_output_task_frequency = 20.0
 
         self.pids = {}
+
+        super().__init__(config)
 
     def __del__(self):
         self.close()

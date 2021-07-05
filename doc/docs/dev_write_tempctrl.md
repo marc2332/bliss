@@ -86,7 +86,7 @@ controller:
    - Most of the methods receive as an argument the object from which they
    are called (name *tinput*, *toutput* and *tloop*).
    
-   - A dictionnary has been defined for all these objects, in which it is
+   - A dictionary has been defined for all these objects, in which it is
    easy for a TempController writer to store any useful data concerning one
    specific object:
      

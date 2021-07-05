@@ -16,6 +16,7 @@ from bliss.common.measurementgroup import (
 )
 from bliss.common.counter import CalcCounter, Counter
 from bliss.controllers.counter import CounterController, CalcCounterController
+from bliss.controllers.bliss_controller import BlissController
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 
@@ -294,8 +295,10 @@ class DefaultAcquisitionChain:
                 controller = device._counter_controller
             elif isinstance(device, CounterController):
                 controller = device
+            elif isinstance(device, BlissController):
+                controller = device._get_default_chain_counter_controller()
             else:
-                msg = "default_chain config: device object must be a CounterController or a Counter,"
+                msg = "default_chain config: device object must be a CounterController, a Counter or a BlissController"
                 msg += f" instead received '{device.name}' of type {type(device)} !"
                 raise ValueError(msg)
 

@@ -85,13 +85,11 @@ class SoftController(Controller):
     ):
 
         axis_config.setdefault("steps_per_unit", 1)
+        axis_config.setdefault("class", "SoftAxis")
 
-        axes = {axis_name: (SoftAxis, axis_config)}
+        cfg = {"axes": [axis_config]}
+        super().__init__(cfg)
 
-        super(SoftController, self).__init__(
-            "__soft_controller__", {}, axes, {}, {}, {}
-        )
-        self.obj = obj
         self._position = get_position_func(obj, position)
         self._move = get_move_func(obj, move)
         self._stop = get_stop_func(obj, stop)

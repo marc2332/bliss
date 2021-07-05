@@ -112,6 +112,23 @@ class Icepap(Controller):
         self._last_axis_power_time = {}
         self._limit_search_in_progress = weakref.WeakKeyDictionary()
 
+    def _create_subitem_from_config(
+        self, name, cfg, parent_key, item_class, item_obj=None
+    ):
+        if parent_key == "switches":
+            switch = item_class(name, self, cfg)
+            self._switches[name] = switch
+            return switch
+
+        elif parent_key == "shutters":
+            shutter = item_class(name, self, cfg)
+            self._shutters[name] = shutter
+            return shutter
+        else:
+            return super()._create_subitem_from_config(
+                name, cfg, parent_key, item_class, item_obj
+            )
+
     def initialize(self):
         self._icestate = AxisState()
         self._icestate.create_state("HOMEFOUND", "home signal found")

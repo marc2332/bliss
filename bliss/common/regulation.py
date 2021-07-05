@@ -170,6 +170,8 @@ import gevent
 import gevent.event
 import enum
 
+from bliss.common.protocols import CounterContainer
+
 from bliss.common.logtools import log_debug, disable_user_output
 from bliss.common.utils import with_custom_members, autocomplete_property
 from bliss.common.counter import SamplingCounter
@@ -200,38 +202,38 @@ def _get_external_device_name(device):
         return device
 
 
+class SCC(SamplingCounterController):
+    def __init__(self, name, boss):
+        super().__init__(name)
+        self.boss = boss
+
+    def read_all(self, *counters):
+        return [self.boss.read()]
+
+
 @with_custom_members
-class Input(SamplingCounterController):
+class Input(CounterContainer):
     """Implements the access to an input device which is accessed via the
     regulation controller (like a sensor plugged on a channel of the controller)
     """
 
     def __init__(self, controller, config):
         """ Constructor """
-
-        super().__init__(name=config["name"])
-
+        self._name = config["name"]
         self._controller = controller
         self._config = config
         self._channel = self._config.get("channel")
 
-        self.max_sampling_frequency = config.get("max_sampling_frequency", 5)
-
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
 
-        self._build_counters()
+    @property
+    def name(self):
+        return self._name
 
-    def _build_counters(self):
-        self.create_counter(
-            SamplingCounter,
-            self.name + "_counter",
-            unit=self._config.get("unit", "N/A"),
-            mode=self._config.get("sampling-counter-mode", "SINGLE"),
-        )
-
-    def read_all(self, *counters):
-        return [self.read()]
+    @autocomplete_property
+    def counters(self):
+        return counter_namespace({self.name: self._controller.counters[self.name]})
 
     # ----------- BASE METHODS -----------------------------------------
 
@@ -316,7 +318,13 @@ class ExternalInput(Input):
         self.device = config.get("device")
         self.load_base_config()
 
-    # ----------- METHODS THAT A CHILD CLASS MAY CUSTOMIZE ------------------
+        self._controller = SCC(self.name, self)
+        self._controller.create_counter(
+            SamplingCounter,
+            self.name,
+            unit=self._config.get("unit"),
+            mode=self._config.get("mode", "SINGLE"),
+        )
 
     def __info__(self):
         lines = ["\n"]
@@ -358,7 +366,7 @@ class ExternalInput(Input):
 
 
 @with_custom_members
-class Output(SamplingCounterController):
+class Output(CounterContainer):
     """ Implements the access to an output device which is accessed via the regulation controller (like an heater plugged on a channel of the controller)
     
         The Output has a ramp object. 
@@ -370,7 +378,7 @@ class Output(SamplingCounterController):
     def __init__(self, controller, config):
         """ Constructor """
 
-        super().__init__(name=config["name"])
+        self._name = config["name"]
 
         self._controller = controller
         self._config = config
@@ -387,20 +395,13 @@ class Output(SamplingCounterController):
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
 
-        self.max_sampling_frequency = config.get("max_sampling_frequency", 5)
+    @property
+    def name(self):
+        return self._name
 
-        self._build_counters()
-
-    def _build_counters(self):
-        self.create_counter(
-            SamplingCounter,
-            self.name + "_counter",
-            unit=self._config.get("unit", "N/A"),
-            mode=self._config.get("sampling-counter-mode", "SINGLE"),
-        )
-
-    def read_all(self, *counters):
-        return [self.read()]
+    @autocomplete_property
+    def counters(self):
+        return counter_namespace({self.name: self._controller.counters[self.name]})
 
     # ----------- BASE METHODS -----------------------------------------
 
@@ -608,6 +609,11 @@ class ExternalOutput(Output):
         self.mode = config.get("mode", "relative")
         self.load_base_config()
 
+        self._controller = SCC(self.name, self)
+        self._controller.create_counter(
+            SamplingCounter, self.name, unit=self._config.get("unit"), mode="SINGLE"
+        )
+
     # ----------- BASE METHODS -----------------------------------------
 
     @property
@@ -700,7 +706,7 @@ class ExternalOutput(Output):
 
 
 @with_custom_members
-class Loop(SamplingCounterController):
+class Loop(CounterContainer):
     """ Implements the access to the regulation loop 
 
         The regulation is the PID process that:
@@ -733,7 +739,7 @@ class Loop(SamplingCounterController):
     def __init__(self, controller, config):
         """ Constructor """
 
-        super().__init__(name=config["name"])
+        self._name = config["name"]
 
         self._controller = controller
         self._config = config
@@ -761,19 +767,7 @@ class Loop(SamplingCounterController):
 
         self.reg_plot = None
 
-        self.max_sampling_frequency = config.get("max_sampling_frequency", 5)
-
-        self._build_counters()
-
         self._create_soft_axis()
-
-    def _build_counters(self):
-        self.create_counter(
-            SamplingCounter,
-            self.name + "_setpoint",
-            unit=self.input.config.get("unit", "N/A"),
-            mode="SINGLE",
-        )
 
     def __del__(self):
         self.close()
@@ -787,8 +781,16 @@ class Loop(SamplingCounterController):
 
     # ----------- BASE METHODS -----------------------------------------
 
-    def read_all(self, *counters):
-        return [self._get_working_setpoint()]
+    @lazy_init
+    def read(self):
+        """ Return the current working setpoint """
+
+        log_debug(self, "Loop:read")
+        return self._get_working_setpoint()
+
+    @property
+    def name(self):
+        return self._name
 
     ##--- CONFIG METHODS
     def load_base_config(self):
@@ -847,7 +849,7 @@ class Loop(SamplingCounterController):
         all_counters = (
             list(self.input.counters)
             + list(self.output.counters)
-            + list(self._counters.values())
+            + [self._controller.counters[self.name]]
         )
 
         return counter_namespace(all_counters)
@@ -1484,6 +1486,14 @@ class SoftLoop(Loop):
         self.load_base_config()
         self.max_attempts_before_failure = config.get("max_attempts_before_failure", 3)
 
+        self._controller = SCC(self.name, self)
+        self._controller.create_counter(
+            SamplingCounter,
+            self.name,
+            unit=self._config.get("unit"),
+            mode=self._config.get("mode", "SINGLE"),
+        )
+
     def __info__(self):
         lines = ["\n"]
         lines.append(f"=== SoftLoop: {self.name} ===")
@@ -1516,6 +1526,12 @@ class SoftLoop(Loop):
 
         self._ramp.stop()
         self._stop_regulation()
+
+    def read(self):
+        """ Return the current working setpoint """
+
+        log_debug(self, "SoftLoop:read")
+        return self._get_working_setpoint()
 
     @property
     def max_attempts_before_failure(self):

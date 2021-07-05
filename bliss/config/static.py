@@ -462,6 +462,17 @@ class ConfigNode(MutableMapping):
             return self._parent.is_service
         return through_server
 
+    def get_top_key_node(self, key):
+        topnode = None
+        node = self
+        while True:
+            if node.get(key):
+                topnode = node
+            node = node._parent
+            if node is None or "__children__" in node.keys():
+                break
+        return topnode
+
     def get_inherited_value_and_node(self, key):
         """
         @see get_inherited
@@ -1014,6 +1025,10 @@ class Config(metaclass=Singleton):
             module_name = config_node.plugin
             if module_name is None:
                 module_name = "default"
+
+            if module_name in ["emotion", "regulation", "diffractometer", "bliss"]:
+                module_name = "generic"
+
             m = __import__("bliss.config.plugins.%s" % (module_name), fromlist=[None])
             if hasattr(m, "create_object_from_cache"):
                 cache_object = self._name2cache.pop(name, None)

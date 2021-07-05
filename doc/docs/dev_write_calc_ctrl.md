@@ -13,12 +13,12 @@ For example: N-legs tables, energy motor, slits, rotated translations.
 ## Minimal set of functions to implement
 
 *  `calc_from_real(self, positions_dict)`
-    * Must return a dictionnary of virtual positions corresponding to
+    * Must return a dictionary of virtual positions corresponding to
       `<positions_dict>` values of real axes.
 
 
 *  `calc_to_real(self, positions_dict)`
-    * Must return a dictionnary of real positions corresponding to
+    * Must return a dictionary of real positions corresponding to
       `<positions_dict>` values of virtual axes.
 
 !!! note

@@ -110,38 +110,108 @@ def test_broken_controller_init(default_session):
     def faulty_initialize(*args, **kwargs):
         raise RuntimeError("FAILED TO INITIALIZE")
 
+    config = get_config()
+
+    # === config._name2instance and config._name2cache are empty
+    # print("=== name2instance:", list(config._name2instance.keys()))
+    # print("=== name2cache:", list(config._name2cache.keys()))
+
+    assert list(config._name2instance.keys()) == []
+    assert list(config._name2cache.keys()) == []
+
     with mock.patch(
         "bliss.controllers.motors.mockup.Mockup.initialize", wraps=faulty_initialize
     ):
-        with pytest.raises(RuntimeError):
+        # === expecting failure during plugin.from_config => BlissController._initialize_config()
+        with pytest.raises(RuntimeError, match="FAILED TO INITIALIZE"):
             default_session.config.get("roby")
 
-        with pytest.raises(RuntimeError, match="Controller is disabled"):
+        # === now config._name2instance is still empty because _initialize_config() has failed and roby was not instanciated
+        # === config._name2cache is also empty because cacheditems have been removed when _initialize_config() has failed
+        # print("=== match=FAILED TO INITIALIZE")
+        # print("=== name2instance:", list(config._name2instance.keys()))
+        # print("=== name2cache:", list(config._name2cache.keys()))
+        assert list(config._name2instance.keys()) == []
+        assert list(config._name2cache.keys()) == []
+
+        # === expecting same failure during plugin.from_config => BlissController._initialize_config()
+        with pytest.raises(
+            RuntimeError, match="FAILED TO INITIALIZE"
+        ):  # Controller is disabled
             default_session.config.get("roby")
+
+        # === now config._name2instance is still empty because _initialize_config() has failed and roby was not instanciated
+        # === config._name2cache is also empty because cacheditems have been removed when _initialize_config() has failed
+        # print("=== match=FAILED TO INITIALIZE")
+        # print("=== name2instance:", list(config._name2instance.keys()))
+        # print("=== name2cache:", list(config._name2cache.keys()))
+        assert list(config._name2instance.keys()) == []
+        assert list(config._name2cache.keys()) == []
 
     with mock.patch(
         "bliss.controllers.motors.mockup.Mockup.initialize_hardware",
         wraps=faulty_initialize,
     ):
+
+        # === now controller will be successfully initialized
+        # === and roby will be initialized too (because with the lazy init faulty hardware is not seen yet)
         roby = default_session.config.get("roby")
         assert roby
+        assert roby._disabled is False  # not yet disabled because of lasy hardware init
+        assert (
+            roby.controller._disabled is False
+        )  # not yet disabled because of lasy hardware init
+        # print("=== assert roby True")
+        # print("=== name2instance:", list(config._name2instance.keys()))
+        # print("=== name2cache:", list(config._name2cache.keys()))
+        # assert "roby" in list(config._name2instance.keys())
+        assert "roby" not in list(
+            config._name2cache.keys()
+        )  # roby has been has been initialized and the removed from config cached items
+        assert "robu" in list(config._name2cache.keys())  # other items have been cached
 
-        with pytest.raises(RuntimeError):
+        # === accessing position will force controller to init its hardware and will fail
+        with pytest.raises(RuntimeError, match="FAILED TO INITIALIZE"):
             roby.position  # will call initialize_hardware => will fail
-        # axis roby stays disabled
-        # controller stays disabled
+        # axis roby and controller are now disabled
+        assert roby._disabled is True
+        assert roby.controller._disabled is True
 
     # roby and robu are on the same controller ;
-    # controller is disabled because hardware init failed
+    # controller is disabled because hardware init has failed
     with pytest.raises(RuntimeError, match="Controller is disabled"):
         default_session.config.get("robu")
+    assert "robu" not in list(
+        config._name2instance.keys()
+    )  # because robu instantiation has failed
+    assert "robu" in list(
+        config._name2cache.keys()
+    )  # robu has been put back in cache because instantiation has failed
 
     with pytest.raises(RuntimeError, match="Axis roby is disabled"):
         # axis is already disabled
         roby.position
+    assert roby._disabled is True
+    assert roby.controller._disabled is True
 
     with pytest.raises(RuntimeError, match="Controller is disabled"):
         roby.enable()
+    assert roby._disabled is True
+    assert roby.controller._disabled is True
+
+    # === call _init() to re-enable the controller
+    roby.controller._init()
+    assert roby.controller._disabled is False
+    roby2 = default_session.config.get("roby")
+    assert roby is roby2
+
+    roby.enable()
+    assert roby._disabled is False
+
+    roby.position
+
+    robu = default_session.config.get("robu")
+    robu.position
 
 
 def test_encoder_disable_broken_init(default_session):

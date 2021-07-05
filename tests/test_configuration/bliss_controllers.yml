@@ -1,0 +1,148 @@
+
+plugin: generic
+
+mockup_controller:
+
+  - name: bcmock # an example of an advanced bliss controller
+    module: bliss_controller_mockup
+    class: BCMockup
+    
+    com:
+      tcp:
+        url: bcmock
+
+    energy: $robz # an external ref as a ctrl parameter
+    param1: 10    # a std type ctrl parameter
+
+    counters:
+      - name: bctemp             # a sampling cnt item
+        tag: current_temperature # a tag for this item
+        mode: MEAN
+        unit: °C
+        convfunc: 2*x + 2
+        # using default class (available at ctrl level)
+
+      - name: bcintime        # a custom cnt item
+        tag: integration_time # a tag for this item
+        unit: ms
+        convfunc: x * 1e3
+        # using default class (available via default module)
+        
+    axes: # external axis subitems 
+      - name: $axis1  # an axis item managed by another ctrl
+        tag: xrot    # a tag for this item
+      
+      - name: $axis2  # an axis item managed by another ctrl
+        tag: yrot    # a tag for this item
+
+      - name: $bccalcmot # an calc_axis item managed by another ctrl
+        tag: calcmot       # a tag for this item interpreted by this ctrl
+
+    calc_controller: $calc_mot2.controller # a reference to another bliss controller via an axis
+
+    operators:
+      - name: operator1 # a custom type item
+        input: $bctemp  # an internal reference
+        factor: 2       # an item parameter 
+        class: bliss.controllers.bliss_controller_mockup.Operator # specify a class for the item as an absolute path
+
+      - name: operator2   # a custom type item
+        input: $bcintime  # an internal reference
+        factor: 0.5       # an item parameter
+        class: Operator   # specify a class for the item
+
+  - class: mockup # a pure mockup motor controller
+    axes:
+      - name: axis1  # an axis item managed by this ctrl
+        backlash: 2
+        steps_per_unit: 10000
+        velocity: 2500.0
+        acceleration: 1000.0
+        low_limit: -180
+        high_limit: 180
+        default_cust_attr: 6.28
+      
+      - name: axis2  # an axis item managed by this ctrl
+        backlash: 1
+        steps_per_unit: 5000
+        velocity: 1500.0
+        acceleration: 800.0
+        low_limit: -30
+        high_limit: 30
+        default_cust_attr: 28.12
+
+  - name: calcmock # a pure calc_motor controller
+    module: mockup
+    class: calc_motor_mockup
+    axes:
+      - name: $roby # an external axis item
+        tags: real real_mot
+
+      - name: bccalcmot # a calc axis
+        tags: calc_mot
+
+  - name: musst
+    class: MusstMock
+    module: musst
+    channels:
+      - type: cnt
+        channel: timer
+        label: "lab_musst_timer"
+        counter_name: musst_timer  # declare a counter associated to that channel
+      - type: encoder              
+        channel: 1                 
+        label: "lab_enc_samy"      
+        counter_name: enc_samy     # declare a counter
+        counter_mode: SINGLE       # declare a mode for that counter
+
+
+foo1:
+
+  - name: bcmock1
+    module: bliss_controller_mockup
+    class: TestBCMockup
+
+    fakeitems:
+      - name: item11
+        class: FakeItem # specify class
+      - name: item12 # default class
+
+  - name: bcmock2
+    module: bliss_controller_mockup
+    class: TestBCMockup
+
+    fakeitems:
+      - name: item21 # default class
+        subsection:  # possible subsection
+          - name: item211
+            class: FakeItem # specify class
+
+    unknownitems:
+      - name: item22 #unknown default class
+      - name: item23
+        class: NotFound #unknown default module
+      - name: item24
+        class: FakeItem #unknown item/parent_key
+
+
+foo2:
+
+  - class: TestBCMockup
+    module: bliss_controller_mockup
+
+    fakeitems:
+      - name: item31
+      - name: item32
+        class: FakeItem
+        
+
+none-bliss_controller:
+# loading a none-bliss_controller object is allowed by the plugin
+# but only if it is the top level object within the config
+  - name: fakeop1   # can be loaded via the plugin
+    class: Operator
+    module: bliss_controller_mockup
+    input: noinput
+    factor: 0
+    subitems: 
+      - name: not_allowed_item # a subitem of a none-bliss_controller cannot be loaded via the plugin

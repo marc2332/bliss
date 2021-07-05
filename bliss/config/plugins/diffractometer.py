@@ -68,9 +68,9 @@ def get_axes_info(diffracto):
 
 
 def create_hkl_motors(diffracto, axes_info):
-    hklmots = HKLMotors(
-        f"{diffracto.name}_motors", diffracto, diffracto.config, axes_info
-    )
+    config = diffracto.config.clone()
+    config["name"] = f"{diffracto.name}_motors"
+    hklmots = HKLMotors(diffracto, diffracto.config, axes_info)
     # --- force axis init before CalcController._init (see emotion)
     for axname in axes_info:
         hklmots.get_axis(axname)

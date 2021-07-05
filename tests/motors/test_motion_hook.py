@@ -5,13 +5,11 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import time
-
 import pytest
 
-from bliss.common.axis import Motion, Axis
+from bliss.common.axis import Motion
 from bliss.common.standard import Group, mvr, ascan, d2scan
-from bliss.scanning.scan import ScanState, ScanAbort
+from bliss.scanning.scan import ScanState
 from bliss.controllers.motors.mockup import Mockup, MockupHook
 from bliss.common.hook import MotionHook
 from bliss.config.static import ConfigNode
@@ -35,8 +33,9 @@ def test_motion_hook_init(beacon):
     config_node = config_node.to_dict()
     config_node["motion_hooks"] = [hook]
 
-    mockup_controller = Mockup("", {}, {"test_mh": (Axis, config_node)}, [], [], [])
-    mockup_controller._init()
+    cfg = {"axes": [config_node]}
+    mockup_controller = Mockup(cfg)
+    mockup_controller._initialize_config()
 
     test_mh = None
 

@@ -1,10 +1,13 @@
--
-  controller:
-    plugin: diffractometer
-    name: d4ch
+plugin: generic
+
+diffractometers:
+
+  - name: d4ch
+    module: diffractometers.diff_fourc
+    class: DiffE4CH
     geometry: E4CH
-    axes:
     
+    axes:
       - name: $roby
         tags: real omega
       - name: $robu
@@ -13,7 +16,6 @@
         tags: real phi
       - name: $robz2
         tags: real tth
-
       - name: $mono
         tags: real energy
 
@@ -25,14 +27,14 @@
         tags: hkl_l
       - name: Q
         tags: q_q
-
--
-  controller:
-    plugin: diffractometer
-    name: zaxis 
-    geometry: ZAXIS
-    axes:
     
+
+  - name: zaxis
+    module: diffractometers.diff_zaxis
+    class: DiffZAXIS
+    geometry: ZAXIS
+
+    axes:
       - name: $roby
         tags: real mu
       - name: $robu

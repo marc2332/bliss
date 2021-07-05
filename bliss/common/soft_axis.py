@@ -23,19 +23,7 @@ def SoftAxis(
     unit=None,
 ):
 
-    # if callable(position):
-    #     position = position.__name__
-    # if callable(move):
-    #     move = move.__name__
-    # if callable(stop):
-    #     stop = stop.__name__
-
-    config = {
-        "low_limit": low_limit,
-        "high_limit": high_limit,
-        "limits": (low_limit, high_limit),
-        "name": name,
-    }
+    config = {"low_limit": low_limit, "high_limit": high_limit, "name": name}
 
     if tolerance is not None:
         config["tolerance"] = tolerance
@@ -44,8 +32,8 @@ def SoftAxis(
         config["unit"] = unit
 
     controller = SoftController(name, obj, config, position, move, stop, state)
+    controller._initialize_config()
 
-    controller._init()
     axis = controller.get_axis(name)
     axis._positioner = False
 

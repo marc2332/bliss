@@ -5,6 +5,7 @@
   - test_session5
   config-objects:
   - m2
+
 - class: Session
   name: test_session
   setup-file: ./test_setup.py

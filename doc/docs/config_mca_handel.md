@@ -48,7 +48,7 @@ patch()
 
 A few scripts are provided:
 
-* `parse_error_header.py` which parses `handel_errors.h` and output a python dictionnary of handel errors
+* `parse_error_header.py` which parses `handel_errors.h` and output a python dictionary of handel errors
 
 ## Entry points
 * `bliss-handel-server` which serves the handel interface over the network using bliss rpc.

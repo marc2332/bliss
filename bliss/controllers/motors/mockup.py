@@ -14,14 +14,13 @@ import numpy as np
 from bliss.physics.trajectory import LinearTrajectory
 from bliss.controllers.motor import Controller, CalcController
 from bliss.common.axis import Axis, AxisState
-from bliss.common.switch import Switch as BaseSwitch
 from bliss.common import event
-from bliss.config.static import get_config
 from bliss.config.settings import SimpleSetting
 from bliss.common.hook import MotionHook
 from bliss.common.utils import object_method
 from bliss.common.utils import object_attribute_get, object_attribute_set
 from bliss.common.logtools import log_debug
+
 
 """
 mockup.py : a mockup controller for bliss.
@@ -48,14 +47,26 @@ class Motion:
         self.trajectory = LinearTrajectory(pi, pf, velocity, acceleration, ti)
 
 
-class Switch(BaseSwitch):
-    def __init__(self, name, controller, config):
-        super().__init__(name, config)
+class MockupAxis(Axis):
+    def __init__(self, *args, **kwargs):
+        Axis.__init__(self, *args, **kwargs)
+
+    def get_motion(self, *args, **kwargs):
+        motion = Axis.get_motion(self, *args, **kwargs)
+        if motion is None:
+            self.backlash_move = 0
+            self.target_pos = None
+        else:
+            self.target_pos = motion.target_pos
+            self.backlash_move = (
+                motion.target_pos / self.steps_per_unit if motion.backlash else 0
+            )
+        return motion
 
 
 class Mockup(Controller):
-    def __init__(self, *args, **kwargs):
-        Controller.__init__(self, *args, **kwargs)
+    def __init__(self, *args, **kwargs):  # config
+        super().__init__(*args, **kwargs)
 
         self._axis_moves = {}
         self.__encoders = {}
@@ -553,23 +564,6 @@ class Mockup(Controller):
 
     def stop_trajectory(self, *trajectories):
         pass
-
-
-class MockupAxis(Axis):
-    def __init__(self, *args, **kwargs):
-        Axis.__init__(self, *args, **kwargs)
-
-    def get_motion(self, *args, **kwargs):
-        motion = Axis.get_motion(self, *args, **kwargs)
-        if motion is None:
-            self.backlash_move = 0
-            self.target_pos = None
-        else:
-            self.target_pos = motion.target_pos
-            self.backlash_move = (
-                motion.target_pos / self.steps_per_unit if motion.backlash else 0
-            )
-        return motion
 
 
 class MockupHook(MotionHook):

@@ -241,7 +241,7 @@ class FilterSet_Wago(FilterSet):
 
     def get_filters(self):
         """
-        Return the list of the public filters, a list of dictionnary items with at least:
+        Return the list of the public filters, a list of dictionary items with at least:
         - position
         - transmission_calc
         """

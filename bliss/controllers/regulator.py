@@ -55,44 +55,92 @@ with the mandatory fields:
 """
 
 from gevent import lock
+from itertools import chain
 from bliss.common.regulation import Input, Output, Loop
 from bliss.common.utils import set_custom_members
 from bliss.common.logtools import log_info
+from bliss.common.protocols import counter_namespace
+from bliss.common.utils import autocomplete_property
 import time
 
+from bliss.controllers.bliss_controller import BlissController
+from bliss.common.counter import SamplingCounter
+from bliss.controllers.counter import SamplingCounterController
 
-class Controller:
+
+class Controller(BlissController):
     """
-    Regulation controller base class
+        Regulation controller base class
 
-    The 'Controller' class should be inherited by controller classes that are linked to an hardware 
-    which has internal PID regulation functionnalities and optionally ramping functionnalities (on setpoint or output value) .
-    
-    If controller hardware does not have ramping capabilities, the Loop objects associated to the controller will automatically use a SoftRamp.
+        The 'Controller' class should be inherited by controller classes that are linked to an hardware 
+        which has internal PID regulation functionnalities and optionally ramping functionnalities (on setpoint or output value) .
+        
+        If controller hardware does not have ramping capabilities, the Loop objects associated to the controller will automatically use a SoftRamp.
 
     """
+
+    class SCC(SamplingCounterController):
+        def __init__(self, name, bctrl):
+            super().__init__(name)
+            self.bctrl = bctrl
+
+        def read_all(self, *counters):
+            values = []
+            for cnt in counters:
+                item = self.bctrl.get_object(cnt.name)
+                if item is not None:
+                    values.append(item.read())
+            return values
 
     def __init__(self, config):
-        self.__config = config
-        self.__name = config.get("name")
-        self._objects = {}
-
         self.__lock = lock.RLock()
         self.__initialized_obj = {}
         self.__hw_controller_initialized = False
 
-    def add_object(self, node_type_name, object_class, cfg):
-        """ creates an instance of the object and add it to the controller.  Called by regulation plugin. """
+        super().__init__(config)
 
-        new_obj = object_class(self, cfg)
+    def _get_subitem_default_module(self, class_name, cfg, parent_key):
+        return "bliss.common.regulation"
 
-        # --- store the new object
-        self._objects[new_obj.name] = new_obj
+    def _get_subitem_default_class_name(self, cfg, parent_key):
+        item_classes = {"inputs": "Input", "outputs": "Output", "ctrl_loops": "Loop"}
+        return item_classes[parent_key]
 
+    def _create_subitem_from_config(
+        self, name, cfg, parent_key, item_class, item_obj=None
+    ):
+        item = item_class(self, cfg)
         # --- For custom attributes and commands.
-        set_custom_members(self, new_obj, self.init_obj)  # really needed ???????
+        set_custom_members(self, item, self.init_obj)  # really needed ???????
+        return item
 
-        return new_obj
+    def _load_config(self):
+        # print("=== _build_counters")
+        self._counter_controllers = {}
+        self._counter_controllers["scc"] = self.SCC("scc", self)
+        self._counter_controllers["scc"].max_sampling_frequency = self.config.get(
+            "max_sampling_frequency", 1
+        )
+
+        # create counters now
+        for k in ["inputs", "outputs", "ctrl_loops"]:
+            for cfg in self.config.get(k, []):
+                name = cfg["name"]
+                mode = cfg.get("mode", "SINGLE")
+                unit = cfg.get("unit")
+
+                self._counter_controllers["scc"].create_counter(
+                    SamplingCounter, name, unit=unit, mode=mode
+                )
+
+    @autocomplete_property
+    def counters(self):
+        cnts = [ctrl.counters for ctrl in self._counter_controllers.values()]
+        return counter_namespace(chain(*cnts))
+
+    @autocomplete_property
+    def axes(self):
+        pass
 
     def init_obj(self, obj):
         """ Initialize objects under the controller. Called by @lazy_init. """
@@ -103,6 +151,7 @@ class Controller:
 
             if not self.__hw_controller_initialized:
                 self.initialize_controller()
+                print("=== initialize_controller", self)
                 self.__hw_controller_initialized = True
 
             if self.__initialized_obj.get(obj):
@@ -116,33 +165,27 @@ class Controller:
                     self.__initialized_obj[obj.input] = True
                     obj.input.load_base_config()
                     self.initialize_input(obj.input)
+                    print("=== initialize_input", obj.input)
 
                 if not self.__initialized_obj.get(obj.output):
                     self.__initialized_obj[obj.output] = True
                     obj.output.load_base_config()
                     self.initialize_output(obj.output)
+                    print("=== initialize_output", obj.output)
 
                 obj.load_base_config()
                 self.initialize_loop(obj)
+                print("=== initialize_loop", obj)
 
             else:
                 self.__initialized_obj[obj] = True
                 obj.load_base_config()
                 if isinstance(obj, Input):
                     self.initialize_input(obj)
+                    print("=== initialize_input", obj)
                 elif isinstance(obj, Output):
                     self.initialize_output(obj)
-
-    @property
-    def name(self):
-        return self.__name
-
-    @property
-    def config(self):
-        """
-        returns the config node
-        """
-        return self.__config
+                    print("=== initialize_output", obj)
 
     def get_object(self, name):
         """
@@ -155,7 +198,7 @@ class Controller:
            the object
         """
         log_info(self, "Controller:get_object: %s" % (name))
-        return self._objects.get(name)
+        return self._get_subitem(name)
 
     @property
     def inputs(self):
@@ -172,7 +215,7 @@ class Controller:
     def _object_filter(self, class_type):
         return {
             name: obj
-            for name, obj in self._objects.items()
+            for name, obj in self._subitems.items()
             if isinstance(obj, class_type)
         }
 

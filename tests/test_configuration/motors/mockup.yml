@@ -1,391 +1,409 @@
 controller:
-- module: mockup
-  class: FaultyMockup
-  axes:
-  - name: bad
-    disabled_cache: [position,dial_position]
-    steps_per_unit: 1000
-    velocity: 100
-    acceleration: 100
-- class: mockup
-  name: test
-  switches:
-  - name: test_switch
-  axes:
-  - name: robz
-    steps_per_unit: 10000
-    velocity_high_limit: 1500
-    velocity_low_limit: 10 
-    velocity: 100
-    acceleration: 300
-    low_limit: -1000
-    high_limit: 1000000000.0
-    unit: mm
-    user_tag: TEST.ROBZ
-  - name: robz2
-    steps_per_unit: 10000
-    velocity: 1000
-    acceleration: 100
-- class: CustomMockup
-  module: mockup
-  axes:
-  - name: custom_axis
-    steps_per_unit: 1000
-    velocity: 2500
-    acceleration: 1000
-    custom_setting1: UNSET
-- class: mockup
-  axes:
-  - class: MockupAxis
-    name: robu
-    backlash: 2
-    steps_per_unit: 10000
-    velocity: 2500.0
-    acceleration: 1000.0
-    low_limit: -.inf
-    high_limit: .inf
-    default_cust_attr: 6.28
-  - class: MockupAxis
-    name: roby
-    backlash: 2
-    steps_per_unit: 10000
-    velocity: 2500.0
-    acceleration: 1000.0
-    low_limit: -.inf
-    high_limit: .inf
-    default_cust_attr: 6.28
-  - name: mono
-    backlash: 2
-    steps_per_unit: 10000
-    velocity: 2500.0
-    acceleration: 1000.0
-    low_limit: -.inf
-    high_limit: .inf
-    default_cust_attr: 6.28
-  - name: m2
-    steps_per_unit: 1000
-    velocity: 50
-    acceleration: 1
-    encoder: $m2enc
-    check_encoder: False
-  - name: m1
-    steps_per_unit: 1000
-    velocity: 50
-    acceleration: 1
-    encoder: $m1enc
-  - name: m0
-    steps_per_unit: 1
-    velocity: 1000
-    acceleration: 100
-  - name: hooked_m0
-    steps_per_unit: 1000
-    velocity: 500
-    acceleration: 300
-    backlash: 2
-    motion_hooks:
-    - $hook0
-  - name: hooked_m1
-    steps_per_unit: 1
-    velocity: 1000
-    acceleration: 300
-    motion_hooks:
-    - $hook0
-    - $hook1
-  - name: hooked_error_m0
-    steps_per_unit: 1
-    velocity: 1000
-    acceleration: 300
-    motion_hooks:
-    - $hook0
-    - $hook_pre_move_error
-  - name: hooked_error_m1
-    steps_per_unit: 1
-    velocity: 1000
-    acceleration: 300
-    motion_hooks:
-    - $hook0
-    - $hook_post_move_error
-  - name: s1f
-    steps_per_unit: -1000
-    velocity: 500
-    acceleration: 100
-    low_limit: -10
-    high_limit: 10
-  - name: s1b
-    steps_per_unit: 1000
-    velocity: 500
-    acceleration: 100
-    low_limit: -10
-    high_limit: 10
-  - name: s1u
-    steps_per_unit: -1000
-    velocity: 500
-    acceleration: 100
-    low_limit: -10
-    high_limit: 10
-  - name: s1d
-    steps_per_unit: 1000
-    velocity: 500
-    acceleration: 100
-    low_limit: -10
-    high_limit: 10
-  - name: jogger
-    steps_per_unit: -500
-    velocity: 100
-    acceleration: 300
-  - name: omega
-    class: ModuloAxis
-    modulo: 360
-    steps_per_unit: 1000
-    velocity: 1000
-    acceleration: 300
-  - name: mot_maxee
-    steps_per_unit: 10
-    velocity: 100
-    acceleration: 300
-    encoder: $mot_maxee_enc
-    read_position: encoder
-  - class: MockupAxis
-    name: bsy
-    backlash: 2
-    steps_per_unit: 10000
-    velocity: 2500.0
-    acceleration: 1000.0
-    low_limit: -.inf
-    high_limit: .inf
-    default_cust_attr: 6.28
-  - class: MockupAxis
-    name: bsz
-    backlash: 2
-    steps_per_unit: 10000
-    velocity: 2500.0
-    acceleration: 1000.0
-    low_limit: -.inf
-    high_limit: .inf
-    default_cust_attr: 6.28
-  - class: MockupAxis
-    name: att1z
-    backlash: 2
-    steps_per_unit: 10000
-    velocity: 2500.0
-    acceleration: 1000.0
-    low_limit: -.inf
-    high_limit: .inf
-    default_cust_attr: 6.28
-  - class: MockupAxis
-    name: mp2
-    backlash: 2
-    steps_per_unit: 10000
-    velocity: 2500.0
-    acceleration: 1000.0
-    low_limit: -.inf
-    high_limit: .inf
-    default_cust_attr: 6.28
-  - class: NoSettingsAxis
-    name: nsa
-    steps_per_unit: 10000
-    velocity: 2500
-    acceleration: 1000
-    low_limit: -5
-    high_limit: 5
-  encoders:
-  - name: m1enc
-    steps_per_unit: 50
-    tolerance: 0.001
-  - name: m2enc
-    steps_per_unit: 50
-    tolerance: 0.001
-  - name: mot_maxee_enc
-    steps_per_unit: 1
+  - class: FaultyMockup
+    module: mockup
+    axes:
+      - name: bad
+        disabled_cache: [position,dial_position]
+        steps_per_unit: 1000
+        velocity: 100
+        acceleration: 100
+    
+  - name: test
+    class: mockup
+    switches:
+      - name: test_switch
+    axes:
+      - name: robz
+        steps_per_unit: 10000
+        velocity_high_limit: 1500
+        velocity_low_limit: 10 
+        velocity: 100
+        acceleration: 300
+        low_limit: -1000
+        high_limit: 1000000000.0
+        unit: mm
+        user_tag: TEST.ROBZ
+      - name: robz2
+        steps_per_unit: 10000
+        velocity: 1000
+        acceleration: 100
 
-- class: slits
-  name: primary_slit
-  axes:
-  - name: $s1f
-    tags: real front
-  - name: $s1b
-    tags: real back
-  - name: $s1u
-    tags: real up
-  - name: $s1d
-    tags: real down
-  - name: s1vg
-    tags: vgap
-  - name: s1vo
-    tags: voffset
-  - name: s1hg
-    tags: hgap
-    low_limit: -15
-  - name: s1ho
-    tags: hoffset
-- class: calc_motor_mockup
-  module: mockup
-  axes:
-  - name: $roby
-    tags: real real_mot
-  - name: calc_mot1
-    tags: calc_mot
-    s_param: 2
-- class: calc_motor_mockup
-  module: mockup
-  axes:
-  - name: $calc_mot1
-    tags: real real_mot
-  - name: calc_mot2
-    tags: calc_mot
-    s_param: 2
-- class: calc_motor_mockup
-  module: mockup
-  axes:
-  - name: $nsa
-    tags: real real_mot
-  - name: calc_mot3
-    tags: calc_mot
-    s_param: 2
-- class: calc_motor_mockup
-  module: mockup
-  axes:
-  - name: $robu
-    tags: real real_mot
-  - name: calc_mot4
-    tags: calc_mot
-    s_param: 2
-- class: mockup
-  disabled_cache: [state]
-  axes:
-  - name: mot_1_disable_cache
-    steps_per_unit: 1000
-    velocity: 100
-    acceleration: 100
-  - name: mot_2_disable_cache
-    disabled_cache: [position]
-    steps_per_unit: 1000
-    velocity: 100
-    acceleration: 100
-- class: mockup
-  axes:
-    - name: invalid_acc
-      steps_per_unit: 10
-      acceleration: 1e9
-      velocity: 100
-    - name: invalid_vel
-      steps_per_unit: 10
-      acceleration: 100
-      velocity: 1e9
-- class: mockup
-  axes:
-    - name: invalid_cfg_axis
-- class: EnergyWavelength
-  axes:
-    - name: $mono
-      tags: real monoang
-    - name: energy
-      tags: energy
-      dspace: 3.13542  #Si 111
-      low_limit: 6.0
-      high_limit: 16.
-    - name: wavelength
-      tags: wavelength
-- class: mockup
-  axes:
-    - name: llbend1
-      steps_per_unit: -480000
-      sign: 1
-      velocity: 0.06666
-      acceleration: 0.16666
-    - name: llty1
-      steps_per_unit: -12800
-      sign: 1
-      velocity: 1
-      acceleration: 6.25
-    - name: llrz1
-      steps_per_unit: 625488
-      sign: 1
-      velocity: 0.0511
-      acceleration: 0.1279
-- class: llangle_mockup
-  module: mockup
-  bend_zero: 0.0
-  bend_y:  43688.0
-  ty_zero: 30.
-  axes:
-        - name: $llbend1
-          tags: real bend
-        - name: $llty1
-          tags: real ty
-        - name: $llrz1
-          tags: real rz
-        - name: lltruebend1
-          tags: truebend
-        - name: llbragg1
-          tags: angle
-        - name: llbeamy1
-          tags: absty
+  - class: CustomMockup
+    module: mockup
+    axes:
+      - name: custom_axis
+        steps_per_unit: 1000
+        velocity: 2500
+        acceleration: 1000
+        custom_setting1: UNSET
+
+  - class: mockup
+    axes:
+      - name: robu
+        class: MockupAxis
+        backlash: 2
+        steps_per_unit: 10000
+        velocity: 2500.0
+        acceleration: 1000.0
+        low_limit: -.inf
+        high_limit: .inf
+        default_cust_attr: 6.28
+      - name: roby
+        class: MockupAxis
+        backlash: 2
+        steps_per_unit: 10000
+        velocity: 2500.0
+        acceleration: 1000.0
+        low_limit: -.inf
+        high_limit: .inf
+        default_cust_attr: 6.28
+      - name: mono
+        backlash: 2
+        steps_per_unit: 10000
+        velocity: 2500.0
+        acceleration: 1000.0
+        low_limit: -.inf
+        high_limit: .inf
+        default_cust_attr: 6.28
+      - name: m2
+        steps_per_unit: 1000
+        velocity: 50
+        acceleration: 1
+        encoder: $m2enc
+        check_encoder: False
+      - name: m1
+        steps_per_unit: 1000
+        velocity: 50
+        acceleration: 1
+        encoder: $m1enc
+      - name: m0
+        steps_per_unit: 1
+        velocity: 1000
+        acceleration: 100
+      - name: hooked_m0
+        steps_per_unit: 1000
+        velocity: 500
+        acceleration: 300
+        backlash: 2
+        motion_hooks:
+          - $hook0
+      - name: hooked_m1
+        steps_per_unit: 1
+        velocity: 1000
+        acceleration: 300
+        motion_hooks:
+          - $hook0
+          - $hook1
+      - name: hooked_error_m0
+        steps_per_unit: 1
+        velocity: 1000
+        acceleration: 300
+        motion_hooks:
+          - $hook0
+          - $hook_pre_move_error
+      - name: hooked_error_m1
+        steps_per_unit: 1
+        velocity: 1000
+        acceleration: 300
+        motion_hooks:
+          - $hook0
+          - $hook_post_move_error
+      - name: s1f
+        steps_per_unit: -1000
+        velocity: 500
+        acceleration: 100
+        low_limit: -10
+        high_limit: 10
+      - name: s1b
+        steps_per_unit: 1000
+        velocity: 500
+        acceleration: 100
+        low_limit: -10
+        high_limit: 10
+      - name: s1u
+        steps_per_unit: -1000
+        velocity: 500
+        acceleration: 100
+        low_limit: -10
+        high_limit: 10
+      - name: s1d
+        steps_per_unit: 1000
+        velocity: 500
+        acceleration: 100
+        low_limit: -10
+        high_limit: 10
+      - name: jogger
+        steps_per_unit: -500
+        velocity: 100
+        acceleration: 300
+      - name: omega
+        class: ModuloAxis
+        modulo: 360
+        steps_per_unit: 1000
+        velocity: 1000
+        acceleration: 300
+      - name: mot_maxee
+        steps_per_unit: 10
+        velocity: 100
+        acceleration: 300
+        encoder: $mot_maxee_enc
+        read_position: encoder
+      - name: bsy
+        class: MockupAxis
+        backlash: 2
+        steps_per_unit: 10000
+        velocity: 2500.0
+        acceleration: 1000.0
+        low_limit: -.inf
+        high_limit: .inf
+        default_cust_attr: 6.28
+      - name: bsz
+        class: MockupAxis
+        backlash: 2
+        steps_per_unit: 10000
+        velocity: 2500.0
+        acceleration: 1000.0
+        low_limit: -.inf
+        high_limit: .inf
+        default_cust_attr: 6.28
+      - name: att1z
+        class: MockupAxis
+        backlash: 2
+        steps_per_unit: 10000
+        velocity: 2500.0
+        acceleration: 1000.0
+        low_limit: -.inf
+        high_limit: .inf
+        default_cust_attr: 6.28
+      - name: mp2
+        class: MockupAxis
+        backlash: 2
+        steps_per_unit: 10000
+        velocity: 2500.0
+        acceleration: 1000.0
+        low_limit: -.inf
+        high_limit: .inf
+        default_cust_attr: 6.28
+      - name: nsa
+        class: NoSettingsAxis
+        steps_per_unit: 10000
+        velocity: 2500
+        acceleration: 1000
+        low_limit: -5
+        high_limit: 5
+    encoders:
+      - name: m1enc
+        steps_per_unit: 50
+        tolerance: 0.001
+      - name: m2enc
+        steps_per_unit: 50
+        tolerance: 0.001
+      - name: mot_maxee_enc
+        steps_per_unit: 1
+
+  - name: primary_slit
+    class: slits
+    axes:
+      - name: $s1f
+        tags: real front
+      - name: $s1b
+        tags: real back
+      - name: $s1u
+        tags: real up
+      - name: $s1d
+        tags: real down
+      - name: s1vg
+        tags: vgap
+      - name: s1vo
+        tags: voffset
+      - name: s1hg
+        tags: hgap
+        low_limit: -15
+      - name: s1ho
+        tags: hoffset
+  
+  - class: calc_motor_mockup
+    module: mockup
+    axes:
+      - name: $roby
+        tags: real real_mot
+      - name: calc_mot1
+        tags: calc_mot
+        s_param: 2
+
+  - class: calc_motor_mockup
+    module: mockup
+    axes:
+      - name: $calc_mot1
+        tags: real real_mot
+      - name: calc_mot2
+        tags: calc_mot
+        s_param: 2
+
+  - class: calc_motor_mockup
+    module: mockup
+    axes:
+      - name: $nsa
+        tags: real real_mot
+      - name: calc_mot3
+        tags: calc_mot
+        s_param: 2
+
+  - class: calc_motor_mockup
+    module: mockup
+    axes:
+      - name: $robu
+        tags: real real_mot
+      - name: calc_mot4
+        tags: calc_mot
+        s_param: 2
+
+  - class: mockup
+    disabled_cache: [state]
+    axes:
+      - name: mot_1_disable_cache
+        steps_per_unit: 1000
+        velocity: 100
+        acceleration: 100
+      - name: mot_2_disable_cache
+        disabled_cache: [position]
+        steps_per_unit: 1000
+        velocity: 100
+        acceleration: 100
+
+  - class: mockup
+    axes:
+      - name: invalid_acc
+        steps_per_unit: 10
+        acceleration: 1e9
+        velocity: 100
+      - name: invalid_vel
+        steps_per_unit: 10
+        acceleration: 100
+        velocity: 1e9
+
+  - class: mockup
+    axes:
+      - name: invalid_cfg_axis
+
+  - class: EnergyWavelength
+    axes:
+      - name: $mono
+        tags: real monoang
+      - name: energy
+        tags: energy
+        dspace: 3.13542  #Si 111
+        low_limit: 6.0
+        high_limit: 16.
+      - name: wavelength
+        tags: wavelength
+
+  - class: mockup
+    axes:
+      - name: llbend1
+        steps_per_unit: -480000
+        sign: 1
+        velocity: 0.06666
+        acceleration: 0.16666
+      - name: llty1
+        steps_per_unit: -12800
+        sign: 1
+        velocity: 1
+        acceleration: 6.25
+      - name: llrz1
+        steps_per_unit: 625488
+        sign: 1
+        velocity: 0.0511
+        acceleration: 0.1279
+
+  - class: llangle_mockup
+    module: mockup
+    bend_zero: 0.0
+    bend_y:  43688.0
+    ty_zero: 30.
+    axes:
+      - name: $llbend1
+        tags: real bend
+      - name: $llty1
+        tags: real ty
+      - name: $llrz1
+        tags: real rz
+      - name: lltruebend1
+        tags: truebend
+      - name: llbragg1
+        tags: angle
+      - name: llbeamy1
+        tags: absty
+
+  - class: FaultyCalc
+    module: mockup
+    axes:
+      - name: $roby
+        tags: real real_mot
+      - name: calc_mot5
+        tags: calc_mot
+
+  - class: CoupledMotionCalc
+    module: mockup
+    axes:
+      - name: $roby
+        tags: real mot1
+      - name: $m0
+        tags: real mot2
+      - name: coupled_calc1
+        tags: calc_mot
+
+  - class: CoupledMotionCalc
+    module: mockup
+    axes:
+      - name: $robu
+        tags: real mot1
+      - name: $bad
+        tags: real mot2
+      - name: coupled_calc2
+        tags: calc_mot
+
+  - class: CoupledMotionCalc
+    module: mockup
+    axes:
+      - name: $coupled_calc1
+        tags: real mot1
+      - name: $coupled_calc2
+        tags: real mot2
+      - name: coupled_calc3
+        tags: calc_mot
+
+  - class: calc_motor_mockup
+    module: mockup
+    axes:
+      - name: $roby
+        tags: real real_mot
+      - name: calc_mot6
+        tags: calc_mot
+        s_param: 2
+        disabled_cache:
+          - dial_position
+
+
 hooks:
-- name: hook0
-  plugin: bliss
-  class: MockupHook
-  module: motors.mockup
-- name: hook1
-  plugin: bliss
-  class: MockupHook
-  module: motors.mockup
-- name: hook_pre_move_error
-  plugin: bliss
-  class: MockupHook
-  module: motors.mockup
-  pre_move_error: true
-- name: hook_post_move_error
-  plugin: bliss
-  class: MockupHook
-  module: motors.mockup
-  post_move_error: true
+  - name: hook0
+    plugin: bliss
+    class: MockupHook
+    module: motors.mockup
 
-- class: FaultyCalc
-  module: mockup
-  axes:
-  - name: $roby
-    tags: real real_mot
-  - name: calc_mot5
-    tags: calc_mot
+  - name: hook1
+    plugin: bliss
+    class: MockupHook
+    module: motors.mockup
 
-- class: CoupledMotionCalc
-  module: mockup
-  axes:
-  - name: $roby
-    tags: real mot1
-  - name: $m0
-    tags: real mot2
-  - name: coupled_calc1
-    tags: calc_mot
-
-- class: CoupledMotionCalc
-  module: mockup
-  axes:
-  - name: $robu
-    tags: real mot1
-  - name: $bad
-    tags: real mot2
-  - name: coupled_calc2
-    tags: calc_mot
-
-- class: CoupledMotionCalc
-  module: mockup
-  axes:
-  - name: $coupled_calc1
-    tags: real mot1
-  - name: $coupled_calc2
-    tags: real mot2
-  - name: coupled_calc3
-    tags: calc_mot
-
-- class: calc_motor_mockup
-  module: mockup
-  axes:
-  - name: $roby
-    tags: real real_mot
-  - name: calc_mot6
-    tags: calc_mot
-    s_param: 2
-    disabled_cache:
-      - dial_position
+  - name: hook_pre_move_error
+    plugin: bliss
+    class: MockupHook
+    module: motors.mockup
+    pre_move_error: true
+    
+  - name: hook_post_move_error
+    plugin: bliss
+    class: MockupHook
+    module: motors.mockup
+    post_move_error: true

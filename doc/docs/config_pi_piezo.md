@@ -8,6 +8,7 @@ This configuration should be common to the following models:
 * PI E-753 - 754
 * PI E-517 - 518
 * PI E-712
+* PI E-727
 
 ### Supported features
 

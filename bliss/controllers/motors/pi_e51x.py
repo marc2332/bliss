@@ -41,7 +41,8 @@ responses to them are).
 
 
 class PI_E51X(pi_gcs.Communication, pi_gcs.Recorder, Controller):
-    """ Base class for E517 and E518
+    """
+    Base class for E517 and E518
     """
 
     CHAN_LETTER = {1: "A", 2: "B", 3: "C"}
@@ -96,6 +97,9 @@ class PI_E51X(pi_gcs.Communication, pi_gcs.Recorder, Controller):
         # acceleration is not mandatory in config
         self.axis_settings.config_setting["acceleration"] = False
 
+        # should have been set at init of inherited classes.
+        log_debug(self, "model=%s", self.model)
+
     def close(self):
         """
         Called at session exit. 6 times ???
@@ -106,7 +110,7 @@ class PI_E51X(pi_gcs.Communication, pi_gcs.Recorder, Controller):
 
     def initialize_hardware(self):
         """
-        Called once per controller at first axis use.
+        Called once per controller at first use of any of the axes.
         """
         # Initialize socket communication.
         self.com_initialize()
@@ -119,6 +123,8 @@ class PI_E51X(pi_gcs.Communication, pi_gcs.Recorder, Controller):
 
     def initialize_axis(self, axis):
         """
+        Called at first access to <axis> (eg: __info__())
+
         - Reads specific config
         - Adds specific methods
         - Switches piezo to ONLINE mode so that axis motion can be caused

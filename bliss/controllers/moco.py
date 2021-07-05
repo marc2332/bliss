@@ -311,7 +311,7 @@ class Moco(CounterContainer):
             valsource = rep[0]
             valpolarity = rep[1]
             valchannel = rep[2]
-            valfullscale[3]
+            valfullscale = rep[3]
             valautoscale = rep[4]
 
         if not silent:

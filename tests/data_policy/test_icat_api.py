@@ -36,6 +36,8 @@ def test_elogbook_message(elogbook):
     message = messages.get(timeout=10)
     message.pop("apikey")
     message.pop("creationDate")
+    message.pop("machine")
+    message.pop("software")
     expected = {
         "type": "annotation",
         "datasetName": "datasetname",
@@ -54,6 +56,8 @@ def test_elogbook_data(elogbook):
     message = messages.get(timeout=10)
     message.pop("apikey")
     message.pop("creationDate")
+    message.pop("machine")
+    message.pop("software")
     data = message.pop("base64")
     data = data.replace("data:application/octet-stream;base64,", "")
     assert base64.b64decode(data.encode()) == b"123"

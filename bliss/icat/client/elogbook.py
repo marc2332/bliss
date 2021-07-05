@@ -4,7 +4,9 @@ import requests
 import logging
 import base64
 import mimetypes
+import socket
 from bliss.icat.client.url import normalize_url
+from bliss import __version__
 
 logger = logging.getLogger(__name__)
 
@@ -50,13 +52,22 @@ class IcatElogbookClient:
         url = normalize_url(url, default_scheme=self.DEFAULT_SCHEME)
         self._message_url = f"{url}/logbook/{api_key}/investigation/name/{{proposal}}/instrument/name/{{beamline}}/event"
         self._data_url = f"{url}/logbook/{api_key}/investigation/name/{{proposal}}/instrument/name/{{beamline}}/event/createFrombase64"
+        self._client_id = {
+            "machine": socket.getfqdn(),
+            "software": "Bliss_v" + __version__,
+        }
         self.timeout = 0.5
+
+    def _add_default_payload(self, payload):
+        payload.update(self._client_id)
+        payload["creationDate"] = datetime.now().isoformat()
 
     def send_message(
         self, message: str, category: str, proposal: str, beamline: str, dataset: str
     ):
         url = self._message_url.format(proposal=proposal, beamline=beamline)
         payload = self.encode_message(message, category, dataset)
+        self._add_default_payload(payload)
         requests.post(url, json=payload, timeout=self.timeout)
 
     def send_text_file(self, filename: str, proposal: str, beamline: str, dataset: str):
@@ -73,6 +84,7 @@ class IcatElogbookClient:
     def send_data(self, data: bytes, mimetype: str, proposal: str, beamline: str):
         url = self._data_url.format(proposal=proposal, beamline=beamline)
         payload = self.encode_mime_data(data, mimetype)
+        self._add_default_payload(payload)
         requests.post(url, json=payload, timeout=self.timeout)
 
     def send_binary_file(self, filename: str, proposal: str, beamline: str):
@@ -88,10 +100,7 @@ class IcatElogbookClient:
             mimetype = "application/octet-stream"
         data_header = f"data:{mimetype};base64,"
         data_blob = base64.b64encode(data).decode("latin-1")
-        return {
-            "base64": data_header + data_blob,
-            "creationDate": str(datetime.now().isoformat()),
-        }
+        return {"base64": data_header + data_blob}
 
     @staticmethod
     def encode_message(message: str, category: str, dataset: str) -> str:
@@ -105,5 +114,4 @@ class IcatElogbookClient:
             "datasetName": dataset,
             "category": category.name,
             "content": [{"format": "plainText", "text": message}],
-            "creationDate": str(datetime.now().isoformat()),
         }

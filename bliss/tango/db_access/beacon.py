@@ -1099,8 +1099,9 @@ class beacon:
                         break
                 old_properties = property_node
         if old_properties is None:
-            properties = static.ConfigNode(device_node, key=["properties"])
+            properties = static.ConfigNode(device_node, path=["properties"])
             device_node["properties"] = properties
+            device_node.save()
         else:
             properties = old_properties
 

@@ -557,6 +557,23 @@ def dummy_tango_server(ports, beacon):
 
 
 @pytest.fixture
+def dummy_tango_server2(ports, beacon):
+
+    device_name = "id00/tango/dummy2"
+    device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
+
+    with start_tango_server(
+        sys.executable,
+        "-u",
+        os.path.join(os.path.dirname(__file__), "dummy_tg_server.py"),
+        "dummy2",
+        device_fqdn=device_fqdn,
+        state=DevState.CLOSE,
+    ) as dev_proxy:
+        yield device_fqdn, dev_proxy
+
+
+@pytest.fixture
 def wago_tango_server(ports, default_session, wago_emulator):
     device_name = "1/1/wagodummy"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)

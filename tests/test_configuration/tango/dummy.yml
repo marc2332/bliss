@@ -13,3 +13,10 @@
     alias: dummy_alias
   personal_name: dummy
   server: dummy_tg_server
+-
+  device:
+  - class: Dummy
+    tango_name: id00/tango/dummy2
+    properties:
+  personal_name: dummy2
+  server: dummy_tg_server

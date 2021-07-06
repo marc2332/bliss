@@ -8,6 +8,7 @@
 """Bliss REPL (Read Eval Print Loop)"""
 import asyncio
 import contextlib
+import re
 import os
 import sys
 import types
@@ -277,8 +278,10 @@ class PromptToolkitOutputWrapper(DummyOutput):
         return WrappedStdout(self._output_buffer)
 
     def acknowledge_output(self):
-        self._output.append("".join(self._output_buffer))
+        txt = "".join(self._output_buffer)
         self._output_buffer.clear()
+        txt = re.sub("^(\s+Out\s\[\d+\]:\s+)", "", txt, count=1, flags=re.MULTILINE)
+        self._output.append(txt)
 
     def __getitem__(self, item_no):
         if item_no > 0:

@@ -135,6 +135,14 @@
                                       # 0 (no trigger) or 1 of [1,2,3 or 4]
                                       # (4 Digital Output channels)
           cloop_wintime:      1.2E-3  # closed-loop settling time [sec]
+      home_position: -119             # position to set when homing has been performed
+      encoder: $ths_enc
+      check_encoder: False
+    encoders:
+      - name: ths_enc
+        number: 1                     # encoder channel number, must be the same as the axis number
+        steps_per_unit: 65550         # add an encoder if you need to do fscan
+                                      # there is not way to read encoder resolution
 """
 
 
@@ -146,6 +154,7 @@ from bliss.common.utils import Null
 from bliss.common.axis import AxisState
 from bliss.comm.util import get_comm, SERIAL
 from bliss.controllers.motor import Controller
+from bliss.common.encoder import Encoder, lazy_init
 from bliss.common.utils import object_method
 from bliss.common.utils import object_attribute_get, object_attribute_set
 from bliss.common.logtools import (
@@ -281,6 +290,27 @@ class micos(Controller):
         self._micos_state.create_state("INCLOSEDLOOPWINDOW", "In Closed-loop Window")
         # self._micos_state.create_state("IN_CLOSED_LOOP_WINDOW","In Closed-loop Window")
         # TODO: see if some other special state should be created here
+
+    def initialize_encoder(self, encoder):
+        if encoder.name not in self._micos_enc.keys():
+            number = encoder.config.get("number", int, None)
+            if number is None:
+                raise ValueError(f"Missing number key in {encoder.name} encoder config")
+            steps = encoder.config.get("steps_per_unit", int, None)
+            if steps is None:
+                raise ValueError(
+                    f"Missing steps_per_unit key in {encoder.name} encoder config"
+                )
+            encoder.number = number
+
+    def read_encoder(self, encoder):
+        """
+        No way to read the encoder, so just convert the motor position reading into encoder steps
+        """
+        cmd = f"{encoder.number} npos "
+        ans = self._send(cmd)
+        pos = float(ans)
+        return int(pos * encoder.steps_per_unit)
 
     def initialize_hardware(self):
         """

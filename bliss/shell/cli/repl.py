@@ -280,7 +280,7 @@ class PromptToolkitOutputWrapper(DummyOutput):
     def acknowledge_output(self):
         txt = "".join(self._output_buffer)
         self._output_buffer.clear()
-        txt = re.sub("^(\s+Out\s\[\d+\]:\s+)", "", txt, count=1, flags=re.MULTILINE)
+        txt = re.sub(r"^(\s+Out\s\[\d+\]:\s+)", "", txt, count=1, flags=re.MULTILINE)
         self._output.append(txt)
 
     def __getitem__(self, item_no):

@@ -12,6 +12,9 @@ import contextlib
 from unittest import mock
 from prompt_toolkit.input.defaults import create_pipe_input
 from prompt_toolkit.output import DummyOutput
+from bliss.common.logtools import Elogbook
+from bliss.shell.standard import elog_add
+import bliss.shell.cli
 import pytest
 import gevent
 
@@ -87,6 +90,21 @@ def _feed_cli_with_input(
         gtimeout.kill()
         BlissRepl.instance = None  # BlissRepl is a Singleton
         inp.close()
+
+
+def run_repl_once(bliss_repl, text):
+    bliss_repl.app.input.send_text(text)
+    try:
+        res = bliss_repl.eval(bliss_repl.app.run())
+    except KeyboardInterrupt as e:  # KeyboardInterrupt doesn't inherit from Exception.
+        raise
+    except SystemExit:
+        return
+    except BaseException as e:
+        bliss_repl._handle_exception(e)
+    else:
+        if res is not None:
+            bliss_repl.show_result(res)
 
 
 def test_shell_exit():
@@ -259,7 +277,6 @@ def bliss_repl(locals_dict):
         br = BlissRepl(
             input=inp, output=DummyOutput(), session="test_session", get_locals=mylocals
         )
-        br.app.output = PromptToolkitOutputWrapper(br.app.output)
         yield inp, br
     finally:
         BlissRepl.instance = None  # BlissRepl is a Singleton
@@ -275,8 +292,7 @@ def test_protected_against_trailing_whitespaces():
     result, cli, br = _feed_cli_with_input(f"f() {' '*5}\r", local_locals={"f": f})
 
     output = cli.output
-    with output.capture_stdout:
-        br.eval(result)
+    br.eval(result)
 
     assert output[-1].strip() == "Om Mani Padme Hum"
 
@@ -303,111 +319,46 @@ def test_info_dunder():
         pass
 
     # '__info__()' method called at object call.
-    result, cli, br = _feed_cli_with_input("A\r", local_locals={"A": A(), "B": B()})
-    output = cli.output
-
-    with output.capture_stdout:
-        r = br.eval(result)
-        br.show_result(r)
-    assert "info-string" in output[-1]
-
-    result, cli, br = _feed_cli_with_input("[A]\r", local_locals={"A": A(), "B": B()})
-    output = cli.output
-    with output.capture_stdout:
-        r = br.eval(result)
-        br.show_result(r)
-    assert "[repr-string]" in output[-1]
-
-    # 2 parenthesis added to method if not present
-    result, cli, br = _feed_cli_with_input(
-        "A.titi\r", local_locals={"A": A(), "B": B()}
-    )
-    output = cli.output
-    with output.capture_stdout:
-        r = br.eval(result)
-        br.show_result(r)
-    assert "titi-method" in output[-1]
-
-    # Closing parenthesis added if only opening one is present.
-    result, cli, br = _feed_cli_with_input(
-        "A.titi(\r", local_locals={"A": A(), "B": B()}
-    )
-    output = cli.output
-    with output.capture_stdout:
-        r = br.eval(result)
-        br.show_result(r)
-    assert "titi-method" in output[-1]
-
-    # Ok if finishing by a closing parenthesis.
-    result, cli, br = _feed_cli_with_input(
-        "A.titi()\r", local_locals={"A": A(), "B": B()}
-    )
-    output = cli.output
-    with output.capture_stdout:
-        r = br.eval(result)
-        br.show_result(r)
-    assert "titi-method" in output[-1]
-
-    # '__repr__()' used if no '__info__()' method is defined.
-    result, cli, br = _feed_cli_with_input("B\r", local_locals={"A": A(), "B": B()})
-    output = cli.output
-    with output.capture_stdout:
-        r = br.eval(result)
-        br.show_result(r)
-    assert "repr-string" in output[-1]
-
-    # Default behaviour for object without specific method.
-    result, cli, br = _feed_cli_with_input(
-        "C\r", local_locals={"A": A(), "B": B(), "C": C()}
-    )
-    output = cli.output
-    with output.capture_stdout:
-        r = br.eval(result)
-        br.show_result(r)
-    assert "C object at " in output[-1]
-
-    ###bypass typing helper ... equivalent of ... [Space][left Arrow]A[return], "B": B, "A.titi": A.titi}, "B": B, "A.titi": A.titi}
-    with bliss_repl({"A": A, "B": B, "A.titi": A.titi}) as bliss_repl_ctx:
+    with bliss_repl({"A": A(), "B": B(), "C": C()}) as bliss_repl_ctx:
         inp, br = bliss_repl_ctx
-        output = br.app.output
-        inp.send_text("")
-        br.default_buffer.insert_text("A ")
-        inp.send_text("\r")
-        result = br.app.run()
-        assert result == "A"
-        with output.capture_stdout:
-            r = br.eval(result)
-            br.show_result(r)
-        # assert "<locals>.A" in out
-        assert (
-            "  Out [1]: <class 'test_bliss_shell_basics.test_info_dunder.<locals>.A'>\r\n\n"
-            == output[-1]
-        )
+        run_repl_once(br, "A\r")
+        assert "info-string" in br.app.output[-1]
 
-    with bliss_repl({"A": A, "B": B, "A.titi": A.titi}) as bliss_repl_ctx:
-        inp, br = bliss_repl_ctx
-        output = br.app.output
-        inp.send_text("A\r")
-        result = br.app.run()
-        assert result == "A()"
-        with output.capture_stdout:
-            r = br.eval(result)
-            br.show_result(r)
-        # assert "<locals>.A" in out
-        assert output[-1].startswith("  Out [1]: info-string")
+        run_repl_once(br, "[A]\r")
+        assert "[repr-string]" in br.app.output[-1]
 
-    with bliss_repl({"A": A, "B": B, "A.titi": A.titi}) as bliss_repl_ctx:
-        inp, br = bliss_repl_ctx
-        output = br.app.output
-        inp.send_text("B\r")
-        result = br.app.run()
-        assert result == "B()"
-        with output.capture_stdout:
-            r = br.eval(result)
-            br.show_result(r)
+        # 2 parenthesis added to method if not present
+        run_repl_once(br, "A.titi\r")
+        assert "titi-method" in br.app.output[-1]
 
-        # assert "<locals>.B" in out
-        assert output[-1].startswith("  Out [1]: repr-string")
+        # Closing parenthesis added if only opening one is present.
+        run_repl_once(br, "A.titi(\r")
+        assert "titi-method" in br.app.output[-1]
+
+        # Ok if finishing by a closing parenthesis.
+        run_repl_once(br, "A.titi()\r")
+        assert "titi-method" in br.app.output[-1]
+
+        # '__repr__()' used if no '__info__()' method is defined.
+        run_repl_once(br, "B\r")
+        assert "repr-string" in br.app.output[-1]
+
+        # Default behaviour for object without specific method.
+        run_repl_once(br, "C\r")
+        assert "C object at " in br.app.output[-1]
+
+    bliss.shell.cli.typing_helper_active = False
+    try:
+        with bliss_repl({"A": A, "B": B, "A.titi": A.titi}) as bliss_repl_ctx:
+            inp, br = bliss_repl_ctx
+            output = br.app.output
+            run_repl_once(br, "A\r")
+            assert (
+                "<class 'test_bliss_shell_basics.test_info_dunder.<locals>.A'>\r\n\n"
+                == output[-1]
+            )
+    finally:
+        bliss.shell.cli.typing_helper_active = True
 
 
 def test_shell_dict_list_not_callable():
@@ -504,37 +455,87 @@ def test_captured_output():
         print(num + 1)
         return num + 2
 
-    _, cli, br = _feed_cli_with_input("\r", local_locals={"f": f})
+    with bliss_repl({"f": f}) as bliss_repl_ctx:
+        inp, br = bliss_repl_ctx
+        output = br.app.output
 
-    output = cli.output
-    with output.capture_stdout:
-        r = br.eval("f(1)")
-        br.show_result(r)
+        run_repl_once(br, "f(1)\r")
 
-    captured = output[-1]
-    assert "2" in captured
-    assert "3" in captured
-    captured = output[1]
-    assert "2" in captured
-    assert "3" in captured
-    with pytest.raises(IndexError):
-        output[2]
+        captured = output[-1]
+        assert "2" in captured
+        assert "3" in captured
+        captured = output[1]
+        assert "2" in captured
+        assert "3" in captured
+        with pytest.raises(IndexError):
+            output[2]
 
-    with output.capture_stdout:
-        r = br.eval("f(3)")
-        br.show_result(r)
+        run_repl_once(br, "f(3)\r")
 
-    captured = output[-1]
-    assert "4" in captured
-    assert "5" in captured
-    captured = output[1]
-    assert "2" in captured
-    assert "3" in captured
-    captured = output[2]
-    assert "4" in captured
-    assert "5" in captured
-    with pytest.raises(IndexError):
-        output[-10]
+        captured = output[-1]
+        assert "4" in captured
+        assert "5" in captured
+        captured = output[1]
+        assert "2" in captured
+        assert "3" in captured
+        captured = output[2]
+        assert "4" in captured
+        assert "5" in captured
+        with pytest.raises(IndexError):
+            output[-10]
+
+
+def test_elogbook_cmd_log_and_elog_add(shell_excepthook):
+    logger = logging.getLogger()
+
+    def f(num):
+        print(num + 1)
+        logger.info("my info")
+        logger.error("my error")
+        return num + 2
+
+    with bliss_repl({"f": f, "elog_add": elog_add}) as bliss_repl_ctx:
+        inp, br = bliss_repl_ctx
+
+        # calling when no command has been issued yet should not raise exception
+        elog_add()
+
+        with mock.patch.object(
+            Elogbook, "command", return_value=None
+        ) as mock_elogbook_command:
+            run_repl_once(br, "f(1)\r")
+
+            output = br.app.output
+            captured = output[-1]
+
+        mock_elogbook_command.assert_called_once_with("f(1)")
+        assert captured == "2\n3\r\n\n"
+
+        with mock.patch.object(
+            Elogbook, "comment", return_value=None
+        ) as mock_elogbook_comment:
+            run_repl_once(br, "elog_add()\r")
+
+        mock_elogbook_comment.assert_called_once_with(captured)
+
+        with mock.patch.object(
+            Elogbook, "error", return_value=None
+        ) as mock_elogbook_error:
+            run_repl_once(br, "1/0\r")
+
+        mock_elogbook_error.assert_called_once_with(
+            "ZeroDivisionError: division by zero"
+        )
+
+        with mock.patch.object(
+            Elogbook, "comment", return_value=None
+        ) as mock_elogbook_comment:
+            run_repl_once(br, "elog_add()\r")
+
+        # last output is an exception => elog_add() should return an empty string,
+        # as there is no "output" for the logbook in the context of elog_add
+        # since there was an exception
+        mock_elogbook_comment.assert_called_once_with("")
 
 
 def test_getattribute_evaluation():
@@ -559,26 +560,31 @@ def test_getattribute_evaluation():
         result, cli, _ = _feed_cli_with_input("a.foo()\r", local_globals={"a": a})
 
 
-def test_excepthook(default_session):
+@pytest.fixture
+def shell_excepthook():
+    orig_excepthook = sys.excepthook
+    try:
+        install_excepthook()
+        yield
+    finally:
+        sys.excepthook = orig_excepthook
+
+
+def test_excepthook(shell_excepthook, default_session):
     print_output = []
 
     def test_print(*msg, **kw):
         print_output.append("\n".join(msg))
 
-    orig_excepthook = sys.excepthook
-    try:
-        install_excepthook()
-        logging.getLogger("exceptions").setLevel(
-            1000
-        )  # this is to silent exception logging via logger (which also calls 'print')
+    logging.getLogger("exceptions").setLevel(
+        1000
+    )  # this is to silent exception logging via logger (which also calls 'print')
 
-        with mock.patch("builtins.print", test_print):
-            try:
-                raise RuntimeError("excepthook test")
-            except RuntimeError:
-                sys.excepthook(*sys.exc_info())
-    finally:
-        sys.excepthook = orig_excepthook
+    with mock.patch("builtins.print", test_print):
+        try:
+            raise RuntimeError("excepthook test")
+        except RuntimeError:
+            sys.excepthook(*sys.exc_info())
 
     assert (
         "".join(print_output)

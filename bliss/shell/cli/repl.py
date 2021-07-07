@@ -8,6 +8,7 @@
 """Bliss REPL (Read Eval Print Loop)"""
 import asyncio
 import contextlib
+import re
 import os
 import sys
 import types
@@ -219,9 +220,8 @@ class Info:
 
 
 class WrappedStdout:
-    def __init__(self, ptpython_output, current_output):
-        self._ptpython_output = ptpython_output
-        self._current_output = current_output
+    def __init__(self, output_buffer):
+        self._buffer = output_buffer
         self._orig_stdout = sys.stdout
 
     # context manager
@@ -231,8 +231,6 @@ class WrappedStdout:
         return self
 
     def __exit__(self, *args, **kwargs):
-        self._ptpython_output._output.append("".join(self._current_output))
-        self._current_output.clear()
         sys.stdout = self._orig_stdout
 
     # delegated members
@@ -258,18 +256,16 @@ class WrappedStdout:
     def write(self, data):
         # wait for stdout to be ready to receive output
         if True:  # if gevent.select.select([],[self.fileno()], []):
-            self._current_output.append(data)
+            self._buffer.append(data)
             self._orig_stdout.write(data)
 
 
 # in the next class, inheritance from DummyOutput is just needed
 # to make ptpython happy (as there are some asserts checking instance type)
 class PromptToolkitOutputWrapper(DummyOutput):
-    SIZE = 20
-
     def __init__(self, output):
         self.__wrapped_output = output
-        self._current_output = []
+        self._output_buffer = []
         self._output = deque(maxlen=20)
 
     def __getattr__(self, attr):
@@ -279,17 +275,23 @@ class PromptToolkitOutputWrapper(DummyOutput):
 
     @property
     def capture_stdout(self):
-        return WrappedStdout(self, self._current_output)
+        return WrappedStdout(self._output_buffer)
+
+    def acknowledge_output(self):
+        txt = "".join(self._output_buffer)
+        self._output_buffer.clear()
+        txt = re.sub(r"^(\s+Out\s\[\d+\]:\s+)", "", txt, count=1, flags=re.MULTILINE)
+        self._output.append(txt)
 
     def __getitem__(self, item_no):
-        if item_no >= 0:
+        if item_no > 0:
             # item_no starts at 1 to match "Out" number in ptpython
             item_no -= 1
-        # if item_no is specified negative => no decrement of number of course
+        # if item_no is specified negative or 0 => no decrement of number
         return self._output[item_no]
 
     def write(self, data):
-        self._current_output.append(data)
+        self._output_buffer.append(data)
         self.__wrapped_output.write(data)
 
     def fileno(self):
@@ -358,17 +360,35 @@ class BlissRepl(NoThreadPythonRepl, metaclass=Singleton):
     ##
     # NB: next methods are overloaded
     ##
+    def eval(self, text):
+        logging.getLogger("user_input").info(text)
+        elogbook.command(text)
+        with self.app.output.capture_stdout:
+            result = super().eval(text)
+            if result is None:
+                self.app.output.acknowledge_output()
+            return result
+
+    async def eval_async(self, text):
+        logging.getLogger("user_input").info(text)
+        elogbook.command(text)
+        with self.app.output.capture_stdout:
+            result = await super().eval_async(text)
+            if result is None:
+                self.app.output.acknowledge_output()
+            return result
+
     def show_result(self, result):
         try:
             if hasattr(result, "__info__"):
                 result = Info(result)
-            logging.getLogger("user_input").info(result)
-            elogbook.command(result)
         except BaseException:
             # display exception, but do not propagate and make shell to die
             sys.excepthook(*sys.exc_info())
         else:
             return super().show_result(result)
+        finally:
+            self.app.output.acknowledge_output()
 
     def _handle_keyboard_interrupt(self, e: KeyboardInterrupt) -> None:
         sys.excepthook(*sys.exc_info())

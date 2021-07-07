@@ -1505,11 +1505,11 @@ def elog_add(index=-1):
     """
     Send to the logbook given cell output and the print that was
     performed during the elaboration.
-    Only a fixed size of output are kept in memory (normally last 100).
+    Only a fixed size of output are kept in memory (normally last 20).
 
     Args:
         index (int): Index of the cell to be sent to logbook, can
-                     be positive reflectiong the prompt index
+                     be positive reflecting the prompt index
                      or negative.
                      Default is -1 (previous cell)
 
@@ -1522,11 +1522,16 @@ def elog_add(index=-1):
                      unit = None
                      mode = MEAN (1)
 
-        BLISS [3]: elog_add()  # sends last otput from diode
+        BLISS [3]: elog_add()  # sends last output from diode
     """
-    from bliss.shell.cli.repl import CaptureOutput
+    from bliss.shell.cli.repl import BlissRepl
 
-    logtools.elogbook.comment(CaptureOutput()[index])
+    try:
+        comment = BlissRepl().app.output[index]
+    except IndexError:
+        logtools.user_warning(f"Cell output [{index}] does not exist")
+    else:
+        logtools.elogbook.comment(comment)
 
 
 @logtools.elogbook.disable_command_logging

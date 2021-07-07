@@ -291,6 +291,14 @@ class micos(Controller):
         # self._micos_state.create_state("IN_CLOSED_LOOP_WINDOW","In Closed-loop Window")
         # TODO: see if some other special state should be created here
 
+    def __info__(self):
+        info = "MICOS CONTROLLER:\n"
+        info += f"     comm: {self.serial}\n"
+        return info
+
+    def get_axis_info(self, axis):
+        return f"     controller: {self.get_id(axis)}\n"
+
     def initialize_encoder(self, encoder):
         if encoder.name not in self._micos_enc.keys():
             number = encoder.config.get("number", int, None)

@@ -5,31 +5,51 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+"""
+Encoder
+EncoderFilter
+"""
+
+import sys
+from functools import wraps
+import weakref
+
 from bliss.common.motor_config import MotorConfig
 from bliss.common.counter import SamplingCounter
 from bliss.controllers.counter import CalcCounterController
 from bliss.comm.exceptions import CommunicationError
-
-from functools import wraps
-import weakref
+from bliss.common.logtools import user_warning
 
 
 def lazy_init(func):
+    """
+    Lazy init decorator for encoder methods.
+    Disable the encoder access at first failure to avoid
+    recurrent annoying messages.
+    """
+
     @wraps(func)
     def func_wrapper(self, *args, **kwargs):
         if self.disabled:
             raise RuntimeError(f"Encoder {self.name} is disabled")
+
         try:
             self.controller._initialize_encoder(self)
-        except Exception as e:
-            if isinstance(e, CommunicationError):
+        except Exception as enc_init_exc:
+            # Print and store exception, but continue.
+            sys.excepthook(*sys.exc_info())
+
+            if isinstance(enc_init_exc, CommunicationError):
                 # also disable the controller
                 self.controller._disabled = True
+            user_warning("failed to initialize encoder %s, disabling it.", self.name)
             self._disabled = True
             raise
         else:
             if not self.controller.encoder_initialized(self):
-                # failed to initialize
+                user_warning(
+                    "failed to initialize encoder %s, disabling it.", self.name
+                )
                 self._disabled = True
         return func(self, *args, **kwargs)
 
@@ -37,6 +57,10 @@ def lazy_init(func):
 
 
 class Encoder(SamplingCounter):
+    """
+    
+    """
+
     def __init__(self, name, controller, motor_controller, config):
         super().__init__(name, controller, unit=config.get("unit"))
         self.__controller = motor_controller
@@ -160,7 +184,7 @@ class EncoderFilter(CalcCounterController):
     """
     This calc controller creates 2 counters to return a filtered measured position
     from an encoder.
-    
+
     Input counter:
        - encoder
     Output counters:

@@ -7,6 +7,11 @@ controller:
         steps_per_unit: 1000
         velocity: 100
         acceleration: 100
+        encoder: $bad_mot_enc
+    encoders:
+      - name: bad_mot_enc
+        steps_per_unit: 50
+        tolerance: 0.001
     
   - name: test
     class: mockup

@@ -5,8 +5,14 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import numpy
+"""
+bliss.controller.motor.EncoderCounterController
+bliss.controller.motor.Controller
+bliss.controller.motor.CalcController
+"""
+
 import functools
+import numpy
 from gevent import lock
 
 # absolute import to avoid circular import
@@ -47,6 +53,11 @@ class EncoderCounterController(SamplingCounterController):
 
 
 def check_disabled(func):
+    """
+    Decorator used to raise exception if accessing an attribute of a disabled
+    motor controller.
+    """
+
     @functools.wraps(func)
     def func_wrapper(self, *args, **kwargs):
         if self._disabled:
@@ -291,11 +302,14 @@ class Controller(BlissController):
                 return
             self.__initialized_encoder[encoder] = True
             self._initialize_hardware()
+
             try:
                 self.initialize_encoder(encoder)
-            except BaseException:
+            except BaseException as enc_init_exc:
                 self.__initialized_encoder[encoder] = False
-                raise
+                raise RuntimeError(
+                    f"Cannot initialize {self.name} encoder"
+                ) from enc_init_exc
 
     @check_disabled
     def axis_initialized(self, axis):

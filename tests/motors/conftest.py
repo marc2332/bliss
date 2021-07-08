@@ -85,6 +85,7 @@ def bad_motor(beacon):
     bad.controller.bad_state = False
     bad.controller.bad_state_after_start = False
     bad.controller.bad_stop = False
+    bad.controller.bad_encoder = False
     bad.controller.bad_position = False
     bad.controller.position_reading_delay = 0
     bad.dial = 0

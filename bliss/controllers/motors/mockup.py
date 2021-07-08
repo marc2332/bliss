@@ -4,11 +4,22 @@
 #
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
+
+"""
+mockup.py : a mockup controller for bliss.
+
+config :
+ 'velocity' in unit/s
+ 'acceleration' in unit/s^2
+ 'steps_per_unit' in unit^-1  (default 1)
+ 'backlash' in unit
+"""
+
 import math
 import time
 import random
-import gevent
 import collections
+import gevent
 import numpy as np
 
 from bliss.physics.trajectory import LinearTrajectory
@@ -20,17 +31,6 @@ from bliss.common.hook import MotionHook
 from bliss.common.utils import object_method
 from bliss.common.utils import object_attribute_get, object_attribute_set
 from bliss.common.logtools import log_debug
-
-
-"""
-mockup.py : a mockup controller for bliss.
-
-config :
- 'velocity' in unit/s
- 'acceleration' in unit/s^2
- 'steps_per_unit' in unit^-1  (default 1)
- 'backlash' in unit
-"""
 
 
 class Motion:
@@ -65,6 +65,10 @@ class MockupAxis(Axis):
 
 
 class Mockup(Controller):
+    """
+    Simulated motor controller for tests and demo.
+    """
+
     def __init__(self, *args, **kwargs):  # config
         super().__init__(*args, **kwargs)
 
@@ -137,21 +141,23 @@ class Mockup(Controller):
         axis.low_limit = old_low_limit
 
     def initialize_encoder(self, encoder):
+        """
+        If linked to an axis, encoder initialization is called at axis
+        initialization.
+        """
         enc_config = self.__encoders.setdefault(encoder, {})
         enc_config.setdefault("measured_noise", None)
         enc_config.setdefault("steps", None)
-
-    """
-    Actions to perform at controller closing.
-    """
 
     def finalize(self):
         pass
 
     def _get_axis_motion(self, axis, t=None):
-        """Get an updated motion object.
-           Also updates the motor hardware position setting if a motion is
-           occuring"""
+        """
+        Get an updated motion object.
+        Also updates the motor hardware position setting if a motion is
+        occuring
+        """
         motion = self._axis_moves[axis]["motion"]
 
         if motion:
@@ -607,12 +613,14 @@ class FaultyMockup(Mockup):
         self.bad_start = False
         self.bad_state_after_start = False
         self.bad_stop = False
+        self.bad_encoder = False
         self.bad_position = False
         self.bad_position_only_once = False
         self.nan_position = False
         self.position_reading_delay = 0
         self.state_recovery_delay = 1
         self.state_msg_index = 0
+        self.__encoders = {}
 
     def state(self, axis):
         if self.bad_state:
@@ -623,6 +631,36 @@ class FaultyMockup(Mockup):
             return AxisState("FAULT")
         else:
             return Mockup.state(self, axis)
+
+    def read_encoder(self, encoder):
+        """
+        Return encoder position.
+        unit : 'encoder steps'
+        """
+        amplitude = self.__encoders[encoder]["measured_noise"]
+        if amplitude is not None and amplitude > 0:
+            # Simulates noisy encoder.
+            noise_mm = random.uniform(-amplitude, amplitude)
+        else:
+            noise_mm = 0
+        enc_steps = self.__encoders[encoder]["steps"]
+        axis = encoder.axis
+        if axis:
+            if enc_steps is None:
+                _pos = self.read_position(axis) / float(axis.steps_per_unit)
+                if noise_mm:
+                    _pos += noise_mm
+                enc_steps = _pos * encoder.steps_per_unit
+        return enc_steps
+
+    def initialize_encoder(self, encoder):
+        """
+        If linked to an axis, encoder initialization is called at axis
+        initialization.
+        """
+        enc_config = self.__encoders.setdefault(encoder, {})
+        enc_config.setdefault("measured_noise", None)
+        enc_config.setdefault("steps", None)
 
     def _check_hw_limits(self, axis):
         ll, hl = self._Mockup__hw_limit
@@ -670,6 +708,17 @@ class FaultyMockup(Mockup):
             return float("nan")
         else:
             return Mockup.read_position(self, axis, t)
+
+    def initialize_encoder(self, encoder):
+        """
+        Added to be able to simulate a bug in encoder code to test excpetion rising.
+        """
+        if self.bad_encoder:
+            _ = 1 / 0
+        else:
+            enc_config = self.__encoders.setdefault(encoder, {})
+            enc_config.setdefault("measured_noise", None)
+            enc_config.setdefault("steps", None)
 
 
 class CustomMockup(Mockup):

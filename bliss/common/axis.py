@@ -1230,6 +1230,7 @@ class Axis(Scannable):
 
         # ENCODER
         try:
+            # Encoder is initialised here if not already done.
             info_string += self.encoder.__info__()
         except Exception:
             info_string += "ENCODER:\n     None\n"

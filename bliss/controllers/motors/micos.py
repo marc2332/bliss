@@ -135,6 +135,14 @@
                                       # 0 (no trigger) or 1 of [1,2,3 or 4]
                                       # (4 Digital Output channels)
           cloop_wintime:      1.2E-3  # closed-loop settling time [sec]
+      home_position: -119             # position to set when homing has been performed
+      encoder: $ths_enc
+      check_encoder: False
+    encoders:
+      - name: ths_enc
+        number: 1                     # encoder channel number, must be the same as the axis number
+        steps_per_unit: 65550         # add an encoder if you need to do fscan
+                                      # there is not way to read encoder resolution
 """
 
 
@@ -146,6 +154,7 @@ from bliss.common.utils import Null
 from bliss.common.axis import AxisState
 from bliss.comm.util import get_comm, SERIAL
 from bliss.controllers.motor import Controller
+from bliss.common.encoder import Encoder, lazy_init
 from bliss.common.utils import object_method
 from bliss.common.utils import object_attribute_get, object_attribute_set
 from bliss.common.logtools import (
@@ -164,7 +173,7 @@ from bliss.common.logtools import (
 
 
 # --------------  Micos motor controller class ------------------
-class micos(Controller):
+class Micos(Controller):
 
     # Actions that can be executed automatically at power up
     # used with "setnpowerup" command
@@ -256,6 +265,7 @@ class micos(Controller):
         Opens serial line.
         """
         log_info(self, "initialize()")
+        self._micos_enc = {}
         try:
             self.serial = get_comm(
                 self.config.config_dict, SERIAL, timeout=5, baudrate=19200, eol="\r\n"
@@ -281,6 +291,35 @@ class micos(Controller):
         self._micos_state.create_state("INCLOSEDLOOPWINDOW", "In Closed-loop Window")
         # self._micos_state.create_state("IN_CLOSED_LOOP_WINDOW","In Closed-loop Window")
         # TODO: see if some other special state should be created here
+
+    def __info__(self):
+        info = "MICOS CONTROLLER:\n"
+        info += f"     comm: {self.serial}\n"
+        return info
+
+    def get_axis_info(self, axis):
+        return f"     controller: {self.get_id(axis)}\n"
+
+    def initialize_encoder(self, encoder):
+        if encoder.name not in self._micos_enc.keys():
+            number = encoder.config.get("number", int, None)
+            if number is None:
+                raise ValueError(f"Missing number key in {encoder.name} encoder config")
+            steps = encoder.config.get("steps_per_unit", int, None)
+            if steps is None:
+                raise ValueError(
+                    f"Missing steps_per_unit key in {encoder.name} encoder config"
+                )
+            encoder.number = number
+
+    def read_encoder(self, encoder):
+        """
+        No way to read the encoder, so just convert the motor position reading into encoder steps
+        """
+        cmd = f"{encoder.number} npos "
+        ans = self._send(cmd)
+        pos = float(ans)
+        return int(pos * encoder.steps_per_unit)
 
     def initialize_hardware(self):
         """
@@ -599,6 +638,9 @@ class micos(Controller):
         # if clwintime == None:
         #    axis.axis_settings.add("cloop_wintime",float)
 
+        # Get the home position if any
+        axis.home_position = axis.config.get("home_position", float, None)
+
     def initialize_hardware_axis(self, axis):
         """
         This function serves for the HARDWARE INITIALIZION of an axis.
@@ -691,7 +733,7 @@ class micos(Controller):
         log_info(self, "set_on()")
 
         _cmd = "1 %d setaxis " % axis.number
-        self._send_no_ans(axis, _cmd)
+        self._send_no_ans(_cmd)
         # Check for general/system error
         ret = self._get_generror(axis)
         if ret != 0:
@@ -710,7 +752,7 @@ class micos(Controller):
         log_info(self, "set_off()")
 
         _cmd = "0 %d setaxis " % axis.number
-        self._send_no_ans(axis, _cmd)
+        self._send_no_ans(_cmd)
         # Check for general/system error
         ret = self._get_generror(axis)
         if ret != 0:
@@ -751,7 +793,7 @@ class micos(Controller):
 
         # _cmd = "%d gnv " % axis.number
         _cmd = "%d getnvel " % axis.number
-        _ans = self._send(axis, _cmd)
+        _ans = self._send(_cmd)
         log_debug(self, "read_velocity(): %s" % _ans)
         _vel = float(_ans)
         log_debug(self, "read_velocity(): velocity = %f" % _vel)
@@ -768,7 +810,7 @@ class micos(Controller):
 
         # _cmd = "%f %d snv " % (new_velocity, axis.number)
         _cmd = "%f %d setnvel " % (new_velocity, axis.number)
-        self._send_no_ans(axis, _cmd)
+        self._send_no_ans(_cmd)
         # ret = self._get_generror(axis)
         # if ret != 0:
         #    raise RuntimeError(self.GENERAL_ERROR_DICT.get(ret))
@@ -786,7 +828,7 @@ class micos(Controller):
 
         # _cmd = "%d gna " % axis.number
         _cmd = "%d getnaccel " % axis.number
-        _ans = self._send(axis, _cmd)
+        _ans = self._send(_cmd)
         log_debug(self, "read_acceleration(): %s" % _ans)
         _acc = float(_ans)
         log_debug(self, "read_acceleration(): acceleration = %f" % _acc)
@@ -803,7 +845,7 @@ class micos(Controller):
 
         # _cmd = "%f %d sna " % (new_acceleration, axis.number)
         _cmd = "%f %d setnaccel " % (new_acceleration, axis.number)
-        self._send_no_ans(axis, _cmd)
+        self._send_no_ans(_cmd)
         # ret = self._get_generror(axis)
         # if ret != 0:
         #    raise RuntimeError(self.GENERAL_ERROR_DICT.get(ret))
@@ -885,7 +927,7 @@ class micos(Controller):
 
         # _cmd = "%d np " % axis.number
         _cmd = "%d npos " % axis.number
-        _ans = self._send(axis, _cmd)
+        _ans = self._send(_cmd)
         log_debug(self, "read_position(): %s" % _ans)
         _pos = float(_ans)
         log_debug(self, "position=%f" % _pos)
@@ -912,7 +954,7 @@ class micos(Controller):
 
         if new_position != None:
             _cmd = "%f %d setnpos " % (new_position, axis.number)
-            self._send_no_ans(axis, _cmd)
+            self._send_no_ans(_cmd)
             # Check for general/system error
             ret = self._get_generror(axis)
             if ret != 0:
@@ -920,7 +962,7 @@ class micos(Controller):
             axis.dial_position = new_position
         else:
             _cmd = "%f %d setnpos " % (axis.dial_position, axis.number)
-            self._send_no_ans(axis, _cmd)
+            self._send_no_ans(_cmd)
             # Check for general/system error
             ret = self._get_generror(axis)
             if ret != 0:
@@ -961,7 +1003,7 @@ class micos(Controller):
 
         # _cmd = "%f %d nm " % (motion.target_pos, motion.axis.number)
         _cmd = "%f %d nmove " % (motion.target_pos, motion.axis.number)
-        self._send_no_ans(motion.axis, _cmd)
+        self._send_no_ans(_cmd)
 
     def stop(self, axis):
         """
@@ -979,7 +1021,7 @@ class micos(Controller):
         log_info(self, "stop()")
 
         _cmd = "%d nabort " % axis.number
-        self._send_no_ans(axis, _cmd)
+        self._send_no_ans(_cmd)
 
     # ----------------  Group motion ------------------
 
@@ -1120,11 +1162,11 @@ class micos(Controller):
         log_info(self, "_get_id()")
 
         _cmd = "%d nidentify " % axis.number
-        reply1 = self._send(axis, _cmd)
+        reply1 = self._send(_cmd)
         log_debug(self, "_get_id(): Micos equipment id = %s" % reply1)
 
         _cmd = "%d nversion " % axis.number
-        reply2 = self._send(axis, _cmd)
+        reply2 = self._send(_cmd)
         log_debug(self, "_get_id(): Micos firmware version = %s" % reply2)
 
         retstr = "Micos ID = %s; Firmware version = %s" % (reply1, reply2)
@@ -1178,8 +1220,6 @@ class micos(Controller):
         # TODO: add more info if necessary
 
         print(_txt)
-
-        ##return _txt
 
     # ----------------  Direct communication methods ------------------
 
@@ -1342,7 +1382,7 @@ class micos(Controller):
             - <id-info>: string with Micos ID and Firmware version
         """
         log_info(self, "get_id()")
-        self._get_id(axis)
+        return self._get_id(axis)
 
     # 'hardware' limits (= end-switches) related
 
@@ -1637,11 +1677,10 @@ class micos(Controller):
 
     # ----------------  Micos communiction methods ------------------
 
-    def _send(self, axis, cmd):
+    def _send(self, cmd):
         """
         - Sends command <cmd> to the MICOS controller.
         - Axis number is defined in <cmd>.
-        - <axis> is passed for debugging purposes.
         - Returns answer from controller.
 
         Args:
@@ -1686,11 +1725,10 @@ class micos(Controller):
         # print("    Sending: %r Receiving: %r  (duration : %g sec.)" % (_cmd, _ans, _duration))
         return _ans
 
-    def _send_no_ans(self, axis, cmd):
+    def _send_no_ans(self, cmd):
         """
         - Sends command <cmd> to the MICOS controller.
         - Axis number is defined in <cmd>.
-        - <axis> is passed for debugging purposes.
         - Used for answer-less commands, then returns nothing.
         Args:
             - <axis> : passed for debugging purposes.
@@ -1731,7 +1769,7 @@ class micos(Controller):
         _cmd = "%d getnerror " % axis.number
         # _cmd = "%d gne " % axis.number
 
-        _ans = int(self._send(axis, _cmd))
+        _ans = int(self._send(_cmd))
 
         if _ans == 0:
             dbgmsg = "No general error --> OK"
@@ -1773,7 +1811,7 @@ class micos(Controller):
 
         _cmd = "%d getmerror " % axis.number
         # _cmd = "%d gme " % axis.number
-        _ans = int(self._send(axis, _cmd))
+        _ans = int(self._send(_cmd))
         macherrlist.append(_ans)
 
         # Thist function is called from state() when status
@@ -1790,7 +1828,7 @@ class micos(Controller):
             if status & self.HW_ERROR:
                 _cmd = "%d getmerror " % axis.number
                 # _cmd = "%d gme " % axis.number
-                _ans = int(self._send(axis, _cmd))
+                _ans = int(self._send(_cmd))
                 macherrlist.append(_ans)
                 dbgmsg = (
                     "_get_macherror(): Machine erorr = %s "
@@ -1820,7 +1858,7 @@ class micos(Controller):
 
         # _cmd = "%d nstatus " % axis.number
         _cmd = "%d nst " % axis.number
-        _ans = self._send(axis, _cmd)
+        _ans = self._send(_cmd)
         log_debug(self, "get_status(): raw_status byte = %s" % _ans)
         return _ans
 
@@ -1840,7 +1878,7 @@ class micos(Controller):
 
         _cmd = "%d nsave " % axis.number
         # TODO: should test general error here ?
-        self._send_no_ans(axis, _cmd)
+        self._send_no_ans(_cmd)
 
     def _restore_axis_parameters(self, axis):
         """
@@ -1854,7 +1892,7 @@ class micos(Controller):
 
         _cmd = "%d nrestore " % axis.number
         # TODO: should test general error here ?
-        self._send_no_ans(axis, _cmd)
+        self._send_no_ans(_cmd)
 
     def _reset_axis(self, axis):
         """
@@ -1876,7 +1914,7 @@ class micos(Controller):
         log_info(self, "_reset_axis()")
 
         _cmd = "%d nreset " % axis.number
-        self._send_no_ans(axis, _cmd)
+        self._send_no_ans(_cmd)
         # TODO: should test general error here ?
         axis.axis_on = True
 
@@ -1899,7 +1937,7 @@ class micos(Controller):
         log_info(self, "_clear_axis()")
 
         _cmd = "%d nclear " % axis.number
-        self._send_no_ans(axis, _cmd)
+        self._send_no_ans(_cmd)
         ret = self._get_generror(axis)
         if ret != 0:
             raise RuntimeError(self.GENERAL_ERROR_DICT.get(ret))
@@ -1921,7 +1959,7 @@ class micos(Controller):
         log_info(self, "_get_axis_on()")
 
         _cmd = "%d getaxis " % axis.number
-        ret = self._send(axis, _cmd)
+        ret = self._send(_cmd)
         axis_on = True if int(ret) == 1 else False
         log_debug(self, "_get_axis_on(): axis enabled = %s" % axis_on)
         return axis_on
@@ -1944,7 +1982,7 @@ class micos(Controller):
         """
         log_info(self, "_get_endswitch_types()")
         _cmd = "%d getsw " % axis.number
-        ret = self._send(axis, _cmd)
+        ret = self._send(_cmd)
         # lohiesty = ret.split(" ")
         lohiesty = ret.split()
         loesty = int(lohiesty[0])
@@ -1970,12 +2008,12 @@ class micos(Controller):
         # If parameters passed, use them.
         if not isinstance(loest, Null) and not isinstance(hiest, Null):
             _cmd = "%d 0 %d setsw " % (loest, axis.number)
-            self._send_no_ans(axis, _cmd)
+            self._send_no_ans(_cmd)
             ##ret = self._get_generror(axis)
             ##if ret != 0:
             ##    raise RuntimeError(self.GENERAL_ERROR_DICT.get(ret))
             _cmd = "%d 1 %d setsw " % (hiest, axis.number)
-            self._send_no_ans(axis, _cmd)
+            self._send_no_ans(_cmd)
             ##ret = self._get_generror(axis)
             ##if ret != 0:
             ##    raise RuntimeError(self.GENERAL_ERROR_DICT.get(ret))
@@ -1983,9 +2021,9 @@ class micos(Controller):
             axis.high_endswitch_type = hiest
         else:
             _cmd = "%d 0 %d setsw " % (axis.low_endswitch_type, axis.number)
-            self._send_no_ans(axis, _cmd)
+            self._send_no_ans(_cmd)
             _cmd = "%d 1 %d setsw " % (axis.high_endswitch_type, axis.number)
-            self._send_no_ans(axis, _cmd)
+            self._send_no_ans(_cmd)
             ##ret = self._get_generror(axis)
             ##if ret != 0:
             ##    raise RuntimeError(self.GENERAL_ERROR_DICT.get(ret))
@@ -2004,7 +2042,7 @@ class micos(Controller):
         """
         log_info(self, "_get_endswitch_status()")
         _cmd = "%d getswst " % axis.number
-        [loesststr, hiesststr] = self._send(axis, _cmd).split()
+        [loesststr, hiesststr] = self._send(_cmd).split()
         log_debug(
             self, "_get_endswitch_status(): Low endswitch status = %s" % loesststr
         )
@@ -2038,7 +2076,7 @@ class micos(Controller):
         _cmd = "%d getnlimit " % axis.number
         # The command returns string with low and high hardware limits
         # separated by space
-        ret = self._send(axis, _cmd)
+        ret = self._send(_cmd)
         hw_lohi_lim = ret.split()
         hw_lolim = float(hw_lohi_lim[0])
         hw_hilim = float(hw_lohi_lim[1])
@@ -2067,7 +2105,7 @@ class micos(Controller):
         # If parameters passed, use them.
         if not isinstance(hw_low_limit, Null) and not isinstance(hw_high_limit, Null):
             _cmd = "%f %f %d setnlimit " % (hw_low_limit, hw_high_limit, axis.number)
-            self._send_no_ans(axis, _cmd)
+            self._send_no_ans(_cmd)
             ret = self._get_generror(axis)
             if ret != 0:
                 raise RuntimeError(self.GENERAL_ERROR_DICT.get(ret))
@@ -2077,7 +2115,7 @@ class micos(Controller):
             hw_lolim = axis.hw_low_limit
             hw_hilim = axis.hw_high_limit
             _cmd = "%f %f %d setnlimit " % (hw_lolim, hw_hilim, axis.number)
-            self._send_no_ans(axis, _cmd)
+            self._send_no_ans(_cmd)
             ret = self._get_generror(axis)
             if ret != 0:
                 raise RuntimeError(self.GENERAL_ERROR_DICT.get(ret))
@@ -2100,7 +2138,7 @@ class micos(Controller):
         log_info(self, "_get_tofrom_endsw_velocity()")
 
         _cmd = "%d getncalvel " % axis.number
-        cal_2velocities_str = self._send(axis, _cmd)
+        cal_2velocities_str = self._send(_cmd)
         cal_2velocities_list = cal_2velocities_str.split()
         axis.tofrom_endsw_velocity = float(cal_2velocities_list[0])
         log_debug(
@@ -2135,28 +2173,28 @@ class micos(Controller):
 
         # velocity for move to cal switch
         cmd = "%f 1 %d setncalvel " % (tofrom_endsw_velocity, axis.number)
-        self._send_no_ans(axis, cmd)
+        self._send_no_ans(cmd)
         ret = self._get_generror(axis)
         if ret != 0:
             raise RuntimeError(self.GENERAL_ERROR_DICT.get(ret))
 
         # velocity for move away from cal switch
         cmd = "%f 2 %d setncalvel " % (tofrom_endsw_velocity, axis.number)
-        self._send_no_ans(axis, cmd)
+        self._send_no_ans(cmd)
         ret = self._get_generror(axis)
         if ret != 0:
             raise RuntimeError(self.GENERAL_ERROR_DICT.get(ret))
 
         # velocity for move to rm switch
         cmd = "%f 1 %d setnrmvel " % (tofrom_endsw_velocity, axis.number)
-        self._send_no_ans(axis, cmd)
+        self._send_no_ans(cmd)
         ret = self._get_generror(axis)
         if ret != 0:
             raise RuntimeError(self.GENERAL_ERROR_DICT.get(ret))
 
         # velocity for move away from rm switch
         cmd = "%f 2 %d setnrmvel " % (tofrom_endsw_velocity, axis.number)
-        self._send_no_ans(axis, cmd)
+        self._send_no_ans(cmd)
         ret = self._get_generror(axis)
         if ret != 0:
             raise RuntimeError(self.GENERAL_ERROR_DICT.get(ret))
@@ -2185,7 +2223,7 @@ class micos(Controller):
 
         # _cmd = "%d ncal " % axis.number
         _cmd = "%d ncalibrate " % axis.number
-        self._send_no_ans(axis, _cmd)
+        self._send_no_ans(_cmd)
 
         log_debug(
             self,
@@ -2215,7 +2253,7 @@ class micos(Controller):
 
         # _cmd = "%d nrm " % axis.number
         _cmd = "%d nrangemeasure " % axis.number
-        self._send_no_ans(axis, _cmd)
+        self._send_no_ans(_cmd)
 
         log_debug(
             self,
@@ -2240,7 +2278,7 @@ class micos(Controller):
         log_info(self, "_get_action_at_powerup()")
 
         _cmd = "%d getnpowerup " % axis.number
-        ret = int(self._send(axis, _cmd))
+        ret = int(self._send(_cmd))
         log_debug(self, "_get_action_at_powerup(): powerup action = %d" % ret)
         log_debug(
             self,
@@ -2275,7 +2313,7 @@ class micos(Controller):
             raise ValueError(msg)
 
         _cmd = "%d %d setnpowerup " % (powerup_action, axis.number)
-        self._send_no_ans(axis, _cmd)
+        self._send_no_ans(_cmd)
 
         ##ret = self._get_generror(axis)
         ##if ret != 0:
@@ -2305,7 +2343,7 @@ class micos(Controller):
         log_info(self, "_get_cloop_on()")
 
         _cmd = "%d getcloop " % axis.number
-        ret = self._send(axis, _cmd)
+        ret = self._send(_cmd)
         cloop_on = True if int(ret) == 1 else False
         log_debug(self, "_get_cloop_on(): closed loop enabled = %s" % cloop_on)
         return cloop_on
@@ -2321,7 +2359,7 @@ class micos(Controller):
         log_info(self, "_set_cloop_on()")
 
         _cmd = "1 %d setcloop " % axis.number
-        self._send_no_ans(axis, _cmd)
+        self._send_no_ans(_cmd)
         # ret = self._get_generror(axis)
         # if ret != 0:
         #    raise RuntimeError(self.GENERAL_ERROR_DICT.get(ret))
@@ -2338,7 +2376,7 @@ class micos(Controller):
         log_info(self, "_set_cloop_off()")
 
         _cmd = "0 %d setcloop " % axis.number
-        self._send_no_ans(axis, _cmd)
+        self._send_no_ans(_cmd)
         ret = self._get_generror(axis)
         if ret != 0:
             raise RuntimeError(self.GENERAL_ERROR_DICT.get(ret))
@@ -2377,7 +2415,7 @@ class micos(Controller):
             )
 
         _cmd = "%d getclwindow " % axis.number
-        ret = self._send(axis, _cmd)
+        ret = self._send(_cmd)
         # The returned string ret has the form:
         #     "winsize 0 gstbit5sel trigopsel"
         # Extract different parts:
@@ -2467,7 +2505,7 @@ class micos(Controller):
             trigopsel,
             axis.number,
         )
-        self._send_no_ans(axis, _cmd)
+        self._send_no_ans(_cmd)
         # ret = self._get_generror(axis)
         # if ret != 0:
         #    raise RuntimeError(self.GENERAL_ERROR_DICT.get(ret))
@@ -2490,7 +2528,7 @@ class micos(Controller):
             )
 
         _cmd = "%d getclwintime " % axis.number
-        axis.cloop_wintime = float(self._send(axis, _cmd))
+        axis.cloop_wintime = float(self._send(_cmd))
 
         log_debug(
             self,
@@ -2526,7 +2564,7 @@ class micos(Controller):
             axis.cloop_wintime = wintime
 
         _cmd = "%f %d setclwintime " % (float(wintime), axis.number)
-        self._send_no_ans(axis, _cmd)
+        self._send_no_ans(_cmd)
         # ret = self._get_generror(axis)
         # if ret != 0:
         #    raise RuntimeError(self.GENERAL_ERROR_DICT.get(ret))
@@ -2548,7 +2586,7 @@ class micos(Controller):
         log_info(self, "_get_cloop_params()")
 
         _cmd = "%d getclpara " % axis.number
-        cloop_params_str = self._send(axis, _cmd)
+        cloop_params_str = self._send(_cmd)
         # cloop_params_str = string of form: "P I D"
         log_debug(self, "_get_cloop_params(): P I D params = %s" % cloop_params_str)
         cloop_params_list = cloop_params_str.split()
@@ -2571,7 +2609,7 @@ class micos(Controller):
         log_info(self, "_set_cloop_params()")
 
         _cmd = "%s 3 %d setclpara " % (cloop_params, axis.number)
-        self._send_no_ans(axis, _cmd)
+        self._send_no_ans(_cmd)
         ret = self._get_generror(axis)
         if ret != 0:
             raise RuntimeError(self.GENERAL_ERROR_DICT.get(ret))
@@ -2599,7 +2637,7 @@ class micos(Controller):
 
         # _cmd = "%f %d nr " % (displacement, axis.number)
         _cmd = "%f %d nrmove " % (displacement, axis.number)
-        self._send_no_ans(axis, _cmd)
+        self._send_no_ans(_cmd)
 
     # ------------ holding current related methods ----------------
 
@@ -2617,7 +2655,7 @@ class micos(Controller):
         log_info(self, "_get_hold_current()")
 
         _cmd = "%d getumotmin " % axis.number
-        axis.hold_current = float(self._send(axis, _cmd))
+        axis.hold_current = float(self._send(_cmd))
 
         log_debug(
             self, "_get_hold_current(): hold current = %f (x)A" % axis.hold_current
@@ -2638,7 +2676,7 @@ class micos(Controller):
 
         hold_current = float(hold_current)
         _cmd = "%f %d setumotmin " % (hold_current, axis.number)
-        self._send_no_ans(axis, _cmd)
+        self._send_no_ans(_cmd)
         ret = self._get_generror(axis)
         if ret != 0:
             raise RuntimeError(self.GENERAL_ERROR_DICT.get(ret))
@@ -2665,7 +2703,7 @@ class micos(Controller):
         log_info(self, "_get_move_current()")
 
         _cmd = "%d getumotgrad " % axis.number
-        axis.move_current = float(self._send(axis, _cmd))
+        axis.move_current = float(self._send(_cmd))
 
         log_debug(
             self, "_get_move_current(): move current = %f (x)A" % axis.move_current
@@ -2686,7 +2724,7 @@ class micos(Controller):
 
         move_current = float(move_current)
         _cmd = "%f %d setumotgrad " % (move_current, axis.number)
-        self._send_no_ans(axis, _cmd)
+        self._send_no_ans(_cmd)
         ret = self._get_generror(axis)
         if ret != 0:
             raise RuntimeError(self.GENERAL_ERROR_DICT.get(ret))
@@ -2718,7 +2756,7 @@ class micos(Controller):
         log_info(self, "_get_to_reference_velocity()")
 
         _cmd = "%d 1 getnrefvel " % axis.number
-        to_ref_vel_str = self._send(axis, _cmd)
+        to_ref_vel_str = self._send(_cmd)
         to_ref_vel_list = to_ref_vel_str.split()
         to_ref_vel = float(to_ref_vel_list[0])
         log_debug(
@@ -2748,7 +2786,7 @@ class micos(Controller):
             to_ref_vel = axis.to_reference_velocity
 
         _cmd = "%f 1 %d setnrefvel " % (to_ref_vel, axis.number)
-        self._send_no_ans(axis, _cmd)
+        self._send_no_ans(_cmd)
         ret = self._get_generror(axis)
         if ret != 0:
             raise RuntimeError(self.GENERAL_ERROR_DICT.get(ret))
@@ -2829,7 +2867,7 @@ class micos(Controller):
         #   the next 2 lines and then comment the part with the 'in the
         #   loop solution' implemented further down.
         # _cmd = "%f %d nrefmove " % (max_relative_path, axis.number)
-        # self._send_no_ans(axis, _cmd)
+        # self._send_no_ans(_cmd)
         ## Next lines commented since during ref.position search calling
         ## general error gives time-out on the serial line!!
         ##ret = self._get_generror(axis)
@@ -2859,7 +2897,7 @@ class micos(Controller):
                 self, "_move_to_reference(): max rel.path = %f degrees" % distance
             )
             _cmd = "%f %d nrefmove " % (distance, axis.number)
-            self._send_no_ans(axis, _cmd)
+            self._send_no_ans(_cmd)
 
             # start waiting end of homing
             if self._wait_home_task is None:
@@ -2960,13 +2998,9 @@ class micos(Controller):
                 # the controller position value.
                 axis.sync_hard()
 
-                # set user position to be equal to the offset
-                # axis.position = current_offset
-                # axis.position = -120.0
-                axis.position = -122.0
-
-                # set endswitch types to 2 since reset_axis() sets them to 1
-                # _ans = self._set_endswitch_types(axis,2,2)
+                # Apply a home position if any
+                if axis.home_position is not None:
+                    axis.position = axis.home_position
 
             # Restore the velocity for moving to the reference position
             # to the value as was found in the configuration
@@ -2993,6 +3027,6 @@ class micos(Controller):
         log_info(self, "_get_reference_status()")
 
         _cmd = "%d getrefst " % (axis.number)
-        ref_status_str = self._send(axis, _cmd)
+        ref_status_str = self._send(_cmd)
         log_debug(self, "_get_reference_status(): %s" % (ref_status_str))
         return int(ref_status_str)

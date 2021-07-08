@@ -57,7 +57,8 @@ def join_tasks(greenlets, **kw):
 
 
 class AbstractAcquisitionObjectIterator:
-    """Iterate over an AcquisitionObject, yielding self.
+    """
+    Iterate over an AcquisitionObject, yielding self.
     """
 
     @property
@@ -395,7 +396,8 @@ class AcquisitionObject:
             self._do_add_counter(counter)
         else:
             raise RuntimeError(
-                f"Cannot add counter {counter.name}: acquisition controller mismatch {counter._counter_controller} != {self.device}"
+                f"Cannot add counter {counter.name}: acquisition controller"
+                f" mismatch {counter._counter_controller} != {self.device}"
             )
 
     def get_iterator(self):
@@ -406,7 +408,7 @@ class AcquisitionObject:
         else:
             return AcquisitionObjectIterator(self)
 
-    # --------------------------- ACQ. CHAIN METHODS ---------------------------------------------
+    # --------------------------- ACQ. CHAIN METHODS ------------------------------------------
 
     def has_reading_task(self):
         """Returns True when the underlying device has a reading task.
@@ -437,7 +439,7 @@ class AcquisitionObject:
         finally:
             gevent.killall(tasks, exception=StopTask)
 
-    # --------------------------- OVERLOAD ACQ. CHAIN METHODS ---------------------------------------------
+    # --------------------------- OVERLOAD ACQ. CHAIN METHODS ---------------------------------
 
     def acq_prepare(self):
         raise NotImplementedError
@@ -1110,11 +1112,10 @@ class AcquisitionChain:
     def add_preset(self, preset, master=None):
         """
         Add a preset on a top-master.
-        If it None mean the first in the chain
 
         Args:
-            preset should be inherited for class Preset
-            master if None take the first top-master from the chain
+            preset: a ChainPreset object
+            master: if None, take the first top-master of the chain
         """
         if not isinstance(preset, ChainPreset):
             raise ValueError("Expected ChainPreset instance")
@@ -1236,22 +1237,27 @@ class ChainNode:
                 and self._parent_acq_params != parent_acq_params
             ):
                 print(
-                    f"=== ChainNode WARNING: try to set PARENT_ACQ_PARAMS again: \n Current {self._parent_acq_params} \n New     {parent_acq_params} "
+                    f"=== ChainNode WARNING: try to set PARENT_ACQ_PARAMS again: \n"
+                    f"Current {self._parent_acq_params} \n New     {parent_acq_params} "
                 )
 
             if force or self._parent_acq_params is None:
                 self._parent_acq_params = parent_acq_params
 
     def set_parameters(self, acq_params=None, ctrl_params=None, force=False):
-        """ Store the scan and/or acquisition parameters into the node. 
-            These parameters will be used when the acquisition object is instantiated (see self.create_acquisition_object )
-            If the parameters have been set already, new parameters will be ignored (except if Force==True).
+        """
+        Store the scan and/or acquisition parameters into the node.
+        These parameters will be used when the acquisition object
+        is instantiated (see self.create_acquisition_object )
+        If the parameters have been set already, new parameters will
+        be ignored (except if Force==True).
         """
 
         if acq_params is not None:
             if self._acq_obj_params is not None and self._acq_obj_params != acq_params:
                 print(
-                    f"=== ChainNode WARNING: try to set ACQ_PARAMS again: \n Current {self._acq_obj_params} \n New     {acq_params} "
+                    f"=== ChainNode WARNING: try to set ACQ_PARAMS again: \n"
+                    f"Current {self._acq_obj_params} \n New     {acq_params} "
                 )
 
             if force or self._acq_obj_params is None:
@@ -1260,7 +1266,8 @@ class ChainNode:
         if ctrl_params is not None:
             if self._ctrl_params is not None and self._ctrl_params != ctrl_params:
                 print(
-                    f"=== ChainNode WARNING: try to set CTRL_PARAMS again: \n Current {self._ctrl_params} \n New     {ctrl_params} "
+                    f"=== ChainNode WARNING: try to set CTRL_PARAMS again: \n"
+                    f"Current {self._ctrl_params} \n New     {ctrl_params} "
                 )
 
             if force or self._ctrl_params is None:
@@ -1279,13 +1286,18 @@ class ChainNode:
         self._counters.append(counter)
 
     def _get_default_chain_parameters(self, scan_params, acq_params):
-        """ Obtain the full acquisition parameters set from scan_params in the context of the default chain """
+        """
+        Obtain the full acquisition parameters set from scan_params
+        in the context of the default chain
+        """
 
         return self.controller.get_default_chain_parameters(scan_params, acq_params)
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
-        """ Return the acquisition object associated to this node 
-            acq_params, ctrl_params and parent_acq_params have to be dicts (None not supported)
+        """
+        Return the acquisition object associated to this node
+        acq_params, ctrl_params and parent_acq_params have to be
+        dicts (None not supported)
         """
 
         return self.controller.get_acquisition_object(
@@ -1293,18 +1305,19 @@ class ChainNode:
         )
 
     def create_acquisition_object(self, force=False):
-        """ Create the acquisition object using the current parameters (stored in 'self._acq_obj_params').
-            Create the children acquisition objects if any are attached to this node.
-            
-            - 'force' (bool): if False, it won't instanciate the acquisition object if it already exists, else it will overwrite it.
-
+        """
+        Create the acquisition object using the current
+        parameters (stored in 'self._acq_obj_params').
+        Create the children acquisition objects if any are attached to this node.
+        - 'force' (bool): if False, it won't instanciate the acquisition
+           object if it already exists, else it will overwrite it.
         """
 
-        # --- Return acquisition object if it already exist and Force is False ----------------------------
+        # --- Return acquisition object if it already exist and Force is False ----------------
         if not force and self._acquisition_obj is not None:
             return self._acquisition_obj
 
-        # --- Prepare parameters -----------------------------------------------------------------------------------------
+        # --- Prepare parameters --------------------------------------------------------------
         if self._acq_obj_params is None:
             acq_params = {}
         else:
@@ -1324,7 +1337,7 @@ class ChainNode:
                 self._parent_acq_params.copy()
             )  # <= IMPORTANT: pass a copy because the acq obj may pop on that dict!
 
-        # --- Create the acquisition object -------------------------------------------------------
+        # --- Create the acquisition object ---------------------------------------------------
         acq_obj = self.get_acquisition_object(
             acq_params, ctrl_params=ctrl_params, parent_acq_params=parent_acq_params
         )

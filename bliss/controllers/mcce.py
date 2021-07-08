@@ -5,8 +5,7 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-"""
-MCCE (Module de Command et Control des Electrometres)
+"""MCCE (Module de Command et Control des Electrometres)
 Serial interface allows remote reading and programming.
 
 The parameters of the serial line are:
@@ -39,19 +38,15 @@ Example yml file:
         serial:
            url: "rfc2217://ld231:28017"
 """
-import enum
-import tabulate
-
 from math import log10
 
-# import serial
-# from bliss.comm.serial import Serial
+import enum
 from bliss.comm.util import get_comm
 
 
 @enum.unique
 class McceReadCommands(enum.IntEnum):
-    """ The READ commands """
+    """The READ commands"""
 
     STATUS = 1
     ERROR = 2
@@ -72,7 +67,7 @@ class McceReadCommands(enum.IntEnum):
 
 @enum.unique
 class McceProgCommands(enum.IntEnum):
-    """ The PROG commands """
+    """The PROG commands"""
 
     MODE = 1
     POLARITY = 2
@@ -95,7 +90,7 @@ class McceProgCommands(enum.IntEnum):
 
 @enum.unique
 class McceRangeUnits(enum.IntEnum):
-    """ Possible Range units """
+    """Possible Range units"""
 
     A = 0
     MOhm = 4
@@ -135,7 +130,7 @@ MCCE_TYPE = {
 
 
 class Mcce:
-    """ Commmands """
+    """Commmands"""
 
     def __init__(self, name, config):
 
@@ -162,14 +157,17 @@ class Mcce:
 
     @property
     def config(self):
+        """Return config."""
         return self.__config
 
     @property
     def name(self):
+        """Return name"""
         return self.__name
 
     @property
     def settings(self):
+        """Return settings"""
         return self.__settings
 
     def __info__(self):
@@ -191,7 +189,7 @@ class Mcce:
         return _ret
 
     def init(self):
-        """ Set default values, depending on the hardware """
+        """Set default values, depending on the hardware"""
 
         # short answer
         self._set_on(False)
@@ -217,19 +215,21 @@ class Mcce:
         self.mcce_range_str = MCCE_RANGE_STR[_type]
         if _type in (4, 5):
             self.mcce_gain = (1, 10, 100)
-        if _type in McceRangeUnits._value2member_map_:
-            self.range_units = McceRangeUnits._value2member_map_[_type]
+        try:
+            self.range_units = McceRangeUnits(_type)
+        except ValueError:
+            self.range_units = None
         if _type == 6:
             self.range_cmd = McceProgCommands.RANGE1
         else:
-            self.range_cmd = McceProgCommands._value2member_map_[_type + 2]
+            self.range_cmd = McceProgCommands(_type + 2)
 
     def reset(self):
-        """ Reset the MCCE """
+        """Reset the MCCE"""
         self.serial_line.write(b"%d RESET \r\n" % self.address)
 
     def set_remote(self, remote=True):
-        """ Set the control to remote (block the front pannel)
+        """Set the control to remote (block the front pannel)
         Args:
            remote (bool): True (Remote), False (Local)
         Returns:
@@ -242,7 +242,7 @@ class Mcce:
         return False
 
     def _set_on(self, value=True):
-        """ Set the control on/off (turn front pannel key)
+        """Set the control on/off (turn front pannel key)
         Args:
            value (bool): True (key to on), False (key to off)
         Returns:
@@ -282,7 +282,7 @@ class Mcce:
 
     @property
     def frequency(self):
-        """ Read the frequency filter of the fotovoltaic electrometers.
+        """Read the frequency filter of the fotovoltaic electrometers.
         Returns:
             (int): The value
         Raises:
@@ -296,7 +296,7 @@ class Mcce:
 
     @frequency.setter
     def frequency(self, value):
-        """ Set the frequency filter of the photovoltaic electrometers.
+        """Set the frequency filter of the photovoltaic electrometers.
         Args:
            value(int): Filter value
         Raises:
@@ -312,7 +312,7 @@ class Mcce:
 
     @property
     def gain(self):
-        """ Read the gain of the photoconductive electrometers.
+        """Read the gain of the photoconductive electrometers.
         Returns:
             (int): The gain value
         Raises:
@@ -326,7 +326,7 @@ class Mcce:
 
     @gain.setter
     def gain(self, value):
-        """ Set the gain of the fotoconductive electrometers
+        """Set the gain of the fotoconductive electrometers
         Args:
            (int): The value
         Raises:
@@ -342,10 +342,10 @@ class Mcce:
 
     @property
     def polarity(self):
-        """ Read the polarity of the current
+        """Read the polarity of the current
         Returns:
             (str): positive - input current, negative - output current
-         """
+        """
         value = self._send_cmd(McceReadCommands.POLARITY)
         if value < 0:
             return "negative"
@@ -367,7 +367,7 @@ class Mcce:
 
     @property
     def status(self):
-        """ Status of the electrometer """
+        """Status of the electrometer"""
         _ret = f"Range: {self.range}\n"
         if self.mcce_type in (4, 5):
             _ret += "Gain: %d\n" % self.gain
@@ -378,7 +378,7 @@ class Mcce:
         return _ret
 
     def _send_cmd(self, cmd, value=None):
-        """ Send a command to the serial line
+        """Send a command to the serial line
         Args:
             cmd (string or enum): the bare command
             value (int): Value to set, if any
@@ -446,7 +446,7 @@ class Mcce:
         return False
 
     def _check_answer(self, answer):
-        """ Check the answer from the serial line
+        """Check the answer from the serial line
         Args:
             (str): The raw amswer
         Returns:

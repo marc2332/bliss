@@ -428,6 +428,13 @@ class ScanPreset:
         return self.__new_data_callback(counter, sender.fullname, data)
 
     def connect_data_channels(self, counters_list, callback):
+        """
+            Associate a callback to the data emission by the channels of a list of counters.
+            
+            Args:
+            * counters_list: the list of counters to connect data channels to
+            * callback: a callback function
+        """
         nodes = self.acq_chain.get_node_from_devices(*counters_list)
         for i, node in enumerate(nodes):
             try:

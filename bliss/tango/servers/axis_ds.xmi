@@ -5,7 +5,7 @@
       <inheritances classname="Device_4Impl" sourcePath="/segfs/tango/templates/AbstractClasses"/>
       <identification contact="at esrf.fr - meyer" author="meyer" emailDomain="esrf.fr" classFamily="AbstractClasses" siteSpecific="" platform="All Platforms" bus="Not Applicable" manufacturer="none" reference=""/>
     </description>
-    <deviceProperties name="Calibrated" description="When this property is different from 0, the motor is considered as calibrated&#xA;and a certain number of attributes cannot be changed anymore.( e.g. step_per_unit)&#xA;The goal is to avoid undesired change when the calibratiuon process has been&#xA;performed.">
+    <deviceProperties name="Calibrated" description="When this property is different from 0, the motor is considered as calibrated&#xA;and a certain number of attributes cannot be changed anymore.( e.g. steps_per_unit)&#xA;The goal is to avoid undesired change when the calibratiuon process has been&#xA;performed.">
       <type xsi:type="pogoDsl:BooleanType"/>
       <status abstract="false" inherited="false" concrete="true" concreteHere="true"/>
     </deviceProperties>

@@ -15,14 +15,50 @@ logger = logging.getLogger(__name__)
 class KillMask:
     """All exceptions which are the result of a `kill(SomeException)`
     call on the greenlet in which the KillMask context is entered,
-    will be delayed until context exit, except for `gevent.Timeout`.
+    will be DELAYED until the context exit. The only exception that
+    is not delayed is `gevent.Timeout`.
 
-    Upon exit, only the last captured exception is re-raised.
+    Upon exiting the `KillMask` context, only the last captured
+    exception is re-raised.
 
     Optionally we can set a limit to the number of `kill` calls
-    that will be delayed.
+    that will be delayed. The prevent the possibility that a greenlet
+    can never be killed (see example below).
 
-    Warning: this does not delay interrupts.
+    As this is entirely based on intercepting `kill` calls:
+        - this can never work in the main greenlet
+        - this only works in `BlissGreenlet` greenlets
+
+    Note: `KeyboardInterrupt` is always raised in the main greenlet,
+    never in other greenlets unless someone  explicitely calls
+    `kill(KeyboardInterrupt)`. Apart from the later case, `KillMask`
+    does not delay `KeyboardInterrupt`.
+
+    A typical use case of `KillMask` is this:
+
+        def greenlet_main():
+            <setup>
+            try:
+                <body>
+            finally:
+                with KillMask(masked_kill_nb=1):
+                    <cleanup>
+
+    We assume this code does not run in the main greenlet. Whenever
+    you use a cooperative call, you could receive an exception in
+    `greenlet_main` originating from a `kill` on the executing greenlet.
+
+    The default exception is `GreenletExit` which is a `BaseException`.
+
+    In the exception could occur in three locations (assuming they
+    all use cooperative calls):
+        1. exception in <setup>: <cleanup> is not called
+        2. exception in <body>: <cleanup> is called thanks to try-finally
+        3. exception in <cleanup>: <cleanup> is fully executed thanks to `Killmask`
+
+    If <cleanup> is blocking, the `Killmask` prevents the executing
+    greenlet from being killed. Hence the usage of `masked_kill_nb=1`.
+    The first `kill` gets intercepted but the second `kill` does not.
     """
 
     def __init__(self, masked_kill_nb=-1):
@@ -114,7 +150,8 @@ _GeventGreenlet = greenlet.Greenlet
 
 
 class BlissGreenlet(_GeventGreenlet):
-    """KillMask can only work when entered in a greenlet of type `BlissGreenlet`
+    """The `KillMask``context can only work when entered in
+    a greenlet of type `BlissGreenlet`.
     """
 
     def __init__(self, *args, **kw):
@@ -160,7 +197,7 @@ class BlissGreenlet(_GeventGreenlet):
 
 
 class BlissTimeout(_GeventTimeout):
-    """KillMask can only work when timeouts are of type `BlissTimeout`
+    """KillMask can only work when timeouts are of type `BlissTimeout`.
     """
 
     def _on_expiration(self, prev_greenlet, ex):

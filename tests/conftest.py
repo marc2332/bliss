@@ -1170,17 +1170,13 @@ def icat_backend(stomp_server, activemq_rest_server, icat_logbook_server):
     elogbook_url = f"http://localhost:{port}"
     host, port = activemq_rest_server
     metadata_queue_monitor_port = port
-    yield {
+    icat_servers = {
         "metadata_urls": metadata_urls,
         "elogbook_url": elogbook_url,
         "metadata_queue_monitor_port": metadata_queue_monitor_port,
     }
-
-
-@pytest.fixture
-def icat_config_backend(icat_backend):
     config = static.get_config()
-    config.root["icat_servers"] = icat_backend
+    config.root["icat_servers"] = icat_servers
     try:
         yield
     finally:

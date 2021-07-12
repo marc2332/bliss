@@ -854,6 +854,9 @@ class ESRFScanSaving(BasicScanSaving):
             try:
                 self._icat_client = icat_client_from_config()
             except Exception:
+                logtools.user_warning(
+                    "The `icat_servers` beacon configuration is missing. Falling back to the deprecated ICAT tango servers."
+                )
                 self._icat_client = IcatTangoProxy(self.beamline, self.session)
         return self._icat_client
 

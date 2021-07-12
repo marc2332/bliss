@@ -47,7 +47,7 @@ def logging_session_without_elogserver(beacon_with_logging_esrf, log_directory):
 
 @pytest.fixture
 def logging_session_with_elogserver(
-    beacon_with_logging_esrf, metaexp_with_backend, metamgr_with_backend, log_directory
+    beacon_with_logging_esrf, icat_backend, log_directory
 ):
     logfile = os.path.join(log_directory, "test_logging_session.log")
     with open(logfile, "w"):
@@ -63,14 +63,19 @@ def check_scripts_finished(session):
     assert session.env_dict.get("scriptfinished")
 
 
-def check_user_logging(capsys, elog_offline=False):
+def check_user_logging(capsys, elog_offline=False, data_policy=True):
     captured = capsys.readouterr().err.split("\n")
     captured = [s for s in captured if s]
-    assert len(captured) == 6 + elog_offline, captured
+    nexpected = 6 + elog_offline + (elog_offline and data_policy)
+    assert len(captured) == nexpected, captured
     i = 0
     expected = "ERROR: LogInitController: user error"
     assert captured[i] == expected
     i += 1
+    if data_policy and elog_offline:
+        expected = "WARNING: The `icat_servers` beacon configuration is missing. Falling back to the deprecated ICAT tango servers."
+        assert captured[i] == expected
+        i += 1
     if elog_offline:
         expected = "Electronic logbook failed"
         assert expected in captured[i]
@@ -142,7 +147,7 @@ def test_setup_logging_no_data_policy(
 ):
     logfile = os.path.join(log_directory, logging_session.name + ".log")
     check_scripts_finished(logging_session)
-    check_user_logging(capsys)
+    check_user_logging(capsys, data_policy=False)
     check_beacon_logging(caplog, logfile)
     assert len(icat_logbook_subscriber) == 0
 

@@ -56,7 +56,7 @@ def _esrf_data_policy(session):
 
 
 @pytest.fixture
-def esrf_data_policy(session, icat_config_backend):
+def esrf_data_policy(session, icat_backend):
     yield from _esrf_data_policy(session)
 
 
@@ -75,7 +75,7 @@ def session2(beacon, scan_tmpdir):
 
 
 @pytest.fixture
-def esrf_data_policy2(session2, icat_config_backend):
+def esrf_data_policy2(session2, icat_backend):
     yield from _esrf_data_policy(session2)
 
 

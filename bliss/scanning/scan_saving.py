@@ -29,7 +29,8 @@ from bliss.scanning.writer.null import Writer as NullWriter
 from bliss.scanning import writer as writer_module
 from bliss.common.proxy import Proxy
 from bliss.common import logtools
-from bliss.icat.ingester import IcatIngesterProxy
+from bliss.icat.client import IcatTangoProxy
+from bliss.icat.client import icat_client_from_config
 from bliss.config.static import get_config
 from bliss.config.settings import scan as scan_redis
 from bliss.common.utils import autocomplete_property
@@ -774,7 +775,7 @@ class ESRFScanSaving(BasicScanSaving):
         "dataset",
     ]
     SLOTS = BasicScanSaving.SLOTS + [
-        "_icat_proxy",
+        "_icat_client",
         "_proposal_object",
         "_collection_object",
         "_dataset_object",
@@ -788,7 +789,7 @@ class ESRFScanSaving(BasicScanSaving):
 
     def __init__(self, name):
         super().__init__(name)
-        self._icat_proxy = None
+        self._icat_client = None
         self._proposal_object = None
         self._collection_object = None
         self._dataset_object = None
@@ -848,10 +849,23 @@ class ESRFScanSaving(BasicScanSaving):
         return "ESRF"
 
     @property
+    def icat_client(self):
+        if self._icat_client is None:
+            try:
+                self._icat_client = icat_client_from_config()
+            except Exception:
+                logtools.user_warning(
+                    "The `icat_servers` beacon configuration is missing. Falling back to the deprecated ICAT tango servers."
+                )
+                self._icat_client = IcatTangoProxy(self.beamline, self.session)
+        return self._icat_client
+
+    @property
     def icat_proxy(self):
-        if self._icat_proxy is None:
-            self._icat_proxy = IcatIngesterProxy(self.beamline, self.session)
-        return self._icat_proxy
+        # Note: obsolete. Exists for Flint only.
+        if isinstance(self.icat_client, IcatTangoProxy):
+            return self.icat_client
+        return None
 
     @property
     def images_path_relative(self):
@@ -1233,20 +1247,15 @@ class ESRFScanSaving(BasicScanSaving):
             self._proposal = name
             self._freeze_date()
             self._reset_collection()
-        self.activate_proposal()
-
-    def activate_proposal(self):
-        """Make sure the proposal is activated (for logbook messages)
-        """
-        self._activate_proposal(self.proposal_name)
-
-    def _activate_proposal(self, proposal):
-        """Make sure the proposal is activated (for logbook messages)
-        """
-        # This is only done to ensure the proposal is created
-        # in the ICAT database (e.g. e-logbook can be filled).
-        if self.icat_proxy.proposal != proposal:
-            self.icat_proxy.proposal = proposal
+            if not isinstance(self.icat_client, IcatTangoProxy):
+                self.icat_client.start_investigation(
+                    proposal=self.proposal_name, beamline=self.beamline
+                )
+        if isinstance(self.icat_client, IcatTangoProxy):
+            # Refresh the Tango state
+            # Started in ICAT when tango state changed
+            if self.icat_client.proposal != self.proposal_name:
+                self.icat_client.proposal = self.proposal_name
 
     @property_with_eval_dict
     def proposal_type(self, eval_dict=None):
@@ -1499,7 +1508,7 @@ class ESRFScanSaving(BasicScanSaving):
 
     @property
     def elogbook(self):
-        return self.icat_proxy
+        return self.icat_client
 
     def _close_proposal(self):
         """Close the current proposal.
@@ -1533,7 +1542,7 @@ class ESRFScanSaving(BasicScanSaving):
             if not dataset.is_closed:
                 try:
                     # Finalize in Redis and send to ICAT
-                    dataset.close(self.icat_proxy)
+                    dataset.close(self.icat_client)
                 except Exception as e:
                     if (
                         not dataset.node.exists
@@ -1548,7 +1557,7 @@ class ESRFScanSaving(BasicScanSaving):
                             create=False, eval_dict=eval_dict
                         )
                         try:
-                            dataset.close(self.icat_proxy)
+                            dataset.close(self.icat_client)
                         except Exception as e2:
                             self._dataset_object = None
                             self._dataset = ""

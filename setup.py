@@ -208,6 +208,7 @@ def main():
         "typing_extensions",
         "cerberus",
         "yappi",
+        "stompest",
     ]
 
     tests_require = ["pytest >= 4.1.1", "pytest-cov >= 2.6.1", "scipy"]

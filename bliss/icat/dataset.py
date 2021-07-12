@@ -112,11 +112,9 @@ class Dataset(DataPolicyObject):
 
         self.write_metadata_field("endDate", datetime.datetime.now().isoformat())
 
-    def close(self, icat_proxy):
+    def close(self, icat_client):
         """Close the dataset in Redis and send to ICAT.
         The dataset will not be closed when it has no data on disk.
-
-        :param IcatIngesterProxy icat_proxy:
         """
         if self.is_closed:
             raise RuntimeError("The dataset is already closed")
@@ -126,23 +124,21 @@ class Dataset(DataPolicyObject):
             self._log_debug("not closed because no data")
             return
         self.finalize_metadata()
-        self._store_in_icat(icat_proxy)
+        self._store_in_icat(icat_client)
         self.freeze_inherited_icat_metadata()
         self._node.info["__closed__"] = True
         self._log_debug("closed dataset")
 
-    def _store_in_icat(self, icat_proxy):
+    def _store_in_icat(self, icat_client):
         """Only send to ICAT when the path exists
-
-        :param IcatIngesterProxy icat_proxy:
         """
         self._log_debug("store in ICAT")
         collection = self.collection
-        icat_proxy.store_dataset(
-            collection.proposal.name,
-            collection.name,
-            self.name,
-            self.path,
+        icat_client.store_dataset(
+            proposal=collection.proposal.name,
+            collection=collection.name,
+            dataset=self.name,
+            path=self.path,
             metadata=self.get_current_icat_metadata(),
         )
 

@@ -9,6 +9,12 @@ import os
 import itertools
 import gevent
 import pytest
+import time
+
+from bliss.common.tango import DevFailed
+
+from . import icat_test_utils
+from .test_esrf_scan_saving import create_dataset
 
 
 def _dataset_path(base_path, proposal, beamline, sample, dataset):
@@ -54,13 +60,13 @@ def _create_state(icat_proxy, base_path, beamline, state, timeout=10):
 
 
 @pytest.mark.skip(reason="Metadata tango servers are not reliable")
-def test_ingester_status(
+def test_tango_status(
     session, metaexp_without_backend, metamgr_without_backend, esrf_data_policy
 ):
     synctimeout = 30
     mdexp_dev_fqdn, mdexp_dev = metaexp_without_backend
     mdmgr_dev_fqdn, mdmgr_dev = metamgr_without_backend
-    icat_proxy = session.scan_saving.icat_proxy
+    icat_proxy = session.scan_saving.icat_client
     base_path = session.scan_saving.base_path
     beamline = session.scan_saving.beamline
 
@@ -112,3 +118,111 @@ def test_ingester_status(
         assert mdmgr_dev.sampleName == sample
         assert mdmgr_dev.datasetName == ""
         assert mdexp_dev.dataRoot == dataset_path
+
+
+def test_data_policy_scan_check_servers(
+    session,
+    icat_subscriber,
+    esrf_data_policy_tango,
+    metaexp_with_backend,
+    metamgr_with_backend,
+):
+    scan_saving = session.scan_saving
+    icat_test_utils.assert_icat_received_current_proposal(scan_saving, icat_subscriber)
+
+    _, mdexp_dev = metaexp_with_backend
+    _, mdmgr_dev = metamgr_with_backend
+    default_proposal = f"{scan_saving.beamline}{time.strftime('%y%m')}"
+
+    expected = {
+        "proposal": default_proposal,
+        "sample": None,
+        "dataset": None,
+        "path": None,
+        "state": "STANDBY",
+    }
+    assert_servers(mdexp_dev, mdmgr_dev, **expected)
+
+    scan_saving.proposal_name = "proposal1"
+    icat_test_utils.assert_icat_received_current_proposal(scan_saving, icat_subscriber)
+    expected["proposal"] = "proposal1"
+    expected["state"] = "STANDBY"
+    assert_servers(mdexp_dev, mdmgr_dev, **expected)
+
+    scan_saving.collection_name = "sample1"
+    assert_servers(mdexp_dev, mdmgr_dev, **expected)
+
+    scan_saving.dataset_name = "dataset1"
+    assert_servers(mdexp_dev, mdmgr_dev, **expected)
+
+    create_dataset(scan_saving)
+    assert_servers(mdexp_dev, mdmgr_dev, **expected)
+    expected_dataset = icat_test_utils.expected_icat_mq_message(
+        scan_saving, dataset=True, tango=True
+    )
+
+    expected["path"] = session.scan_saving.icat_root_path
+    scan_saving.dataset_name = "dataset2"
+    icat_test_utils.assert_icat_received(icat_subscriber, expected_dataset)
+    expected["sample"] = "sample1"
+    expected["dataset"] = ""
+    assert_servers(mdexp_dev, mdmgr_dev, **expected)
+
+    scan_saving.dataset_name = "dataset2"
+    assert_servers(mdexp_dev, mdmgr_dev, **expected)
+
+    scan_saving.dataset_name = "dataset3"
+    assert_servers(mdexp_dev, mdmgr_dev, **expected)
+
+    scan_saving.collection_name = "sample2"
+    assert_servers(mdexp_dev, mdmgr_dev, **expected)
+
+    create_dataset(scan_saving)
+    assert_servers(mdexp_dev, mdmgr_dev, **expected)
+    expected_dataset = icat_test_utils.expected_icat_mq_message(
+        scan_saving, dataset=True, tango=True
+    )
+
+    expected["sample"] = "sample2"
+    expected["path"] = scan_saving.icat_root_path
+    scan_saving.dataset_name = ""
+    icat_test_utils.assert_icat_received(icat_subscriber, expected_dataset)
+    assert_servers(mdexp_dev, mdmgr_dev, **expected)
+
+    scan_saving.proposal_name = "proposal2"
+    icat_test_utils.assert_icat_received_current_proposal(scan_saving, icat_subscriber)
+    expected["proposal"] = "proposal2"
+    expected["path"] = None
+    expected["sample"] = None
+    expected["dataset"] = None
+    assert_servers(mdexp_dev, mdmgr_dev, **expected)
+
+
+def assert_servers(
+    mdexp_dev,
+    mdmgr_dev,
+    proposal=None,
+    sample=None,
+    dataset=None,
+    path=None,
+    state=None,
+):
+    if sample is None:
+        if proposal:
+            sample = "please enter"
+        else:
+            sample = ""
+    if path is None:
+        if proposal:
+            path = "/data/visitor"
+        else:
+            path = "{dataRoot}"
+    assert mdexp_dev.proposal == proposal
+    assert mdexp_dev.sample == sample
+    if dataset is None:
+        with pytest.raises(DevFailed):
+            mdmgr_dev.datasetName
+    else:
+        assert mdmgr_dev.datasetName == dataset
+    assert str(mdmgr_dev.state()) == state
+    assert mdmgr_dev.dataFolder == path

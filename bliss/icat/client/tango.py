@@ -14,7 +14,7 @@ Currently the communication goes through two tango devices.
 To start communication with the ICAT ingester, it is sufficient
 to instantiate a proxy:
 
-    icat_proxy = IcatIngesterProxy(beamline, session)
+    icat_proxy = IcatTangoProxy(beamline, session)
 
 The tango devices are discovered automatically based on beamline
 name and Bliss session name.
@@ -26,6 +26,7 @@ import functools
 import json
 import logging
 import warnings
+import base64
 from bliss.common.tango import DeviceProxy, DevState
 from bliss.tango.clients.utils import (
     is_devfailed,
@@ -40,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 
 class IcatError(RuntimeError):
-    """Unified exception raised by IcatIngesterProxy, from Timeout or Devfailed
+    """Unified exception raised by IcatTangoProxy, from Timeout or Devfailed
     (the cause is preserved).
     """
 
@@ -285,7 +286,7 @@ class IcatDeviceProxy:
                 raise
 
 
-class IcatIngesterProxy(object):
+class IcatTangoProxy:
     """This class provides one API to ICAT ingester (currently two tango devices) in a singleton pattern.
     It is a proxy and therefore does not contain state.
     """
@@ -674,15 +675,15 @@ class IcatIngesterProxy(object):
         )
 
     @icat_comm
-    def start_dataset(self, proposal, sample, dataset, path, comm_state=None):
-        """Set the proposal, sample and dataset name. Then start the
+    def start_dataset(self, proposal, collection, dataset, path, comm_state=None):
+        """Set the proposal, collection and dataset name. Then start the
         dataset. The final state (when not exception is raised)
         will be RUNNING.
 
         This method is NOT always idempotent as it modifies the state.
 
         :param str proposal:
-        :param str sample:
+        :param str collection:
         :param str dataset:
         :param str path: full path of the dataset
         :param dict comm_state:
@@ -691,8 +692,8 @@ class IcatIngesterProxy(object):
         comm_state["error_msg"] = "Failed to start the ICAT dataset"
         if proposal != self.get_proposal(comm_state=comm_state):
             self.set_proposal(proposal, comm_state=comm_state)
-        if sample != self.get_sample(comm_state=comm_state):
-            self.set_sample(sample, comm_state=comm_state)
+        if collection != self.get_sample(comm_state=comm_state):
+            self.set_sample(collection, comm_state=comm_state)
         if dataset != self.get_dataset(comm_state=comm_state):
             self.set_dataset(dataset, comm_state=comm_state)
         if path != self.get_path(comm_state=comm_state):
@@ -754,20 +755,30 @@ class IcatIngesterProxy(object):
             logger.error(self, f"elogbook: {e}")
 
     @icat_comm
+    def send_data(self, data, mimetype=None, comm_state=None):
+        data = f"data:{mimetype};base64," + base64.b64encode(data).decode("latin-1")
+        try:
+            self.metadata_manager.exec_command(
+                "uploadBase64", args=(data,), comm_state=comm_state
+            )
+        except IcatError as e:
+            logger.error(self, f"elogbook: {e}")
+
+    @icat_comm
     def store_dataset(
-        self, proposal, sample, dataset, path, metadata=None, comm_state=None
+        self, proposal, collection, dataset, path, metadata=None, comm_state=None
     ):
         """Send a new dataset to the ICAT ingester.
 
         :param str proposal:
-        :param str sample:
+        :param str collection:
         :param str dataset:
         :param str path: full path of the dataset
         :param dict metadata: optional dataset metadata
         :param dict comm_state:
         :raises IcatError:
         """
-        self.start_dataset(proposal, sample, dataset, path, comm_state=comm_state)
+        self.start_dataset(proposal, collection, dataset, path, comm_state=comm_state)
         comm_state["error_msg"] = "Failed to push ICAT metadata"
         if metadata:
             json_string = json.dumps(metadata)

@@ -94,6 +94,7 @@
       bottom:
 - class: Session
   name: test_session2
+  icat-mapping: icat2
   setup-file: ./test_setup2.py
   config-objects:
   - m2

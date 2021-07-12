@@ -866,19 +866,19 @@ def metamgr_without_backend(ports, beacon):
 
 @pytest.fixture
 def metamgr_with_backend(
-    ports, beacon, jolokia_server, stomp_server, icat_logbook_server
+    ports, beacon, activemq_rest_server, stomp_server, icat_logbook_server
 ):
     device_name = "id00/metadata/test_session"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
 
     db = Database()
-    _, port = jolokia_server
+    _, port = activemq_rest_server
     db.put_class_property("MetadataManager", {"jolokiaPort": port})
     host, port = stomp_server
     db.put_class_property("MetadataManager", {"queueURLs": [f"{host}:{port}"]})
     db.put_class_property("MetadataManager", {"queueName": "/queue/icatIngest"})
     db.put_class_property(
-        "MetadataManager", {"API_KEY": "elogbook-0000-000-0000-0000-0000"}
+        "MetadataManager", {"API_KEY": "elogbook-00000000-0000-0000-0000-000000000000"}
     )
     port, _ = icat_logbook_server
     db.put_class_property(
@@ -924,19 +924,19 @@ def metaexp_without_backend(ports, beacon):
 
 @pytest.fixture
 def metaexp_with_backend(
-    ports, beacon, jolokia_server, stomp_server, icat_logbook_server
+    ports, beacon, activemq_rest_server, stomp_server, icat_logbook_server
 ):
     device_name = "id00/metaexp/test_session"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
 
     db = Database()
-    _, port = jolokia_server
+    _, port = activemq_rest_server
     db.put_class_property("MetaExperiment", {"jolokiaPort": port})
     host, port = stomp_server
     db.put_class_property("MetaExperiment", {"queueURLs": [f"{host}:{port}"]})
     db.put_class_property("MetaExperiment", {"queueName": "/queue/icatIngest"})
     db.put_class_property(
-        "MetaExperiment", {"API_KEY": "elogbook-0000-000-0000-0000-0000"}
+        "MetaExperiment", {"API_KEY": "elogbook-00000000-0000-0000-0000-000000000000"}
     )
 
     with start_tango_server(
@@ -1010,16 +1010,16 @@ def tcp_message_server(data_parser=None):
 
 
 @pytest.fixture
-def jolokia_server():
+def activemq_rest_server():
     """One of the ICAT backends
     """
     port = get_open_ports(1)[0]
     path = os.path.dirname(__file__)
-    script_path = os.path.join(path, "utils", "jolokia_server.py")
+    script_path = os.path.join(path, "utils", "activemq_rest_server.py")
     p = subprocess.Popen([sys.executable, "-u", script_path, f"--port={port}"])
     wait_tcp_online("localhost", port)
     try:
-        yield ("localhost", port)
+        yield "localhost", port
     finally:
         wait_terminate(p)
 
@@ -1077,7 +1077,7 @@ def icat_logbook_subscriber(elogbook_enabled, icat_logbook_server):
     _, messages = icat_logbook_server
     try:
         yield messages
-        assert len(messages) == 0, "not all messages have been validated"
+        assert messages.empty(), "not all messages have been validated"
     finally:
         messages.put(StopIteration)
         for msg in messages:
@@ -1153,6 +1153,34 @@ def icat_publisher(stomp_server):
     finally:
         sock.close()
         wait_terminate(proc)
+
+
+@pytest.fixture
+def icat_tango_backend(metaexp_with_backend, metamgr_with_backend):
+    pass
+
+
+@pytest.fixture
+def icat_backend(stomp_server, activemq_rest_server, icat_logbook_server):
+    # Usage:
+    # session.icat_mapping.client_config = icat_backend
+    host, port = stomp_server
+    metadata_urls = [f"{host}:{port}"]
+    port, _ = icat_logbook_server
+    elogbook_url = f"http://localhost:{port}"
+    host, port = activemq_rest_server
+    metadata_queue_monitor_port = port
+    icat_servers = {
+        "metadata_urls": metadata_urls,
+        "elogbook_url": elogbook_url,
+        "metadata_queue_monitor_port": metadata_queue_monitor_port,
+    }
+    config = static.get_config()
+    config.root["icat_servers"] = icat_servers
+    try:
+        yield
+    finally:
+        config.root.pop("icat_servers")
 
 
 @pytest.fixture

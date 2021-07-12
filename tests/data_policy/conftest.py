@@ -6,7 +6,6 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
-import os
 from bliss.common.session import set_current_session
 from bliss.scanning.scan_saving import ESRFScanSaving, ESRFDataPolicyEvent
 
@@ -57,7 +56,12 @@ def _esrf_data_policy(session):
 
 
 @pytest.fixture
-def esrf_data_policy(session, metaexp_with_backend, metamgr_with_backend):
+def esrf_data_policy(session, icat_backend):
+    yield from _esrf_data_policy(session)
+
+
+@pytest.fixture
+def esrf_data_policy_tango(session, icat_tango_backend):
     yield from _esrf_data_policy(session)
 
 
@@ -71,5 +75,10 @@ def session2(beacon, scan_tmpdir):
 
 
 @pytest.fixture
-def esrf_data_policy2(session2, metaexp_with_backend, metamgr_with_backend):
+def esrf_data_policy2(session2, icat_backend):
+    yield from _esrf_data_policy(session2)
+
+
+@pytest.fixture
+def esrf_data_policy2_tango(session2, icat_tango_backend):
     yield from _esrf_data_policy(session2)

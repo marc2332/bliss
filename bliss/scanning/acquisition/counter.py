@@ -514,30 +514,31 @@ class IntegratingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
         self.start_device()
 
     def stop(self):
-        # --- call a hook that users can implement in order to stop the associated device
-        self.stop_device()
-
         self._stop_flag = True
 
     def trigger(self):
         pass
 
     def reading(self):
-        from_index = 0
-        while (
-            not self.npoints or self._nb_acq_points < self.npoints
-        ) and not self._stop_flag:
+        try:
+            from_index = 0
+            while (
+                not self.npoints or self._nb_acq_points < self.npoints
+            ) and not self._stop_flag:
 
-            counters = list(self._counters.keys())
-            data = [
-                counters[i].conversion_function(x)
-                for i, x in enumerate(self.device.get_values(from_index, *counters))
-            ]
+                counters = list(self._counters.keys())
+                data = [
+                    counters[i].conversion_function(x)
+                    for i, x in enumerate(self.device.get_values(from_index, *counters))
+                ]
 
-            if not all_equal([len(d) for d in data]):
-                raise RuntimeError("Read data can't have different sizes")
-            if len(data[0]) > 0:
-                from_index += len(data[0])
-                self._nb_acq_points += len(data[0])
-                self._emit_new_data(data)
-            gevent.sleep(0.02)
+                if not all_equal([len(d) for d in data]):
+                    raise RuntimeError("Read data can't have different sizes")
+                if len(data[0]) > 0:
+                    from_index += len(data[0])
+                    self._nb_acq_points += len(data[0])
+                    self._emit_new_data(data)
+                gevent.sleep(0.02)
+
+        finally:  # killing the reading task raise an exception in the try above
+            self.stop_device()

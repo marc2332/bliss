@@ -230,7 +230,11 @@ class CT2CounterAcquisitionSlave(IntegratingCounterAcquisitionSlave):
         event.disconnect(
             self.device._master_controller.server, DataSignal, self.rx_data
         )
+
+    def stop(self):
+        self._stop_flag = True
         self.__buffer_event.set()
+        self.stop_device()
 
     def rx_data(self, data, signal):
         self.__buffer.extend(data)

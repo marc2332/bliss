@@ -12,7 +12,6 @@ import numpy
 
 from bliss.scanning.chain import AcquisitionMaster, AcquisitionSlave
 from bliss.scanning.channel import AcquisitionChannel
-from bliss.scanning.acquisition.counter import IntegratingCounterAcquisitionSlave
 
 
 class MusstDefaultAcquisitionMaster(AcquisitionMaster):

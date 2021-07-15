@@ -17,7 +17,6 @@ import numpy
 
 from bliss.comm.util import get_comm, TCP
 from bliss.controllers.motors.icepap import _command, _ackcommand
-
 from bliss.controllers.counter import CounterController
 from bliss.common.counter import Counter
 
@@ -316,14 +315,6 @@ class BaseChannel(object):
     @property
     def pepu(self):
         return self._pepu()
-
-    # Counter shortcut
-
-    @property
-    def counters(self):
-        from bliss.scanning.acquisition.pepu import PepuCounter
-
-        return PepuCounter(self)
 
 
 class BaseChannelINOUT(BaseChannel):
@@ -685,7 +676,10 @@ class PEPU(CounterController):
             return self.raw_write_read(cmd)
 
     def __info__(self):
-        return "{0}(name={1!r})".format(type(self).__name__, self.name)
+        info_str = f"{type(self).__name__} (name={self.name})\n"
+        info_str += f"{self.conn.__info__()}\n"
+
+        return info_str
 
 
 class PepuCounter(Counter):

@@ -476,7 +476,7 @@ class Command:
         return f"{self.__class__.__name__}[{self._host}:{self._port}]"
 
     def __info__(self):
-        info_str = "TCP COMMAND:  host={self._host} port={self._port} \n"
+        info_str = f"TCP COMMAND:  host={self._host} port={self._port} \n"
         return info_str
 
     @property

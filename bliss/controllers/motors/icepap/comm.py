@@ -82,10 +82,10 @@ def _command(cnx, cmd, data=None, pre_cmd=None, timeout=None):
         if ioex.errno == 113:
             _msg = f"IOError no {ioex.errno}:{errno.errorcode[ioex.errno]}"
             _msg += f"\nmessage={os.strerror(ioex.errno)} "
-            _msg += f"\nPlease check that icepap controller '{cnx._host}' is ON"
+            _msg += f"\nPlease check that controller '{cnx._host}' is ON"
         else:
             _msg = f"IOError no {ioex.errno} : {ioex.strerror}"
-            _msg += f"\nCannot communicate with icepap controller: '{cnx._host}'"
+            _msg += f"\nCannot communicate with controller: '{cnx._host}'"
 
         raise CommunicationError(_msg) from ioex
 

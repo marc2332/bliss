@@ -530,6 +530,9 @@ class PEPU(CounterController):
     dance_info = DeviceAttr("DINFO", str, None)
     config = DeviceConfigAttr()
 
+    config_file_name = None
+    _last_loaded_config_file_name = None
+
     def __init__(self, name, config, master_controller=None):
 
         super().__init__(name, master_controller=master_controller)
@@ -541,6 +544,8 @@ class PEPU(CounterController):
         if not url.startswith("command://"):
             url = "command://" + url
         config["tcp"]["url"] = url
+
+        self.config_file_name = config.get("config_file", None)
 
         self.conn = get_comm(config, TCP, eol="\n")
 
@@ -620,6 +625,23 @@ class PEPU(CounterController):
     def raw_write_read(self, message, data=None):
         return _ackcommand(self.conn, message, data=data)
 
+    def load_config_from_file(self, file_name=None):
+        """
+        Load PEPU config from file (file name taken from YML config or
+        passed as argument)
+        """
+        if file_name is None and self.config_file_name is None:
+            raise ValueError("No config file name specified")
+
+        if file_name is None:
+            file_to_load = self.config_file_name
+        else:
+            file_to_load = file_name
+
+        with open(file_to_load, mode="r") as config_file:
+            self.config = config_file.read()
+            self._last_loaded_config_file_name = file_to_load
+
     def reboot(self):
         self.raw_write("REBOOT")
         self.conn.close()
@@ -677,6 +699,12 @@ class PEPU(CounterController):
 
     def __info__(self):
         info_str = f"{type(self).__name__} (name={self.name})\n"
+
+        if self._last_loaded_config_file_name is not None:
+            info_str += (
+                f"Last config file loaded = {self._last_loaded_config_file_name}\n"
+            )
+
         info_str += f"{self.conn.__info__()}\n"
 
         return info_str

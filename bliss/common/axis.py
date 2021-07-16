@@ -1298,7 +1298,7 @@ class Axis(Scannable):
 
         _user_vel = self.__controller.read_velocity(self) / abs(self.steps_per_unit)
 
-        if new_velocity != _user_vel:
+        if not math.isclose(new_velocity, _user_vel, rel_tol=1e-4):
             log_warning(
                 self,
                 f"Controller velocity ({_user_vel}) is different from set velocity ({new_velocity})",

@@ -232,36 +232,26 @@ def test_umv_signature(session):
     assert str(umv.__signature__) == "(*args: 'motor1, pos1, motor2, pos2, ...')"
 
 
-OUTPUT_UMV_ROBY = """
-       roby  
-
-\x1b[Fuser    0.000
-dial    0.000\x1b[Fuser    1.000
-dial    1.000
-"""
-
-OUTPUT_UMV_CALC_MOT2 = """
-     calc_mot2[keV]  calc_mot1[keV]       roby     
-
-\x1b[Fuser          0.000           0.000           0.000
-dial          0.000           0.000           0.000\x1b[Fuser          8.000           4.000           2.000
-dial          8.000           4.000           2.000
-"""
-
-
 def test_umv_shell(capfd, default_session):
+    # output will contain ANSI control chars, including \x03f[ (return to
+    # start of line) so it is much easier to test for some expected strings
+    # than testing strict equality
     roby = default_session.config.get("roby")
     umv(roby, 1)
     output = capfd.readouterr().out
-    assert output == OUTPUT_UMV_ROBY
+    assert output.startswith("\n       roby")
+    assert "user    1.000\n" in output
+    assert "dial    1.000\n" in output
 
-
-def test_umv_calc_shell(capfd, default_session):
     calc_mot2 = default_session.config.get("calc_mot2")
     try:
         umv(calc_mot2, 8)
         output = capfd.readouterr().out
-        assert output == OUTPUT_UMV_CALC_MOT2
+        assert output.startswith(
+            "\n     calc_mot2[keV]  calc_mot1[keV]       roby     \n"
+        )
+        assert "user          8.000           4.000           2.000\n" in output
+        assert "dial          8.000           4.000           2.000\n" in output
     finally:
         default_session.config.get("calc_mot1").controller.close()
         calc_mot2.controller.close()

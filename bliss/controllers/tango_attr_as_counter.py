@@ -33,6 +33,8 @@ YAML_ configuration example:
 """
 
 import weakref
+import numpy
+
 from bliss.common.counter import SamplingCounter, SamplingMode
 from bliss.common import tango
 from bliss import global_map
@@ -282,7 +284,12 @@ class tango_attr_as_counter(SamplingCounter):
         * formatting
         """
         log_debug(self, "raw_value=%s", raw_value)
-        attr_val = raw_value * self.conversion_factor
+
+        if raw_value is not None:
+            attr_val = raw_value * self.conversion_factor
+        else:
+            attr_val = numpy.nan
+
         formated_value = float(
             self.format_string % attr_val if self.format_string else attr_val
         )

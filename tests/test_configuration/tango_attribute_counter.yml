@@ -7,6 +7,7 @@
       mode: MEAN
       unit: km
       format: "%5.3f"
+      allow_failure: False
     - name: taac_undu_power_0
       attr_name: powers
       index: 0
@@ -26,6 +27,8 @@
     - name: taac_undu_wrong_attr_name
       attr_name: cracoucas
       # wrong attr_name.
+    - name: taac_none_attr
+      attr_name: none_attr
 
 
 - class: tango_attr_as_counter

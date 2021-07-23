@@ -2,7 +2,7 @@
 from tango.server import run
 from tango.server import Device
 from tango.server import attribute, command
-from tango import AttrWriteType
+from tango import AttrWriteType, AttrQuality
 from tango import DevState
 
 """
@@ -24,6 +24,7 @@ class Dummy(Device):
     powerdensity = attribute(format="%3.2f")
     maxpowerdensity = attribute(format="%3.2f")
     firstvelocity = attribute(format="%3.2f")
+    none_attr = attribute(format="%3.2f")
 
     velocity = attribute(
         fget="read_velocity", fset="write_velocity", access=AttrWriteType.READ_WRITE
@@ -72,6 +73,9 @@ class Dummy(Device):
         self.vel = 5
         self.acc = 125
 
+        # set invalid quality to return numpy.nan
+        self.none_attr.set_quality(AttrQuality.ATTR_INVALID)
+
         # shutter state
         self.set_state(DevState.CLOSE)
 
@@ -97,6 +101,9 @@ class Dummy(Device):
 
     def read_maxpower(self):
         return 0
+
+    def read_none_attr(self):
+        return None
 
     def read_powerdensity(self):
         return 0

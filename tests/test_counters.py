@@ -467,6 +467,7 @@ def test_prepare_once_prepare_many(session):
 
 
 def test_tango_attr_counter(beacon, dummy_tango_server, session):
+    _, device = dummy_tango_server
     counter = beacon.get("taac_dummy_position")
 
     # `taac_dummy_position` is a tango_attr_as_counter which refers to
@@ -539,6 +540,22 @@ def test_tango_attr_counter(beacon, dummy_tango_server, session):
     # Test missing uri
     with pytest.raises(KeyError):
         _ = beacon.get("no_uri_counter")
+
+    device.setDisabled(True)
+
+    sc = ct(0.01, taac_vel, taac_pos, taac_acc)
+    pos = sc.get_data()["taac_undu_position"][0]
+    assert numpy.isnan(pos)
+    assert taac_pos.allow_failure is False
+
+    taac_pos.allow_failure = True
+    with pytest.raises(tango.DevFailed):
+        sc = ct(0.01, taac_vel, taac_pos, taac_acc)
+
+    taac_nan = beacon.get("taac_none_attr")
+    sc = ct(0.01, taac_nan)
+    counter_value = sc.get_data()["taac_none_attr"][0]
+    assert numpy.isnan(counter_value)
 
 
 def test_info_counters(beacon, dummy_tango_server):

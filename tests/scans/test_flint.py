@@ -559,6 +559,7 @@ def test_onedim_controller(test_session_with_flint):
 
     ct(0.1, controller)
     flint.wait_end_of_scans()
+    gevent.sleep(1)  # Flint display is updated every 500ms by default
 
     p1 = flint.get_live_plot(onedim_detector="det")
     assert p1 is not None
@@ -580,6 +581,7 @@ def test_onedim_controller__fixed_xarray(test_session_with_flint):
 
     ct(0.1, controller)
     flint.wait_end_of_scans()
+    gevent.sleep(1)  # Flint display is updated every 500ms by default
 
     p1 = flint.get_live_plot(onedim_detector="det")
     assert p1 is not None
@@ -601,6 +603,7 @@ def test_onedim_controller__fixed_xchannel(test_session_with_flint):
 
     ct(0.1, controller)
     flint.wait_end_of_scans()
+    gevent.sleep(1)  # Flint display is updated every 500ms by default
 
     p1 = flint.get_live_plot(onedim_detector="det")
     assert p1 is not None

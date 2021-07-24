@@ -19,7 +19,6 @@ import numpy
 import os
 import errno
 import re
-import traceback
 import pprint
 import logging
 import bliss
@@ -34,6 +33,7 @@ from .io_utils import mkdir
 from ..utils import data_merging
 from ..utils.process_utils import file_processes
 from ..utils.async_utils import SharedLockPool
+from ..utils.exceptions import iter_chained_exception
 from silx.io import h5py_utils
 
 DEFAULT_PLOT_NAME = "plotselect"
@@ -852,31 +852,32 @@ def nxNote(parent, name, data=None, type=None, date=None, raise_on_exists=False)
     return h5group
 
 
-def isErrno(e, errno):
+def _isErrno(ex, errno):
     """
-    :param OSError e:
+    :param BaseException ex:
+    :param int errno:
     :returns bool:
     """
-    # Because e.__cause__ is None for chained exceptions
-    s = "".join(traceback.format_exception(None, e, None))
-    return f"errno = {errno}" in s
+    return f"errno = {errno}" in str(ex)
 
 
-def isLockedError(e):
+def _isLockedError(ex):
     """
-    :param OSError e:
+    :param BaseException ex:
     :returns bool:
     """
-    # errno.EAGAIN: could also mean SWMR mode is required
-    return isErrno(e, errno.EAGAIN)
+    return _isErrno(ex, errno.EAGAIN) and "unable to lock file" in str(ex)
 
 
-def isNoAccessError(e):
+def isLockedError(ex):
     """
-    :param OSError e:
-    :returns bool
+    :param BaseException ex:
+    :returns bool:
     """
-    return any(isErrno(e, _errno) for _errno in [errno.ENOENT, errno.EACCES])
+    for exi in iter_chained_exception(ex):
+        if _isLockedError(exi):
+            return True
+    return False
 
 
 def lockedErrorMessage(filename):

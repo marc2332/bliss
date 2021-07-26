@@ -444,7 +444,7 @@ result:
 
 #### Bitmap
 
-PNG, SVG or GIF files can be used
+PNG, SVG, JPG / JPEG or GIF files can be used.
 
 ![Screenshot](img/CT2/p201.png)
 

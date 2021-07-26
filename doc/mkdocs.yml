@@ -31,6 +31,8 @@ nav:
                 - AutoFilter: config_autofilter.md
                 - BCDU8: config_bcdu8.md
                 - CITY: config_city.md
+                - Cold Light Sources:
+                      - Intraled: config_intraled.md
                 - Correlators:
                       - Flex: config_correlator_flex.md
                 - Diffractometer: using_diffractometer.md

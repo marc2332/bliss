@@ -32,7 +32,7 @@ pyfiglet
 pygments
 pyserial > 2
 pytango >= 9.3.1
-python >= 3.7
+python >= 3.7, <3.8
 pywin32
 redis
 redis-py == 3.5.1

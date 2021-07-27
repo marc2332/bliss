@@ -33,6 +33,8 @@ YAML_ configuration example:
 """
 
 import weakref
+import numpy
+
 from bliss.common.counter import SamplingCounter, SamplingMode
 from bliss.common import tango
 from bliss import global_map
@@ -124,12 +126,16 @@ class TangoCounterController(SamplingCounterController):
         dev_attrs = self._proxy.read_attributes(attributes_to_read)
 
         # Check error.
-        for attr in dev_attrs:
+        attr_values = []
+        for attr, cnt in zip(dev_attrs, counters):
             error = attr.get_err_stack()
             if error:
-                raise tango.DevFailed(*error)
-
-        attr_values = [dev_attr.value for dev_attr in dev_attrs]
+                if cnt.allow_failure:
+                    raise tango.DevFailed(*error)
+                else:
+                    attr_values.append(numpy.nan)
+            else:
+                attr_values.append(attr.value)
 
         # Make a dict to ease counters affectation:
         #   keys->attributes, items->values
@@ -231,6 +237,9 @@ class tango_attr_as_counter(SamplingCounter):
         else:
             self.format_string = self.tango_format
 
+        # ALLOW FAILURE
+        self.__allow_failure = config.get("allow_failure", True)
+
         # INIT
         SamplingCounter.__init__(
             self,
@@ -282,11 +291,29 @@ class tango_attr_as_counter(SamplingCounter):
         * formatting
         """
         log_debug(self, "raw_value=%s", raw_value)
-        attr_val = raw_value * self.conversion_factor
+
+        if raw_value is not None:
+            attr_val = raw_value * self.conversion_factor
+        else:
+            attr_val = numpy.nan
+
         formated_value = float(
             self.format_string % attr_val if self.format_string else attr_val
         )
         return formated_value
+
+    @property
+    def allow_failure(self):
+        """
+        Allow failure during tango attribute read: True or False 
+            - True: PyTango.DevFailed exception will be raised
+            - False: No exception raised and read will return numpy.nan
+        """
+        return self.__allow_failure
+
+    @allow_failure.setter
+    def allow_failure(self, allow_failure):
+        self.__allow_failure = allow_failure
 
     @property
     def value(self):

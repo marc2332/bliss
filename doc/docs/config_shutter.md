@@ -210,7 +210,13 @@ WARNING 2020-03-19 00:13:23,937 global.controllers.rv9: rv9 already open, comman
 ```
 
 
-### Configuration examples
+### Configuration
+
+parameters:
+
+* `shutter_type` (str, optional) : type of the shutter in : `FrontEnd`; `SafetyShutter`; `Valve`; `Generic`.
+  If not specified, TangoShutter will try to automatically find the type.
+* `uri` (str): address of the Tango device
 
 Safety shutter and FrontEnd:
 ```yaml
@@ -221,7 +227,7 @@ Safety shutter and FrontEnd:
 
 - name: frontend
   class: TangoShutter
-  shutter_type: FrontEnd
+  shutter_type: FrontEnd                # shutter_type is optionnal
   uri: acs.esrf.fr:10000/fe/master/id42
 
 ```

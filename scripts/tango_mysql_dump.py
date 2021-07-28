@@ -60,7 +60,7 @@ def main(host=None, user=None, passwd=None):
         if values is None:
             properties[name] = value
         else:
-            if isinstance(values, list):
+            if isinstance(values, static.ConfigList):
                 values.append(value)
             else:
                 properties[name] = [values, value]
